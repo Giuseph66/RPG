@@ -8,9 +8,9 @@ Data: 2026-09-11. Escopo: documentação de criação; nenhuma suíte de aplica�
 
 | Verificação | Resultado | Evidência |
 |---|---:|---|
-| Documentos Markdown em `docs/criacao/` | 245 | inventário completo em [ARVORE](ARVORE.md) |
+| Documentos Markdown em `docs/criacao/` | 246 | inventário completo em [ARVORE](ARVORE.md) |
 | Estrutura mínima solicitada | completa | nenhum caminho obrigatório ausente |
-| Links Markdown relativos | 0 quebrados | varredura de 245 documentos e README raiz, com URL-decoding |
+| Links Markdown relativos | 0 quebrados | varredura de 246 documentos e README raiz, com URL-decoding |
 | Passos | 20/20 válidos | todos contêm metadados e seções 1–17 |
 | Tarefas | 36 IDs únicos | todos têm os 13 campos obrigatórios |
 | Dependências | válidas | 0 ID desconhecido, 0 ciclo e relação `bloqueia` inversa exata |
@@ -49,6 +49,8 @@ As referências distinguem página impressa e página do PDF. Mecânicas sem sup
 - [x] Tasks, ownership, DAG, checkpoints, aceite, testes e limites de escrita criados.
 - [x] Contratos canônicos precedem consumidores; estado mutável não duplica definições.
 - [x] Swarm de 4/6/8/12 agentes consegue selecionar trabalho por prontidão e ownership.
+- [x] Orquestração registrada: Codex limitado a 3 subagentes Luna/Terra; Claude MCP em `claude-sonnet` (Sonnet/medium) e `claude-opus` (Opus/xhigh), com fallback apenas entre as duas lanes.
+- [x] Identidade, modelo e raciocínio não verificáveis bloqueiam a lane; cópia estável `mcp-agents 0.30.0` registrada no ADR-0006.
 - [x] Nenhuma aplicação implementada.
 
 ## Contradições e limites

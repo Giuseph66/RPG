@@ -43,7 +43,9 @@ Os caminhos são PROPOSTOS para implementação futura. O registro abaixo é exc
 
 ## Documentação e arquivos compartilhados
 
-Durante a implementação, coordenador mantém `docs/criacao/swarm/**` e painel, encaminhando alteração semântica da arquitetura/contratos ao responsável DATA-001 para revisão. A arquitetura documental permanece baseline versionada. Agentes não modificam regras/fontes para fazer teste passar. `README.md` e demais arquivos fora da matriz exigem atribuição explícita antes de edição; não há ownership implícito “qualquer agente”.
+Durante a implementação, coordenador mantém somente metadados em `docs/criacao/swarm/**` e painel: reserva, lane/modelo/esforço, status, evidências, handoff, dependências aprovadas e decisão de integração. Alteração semântica de arquitetura/contratos vai ao responsável DATA-001 para revisão. Coordenador não edita produto. A arquitetura documental permanece baseline versionada. Agentes não modificam regras/fontes para fazer teste passar. `README.md` e demais arquivos fora da matriz exigem atribuição explícita antes de edição; não há ownership implícito “qualquer agente”.
+
+Subagente Codex e Claude Code via MCP são executores temporários, não owners adicionais. Ambos recebem um único owner/tarefa, paths desta tabela e retornam handoff ao coordenador. Claude só usa lane `claude-sonnet` ou `claude-opus` quando a identidade/modelo efetivo estiver comprovado; fallback não altera ownership. A lane/modelo não cria permissão para editar path de outro owner.
 
 CORE-001 possui somente arquivos de configuração nomeados, bootstrap e setup; CORE-002 possui somente feature-registry. UI-002 possui layout/router/routes e não o bootstrap. DATA-002 não possui `src/data/**` inteiro: catálogos de raças, classes, magias, condições e equipamento têm donos distintos. DATA-003 não possui migrations/transfer; DATA-006 não possui adapter IndexedDB. JOUR-001 e MAP-001 têm subdiretórios disjuntos. UI-003 possui apresentação de magias em Ações; SPELL-002 possui apenas domínio, evitando duas SpellCards concorrentes.
 

@@ -8,6 +8,7 @@ Plano de uma aplicação React/TypeScript/PWA para acompanhar sessões de RPG co
 - [Índice da documentação](docs/criacao/README.md).
 - [Roadmap —20 passos](docs/criacao/passos/README.md).
 - [Progresso, tarefas e bloqueios](docs/criacao/swarm/README.md).
+- [Orquestração de agentes](docs/criacao/decisoes/ADR-0006-orquestracao-agentes.md).
 - [Fontes e pendências](docs/criacao/14-CONTEUDO-E-FONTES.md).
 - [Árvore e auditoria](docs/criacao/ARVORE.md).
 

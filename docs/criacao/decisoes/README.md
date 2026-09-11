@@ -7,6 +7,7 @@ ADRs descrevem decisões adotadas para este plano; não provam implementação. 
 - [ADR-0003 — navegação](ADR-0003-navegacao.md).
 - [ADR-0004 — regras e contratos](ADR-0004-rules-engine.md).
 - [ADR-0005 — identidade da fonte](ADR-0005-fonte-local.md).
+- [ADR-0006 — orquestração de agentes](ADR-0006-orquestracao-agentes.md).
 - [Pendências](PENDENCIAS.md).
 
 Registro mínimo: ID, contexto, decisão, alternativas, consequências, evidência, impacto nos consumidores. Não resolver divergência alterando apenas uma tela. [Decisões de swarm](../swarm/DECISIONS.md) registram integração e apontam estes ADRs.

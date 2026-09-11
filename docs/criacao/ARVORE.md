@@ -36,6 +36,7 @@ docs/criacao
 │   ├── ADR-0003-navegacao.md
 │   ├── ADR-0004-rules-engine.md
 │   ├── ADR-0005-fonte-local.md
+│   ├── ADR-0006-orquestracao-agentes.md
 │   ├── PENDENCIAS.md
 │   └── README.md
 ├── equipamento

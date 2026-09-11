@@ -57,3 +57,7 @@ UI e regras permanecem iguais. Um adaptador remoto pode implementar as mesmas op
 Carregar shell + personagem ativo primeiro; índices do compêndio separados das descrições. Rotas secundárias lazy, imagens com dimensões limitadas e miniaturas, histórico paginado. Para offline completo, uma etapa posterior baixa e valida todos os chunks necessários: lazy rendering não significa depender da rede durante sessão. Só anunciar “pronto offline” após essa etapa.
 
 Metas de produto a validar em aparelho intermediário: interação local até 100 ms percebidos; busca até 200 ms em catálogo carregado; nenhum mapa bloqueia rolagem; sem tarefa longa repetitiva na thread principal. São orçamentos de projeto, não garantias medidas nesta etapa.
+
+## Orquestração de trabalho
+
+O agente principal é o orquestrador do projeto. A política de delegação, os modelos permitidos, o limite de três subagentes Codex, a profundidade máxima 1 e a lane Claude Code via MCP estão definidos no [ADR-0006](decisoes/ADR-0006-orquestracao-agentes.md). Codebase Memory deve ser consultado primeiro para descoberta estrutural; owners e dependências continuam governados pelo [swarm](swarm/README.md).

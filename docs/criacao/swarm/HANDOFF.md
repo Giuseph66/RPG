@@ -7,6 +7,7 @@ Usar um registro por tarefa/revisão, enviado ao coordenador para anexação ao 
 ```text
 ID e título:
 Responsável e revisão-base:
+Lane e configuração: Codex Luna/Terra + esforço | Claude `claude-sonnet` (Sonnet/medium; fallback modelo Opus na mesma lane) ou `claude-opus` (Opus/xhigh; fallback modelo Sonnet na mesma lane) + prova de identidade/modelo:
 Status proposto: REVIEW | BLOCKED
 Resumo de comportamento entregue:
 Arquivos realmente alterados:
@@ -34,3 +35,5 @@ Exemplo: MAP-001 precisa de importação atômica de Asset+Map no CampaignReposi
 ## Revisão e conclusão
 
 Revisor confere escopo, fonte, invariantes e evidência; coordenador aceita DONE somente depois da prova exigida. Handoff documenta API pronta para consumo, não “veja o código”. Não reportar teste planejado como executado. Nesta fase documental todos os testes descritos são futuros.
+
+Para Claude Code, registrar a prova de identidade/modelo efetivo antes da execução, inclusive se fallback ocorreu. A cópia estável `mcp-agents` 0.30.0 seleciona por ambiente: `claude-sonnet` (Sonnet/medium; fallback de modelo Opus na mesma lane) e `claude-opus` (Opus/xhigh; fallback de modelo Sonnet na mesma lane). Fallback não troca servidor/MCP. Ausência dessa prova torna a lane BLOCKED, não substituível por promessa ou inferência. Coordenador agrega handoff, mas não se torna owner do produto.

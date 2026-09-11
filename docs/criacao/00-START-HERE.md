@@ -5,7 +5,7 @@
 ## Leitura obrigatória para agente futuro
 
 1. Este arquivo e [AGENT-PROTOCOL](swarm/AGENT-PROTOCOL.md).
-2. [Escopo](02-ESCOPO.md), [arquitetura](03-ARQUITETURA.md), [fontes](14-CONTEUDO-E-FONTES.md) e [pendências](decisoes/PENDENCIAS.md).
+2. [ADR de orquestração](decisoes/ADR-0006-orquestracao-agentes.md), [escopo](02-ESCOPO.md), [arquitetura](03-ARQUITETURA.md), [fontes](14-CONTEUDO-E-FONTES.md) e [pendências](decisoes/PENDENCIAS.md).
 3. [Contratos](dados/schemas.md), [modelo](09-MODELO-DE-DADOS.md), [Rules Engine](10-RULES-ENGINE.md) e [Dice Engine](11-DICE-ENGINE.md) conforme tarefa.
 4. [Painel](swarm/README.md), [TASKS](swarm/TASKS.md), [ownership](swarm/OWNERSHIP.md) e passo específico.
 
@@ -27,6 +27,8 @@ Não iniciar implementação a partir desta documentação sem nova instrução 
 Numeração dos [20 passos](passos/README.md) organiza leitura; o [DAG](swarm/DEPENDENCIES.md) define ordem real. Persistência base vem cedo, embora o passo14 finalize backup/migrações. Contratos antecedem implementação de consumidores. `DONE` exige aceite e evidência, não somente arquivo criado.
 
 Status de tarefa: TODO planejada; READY liberada; IN_PROGRESS reservada/em execução; BLOCKED com impedimento identificado; REVIEW aguardando revisão; DONE aceita com evidência. Há gates específicos de fonte e de conteúdo/publicação. Tarefas independentes podem avançar quando implementação for autorizada, sem aguardar regra não usada por elas.
+
+Operação de agentes segue o [ADR-0006](decisoes/ADR-0006-orquestracao-agentes.md): orquestrador Sol/alto; até três Codex em Luna/Terra; Claude MCP somente Sonnet/Opus; Codebase Memory primeiro; sem fallback proibido.
 
 ## Onde procurar
 

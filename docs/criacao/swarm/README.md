@@ -6,7 +6,11 @@
 
 Todo agente começa por [00-START-HERE](../00-START-HERE.md) e [AGENT-PROTOCOL](AGENT-PROTOCOL.md). [TASKS](TASKS.md) é o registro canônico; [OWNERSHIP](OWNERSHIP.md) define limites; [DEPENDENCIES](DEPENDENCIES.md) mostra DAG e capacidade real; [CHECKPOINTS](CHECKPOINTS.md) define provas; [HANDOFF](HANDOFF.md) padroniza entrega; [DECISIONS](DECISIONS.md) controla contratos; [RISKS](RISKS.md) rastreia riscos e [QA](QA.md) define aceite.
 
-Este painel responde o que existe/falta/pode começar. Quando a implementação começar, somente o coordenador atualiza TASKS e este painel juntos após revisão, preservando IDs. Os checkboxes abaixo significam implementação concluída, portanto todos permanecem vazios nesta entrega documental. Espera normal por dependência aparece TODO; impedimento externo concreto vira BLOCKED com motivo/owner.
+Usuário → coordenador `gpt-5.6-sol`/`high` → até 3 subagentes Codex (`gpt-5.6-luna` ou `gpt-5.6-terra`) e, quando validado, Claude Code via MCP. Coordenador só orquestra; produto é sempre delegado ao owner. Profundidade é 1: subagentes não delegam. Para descoberta estrutural, Codebase Memory é primeira fonte; busca textual é fallback. Sol/Astra nunca são modelos de subagente.
+
+Claude Code via MCP usa a cópia estável `mcp-agents` 0.30.0: `claude-sonnet` seleciona Sonnet/`medium`, com fallback de modelo Opus na própria lane, para trabalho simples/médio; `claude-opus` seleciona Opus/`xhigh`, com fallback de modelo Sonnet na própria lane, para trabalho complexo/crítico. Fallback não troca servidor/MCP. Ambas usam seleção por ambiente e permanecem sob o mesmo ownership/handoff. Coordenador comprova identidade/modelo efetivo antes de abrir a lane; sem prova, fica BLOCKED.
+
+Este painel responde o que existe/falta/pode começar. Quando a implementação começar, somente o coordenador atualiza TASKS e este painel juntos após revisão, preservando IDs; suas edições limitam-se aos metadados de coordenação/integração, nunca ao produto do owner. Os checkboxes abaixo significam implementação concluída, portanto todos permanecem vazios nesta entrega documental. Espera normal por dependência aparece TODO; impedimento externo concreto vira BLOCKED com motivo/owner.
 
 ## Fundação, contratos e estado
 
