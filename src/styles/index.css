@@ -1,0 +1,14 @@
+/**
+ * Single entry point for the design system's global styles.
+ *
+ * Ownership note (UI-001): this package cannot edit `src/main.tsx` or
+ * `src/app/bootstrap.tsx` (CORE-001/UI-002 ownership). Once accepted,
+ * the app entry point should import this file exactly once:
+ *
+ *   import "@styles/index.css";
+ *
+ * See the UI-001 handoff for the formal request to CORE-001/UI-002.
+ */
+
+@import "./tokens.css";
+@import "./global.css";

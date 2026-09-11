@@ -1,6 +1,6 @@
 # Auditoria documental
 
-Data: 2026-09-11. Escopo: documentação de criação; nenhuma suíte de aplicação, lint ou build foi executada porque não existe implementação.
+Data: 2026-09-11. Escopo histórico: auditoria documental realizada antes do início da implementação. Para o estado atual do software, consultar [TASKS](swarm/TASKS.md).
 
 ## Resultado
 
@@ -57,4 +57,4 @@ As referências distinguem página impressa e página do PDF. Mecânicas sem sup
 
 Há 19 pendências abertas de fonte, interpretação ou publicação. Cada uma bloqueia somente a automação afetada; o restante do plano pode avançar após autorização futura. A auditoria corrigiu nomenclatura de seleção de subclasse, representação de recursos por `spent`, forma discriminada de `RuleResult`, links de classe e perfis mágicos específicos. Nenhuma regra pendente foi resolvida por inferência.
 
-**IMPLEMENTAÇÃO DO SOFTWARE NÃO INICIADA.**
+**REGISTRO HISTÓRICO DO CHECKPOINT DOCUMENTAL.** A implementação posterior é controlada pelo [painel do swarm](swarm/README.md).

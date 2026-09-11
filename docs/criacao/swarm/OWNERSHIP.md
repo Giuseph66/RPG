@@ -4,7 +4,7 @@ Os caminhos são PROPOSTOS para implementação futura. O registro abaixo é exc
 
 | Owner/tarefa | Escrita exclusiva |
 | --- | --- |
-| CORE-001 | `package.json`<br>`package-lock.json`<br>`tsconfig.json`<br>`tsconfig.app.json`<br>`tsconfig.node.json`<br>`vite.config.ts`<br>`index.html`<br>`src/main.tsx`<br>`src/app/bootstrap.tsx`<br>`tests/setup.ts` |
+| CORE-001 | `.gitignore`<br>`package.json`<br>`package-lock.json`<br>`tsconfig.json`<br>`tsconfig.app.json`<br>`tsconfig.node.json`<br>`vite.config.ts`<br>`index.html`<br>`src/main.tsx`<br>`src/app/bootstrap.tsx`<br>`src/app/bootstrap.test.tsx`<br>`tests/setup.ts` |
 | DATA-001 | `src/domain/contracts/**`<br>`src/application/ports/**` |
 | UI-001 | `src/styles/**`<br>`src/components/ui/**` |
 | DATA-002 | `src/data/rulepacks/**`<br>`src/data/rules/**`<br>`src/data/abilities/**`<br>`src/data/skills/**`<br>`src/data/dice/**` |

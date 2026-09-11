@@ -1,0 +1,14 @@
+.iconButton {
+  width: var(--size-touch-target);
+  padding: 0;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+  height: 1.25em;
+  font-size: 1.1rem;
+  line-height: 1;
+}

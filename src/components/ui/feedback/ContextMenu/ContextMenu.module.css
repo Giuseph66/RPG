@@ -1,0 +1,51 @@
+.wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  min-height: var(--size-touch-target);
+  padding: 0 var(--spacing-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.menu {
+  position: absolute;
+  z-index: var(--z-overlay-popover);
+  top: 100%;
+  left: 0;
+  margin: var(--spacing-xs) 0 0;
+  padding: var(--spacing-xs);
+  min-width: 12rem;
+  list-style: none;
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  min-height: var(--size-touch-target);
+  padding: 0 var(--spacing-sm);
+  text-align: left;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-surface) 70%, white 6%);
+}
+
+.menuItem:disabled {
+  color: var(--color-control-disabled);
+  cursor: not-allowed;
+}

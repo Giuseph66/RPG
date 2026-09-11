@@ -1,0 +1,55 @@
+- generic [ref=e47]:
+  - link "Pular para o conteúdo" [ref=e48] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=e49]:
+    - generic [ref=e50]:
+      - button "Selecionar personagem" [ref=e51] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e53]: ⚄
+        - generic [ref=e54]:
+          - generic [ref=e55]: Mesa de campanha
+          - generic [ref=e56]: Nenhum personagem ativo
+      - button "Abrir rolagem de dados" [active] [ref=e59] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e62]: ⚄
+  - generic [ref=e65]:
+    - navigation "Destinos principais" [ref=e66]:
+      - generic [ref=e67]:
+        - button "Ficha" [ref=e143] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e69]: ◈
+        - button "Ações" [ref=e71] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e72]: ✦
+        - button "Jornada" [ref=e74] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e75]: ⌁
+        - button "Regras" [ref=e147] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e78]: ♜
+    - main [ref=e84]:
+      - region [ref=e113]:
+        - paragraph [ref=e114]: FERRAMENTAS DA MESA
+        - heading "Configurações" [level=1] [ref=e115]
+        - paragraph [ref=e116]: Ajustes pequenos ficam neste dispositivo e acompanham seu modo de jogar.
+        - status [ref=e117]:
+          - generic [aria-hidden] [ref=e118]: ✓
+          - generic [ref=e119]: Preferência salva.
+        - generic [ref=e120]:
+          - region [ref=e121]:
+            - heading "Aparência" [level=2] [ref=e123]
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - generic [ref=e126]: Tema
+                - combobox "Tema" [ref=e127]:
+                  - option "Sistema" [selected]
+                  - option "Noite de pedra"
+                  - option "Papel claro"
+              - generic [ref=e128]:
+                - checkbox "Reduzir movimento" [ref=e129]
+                - generic [ref=e130]: Reduzir movimento
+          - region [ref=e131]:
+            - heading "Dados e idioma" [level=2] [ref=e133]
+            - generic [ref=e134]:
+              - paragraph [ref=e135]:
+                - strong [ref=e136]: Idioma
+                - generic [ref=e137]: Português (Brasil)
+              - paragraph [ref=e138]:
+                - strong [ref=e139]: Histórico de dados
+                - generic [ref=e140]: 1000 entradas
+              - button "Restaurar retenção padrão" [ref=e141] [cursor=pointer]
+  - generic "Área de sobreposições"

@@ -12,9 +12,11 @@ Coordenador pode manter no máximo **três subagentes Codex simultâneos**, em p
 | Implementação isolada, teste focal, integração delimitada | Terra | medium/high |
 | Contrato, migração, regra crítica, investigação difícil | Terra | high/xhigh |
 
-Claude Code é leaf subordinado ao mesmo coordenador, ownership e handoff. A cópia estável `mcp-agents` 0.30.0 seleciona modelo por ambiente: MCP `claude-sonnet` usa Sonnet/`medium`, com fallback de **modelo** Opus na própria lane; MCP `claude-opus` usa Opus/`xhigh`, com fallback de **modelo** Sonnet na própria lane. Fallback não troca servidor/MCP. Sonnet atende tarefas simples/médias; Opus atende tarefas complexas/críticas. São as únicas famílias Claude permitidas. Antes de cada uso, coordenador comprova identidade/modelo efetivo da lane; sem essa prova, não prometer nem iniciar lane Claude.
+Claude Code é a primeira opção para qualquer tarefa de codificação, subordinado ao mesmo coordenador, ownership e handoff. A cópia estável `mcp-agents` 0.30.0 seleciona modelo por ambiente: MCP `claude-sonnet` usa Sonnet/`medium` para tarefas simples/médias; MCP `claude-opus` usa Opus/`xhigh` para tarefas muito complexas/críticas. Luna/Terra só entram quando Claude estiver sem crédito/limite ou tecnicamente incapaz; registrar motivo e evidência no handoff. Fallback de **modelo** dentro da própria lane só ocorre após falha operacional documentada e não troca servidor/MCP. São as únicas famílias Claude permitidas. Antes de cada uso, coordenador comprova identidade/modelo efetivo da lane; sem essa prova, não prometer nem iniciar lane Claude.
 
 Nenhum subagente cria outro agente. Delegação não transfere ownership: um agente por path, uma tarefa reservada, um handoff ao coordenador.
+
+**Override ativo de recuperação (2026-09-11):** Claude Code está indisponível e o usuário determinou que toda nova delegação use somente `gpt-5.6-luna`, até nova orientação. Terra, Sol e Astra ficam inativos como workers nesta janela; os demais limites permanecem.
 
 ## Entrada obrigatória
 
@@ -52,4 +54,4 @@ Agente sem trabalho READY não se autoatribui tarefa bloqueada nem cria escopo. 
 
 ## Saída
 
-Entregar [handoff](HANDOFF.md), referência do diff, aceite itemizado e testes realmente executados com resultado/limites. “Não executado” deve permanecer explícito. Nunca marcar DONE porque arquivos existem ou suite usa apenas mocks. Falta de fonte vira pendência com citação e bloqueio somente do recurso afetado. Nenhuma implementação ocorreu na fase atual.
+Entregar [handoff](HANDOFF.md), referência do diff, aceite itemizado e testes realmente executados com resultado/limites. “Não executado” deve permanecer explícito. Nunca marcar DONE porque arquivos existem ou suite usa apenas mocks. Falta de fonte vira pendência com citação e bloqueio somente do recurso afetado.

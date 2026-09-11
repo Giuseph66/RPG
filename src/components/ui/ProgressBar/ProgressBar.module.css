@@ -1,0 +1,64 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.label {
+  font-family: var(--typography-label-font-family);
+  font-size: var(--typography-label-font-size);
+  font-weight: var(--typography-label-font-weight);
+  color: var(--color-text);
+}
+
+.valueText {
+  font-family: var(--typography-numeric-font-family);
+  font-size: var(--typography-numeric-font-size);
+  font-weight: var(--typography-numeric-font-weight);
+  font-variant-numeric: var(--typography-numeric-font-variant-numeric);
+  color: var(--color-text);
+}
+
+.tempValue {
+  color: var(--color-magic);
+  font-weight: 600;
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 0.75rem;
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--motion-transition) var(--motion-easing);
+}
+
+.hp {
+  background-color: var(--color-hp);
+}
+
+.xp {
+  background-color: var(--color-xp);
+}
+
+.magic {
+  background-color: var(--color-magic);
+}
+
+.neutral {
+  background-color: var(--color-primary);
+}

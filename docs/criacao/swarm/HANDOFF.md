@@ -7,7 +7,7 @@ Usar um registro por tarefa/revisão, enviado ao coordenador para anexação ao 
 ```text
 ID e título:
 Responsável e revisão-base:
-Lane e configuração: Codex Luna/Terra + esforço | Claude `claude-sonnet` (Sonnet/medium; fallback modelo Opus na mesma lane) ou `claude-opus` (Opus/xhigh; fallback modelo Sonnet na mesma lane) + prova de identidade/modelo:
+Lane e configuração: Claude MCP prioritário — `claude-sonnet` (Sonnet/medium) ou `claude-opus` (Opus/xhigh) + prova de identidade/modelo; Codex Luna/Terra somente fallback por crédito/limite ausente ou incapacidade técnica, com motivo/evidência:
 Status proposto: REVIEW | BLOCKED
 Resumo de comportamento entregue:
 Arquivos realmente alterados:

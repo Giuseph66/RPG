@@ -1,0 +1,131 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: var(--size-touch-target);
+  padding: 0 var(--spacing-lg);
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  font-family: var(--typography-label-font-family);
+  font-size: var(--typography-label-font-size);
+  font-weight: var(--typography-label-font-weight);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-feedback) var(--motion-easing),
+    border-color var(--motion-feedback) var(--motion-easing),
+    transform var(--motion-feedback) var(--motion-easing);
+}
+
+.sm {
+  padding: 0 var(--spacing-md);
+  font-size: 0.8125rem;
+}
+
+.lg {
+  padding: 0 var(--spacing-xl);
+  font-size: 1rem;
+}
+
+.primary {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.primary:hover:not(.blocked) {
+  background-color: color-mix(in srgb, var(--color-primary) 88%, white);
+}
+
+.primary:active:not(.blocked) {
+  background-color: color-mix(in srgb, var(--color-primary) 82%, black);
+  transform: translateY(1px);
+}
+
+.secondary {
+  background-color: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.secondary:hover:not(.blocked) {
+  background-color: color-mix(in srgb, var(--color-surface-elevated) 80%, white 4%);
+}
+
+.secondary:active:not(.blocked) {
+  background-color: var(--color-surface-elevated);
+  transform: translateY(1px);
+}
+
+.ghost {
+  background-color: transparent;
+  color: var(--color-text);
+  border-color: transparent;
+}
+
+.ghost:hover:not(.blocked) {
+  background-color: color-mix(in srgb, var(--color-surface) 70%, white 6%);
+}
+
+.ghost:active:not(.blocked) {
+  background-color: var(--color-surface);
+  transform: translateY(1px);
+}
+
+.danger {
+  background-color: var(--color-danger);
+  color: var(--color-on-danger);
+}
+
+.danger:hover:not(.blocked) {
+  background-color: color-mix(in srgb, var(--color-danger) 88%, white);
+}
+
+.danger:active:not(.blocked) {
+  background-color: color-mix(in srgb, var(--color-danger) 82%, black);
+  transform: translateY(1px);
+}
+
+.blocked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.labelWithSpinner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.spinner {
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 700ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1400ms;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

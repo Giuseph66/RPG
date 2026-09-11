@@ -1,6 +1,6 @@
 # Tarefas de implementação — registro canônico
 
-IMPLEMENTAÇÃO DO SOFTWARE NÃO INICIADA. Todas as tarefas abaixo são futuras. `READY` indica elegibilidade, não trabalho executado. Apenas CORE-001 não tem dependências inicialmente; demais `TODO` aguardam seus predecessores. `BLOCKED` é reservado a impedimento explícito registrado além da espera normal do DAG.
+IMPLEMENTAÇÃO DO SOFTWARE INICIADA. `CORE-001`, `DATA-001`, `DATA-002`, `DATA-003`, `DATA-004`, `DATA-005`, `DICE-001`, `ITEM-001`, `RULE-001`, `UI-001` e `STATE-001` estão `DONE`; `DICE-002` está em `REVIEW`, `UI-002` integra o overlay e `SPELL-001` está em execução com Luna.
 
 36 tarefas, IDs estáveis. O campo “bloqueia” é o inverso exato de “dependências”; [DEPENDENCIES](DEPENDENCIES.md) deriva deste registro. Contratos comuns estão em 09/10/11 e dados/schemas; DATA-001 os materializa antes dos consumidores. Pendências semânticas de fonte continuam registradas em decisoes/PENDENCIAS, nunca resolvidas por default silencioso.
 
@@ -10,23 +10,32 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CORE-001`
 - Título: Fundação e ferramentas planejadas.
-- Status: `READY` — implementação não iniciada.
+- Status: `DONE` — aceite e gates concluídos.
+- Responsável: `/root/core_foundation`.
+- Lane/modelo/esforço: Codex `gpt-5.6-terra` / `high`.
+- Workspace: branch `main`, workspace compartilhado; revisão-base `1674737`.
+- Reserva: `2026-09-11T13:00:35-04:00`; aceite: `2026-09-11T13:17:46-04:00`.
 - Prioridade: P0.
 - Dependências: nenhuma.
 - Bloqueia: DATA-001, UI-001.
 - Escopo: Criar futuramente esqueleto React/TypeScript/Vite, scripts de validação e composição vazia; registrar dependências aprovadas. Nesta etapa documental nada é instalado.
-- Arquivos próprios: `package.json`; `package-lock.json`; `tsconfig.json`; `tsconfig.app.json`; `tsconfig.node.json`; `vite.config.ts`; `index.html`; `src/main.tsx`; `src/app/bootstrap.tsx`; `tests/setup.ts`.
+- Arquivos próprios: `.gitignore`; `package.json`; `package-lock.json`; `tsconfig.json`; `tsconfig.app.json`; `tsconfig.node.json`; `vite.config.ts`; `index.html`; `src/main.tsx`; `src/app/bootstrap.tsx`; `src/app/bootstrap.test.tsx`; `tests/setup.ts`.
 - Arquivos somente leitura: `docs/criacao/00-START-HERE.md`; `docs/criacao/09-MODELO-DE-DADOS.md`; `docs/criacao/10-RULES-ENGINE.md`; `docs/criacao/11-DICE-ENGINE.md`; `docs/criacao/dados/schemas.md`; `docs/criacao/swarm/AGENT-PROTOCOL.md`; `docs/criacao/03-ARQUITETURA.md`; `docs/criacao/decisoes/ADR-0001-stack.md`.
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: Estrutura mínima inicia sem feature fictícia; aliases e fronteiras documentados; scripts distinguem checagem de tipo, testes e build; ausência de backend/API obrigatória.
 - Testes: Na implementação: smoke do bootstrap, checagem de tipos e bundle de produção após autorização aplicável; provar ausência de chamadas externas obrigatórias.
+- Evidência de aceite: `npm run typecheck` exit 0; `npm test` exit 0 (1/1); `npm run build` exit 0 (Vite 8.3.0, 15 módulos). Mudança delimitada aceita em `2026-09-11T14:38-04:00` (pedidos UI-001/DATA-003): `import "@styles/index.css"` + `/// <reference types="vite/client" />` em `src/main.tsx`; `fake-indexeddb@6.2.5` devDependency + `import "fake-indexeddb/auto"` em `tests/setup.ts`; typecheck 0 erros, 236 testes, build emite CSS. Revisão Luna e Claude Sonnet; correção TS7 executada por Claude Sonnet MCP. Execução dos gates caiu para Terra porque o MCP one-shot exigiu aprovação interna não encaminhável.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: DATA-001, UI-001. Passo principal: 00.
 
 ## DATA-001 — Congelar contratos compartilhados
 
 - ID: `DATA-001`
 - Título: Congelar contratos compartilhados.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — correção Luna aceita após testes focalizados 28/28; checagem de tipos sem erros nos próprios paths, com adaptação downstream delegada a DATA-003.
+- Responsável: `/root/fix_data_contracts`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; fallback autorizado porque Claude Code está indisponível.
+- Workspace: branch `main`, workspace compartilhado; base CORE-001 aceita (working tree não commitado).
+- Reserva/heartbeat: `2026-09-11T16:55:56-04:00`; aceite anterior preservado como histórico no campo de evidência.
 - Prioridade: P0.
 - Dependências: CORE-001.
 - Bloqueia: DATA-002, DATA-003, DICE-001, STATE-001.
@@ -36,13 +45,18 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: Character, Campaign, SpellDefinition, DiceExpression/DiceRoll, RuleResult, ConditionDefinition e ResourceDefinition têm origem única; revisão CAS, schemaVersion e rulesetVersion distinguíveis; contrato revisado pelo integrador.
 - Testes: Fixtures de fronteira válidas/inválidas e checagem de tipos dos consumidores; nenhuma dependência React, DOM, IndexedDB ou pacote de UI nos contratos.
+- Evidência de aceite: 36 arquivos em `src/domain/contracts/**` (+`definitions/`, `fixtures.ts`, `contracts.test.ts`, `README.md`) e `src/application/ports/**`; `CONTRACTS_VERSION = "1.0.0"`; `npx vitest run src/domain/contracts/contracts.test.ts` 21/21; `tsc -b` sem erro nos paths próprios (erros concorrentes apenas em UI-001 em andamento); grep react/DOM/indexedDB vazio. Decisões registradas no handoff: `RuleResult.status` discriminante; `Command.payload` vincula rolagens por `Uuid[]`; `CharacterDraft` com schema próprio sem `revision`; `RuleModifierTarget` ganhou `attack-roll`/`ability-check`; `ArmorCategory` em primitives (ciclo); sem alias `CastResolution` (usar `RuleResult`). Pendência aberta: ND fracionário não modelado (abrir contra DATA-001 se necessário); `UnitOfWork.run(fn)` sem contexto de transação — DATA-003 pode solicitar extensão.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: DATA-002, DATA-003, DICE-001, STATE-001. Passo principal: 03.
 
 ## UI-001 — Tokens e componentes fundamentais
 
 - ID: `UI-001`
 - Título: Tokens e componentes fundamentais.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — correções Luna aceitas: typecheck, 152 testes UI/estilos e 324 testes globais passaram.
+- Responsável: `/root/fix_ui_foundation`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Workspace: branch `main`, workspace compartilhado; base CORE-001 aceita (working tree não commitado).
+- Reserva/heartbeat: `2026-09-11T13:41:00-04:00`.
 - Prioridade: P0.
 - Dependências: CORE-001.
 - Bloqueia: UI-002.
@@ -52,13 +66,19 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: Paleta validada por contraste; controles com estados; AppModal/ConfirmModal/BottomSheet não usam alert/confirm/prompt; teclado e reduced motion previstos.
 - Testes: Componentes: foco, retorno, busy/disabled/erro, toque, nomes acessíveis; matriz de contraste dos tokens; revisão visual em largura pequena.
+- Evidência de aceite: `src/styles/{tokens.css,tokens.ts,global.css,index.css,contrast.ts,css-modules.d.ts}` + testes; `src/components/ui/**` (Button, IconButton, Input, Select, Tabs, Badge, SectionCard, ProgressBar, VisuallyHidden, feedback/{AppModal,ConfirmModal,BottomSheet,Drawer,Popover,ContextMenu,InlineStatus,LiveRegion}, internal hooks). `tsc -b` 0 erros; `vitest run` 21 files/170 testes; `vite build` ok; grep alert/confirm/prompt/@domain vazio. Matriz de contraste executável (20 pares, texto ≥4.5:1, indicadores ≥3:1) em `contrast.test.ts`. Decisões: modal manual `role=dialog` (jsdom 29 sem `showModal`/`inert`), `aria-disabled` + `disabledReason`, spacing em rem, `color-mix()` para hover. Limitações: fonte tipográfica licenciada pendente; revisão visual 320px/leitor de tela não executada (UI-005/A11Y-001); `inert` real não provável em jsdom. Pedido aberto a CORE-001: `import "@styles/index.css"` em `src/main.tsx`.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: UI-002. Passo principal: 01.
 
 ## DATA-002 — Loader e núcleo do rule pack
 
 - ID: `DATA-002`
 - Título: Loader e núcleo do rule pack.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — wiring Luna aceito: 77 testes DATA e typecheck passaram; magias/condições seguem pendências explícitas.
+- Responsável: `/root/wire_rulepack_content`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T18:00:00-04:00`.
+- Workspace: branch `main`, workspace compartilhado; base DATA-001 aceita.
+- Histórico: correção anterior de manifesto/schema por `/root/fix_rulepack`, aceita após testes focalizados 28/28 em `2026-09-11T16:55:56-04:00`.
 - Prioridade: P0.
 - Dependências: DATA-001.
 - Bloqueia: RULE-001, DATA-004, DATA-005, SPELL-001, ITEM-001.
@@ -68,13 +88,18 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: IDs estáveis e referências verificáveis; edição divergente não é substituída automaticamente; loader informa pack ausente/incompatível; índice não copia longos textos do livro.
 - Testes: IDs duplicados, referência órfã, versão incompatível, alteração de label/tradução e arquivo de pack inválido.
+- Evidência de aceite: `src/data/{abilities,skills,dice,rules}/` + `src/data/rulepacks/{manifest,checksum,validate,load,lookup,index}.ts` + `phb-ptbr-local-2017/index.ts`; `npx vitest run src/data` 60/60; `tsc -b` 0 erros; grep react/DOM/eval vazio. `validateRulePack` acumula erros (códigos fechados: invalid-id, duplicate-id, missing-source, foreign-source, dangling-reference, cycle, incompatible-schema, invalid-version, invalid-number); `resolveRulesetRef` exato; checksum FNV-1a canônico. Dívidas: `PLACEHOLDER_PROGRESSION` (1 nível) a substituir por DATA-005; pendência de citação de página "Introdução — Dados" em `src/data/dice/dice.ts`; `has-proficiency`/idiomas sem resolução cruzada. Integração: owners de catálogo NÃO editam `phb-ptbr-local-2017/index.ts`; exportam do próprio path e coordenador reabre DATA-002 para wiring ao fim da onda de conteúdo.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: RULE-001, DATA-004, DATA-005, SPELL-001, ITEM-001. Passo principal: 08.
 
 ## DATA-003 — Repositories locais e transações base
 
 - ID: `DATA-003`
 - Título: Repositories locais e transações base.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — persistência Luna aceita: transação compartilhada, CAS, recovery, assets, histórico e preferências cobertos.
+- Responsável: `/root/complete_persistence`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Workspace: branch `main`, workspace compartilhado; base DATA-001 aceita + CORE-001 mudança (`fake-indexeddb@6.2.5` em `tests/setup.ts`).
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:09:00-04:00`; reserva Claude histórica encerrada em `2026-09-11T16:55:56-04:00`.
 - Prioridade: P0.
 - Dependências: DATA-001.
 - Bloqueia: STATE-001, DATA-006.
@@ -90,7 +115,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DICE-001`
 - Título: Engine de dados pura.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — correção aceita; 7 testes próprios passaram. Typecheck global aguarda adaptação de DATA-003, fora deste ownership.
+- Responsável: `/root/fix_dice`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; fallback autorizado porque Claude Code está indisponível.
+- Workspace: branch `main`, workspace compartilhado; base DATA-001 aceita.
+- Reserva/heartbeat: `2026-09-11T16:55:56-04:00`; aceite anterior preservado como histórico no campo de evidência.
 - Prioridade: P0.
 - Dependências: DATA-001.
 - Bloqueia: RULE-001, DICE-002.
@@ -100,13 +129,17 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: d4/d6/d8/d10/d12/d20/d100 e sinais suportados; vantagem/desvantagem conforme fonte; nenhuma dependência de UI/storage; resultado reproduzível com RNG fixo.
 - Testes: Limites faces/quantidade, negativos inválidos para quantidade, modificador negativo, limites do RNG, escolha dos d20 e soma individual/total.
+- Evidência de aceite: `src/domain/dice/{validate-expression,parse-formula,random-source,roll,roll-plan,ability-scores,reroll,index}.ts` + 7 suítes; `npx vitest run src/domain/dice` 66/66; `tsc -b` 0 erros; grep Math.random/react/DOM/indexedDB vazio. Tabela de casos determinísticos de 11-DICE-ENGINE coberta; rejeição não consome RNG (`calls===0`); rejection sampling sobre `crypto.getRandomValues`; empate advantage → índice 0; `RNG_VERSION = "platform-rejection-v1"`; id/timestamp injetados via `meta`. Sem pedido a DATA-001.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: RULE-001, DICE-002. Passo principal: 04.
 
 ## STATE-001 — Estado local e serviços de aplicação
 
 - ID: `STATE-001`
 - Título: Estado local e serviços de aplicação.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — estado Luna aceito: typecheck e 10 testes de hidratação, autosave, conflitos, retry e subscriptions passaram.
+- Responsável: `/root/build_application_state`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:25:00-04:00`.
 - Prioridade: P0.
 - Dependências: DATA-001, DATA-003.
 - Bloqueia: UI-002, CHAR-002, UI-003, MAP-001, JOUR-001.
@@ -122,7 +155,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `UI-002`
 - Título: Shell, navegação e header.
-- Status: `TODO` — implementação não iniciada.
+- Status: `IN_PROGRESS` — integração Luna do overlay de dados no shell; router/header permanecem nos próprios paths UI-002.
+- Responsável: `/root/connect_dice_overlay`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:36:00-04:00`.
 - Prioridade: P0.
 - Dependências: UI-001, STATE-001.
 - Bloqueia: DICE-002, CHAR-002, UI-003, MAP-001, JOUR-001, COMP-001.
@@ -138,7 +174,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `RULE-001`
 - Título: Rules Engine e valores derivados.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — engine Luna aceita; typecheck e 4 testes focais passaram.
+- Responsável: `/root/build_rules_engine`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Workspace: branch `main`, workspace compartilhado; base DATA-001, DATA-002, DICE-001 aceitas.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:12:00-04:00`; reserva Claude histórica encerrada em `2026-09-11T16:55:56-04:00`.
 - Prioridade: P0.
 - Dependências: DATA-002, DICE-001.
 - Bloqueia: CHAR-001, CHAR-002, ITEM-002, RULE-002, SPELL-002.
@@ -154,7 +194,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DICE-002`
 - Título: Overlay e histórico de dados.
-- Status: `TODO` — implementação não iniciada.
+- Status: `REVIEW` — overlay Luna entregue, 6 testes focais passaram; aguarda integração UI-002/CORE-001 e teste em navegador.
+- Responsável: `/root/build_dice_overlay`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:55:00-04:00`.
 - Prioridade: P1.
 - Dependências: DICE-001, UI-002.
 - Bloqueia: CORE-002.
@@ -170,7 +213,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DATA-004`
 - Título: Raças e sub-raças do material.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — catálogo Luna aceito: 3 testes focais e typecheck passaram.
+- Responsável: `/root/build_race_content`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: aceite registrado após validação em `2026-09-11T17:41:00-04:00`.
 - Prioridade: P1.
 - Dependências: DATA-002.
 - Bloqueia: CHAR-001, COMP-001.
@@ -186,7 +232,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DATA-005`
 - Título: Classes, subclasses, antecedentes e talentos.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — conteúdo Luna aceito: 6 testes focais e typecheck verdes; wiring delegado ao owner DATA-002.
+- Responsável: `/root/build_class_content`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Workspace: branch `main`, workspace compartilhado; base DATA-001, DATA-002, DICE-001 aceitas.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:09:00-04:00`; reserva Claude histórica encerrada em `2026-09-11T16:55:56-04:00`.
 - Prioridade: P1.
 - Dependências: DATA-002.
 - Bloqueia: CHAR-001, CHAR-004, RULE-002, SPELL-002, COMP-001.
@@ -266,7 +316,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `SPELL-001`
 - Título: Catálogo de magias e acesso.
-- Status: `TODO` — implementação não iniciada.
+- Status: `IN_PROGRESS` — execução Luna iniciada após DATA-002 aceitar o pack publicado.
+- Responsável: `/root/build_spell_content`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T18:05:00-04:00`.
 - Prioridade: P1.
 - Dependências: DATA-002.
 - Bloqueia: CHAR-001, SPELL-002, COMP-001.
@@ -282,7 +335,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `ITEM-001`
 - Título: Catálogo de equipamentos.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — catálogo Luna aceito: 4 testes focais e typecheck passaram; wiring delegado ao owner DATA-002.
+- Responsável: `/root/build_equipment_content`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Reserva/heartbeat: Luna reservada em `2026-09-11T17:41:00-04:00`.
 - Prioridade: P1.
 - Dependências: DATA-002.
 - Bloqueia: CHAR-001, ITEM-002, COMP-001.
@@ -581,4 +637,3 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Critério de aceite: Entrega descreve versão/pack, limites, backup manual e prova; nenhum item planejado é anunciado como implementado; correção tardia reabre validação afetada.
 - Testes: Checklist editorial de comportamento demonstrado, caminhos de recuperação e correspondência entre release notes e evidências.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: entrega final. Passo principal: 19.
-

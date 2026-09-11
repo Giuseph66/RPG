@@ -27,8 +27,22 @@ passos em `docs/criacao/passos/`.
   saída esperada, dependências e critério de aceite.
 - Subagentes não criam outros subagentes.
 
+### Override ativo de recuperação
+
+- Claude Code está indisponível nesta retomada.
+- Até nova orientação do usuário, toda nova delegação usa exclusivamente
+  `gpt-5.6-luna`; não criar agentes Terra, Sol ou Astra.
+- O override não altera o limite de três agentes, profundidade, ownership,
+  DAG, handoff ou critérios de aceite.
+
 ## Claude Code via MCP
 
+- Para qualquer tarefa de codificação, tentar primeiro Claude Code via MCP.
+- Usar `claude-sonnet` em tarefas simples/médias e `claude-opus` em tarefas
+  muito complexas, críticas, ambíguas ou interdisciplinares.
+- Usar subagentes Codex Luna/Terra somente como fallback quando Claude Code
+  estiver sem crédito/limite ou tecnicamente incapaz de executar a tarefa;
+  registrar motivo e evidência no handoff.
 - Usar as lanes MCP `claude-sonnet` e `claude-opus` para delegação Claude
   Code quando apropriado.
 - `claude-sonnet`: tarefas simples ou médias, exploração delimitada e revisão.

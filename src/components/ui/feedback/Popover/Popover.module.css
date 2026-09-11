@@ -1,0 +1,11 @@
+.popover {
+  position: fixed;
+  z-index: var(--z-overlay-popover);
+  max-width: 20rem;
+  padding: var(--spacing-md);
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
+}

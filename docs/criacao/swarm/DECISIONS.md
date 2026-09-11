@@ -6,7 +6,7 @@ ADRs arquiteturais vivem em [decisoes](../decisoes/README.md); lacunas de fonte 
 
 | Decisão | Contrato | Consequência |
 | --- | --- | --- |
-| Software não iniciado | Pedido documental. | Não instalar pacotes nem criar src nesta etapa. |
+| Software em implementação | Fundação e primeiras ondas existem no workspace; o registro canônico é TASKS. | Preservar o trabalho não commitado e avançar somente pelo DAG, ownership e aceite. |
 | Stack planejada | React + TypeScript + Vite; React Router. | Dependências somente na fase autorizada. |
 | Estado local | External store por agregado + useSyncExternalStore; Context para injeção/UI pequena. | Sem Zustand obrigatório, sem mega-store, formulários locais. |
 | Local-first | Ports e IndexedDB; localStorage só preferências pequenas. | UI independente de adapter/backend futuro. |
@@ -18,8 +18,12 @@ ADRs arquiteturais vivem em [decisoes](../decisoes/README.md); lacunas de fonte 
 | Coordenação | Usuário fala só com coordenador `gpt-5.6-sol`/`high`; coordenador só orquestra. | Produto sempre delegado; coordenador altera somente metadados de coordenação/integração. |
 | Lanes Codex | Máximo 3 subagentes simultâneos, profundidade 1; somente Luna ou Terra. | Sol/Astra proibidos como subagentes; coordenador escolhe modelo/esforço por risco e complexidade. |
 | Descoberta estrutural | Codebase Memory primeiro. | Grafo para arquitetura/símbolos/chamadas; texto só para literais/configuração ou fallback. |
-| Lane Claude | `claude-sonnet`: Sonnet/medium, fallback de modelo Opus na mesma lane, para simples/médio; `claude-opus`: Opus/xhigh, fallback de modelo Sonnet na mesma lane, para complexo/crítico. | Fallback não troca servidor/MCP; mesmo ownership/handoff; somente essas famílias Claude. |
-| Seleção Claude | Cópia estável `mcp-agents` 0.30.0 seleciona lanes por ambiente. | Comprovar identidade/modelo efetivo antes do uso; sem prova, lane Claude não inicia. |
+| Lane Claude | Claude MCP é prioritário para codificação: `claude-sonnet`: Sonnet/medium para simples/médio; `claude-opus`: Opus/xhigh para muito complexo/crítico. | Luna/Terra só em fallback por crédito/limite ausente ou incapacidade técnica, com motivo/evidência no handoff; fallback de modelo permanece na mesma lane; somente essas famílias Claude. |
+| Transição de coordenação (2026-09-11 13:40) | Limite do coordenador Codex `gpt-5.6-sol` expirou após CORE-001 `DONE`; usuário autorizou Claude Code como coordenador temporário: Claude Opus 5 / `high` orquestra, subagentes Claude Sonnet 5 via Agent tool (máx. 3 simultâneos, profundidade 1). | Mesmo DAG, ownership, handoff e QA; lanes Codex/MCP inativas nesta janela. Reservas DATA-001/UI-001 de `13:19` expiradas sem diff foram re-reservadas. Ao retorno do coordenador Codex, reavaliar com o usuário; registro de status continua exclusivo do coordenador ativo. |
+| Seleção Claude | Cópia estável `mcp-agents` 0.30.0 seleciona lanes por ambiente e é tentada primeiro para codificação. | Comprovar identidade/modelo efetivo antes do uso; sem prova, lane Claude não inicia; registrar fallback Codex quando aplicável. |
+| Retomada após interrupção (2026-09-11 16:55) | Codebase Memory reindexou 410 arquivos/3.093 nós/5.517 relações; Claude Code está indisponível; o usuário restringiu novas delegações a Luna. | Preservar todo diff; encerrar reservas Claude órfãs; reabrir produtores com regressões antes dos consumidores; usar somente Luna até nova orientação. |
+| Handoff UI-002 → CORE-001 (2026-09-11 17:45) | UI-002 entregou router e shell, mas `bootstrap.tsx` pertence a CORE-001. | Um worker Luna do owner CORE-001 integra somente provider/adapters/router no bootstrap; UI-002 fica em REVIEW até testes de rota renderizada e verificação visual. |
+| Handoff DICE-002 → UI-002 → CORE-001 (2026-09-11 18:03) | O overlay pertence a DICE-002, o host/header a UI-002 e a composição de serviços a CORE-001. | Três handoffs mínimos: UI-002 recebe controller/host; CORE-001 cria controller com serviços/RNG/clock/IDs; teste visual prova o botão global sem duplicar RNG. |
 
 ## Alteração de contrato
 
@@ -31,4 +35,4 @@ Conflito de ownership: matriz vence até transferência explícita. Conflito liv
 
 ## Escolha de lane
 
-Coordenador pondera impacto reversível, complexidade, criticidade de regra, quantidade de paths, dependências e necessidade de investigação. Luna atende leitura/revisão localizada; Terra atende implementação isolada e trabalho de maior risco. `claude-sonnet` atende execução simples/média em Sonnet/medium, com fallback de modelo Opus na própria lane; `claude-opus` atende complexidade/crítica em Opus/xhigh, com fallback de modelo Sonnet na própria lane. Fallback não troca servidor/MCP. Escolha, esforço, identidade efetiva e justificativa mínima entram na reserva e no handoff. Nenhuma lane ultrapassa o DAG, limite de três subagentes Codex, profundidade 1 ou ownership.
+Coordenador pondera impacto reversível, complexidade, criticidade de regra, quantidade de paths, dependências e necessidade de investigação. Para codificação, tenta primeiro `claude-sonnet` em Sonnet/medium ou `claude-opus` em Opus/xhigh. Luna/Terra só atendem fallback por crédito/limite ausente ou incapacidade técnica, com justificativa e evidência. Escolha, esforço, identidade efetiva e justificativa mínima entram na reserva e no handoff. Nenhuma lane ultrapassa o DAG, limite de três subagentes Codex, profundidade 1 ou ownership.

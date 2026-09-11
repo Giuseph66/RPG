@@ -1,6 +1,6 @@
 # 00 — Fundação
 
-Estado: READY — implementação não iniciada.
+Estado: DONE — CORE-001 concluída, revisada e validada.
 
 Prioridade: P0.
 
@@ -30,11 +30,11 @@ Features prontas, backend, autenticação, banco remoto, telas completas, instal
 
 ## 5. Pré-requisitos
 
-Ler ADR da stack, fronteiras da arquitetura, matriz de ownership e regras vigentes para instalação/execução de comandos. O pedido atual autoriza documentação somente.
+Ler ADR da stack, fronteiras da arquitetura, matriz de ownership e regras vigentes para instalação/execução de comandos.
 
 ## 6. Arquivos que futuramente serão criados/modificados
 
-Caminhos propostos; nada criado nesta fase. Ownership por tarefa em [OWNERSHIP](../swarm/OWNERSHIP.md).
+Arquivos criados na CORE-001; ownership por tarefa em [OWNERSHIP](../swarm/OWNERSHIP.md).
 
 - `package.json`
 - `package-lock.json`
@@ -79,9 +79,9 @@ Criar “hello world” como se fosse feature concluída; instalar bibliotecas d
 
 ## 14. Testes necessários
 
-Testes FUTUROS; não executados nesta etapa.
+Validação concluída: typecheck, testes e build de produção aprovados.
 
-- **CORE-001**: Na implementação: smoke do bootstrap, checagem de tipos e bundle de produção após autorização aplicável; provar ausência de chamadas externas obrigatórias.
+- **CORE-001**: Smoke do bootstrap, checagem de tipos e bundle de produção aprovados; ausência de chamadas externas obrigatórias preservada.
 
 ## 15. Critérios de aceite
 
@@ -91,13 +91,12 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 
 ## 16. Checklist
 
-- [ ] Confirmar escopo documental antes da fase de software.
-- [ ] Reservar apenas arquivos CORE-001.
-- [ ] Entregar scripts, composição e limitações.
+- [x] Confirmar escopo e reservar arquivos CORE-001.
+- [x] Entregar scripts, composição e limitações.
+- [x] Validar typecheck, testes e build.
 
 ## 17. Handoff
 
 DATA-001 recebe convenções de importação/exports; UI-001 recebe entrada de estilos; futuros pedidos de configuração retornam ao mesmo owner.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

@@ -1,6 +1,6 @@
 # 00 — Comece aqui
 
-**IMPLEMENTAÇÃO DO SOFTWARE NÃO INICIADA.** Este repositório contém fontes e plano de execução; nenhum módulo de aplicativo é considerado existente por estar descrito aqui.
+**IMPLEMENTAÇÃO EM ANDAMENTO.** A fundação e primeiras ondas existem no workspace. O estado vigente, inclusive tarefas reabertas após a auditoria de recuperação, está em [TASKS](swarm/TASKS.md).
 
 ## Leitura obrigatória para agente futuro
 
@@ -9,7 +9,7 @@
 3. [Contratos](dados/schemas.md), [modelo](09-MODELO-DE-DADOS.md), [Rules Engine](10-RULES-ENGINE.md) e [Dice Engine](11-DICE-ENGINE.md) conforme tarefa.
 4. [Painel](swarm/README.md), [TASKS](swarm/TASKS.md), [ownership](swarm/OWNERSHIP.md) e passo específico.
 
-Não iniciar implementação a partir desta documentação sem nova instrução do usuário: esta entrega encerra no plano. Quando implementação for autorizada, reservar uma tarefa READY com dependências satisfeitas; não trabalhar simultaneamente em arquivo de outro owner.
+Para novas implementações, reservar uma tarefa READY com dependências satisfeitas; não trabalhar simultaneamente em arquivo de outro owner.
 
 ## Invariantes
 
