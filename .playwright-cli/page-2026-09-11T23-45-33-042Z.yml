@@ -1,0 +1,34 @@
+- generic [ref=e3]:
+  - link "Pular para o conteúdo" [ref=e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=e5]:
+    - generic [ref=e6]:
+      - button "Selecionar personagem" [ref=e7] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e9]: ⚄
+        - generic [ref=e10]:
+          - generic [ref=e11]: Mesa de campanha
+          - generic [ref=e12]: Nenhum personagem ativo
+      - generic [ref=e13]: Escolha uma ficha para começar
+      - generic [ref=e14]:
+        - button "Abrir rolagem de dados" [ref=e15] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e18]: ⚄
+        - button "Ajustes" [ref=e19] [cursor=pointer]
+  - generic [ref=e21]:
+    - navigation "Destinos principais" [ref=e22]:
+      - generic [ref=e23]:
+        - button "Personagem" [ref=e24] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e25]: ◈
+        - button "Ações" [ref=e27] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e28]: ✦
+        - button "Jornada" [ref=e30] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e31]: ⌁
+        - button "Compêndio" [ref=e33] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e34]: ♜
+      - button "Configurações" [ref=e37] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e38]: ⚙
+    - main [ref=e40]:
+      - region [ref=e42]:
+        - generic [aria-hidden] [ref=e43]: ✦
+        - heading "Nenhum personagem selecionado" [level=1] [ref=e44]
+        - paragraph [ref=e45]: Selecione uma ficha para consultar atributos, recursos e narrativa. A ficha permanece vazia até que um personagem real seja escolhido.
+  - generic "Área de sobreposições"

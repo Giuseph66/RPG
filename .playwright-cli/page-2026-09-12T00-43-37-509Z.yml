@@ -1,0 +1,36 @@
+- generic [ref=e47]:
+  - link "Pular para o conteúdo" [ref=e48] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=e49]:
+    - generic [ref=e50]:
+      - button "Selecionar personagem" [ref=e51] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e53]: ⚄
+        - generic [ref=e54]:
+          - generic [ref=e55]: Mesa de campanha
+          - generic [ref=e56]: Nenhum personagem ativo
+      - generic [ref=e57]: Escolha uma ficha para começar
+      - generic [ref=e58]:
+        - button "Abrir rolagem de dados" [ref=e59] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e62]: ⚄
+        - button "Ajustes" [ref=e63] [cursor=pointer]
+  - generic [ref=e65]:
+    - navigation "Destinos principais" [ref=e66]:
+      - generic [ref=e67]:
+        - button "Personagem" [ref=e68] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e69]: ◈
+        - button "Ações" [ref=e71] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e72]: ✦
+        - button "Jornada" [ref=e74] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e75]: ⌁
+        - button "Compêndio" [ref=e77] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e78]: ♜
+      - button "Configurações" [ref=e81] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e82]: ⚙
+    - main [ref=e84]:
+      - region [ref=e103]:
+        - paragraph [ref=e104]: Criação de personagem
+        - heading "Integração pendente" [level=1] [ref=e105]
+        - status [ref=e106]:
+          - generic [aria-hidden] [ref=e107]: "!"
+          - generic [ref=e108]: CreationWizardService.saveCharacter (adaptador de criação pendente)
+  - generic "Área de sobreposições"

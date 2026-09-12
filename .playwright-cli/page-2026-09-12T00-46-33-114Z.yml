@@ -1,0 +1,42 @@
+- generic [ref=f4e3]:
+  - link "Pular para o conteúdo" [ref=f4e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=f4e5]:
+    - generic [ref=f4e6]:
+      - button "Selecionar personagem" [ref=f4e7] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e9]: ⚄
+        - generic [ref=f4e10]:
+          - generic [ref=f4e11]: Mesa de campanha
+          - generic [ref=f4e12]: Nenhum personagem ativo
+      - generic [ref=f4e13]: Escolha uma ficha para começar
+      - generic [ref=f4e14]:
+        - button "Abrir rolagem de dados" [ref=f4e15] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e18]: ⚄
+        - button "Ajustes" [ref=f4e19] [cursor=pointer]
+  - generic [ref=f4e21]:
+    - navigation "Destinos principais" [ref=f4e22]:
+      - generic [ref=f4e23]:
+        - button "Personagem" [ref=f4e24] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e25]: ◈
+        - button "Ações" [ref=f4e27] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e28]: ✦
+        - button "Jornada" [ref=f4e30] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e31]: ⌁
+        - button "Compêndio" [ref=f4e33] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e34]: ♜
+      - button "Configurações" [ref=f4e37] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e38]: ⚙
+    - main [ref=f4e40]:
+      - region [ref=f4e42]:
+        - paragraph [ref=f4e43]: PRIMEIRA RODADA
+        - heading "Abra sua mesa" [level=1] [ref=f4e44]
+        - paragraph [ref=f4e45]: Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.
+        - generic [ref=f4e46]:
+          - button "Criar personagem" [ref=f4e47] [cursor=pointer]
+          - button "Importar backup" [ref=f4e49] [cursor=pointer]
+        - region [ref=f4e51]:
+          - heading "Sem personagem ativo" [level=2] [ref=f4e53]
+          - generic [ref=f4e54]:
+            - paragraph [ref=f4e55]: Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.
+            - button "Abrir Compêndio" [ref=f4e56] [cursor=pointer]
+  - generic "Área de sobreposições"

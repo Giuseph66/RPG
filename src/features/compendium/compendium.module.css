@@ -1,0 +1,33 @@
+.page { display: grid; gap: var(--spacing-lg); max-width: 100rem; min-width: 0; padding: var(--spacing-lg) 0 var(--spacing-section); color: var(--color-text); }
+.header { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-lg); min-width: 0; }
+.header h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.6rem, 3vw, 2.2rem); }
+.header p:last-child { margin: var(--spacing-xs) 0 0; color: var(--color-text-muted); }
+.eyebrow { margin: 0 0 var(--spacing-xs); color: var(--color-primary); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.search { display: flex; align-items: end; gap: var(--spacing-lg); min-width: 0; }
+.search > :first-child { flex: 1; }
+.favoriteFilter { display: flex; align-items: center; gap: var(--spacing-xs); min-height: var(--size-touch-target); color: var(--color-text-muted); font-size: .84rem; white-space: nowrap; }
+.layout { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(16rem, .8fr) minmax(19rem, 1fr); gap: var(--spacing-lg); align-items: start; min-width: 0; }
+.filters, .results, .detailColumn { min-width: 0; }
+.filters, .results, .detail, .detailColumn > section { display: grid; gap: var(--spacing-md); padding: var(--spacing-md); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-surface); }
+.filters h2, .results h2 { margin: 0; font-size: 1rem; }
+.filters ul, .results ul, .orphans { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; }
+.filters button { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); width: 100%; min-height: var(--size-touch-target); padding: var(--spacing-xs) var(--spacing-sm); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.filters button:hover:not(:disabled), .filters button:focus-visible, .activeCategory { border-color: var(--color-primary) !important; background: var(--color-surface-elevated) !important; outline: none; }
+.filters button:disabled { cursor: not-allowed; opacity: .65; }
+.filters small { color: var(--color-warning); font-size: .68rem; }
+.resultsHeading, .detailHeading { display: flex; align-items: start; justify-content: space-between; gap: var(--spacing-md); }
+.resultsHeading span { color: var(--color-text-muted); font-size: .78rem; }
+.results li button { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); width: 100%; min-height: var(--size-touch-target); padding: var(--spacing-sm); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.results li button:hover, .results li button:focus-visible { border-color: var(--color-primary); background: var(--color-surface-elevated); outline: none; }
+.results li button span:first-child { display: grid; gap: 2px; }
+.results small { color: var(--color-text-muted); font-size: .76rem; }
+.detailColumn { display: grid; gap: var(--spacing-md); }
+.detailHeading h2 { margin: 0; font-family: var(--typography-display-font-family); font-size: 1.4rem; }
+.technicalId { color: var(--color-text-muted); font-size: .75rem; }
+.summary { margin: 0; color: var(--color-text-muted); line-height: 1.5; }
+.detailMeta { display: grid; gap: var(--spacing-xs); color: var(--color-text-muted); font-size: .8rem; }
+.tagList { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.empty, .muted { margin: 0; color: var(--color-text-muted); font-size: .84rem; }
+.orphans { padding-left: 1rem; list-style: disc; color: var(--color-warning); font-size: .8rem; }
+@media (max-width: 1100px) { .layout { grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr); } .detailColumn { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .header, .search { align-items: stretch; flex-direction: column; } .layout { grid-template-columns: 1fr; } .detailColumn { grid-column: auto; } .page { padding-inline: var(--spacing-sm); } }

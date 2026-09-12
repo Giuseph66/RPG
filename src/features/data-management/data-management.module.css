@@ -1,0 +1,17 @@
+.panel { display: grid; gap: 1.25rem; max-width: 52rem; margin: 0 auto; padding: 1.5rem; color: #f4f0e7; background: #171918; border: 1px solid #3a403b; border-radius: 1rem; }
+.heading { display: flex; justify-content: space-between; gap: 1rem; }
+.eyebrow { margin: 0; color: #a4b89b; text-transform: uppercase; letter-spacing: .12em; font-size: .7rem; }
+.heading h1, .preview h2, .recovery h2 { margin: .2rem 0 0; }
+.preview, .recovery { display: grid; gap: .7rem; padding: 1rem; background: #202420; border-radius: .75rem; }
+.actions, .reset { display: grid; gap: .7rem; padding: 1rem; background: #202420; border-radius: .75rem; }
+.actions > div { display: flex; gap: .6rem; flex-wrap: wrap; }
+.file { display: grid; gap: .3rem; }
+.reset label { display: grid; gap: .3rem; max-width: 18rem; }
+.reset select { padding: .55rem; color: inherit; background: #171918; border: 1px solid #59635a; border-radius: .4rem; }
+.checkbox { display: flex !important; align-items: center; gap: .5rem !important; }
+.preview p, .recovery p { margin: 0; color: #b9c2b7; }
+.preview label { display: grid; gap: .3rem; max-width: 18rem; }
+.preview select { padding: .55rem; color: inherit; background: #171918; border: 1px solid #59635a; border-radius: .4rem; }
+.recovery article { display: flex; justify-content: space-between; gap: .75rem; align-items: center; padding-top: .6rem; border-top: 1px solid #3a403b; }
+.recovery article div { display: flex; gap: .5rem; }
+@media (max-width: 620px) { .recovery article { align-items: flex-start; flex-direction: column; } }

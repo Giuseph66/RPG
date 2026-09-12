@@ -1,0 +1,42 @@
+- generic [ref=e47]:
+  - link "Pular para o conteúdo" [ref=e139] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=e140]:
+    - generic [ref=e50]:
+      - button "Selecionar personagem" [ref=e141] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e53]: ⚄
+        - generic [ref=e54]:
+          - generic [ref=e55]: Mesa de campanha
+          - generic [ref=e56]: Nenhum personagem ativo
+      - generic [ref=e57]: Escolha uma ficha para começar
+      - generic [ref=e58]:
+        - button "Abrir rolagem de dados" [active] [ref=e142] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e62]: ⚄
+        - button "Ajustes" [ref=e143] [cursor=pointer]
+  - generic [ref=e65]:
+    - navigation "Destinos principais" [ref=e144]:
+      - generic [ref=e67]:
+        - button "Personagem" [ref=e145] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e69]: ◈
+        - button "Ações" [ref=e146] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e72]: ✦
+        - button "Jornada" [ref=e147] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e75]: ⌁
+        - button "Compêndio" [ref=e148] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e78]: ♜
+      - button "Configurações" [ref=e149] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e82]: ⚙
+    - main [ref=e84]:
+      - region [ref=e150]:
+        - paragraph [ref=e87]: PRIMEIRA RODADA
+        - heading "Abra sua mesa" [level=1] [ref=e151]
+        - paragraph [ref=e89]: Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.
+        - generic [ref=e90]:
+          - button "Criar personagem" [ref=e152] [cursor=pointer]
+          - button "Importar backup" [ref=e153] [cursor=pointer]
+        - region [ref=e154]:
+          - heading "Sem personagem ativo" [level=2] [ref=e155]
+          - generic [ref=e98]:
+            - paragraph [ref=e99]: Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.
+            - button "Abrir Compêndio" [ref=e156] [cursor=pointer]
+  - generic "Área de sobreposições"

@@ -1,0 +1,170 @@
+import { type InventoryEquippedState, type InventoryItem } from "@domain/contracts/character";
+import { appError, err, ok, type Result, type AppError } from "@domain/contracts/errors";
+import { type CoinDenomination, type Currency } from "@domain/contracts/primitives";
+import { type InventoryItemInput, type InventoryMutation, type InventoryState, type InventoryTransfer } from "./model";
+import { normalizeCurrency, validateContainerGraph, validateCurrency, validateInventoryItem, validateQuantity } from "./validation";
+
+function itemIndex(items: readonly InventoryItem[], itemId: string): number {
+  return items.findIndex((item) => String(item.id) === itemId);
+}
+
+function mutation(inventory: readonly InventoryItem[], explanations: InventoryMutation["explanations"], extras: Omit<InventoryMutation, "inventory" | "explanations"> = {}): Result<InventoryMutation, AppError> {
+  return ok({ inventory, explanations, ...extras });
+}
+
+export function createInventoryItem(input: InventoryItemInput): Result<InventoryItem, AppError> {
+  const item: InventoryItem = {
+    id: input.id,
+    equipmentRef: input.equipmentRef,
+    quantity: input.quantity,
+    equippedState: input.equippedState ?? "carried",
+    ...(input.containerId ? { containerId: input.containerId } : {}),
+    ...(input.customName ? { customName: input.customName } : {}),
+    notes: input.notes ?? "",
+    ...(input.chargesSpent === undefined ? {} : { chargesSpent: input.chargesSpent }),
+  };
+  const valid = validateInventoryItem(item);
+  return valid.ok ? ok(item) : valid;
+}
+
+export function createInventoryState(inventory: readonly InventoryItem[] = [], currency?: Partial<Currency>): Result<InventoryState, AppError> {
+  const seen = new Set<string>();
+  for (const item of inventory) {
+    const valid = validateInventoryItem(item);
+    if (!valid.ok) return valid;
+    if (seen.has(String(item.id))) return err(appError.validation("inventory", `Instância duplicada "${item.id}".`));
+    seen.add(String(item.id));
+  }
+  const validContainers = validateContainerGraph(inventory);
+  if (!validContainers.ok) return validContainers;
+  const normalized = normalizeCurrency(currency);
+  const validCurrency = validateCurrency(normalized);
+  if (!validCurrency.ok) return validCurrency;
+  return ok({ inventory: [...inventory], currency: normalized });
+}
+
+export function addInventoryItem(state: InventoryState, item: InventoryItem): Result<InventoryMutation, AppError> {
+  const valid = validateInventoryItem(item);
+  if (!valid.ok) return valid;
+  if (itemIndex(state.inventory, String(item.id)) !== -1) {
+    return err(appError.validation("item.id", `Instância "${item.id}" já existe no inventário.`));
+  }
+  const validContainers = validateContainerGraph([...state.inventory, item]);
+  if (!validContainers.ok) return validContainers;
+  return mutation([...state.inventory, item], [{ itemId: item.id, amount: item.quantity, description: "Instância adicionada ao inventário." }], { changedItem: item });
+}
+
+export function setItemQuantity(state: InventoryState, itemId: string, quantity: number): Result<InventoryMutation, AppError> {
+  const index = itemIndex(state.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  if (quantity === 0) return removeInventoryItem(state, itemId);
+  const valid = validateQuantity(quantity);
+  if (!valid.ok) return valid;
+  const previous = state.inventory[index];
+  const changedItem = { ...previous, quantity };
+  const inventory = state.inventory.map((item, itemIndexValue) => itemIndexValue === index ? changedItem : item);
+  return mutation(inventory, [{ itemId: previous.id, amount: quantity - previous.quantity, description: "Quantidade da instância atualizada." }], { changedItem });
+}
+
+export function adjustItemQuantity(state: InventoryState, itemId: string, delta: number): Result<InventoryMutation, AppError> {
+  if (!Number.isInteger(delta) || !Number.isFinite(delta) || delta === 0) return err(appError.validation("delta", "Ajuste deve ser um inteiro diferente de zero."));
+  const index = itemIndex(state.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  return setItemQuantity(state, itemId, state.inventory[index].quantity + delta);
+}
+
+export function removeInventoryItem(state: InventoryState, itemId: string): Result<InventoryMutation, AppError> {
+  const index = itemIndex(state.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  const removedItem = state.inventory[index];
+  const description = removedItem.equippedState === "equipped"
+    ? "Instância equipada removida; seus efeitos deixam de contribuir."
+    : "Instância removida do inventário.";
+  return mutation(state.inventory.filter((_, itemIndexValue) => itemIndexValue !== index), [{ itemId: removedItem.id, description }], { removedItem });
+}
+
+function setEquippedState(state: InventoryState, itemId: string, equippedState: InventoryEquippedState): Result<InventoryMutation, AppError> {
+  const index = itemIndex(state.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  const previous = state.inventory[index];
+  if (previous.equippedState === equippedState) return mutation([...state.inventory], [{ itemId: previous.id, description: `Instância já está em estado "${equippedState}".` }], { changedItem: previous });
+  const changedItem = { ...previous, equippedState };
+  return mutation(state.inventory.map((item, itemIndexValue) => itemIndexValue === index ? changedItem : item), [{ itemId: previous.id, description: equippedState === "equipped" ? "Instância equipada." : "Instância desequipada." }], { changedItem });
+}
+
+export function equipInventoryItem(state: InventoryState, itemId: string): Result<InventoryMutation, AppError> {
+  return setEquippedState(state, itemId, "equipped");
+}
+
+export function unequipInventoryItem(state: InventoryState, itemId: string): Result<InventoryMutation, AppError> {
+  return setEquippedState(state, itemId, "carried");
+}
+
+export function moveInventoryItem(state: InventoryState, itemId: string, containerId?: InventoryItem["containerId"]): Result<InventoryMutation, AppError> {
+  const index = itemIndex(state.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  if (containerId && String(containerId) === itemId) return err(appError.validation("containerId", "Um item não pode conter a si próprio."));
+  if (containerId && itemIndex(state.inventory, String(containerId)) === -1) return err(appError.notFound("container", String(containerId)));
+  const previous = state.inventory[index];
+  const changedItem = containerId ? { ...previous, containerId } : (({ containerId: _removed, ...rest }) => rest)(previous);
+  const inventory = state.inventory.map((item, itemIndexValue) => itemIndexValue === index ? changedItem : item);
+  const validContainers = validateContainerGraph(inventory);
+  if (!validContainers.ok) return validContainers;
+  return mutation(inventory, [{ itemId: previous.id, description: containerId ? "Instância movida para o contêiner." : "Instância retirada do contêiner." }], { changedItem });
+}
+
+export function removeItemQuantity(state: InventoryState, itemId: string, quantity: number): Result<InventoryMutation, AppError> {
+  const valid = validateQuantity(quantity);
+  if (!valid.ok) return valid;
+  const index = itemIndex(state.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  const current = state.inventory[index];
+  if (quantity > current.quantity) return err(appError.validation("quantity", "Quantidade removida excede a quantidade disponível."));
+  if (quantity === current.quantity) return removeInventoryItem(state, itemId);
+  return setItemQuantity(state, itemId, current.quantity - quantity);
+}
+
+export function adjustCurrency(state: InventoryState, denomination: CoinDenomination, delta: number): Result<InventoryState, AppError> {
+  if (!Number.isInteger(delta) || !Number.isFinite(delta)) return err(appError.validation(`currency.${denomination}`, "Ajuste de moeda deve ser inteiro."));
+  const next = { ...state.currency, [denomination]: state.currency[denomination] + delta };
+  const valid = validateCurrency(next);
+  if (!valid.ok) return valid;
+  return ok({ ...state, currency: next });
+}
+
+export function setCurrency(state: InventoryState, currency: Currency): Result<InventoryState, AppError> {
+  const valid = validateCurrency(currency);
+  return valid.ok ? ok({ ...state, currency: { ...currency } }) : valid;
+}
+
+export function transferInventoryItem(source: InventoryState, destination: InventoryState, itemId: string, quantity?: number): Result<InventoryTransfer, AppError> {
+  const index = itemIndex(source.inventory, itemId);
+  if (index === -1) return err(appError.notFound("inventory-item", itemId));
+  const item = source.inventory[index];
+  const amount = quantity ?? item.quantity;
+  const valid = validateQuantity(amount);
+  if (!valid.ok) return valid;
+  if (amount > item.quantity) return err(appError.validation("quantity", "Quantidade transferida excede a quantidade disponível."));
+  if (item.equippedState === "equipped" && amount !== item.quantity) return err(appError.validation("quantity", "Não é possível transferir parte de uma instância equipada."));
+  const transferredItem: InventoryItem = { ...item, quantity: amount, equippedState: "carried" };
+  const sourceResult = amount === item.quantity
+    ? removeInventoryItem(source, itemId)
+    : setItemQuantity(source, itemId, item.quantity - amount);
+  if (!sourceResult.ok) return sourceResult;
+  const destinationResult = addInventoryItem(destination, transferredItem);
+  if (!destinationResult.ok) return destinationResult;
+  return ok({
+    source: { ...source, inventory: sourceResult.value.inventory },
+    destination: { ...destination, inventory: destinationResult.value.inventory },
+    transferredItem,
+    explanations: [
+      { itemId: item.id, amount, description: item.equippedState === "equipped" ? "Instância equipada transferida como carregada; efeito removido da origem." : "Instância transferida como carregada." },
+    ],
+  });
+}
+
+/** Alias curto para consumidores que trabalham com o agregado de inventário. */
+export const transferItem = transferInventoryItem;
+export const removeItem = removeInventoryItem;
+export const equipItem = equipInventoryItem;
+export const unequipItem = unequipInventoryItem;

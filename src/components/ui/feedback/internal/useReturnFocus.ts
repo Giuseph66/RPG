@@ -13,9 +13,12 @@ import { useLayoutEffect, useRef } from "react";
  */
 export function useReturnFocus(active: boolean): void {
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const activation = useRef(0);
 
   useLayoutEffect(() => {
     if (!active) return undefined;
+    const currentActivation = activation.current + 1;
+    activation.current = currentActivation;
 
     previouslyFocused.current =
       document.activeElement instanceof HTMLElement
@@ -24,9 +27,15 @@ export function useReturnFocus(active: boolean): void {
 
     return () => {
       const target = previouslyFocused.current;
-      if (target && document.contains(target)) {
-        target.focus();
-      }
+      // `useInertBackground` restores `inert` in a passive-effect cleanup. A
+      // synchronous focus here runs first while the opener is still inert,
+      // so browsers correctly leave focus on BODY. Queue the restoration
+      // after all effect cleanups; the activation guard avoids focusing a
+      // stale opener if the surface closes and reopens in one tick.
+      queueMicrotask(() => {
+        if (activation.current !== currentActivation) return;
+        if (target && document.contains(target)) target.focus();
+      });
     };
   }, [active]);
 }

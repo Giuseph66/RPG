@@ -1,0 +1,108 @@
+- generic [ref=f8e39]:
+  - link [aria-hidden] [ref=f8e100] [cursor=pointer]:
+    - /url: "#main-content"
+    - text: Pular para o conteúdo
+  - banner [aria-hidden] [ref=f8e101]:
+    - generic [ref=f8e42]:
+      - button [ref=f8e102] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f8e45]: ⚄
+        - generic [ref=f8e46]:
+          - generic [ref=f8e47]: Mesa de campanha
+          - generic [ref=f8e48]: Nenhum personagem ativo
+      - button [ref=f8e103] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f8e52]: ⚄
+  - generic [aria-hidden] [ref=f8e53]:
+    - navigation [ref=f8e104]:
+      - generic [ref=f8e55]:
+        - button [ref=f8e105] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f8e57]: ◈
+          - generic [ref=f8e58]: Ficha
+        - button [ref=f8e106] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f8e60]: ✦
+          - generic [ref=f8e61]: Ações
+        - button [ref=f8e107] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f8e63]: ⌁
+          - generic [ref=f8e64]: Jornada
+        - button [ref=f8e108] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f8e66]: ♜
+          - generic [ref=f8e67]: Regras
+    - main [ref=f8e68]:
+      - region [ref=f8e109]:
+        - paragraph [ref=f8e71]: FERRAMENTAS DA MESA
+        - heading [level=1] [ref=f8e110]: Configurações
+        - paragraph [ref=f8e73]: Ajustes pequenos ficam neste dispositivo e acompanham seu modo de jogar.
+        - status [ref=f8e74]:
+          - generic [aria-hidden] [ref=f8e75]: ✓
+          - generic [ref=f8e76]: Preferência salva.
+        - generic [ref=f8e77]:
+          - region [ref=f8e111]:
+            - heading [level=2] [ref=f8e112]: Aparência
+            - generic [ref=f8e81]:
+              - generic [ref=f8e82]:
+                - generic [ref=f8e83]: Tema
+                - combobox [ref=f8e113]
+              - generic [ref=f8e85]:
+                - checkbox [ref=f8e114]
+                - generic [ref=f8e87]: Reduzir movimento
+          - region [ref=f8e115]:
+            - heading [level=2] [ref=f8e116]: Dados e idioma
+            - generic [ref=f8e91]:
+              - paragraph [ref=f8e92]:
+                - strong [ref=f8e93]: Idioma
+                - generic [ref=f8e94]: Português (Brasil)
+              - paragraph [ref=f8e95]:
+                - strong [ref=f8e96]: Histórico de dados
+                - generic [ref=f8e97]: 1000 entradas
+              - button [ref=f8e117] [cursor=pointer]:
+                - generic [ref=f8e99]: Restaurar retenção padrão
+  - generic "Área de sobreposições":
+    - dialog [ref=f8e119]:
+      - heading "Dados" [level=2] [ref=f8e122]
+      - generic [ref=f8e124]:
+        - paragraph [ref=f8e125]: "Fonte: fab"
+        - generic [ref=f8e126]:
+          - generic [ref=f8e127]: Expressão dos dados
+          - paragraph [ref=f8e128]: Use NdF, NdF + M ou NdF - M.
+          - textbox "Expressão dos dados" [ref=f8e129]: 1d20
+        - generic [ref=f8e130]:
+          - generic [ref=f8e131]:
+            - generic [ref=f8e132]: Quantidade
+            - spinbutton "Quantidade" [ref=f8e133]: "1"
+          - generic [ref=f8e134]:
+            - generic [ref=f8e135]: Faces
+            - combobox "Faces" [ref=f8e136]:
+              - option "d4"
+              - option "d6"
+              - option "d8"
+              - option "d10"
+              - option "d12"
+              - option "d20" [selected]
+              - option "d100"
+          - generic [ref=f8e137]:
+            - generic [ref=f8e138]: Modificador
+            - spinbutton "Modificador" [ref=f8e139]: "0"
+        - generic [ref=f8e141]:
+          - generic [ref=f8e142]: Modo
+          - combobox "Modo" [ref=f8e143]:
+            - option "Normal" [selected]
+            - option "Vantagem"
+            - option "Desvantagem"
+        - region [ref=f8e154]:
+          - heading "Resultado · 1d20" [level=3] [ref=f8e155]
+          - 'generic "Dados individuais: 18" [ref=f8e156]':
+            - 'generic "Dado 1: 18, selecionado" [ref=f8e157]': "18"
+          - paragraph [ref=f8e158]:
+            - generic [ref=f8e159]: Subtotal 18
+            - strong [ref=f8e160]: Total 18
+        - region [ref=f8e145]:
+          - heading "Histórico" [level=3] [ref=f8e146]
+          - list [ref=f8e161]:
+            - listitem [ref=f8e162]:
+              - generic [ref=f8e163]:
+                - strong [ref=f8e164]: 1d20
+                - generic [ref=f8e165]: 18 → 18
+              - button "Rolar novamente" [ref=f8e166] [cursor=pointer]
+        - status [ref=f8e148]: "Rolagem 1d20: dados 18; total 18."
+      - generic [ref=f8e149]:
+        - button "Rolar dados" [active] [ref=f8e150] [cursor=pointer]
+        - button "Fechar" [ref=f8e152] [cursor=pointer]

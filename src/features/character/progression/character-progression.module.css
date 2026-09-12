@@ -1,0 +1,15 @@
+.progression { display: grid; gap: var(--spacing-lg); max-width: 78rem; padding: var(--spacing-lg) 0 var(--spacing-section); }
+.header { display: flex; justify-content: space-between; align-items: end; gap: var(--spacing-lg); }
+.header h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 5vw, 3rem); }
+.eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .15em; }
+.subtitle, .muted { margin: var(--spacing-sm) 0 0; color: var(--color-text-muted); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-lg); }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-md); }
+.preview { display: grid; gap: .3rem; margin-top: var(--spacing-lg); }
+.preview p { margin: 0; color: var(--color-text-muted); }
+.preview strong { color: var(--color-text); }
+.pending { margin-top: var(--spacing-lg); padding: var(--spacing-md); border: 1px solid var(--color-warning); border-radius: var(--radius-control); color: var(--color-warning); }
+.pending ul { margin: var(--spacing-sm) 0 0; padding-left: 1.2rem; }
+.xpRow { display: flex; align-items: end; gap: var(--spacing-md); max-width: 32rem; }
+.footer { display: flex; justify-content: space-between; gap: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--color-border); }
+@media (max-width: 720px) { .progression { padding-inline: var(--spacing-sm); } .header, .footer { align-items: stretch; flex-direction: column; } .grid, .formGrid { grid-template-columns: 1fr; } .xpRow { align-items: stretch; flex-direction: column; } }

@@ -1,0 +1,92 @@
+- generic [ref=e47]:
+  - link [aria-hidden] [ref=e48] [cursor=pointer]:
+    - /url: "#main-content"
+    - text: Pular para o conteúdo
+  - banner [aria-hidden] [ref=e49]:
+    - generic [ref=e50]:
+      - button [ref=e51] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e53]: ⚄
+        - generic [ref=e54]:
+          - generic [ref=e55]: Mesa de campanha
+          - generic [ref=e56]: Nenhum personagem ativo
+      - generic [ref=e57]: Escolha uma ficha para começar
+      - generic [ref=e58]:
+        - button [ref=e59] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e62]: ⚄
+        - button [ref=e63] [cursor=pointer]:
+          - generic [ref=e64]: Ajustes
+  - generic [aria-hidden] [ref=e65]:
+    - navigation [ref=e66]:
+      - generic [ref=e67]:
+        - button [ref=e68] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e69]: ◈
+          - generic [ref=e70]: Personagem
+        - button [ref=e71] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e72]: ✦
+          - generic [ref=e73]: Ações
+        - button [ref=e74] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e75]: ⌁
+          - generic [ref=e76]: Jornada
+        - button [ref=e77] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e78]: ♜
+          - generic [ref=e79]: Compêndio
+      - button [ref=e81] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e82]: ⚙
+        - generic [ref=e83]: Configurações
+    - main [ref=e84]:
+      - region [ref=e86]:
+        - paragraph [ref=e87]: PRIMEIRA RODADA
+        - heading [level=1] [ref=e88]: Abra sua mesa
+        - paragraph [ref=e89]: Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.
+        - generic [ref=e90]:
+          - button [ref=e91] [cursor=pointer]:
+            - generic [ref=e92]: Criar personagem
+          - button [ref=e93] [cursor=pointer]:
+            - generic [ref=e94]: Importar backup
+        - region [ref=e95]:
+          - heading [level=2] [ref=e97]: Sem personagem ativo
+          - generic [ref=e98]:
+            - paragraph [ref=e99]: Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.
+            - button [ref=e100] [cursor=pointer]:
+              - generic [ref=e101]: Abrir Compêndio
+  - generic "Área de sobreposições":
+    - dialog [ref=e103]:
+      - generic [ref=e104]:
+        - heading "Dados" [level=2] [ref=e105]
+        - button "Fechar" [ref=e106] [cursor=pointer]:
+          - generic [ref=e107]: ×
+      - generic [ref=e111]:
+        - paragraph [ref=e112]: "Fonte: header"
+        - generic [ref=e113]:
+          - generic [ref=e114]: Expressão dos dados
+          - paragraph [ref=e115]: Use NdF, NdF + M ou NdF - M.
+          - textbox "Expressão dos dados" [active] [ref=e116]: 1d20
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - generic [ref=e119]: Quantidade
+            - spinbutton "Quantidade" [ref=e120]: "1"
+          - generic [ref=e121]:
+            - generic [ref=e122]: Faces
+            - combobox "Faces" [ref=e123]:
+              - option "d4"
+              - option "d6"
+              - option "d8"
+              - option "d10"
+              - option "d12"
+              - option "d20" [selected]
+              - option "d100"
+          - generic [ref=e124]:
+            - generic [ref=e125]: Modificador
+            - spinbutton "Modificador" [ref=e126]: "0"
+        - generic [ref=e128]:
+          - generic [ref=e129]: Modo
+          - combobox "Modo" [ref=e130]:
+            - option "Normal" [selected]
+            - option "Vantagem"
+            - option "Desvantagem"
+        - paragraph [ref=e131]: O resultado aparecerá aqui.
+        - region [ref=e132]:
+          - heading "Histórico" [level=3] [ref=e133]
+          - paragraph [ref=e134]: Nenhuma rolagem salva ainda.
+        - status [ref=e135]
+      - button "Rolar dados" [ref=e137] [cursor=pointer]

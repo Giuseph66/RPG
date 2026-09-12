@@ -1,0 +1,61 @@
+.inventory { display: grid; gap: var(--spacing-lg); max-width: 82rem; padding: var(--spacing-lg) 0 var(--spacing-section); }
+.hero { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-lg); padding: var(--spacing-lg); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-surface); background: var(--color-surface-elevated); }
+.eyebrow { margin: 0 0 var(--spacing-xs); color: var(--color-primary); font-family: var(--typography-label-font-family); font-size: .75rem; font-weight: 700; letter-spacing: .1em; }
+.hero h1, .state h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1.1; }
+.subtitle { margin: var(--spacing-sm) 0 0; color: var(--color-text-muted); }
+.heroStats { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--spacing-md); color: var(--color-text-muted); font-size: .85rem; text-align: right; }
+.heroStats strong { display: block; color: var(--color-primary); font-family: var(--typography-numeric-font-family); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.currencyPanel, .impactPanel, .itemsPanel { display: grid; gap: var(--spacing-md); padding: var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
+.panelHeading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--spacing-md); }
+.panelHeading h2 { margin: 0; font-family: var(--typography-heading-font-family); font-size: var(--typography-heading-font-size); }
+.panelHint, .impactHint, .itemMeta, .muted { color: var(--color-text-muted); font-size: .82rem; }
+.currencyGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-md); }
+.currencyField { display: grid; gap: var(--spacing-xs); color: var(--color-text-muted); font-size: .8rem; }
+.currencyField abbr { color: var(--color-primary); font-weight: 700; text-decoration: none; }
+.currencyField input, .quantity { min-height: var(--size-touch-target); width: 100%; padding: 0 var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); font-variant-numeric: tabular-nums; }
+.currencyField input:disabled, .quantity:disabled { cursor: not-allowed; opacity: .65; }
+.impactGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-lg); }
+.impactGrid > div { display: grid; align-content: start; gap: var(--spacing-xs); min-width: 0; }
+.impactLabel { color: var(--color-text-muted); font-size: .8rem; }
+.impactValue { color: var(--color-primary); font-family: var(--typography-numeric-font-family); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.impactGrid details, .explanations { color: var(--color-primary); font-size: .78rem; }
+.impactGrid details summary, .explanations summary { cursor: pointer; min-height: 1.5rem; }
+.impactGrid ul, .explanations ul { margin: var(--spacing-xs) 0 0; padding-left: 1.2rem; color: var(--color-text-muted); }
+.overLimit { color: var(--color-warning); font-size: .82rem; font-weight: 700; }
+.tableWrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 58rem; }
+th, td { padding: var(--spacing-md) var(--spacing-sm); border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); text-align: left; vertical-align: top; }
+thead th { border-top: 0; color: var(--color-text-muted); font-size: .75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+tbody th { min-width: 13rem; font-weight: 400; }
+.equippedRow { background: color-mix(in srgb, var(--color-secondary) 9%, transparent); }
+.itemName { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+.itemName strong { color: var(--color-text); }
+.description { max-width: 32ch; margin: var(--spacing-xs) 0 0; color: var(--color-text-muted); font-size: .8rem; font-weight: 400; }
+.numeric { color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.quantity { width: 6rem; }
+.propertyList, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.proficiencyList { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; color: var(--color-text-muted); font-size: .8rem; }
+.proficiencyList li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.actions { min-width: 12rem; }
+.state { display: grid; justify-items: start; gap: var(--spacing-md); padding: var(--spacing-section) var(--spacing-lg); }
+.state p { max-width: 55ch; margin: 0; color: var(--color-text-muted); }
+.stateMark { display: grid; place-items: center; width: 3rem; height: 3rem; border: 1px solid var(--color-primary); border-radius: 50%; color: var(--color-primary); font-size: 1.5rem; }
+@media (max-width: 760px) {
+  .inventory { padding-inline: var(--spacing-sm); }
+  .hero { align-items: stretch; flex-direction: column; }
+  .heroStats { justify-content: start; text-align: left; }
+  .currencyGrid, .impactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tableWrap { overflow: visible; }
+  table { display: block; min-width: 0; }
+  thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  tbody, tr { display: grid; gap: var(--spacing-sm); }
+  tr { padding: var(--spacing-md) 0; border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
+  tr:first-child { border-top: 0; }
+  th, td { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--spacing-sm); padding: 0; border: 0; }
+  td::before, th::before { content: attr(data-label); color: var(--color-text-muted); font-size: .76rem; font-weight: 600; text-transform: uppercase; }
+  th[data-label="Item"]::before { content: none; }
+  tbody th { min-width: 0; }
+  .description { max-width: none; }
+  .actions { min-width: 0; }
+}
+@media (max-width: 420px) { .currencyGrid, .impactGrid { grid-template-columns: 1fr; } .panelHeading { align-items: start; flex-direction: column; gap: var(--spacing-xs); } }

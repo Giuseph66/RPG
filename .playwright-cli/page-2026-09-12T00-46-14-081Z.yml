@@ -1,0 +1,92 @@
+- generic [ref=f3e3]:
+  - link [aria-hidden] [ref=f3e58] [cursor=pointer]:
+    - /url: "#main-content"
+    - text: Pular para o conteúdo
+  - banner [aria-hidden] [ref=f3e59]:
+    - generic [ref=f3e6]:
+      - button [ref=f3e60] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f3e9]: ⚄
+        - generic [ref=f3e10]:
+          - generic [ref=f3e11]: Mesa de campanha
+          - generic [ref=f3e12]: Nenhum personagem ativo
+      - generic [ref=f3e13]: Escolha uma ficha para começar
+      - generic [ref=f3e14]:
+        - button [ref=f3e61] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e18]: ⚄
+        - button [ref=f3e62] [cursor=pointer]:
+          - generic [ref=f3e20]: Ajustes
+  - generic [aria-hidden] [ref=f3e21]:
+    - navigation [ref=f3e63]:
+      - generic [ref=f3e23]:
+        - button [ref=f3e64] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e25]: ◈
+          - generic [ref=f3e26]: Personagem
+        - button [ref=f3e65] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e28]: ✦
+          - generic [ref=f3e29]: Ações
+        - button [ref=f3e66] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e31]: ⌁
+          - generic [ref=f3e32]: Jornada
+        - button [ref=f3e67] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e34]: ♜
+          - generic [ref=f3e35]: Compêndio
+      - button [ref=f3e68] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f3e38]: ⚙
+        - generic [ref=f3e39]: Configurações
+    - main [ref=f3e40]:
+      - region [ref=f3e69]:
+        - paragraph [ref=f3e43]: PRIMEIRA RODADA
+        - heading [level=1] [ref=f3e70]: Abra sua mesa
+        - paragraph [ref=f3e45]: Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.
+        - generic [ref=f3e46]:
+          - button [ref=f3e71] [cursor=pointer]:
+            - generic [ref=f3e48]: Criar personagem
+          - button [ref=f3e72] [cursor=pointer]:
+            - generic [ref=f3e50]: Importar backup
+        - region [ref=f3e73]:
+          - heading [level=2] [ref=f3e74]: Sem personagem ativo
+          - generic [ref=f3e54]:
+            - paragraph [ref=f3e55]: Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.
+            - button [ref=f3e75] [cursor=pointer]:
+              - generic [ref=f3e57]: Abrir Compêndio
+  - generic "Área de sobreposições":
+    - dialog [ref=f3e77]:
+      - generic [ref=f3e78]:
+        - heading "Dados" [level=2] [ref=f3e79]
+        - button "Fechar" [ref=f3e80] [cursor=pointer]:
+          - generic [ref=f3e81]: ×
+      - generic [ref=f3e85]:
+        - paragraph [ref=f3e86]: "Fonte: header"
+        - generic [ref=f3e87]:
+          - generic [ref=f3e88]: Expressão dos dados
+          - paragraph [ref=f3e89]: Use NdF, NdF + M ou NdF - M.
+          - textbox "Expressão dos dados" [active] [ref=f3e90]: 1d20
+        - generic [ref=f3e91]:
+          - generic [ref=f3e92]:
+            - generic [ref=f3e93]: Quantidade
+            - spinbutton "Quantidade" [ref=f3e94]: "1"
+          - generic [ref=f3e95]:
+            - generic [ref=f3e96]: Faces
+            - combobox "Faces" [ref=f3e97]:
+              - option "d4"
+              - option "d6"
+              - option "d8"
+              - option "d10"
+              - option "d12"
+              - option "d20" [selected]
+              - option "d100"
+          - generic [ref=f3e98]:
+            - generic [ref=f3e99]: Modificador
+            - spinbutton "Modificador" [ref=f3e100]: "0"
+        - generic [ref=f3e102]:
+          - generic [ref=f3e103]: Modo
+          - combobox "Modo" [ref=f3e104]:
+            - option "Normal" [selected]
+            - option "Vantagem"
+            - option "Desvantagem"
+        - paragraph [ref=f3e105]: O resultado aparecerá aqui.
+        - region [ref=f3e106]:
+          - heading "Histórico" [level=3] [ref=f3e107]
+          - paragraph [ref=f3e108]: Nenhuma rolagem salva ainda.
+        - status [ref=f3e109]
+      - button "Rolar dados" [ref=f3e111] [cursor=pointer]

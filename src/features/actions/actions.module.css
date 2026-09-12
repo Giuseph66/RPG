@@ -1,0 +1,48 @@
+.actions { display: grid; gap: var(--spacing-lg); max-width: 84rem; padding: var(--spacing-lg) 0 var(--spacing-section); }
+.hero { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-lg); padding: var(--spacing-lg); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-surface); background: var(--color-surface-elevated); }
+.eyebrow { margin: 0 0 var(--spacing-xs); color: var(--color-primary); font-family: var(--typography-label-font-family); font-size: .72rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.hero h1, .state h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1.1; }
+.subtitle { margin: var(--spacing-sm) 0 0; color: var(--color-text-muted); }
+.availability { display: grid; gap: var(--spacing-xs); min-width: 10rem; color: var(--color-text-muted); font-size: .78rem; text-align: right; }
+.availability strong { color: var(--color-secondary); font-family: var(--typography-label-font-family); font-size: .9rem; }
+.layout { display: grid; grid-template-columns: minmax(17rem, .72fr) minmax(0, 1.28fr); gap: var(--spacing-lg); align-items: start; }
+.listPanel, .review, .emptyReview { display: grid; gap: var(--spacing-md); padding: var(--spacing-lg); border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); }
+.panelHeading, .reviewHeading, .capabilityTop, .confirmRow { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
+.panelHeading h2, .review h2, .emptyReview h2 { margin: 0; font-family: var(--typography-heading-font-family); font-size: var(--typography-heading-font-size); }
+.count { display: grid; place-items: center; min-width: 2rem; min-height: 2rem; border: 1px solid var(--color-primary); border-radius: var(--radius-pill); color: var(--color-primary); font-family: var(--typography-numeric-font-family); font-weight: 700; }
+.capabilityList { display: grid; gap: var(--spacing-sm); }
+.capability { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); }
+.capability.selected { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
+.capability h2 { margin: 0; color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1.05rem; }
+.capability.blocked, .capability.pending, .capability.unsupported { opacity: .86; }
+.status { color: var(--color-text-muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; }
+.description, .muted { margin: 0; color: var(--color-text-muted); }
+.description { font-size: .9rem; }
+.cardMeta { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); color: var(--color-text-muted); font-size: .76rem; }
+.review { min-height: 24rem; border-top: 3px solid var(--color-primary); }
+.reviewHeading { align-items: start; }
+.reviewGrid { display: grid; grid-template-columns: minmax(10rem, .72fr) minmax(0, 1.28fr); gap: var(--spacing-lg); }
+.review h3 { margin: 0 0 var(--spacing-xs); color: var(--color-text-muted); font-size: .77rem; letter-spacing: .08em; text-transform: uppercase; }
+.costList, .detailList { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; }
+.costList li { display: flex; justify-content: space-between; gap: var(--spacing-sm); padding: var(--spacing-xs) 0; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent); color: var(--color-text-muted); }
+.costList strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
+.detailList li { color: var(--color-text-muted); }
+.detailList li::before { content: "·"; margin-right: var(--spacing-xs); color: var(--color-primary); }
+.explanations, .provenance { display: grid; gap: var(--spacing-xs); }
+.inputSection { display: grid; gap: var(--spacing-xs); max-width: 20rem; }
+.commandHint { max-width: 25ch; overflow: hidden; color: var(--color-text-muted); font-family: var(--typography-numeric-font-family); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.emptyReview { min-height: 24rem; align-content: center; justify-items: start; padding: var(--spacing-xl); background: color-mix(in srgb, var(--color-surface) 80%, var(--color-primary)); }
+.emptyReview > span { color: var(--color-primary); font-size: 2rem; }
+.emptyReview p { max-width: 42ch; margin: 0; color: var(--color-text-muted); }
+.state { display: grid; justify-items: start; gap: var(--spacing-md); max-width: 42rem; padding: var(--spacing-section) var(--spacing-lg); }
+.state p { max-width: 55ch; margin: 0; color: var(--color-text-muted); }
+.stateMark { display: grid; place-items: center; width: 3rem; height: 3rem; border: 1px solid var(--color-primary); border-radius: 50%; color: var(--color-primary); font-size: 1.5rem; }
+@media (max-width: 760px) {
+  .actions { padding-inline: var(--spacing-sm); }
+  .hero { align-items: stretch; flex-direction: column; }
+  .availability { min-width: 0; text-align: left; }
+  .layout, .reviewGrid { grid-template-columns: 1fr; }
+  .emptyReview { min-height: 12rem; }
+  .confirmRow { align-items: stretch; flex-direction: column; }
+  .commandHint { max-width: none; }
+}

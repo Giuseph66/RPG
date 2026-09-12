@@ -1,0 +1,37 @@
+- generic [ref=f4e3]:
+  - link "Pular para o conteúdo" [ref=f4e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=f4e5]:
+    - generic [ref=f4e6]:
+      - button "Selecionar personagem" [ref=f4e7] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e9]: ⚄
+        - generic [ref=f4e10]:
+          - generic [ref=f4e11]: Mesa de campanha
+          - generic [ref=f4e12]: Nenhum personagem ativo
+      - button "Abrir rolagem de dados" [ref=f4e13] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e16]: ⚄
+  - generic [ref=f4e17]:
+    - navigation "Destinos principais" [ref=f4e18]:
+      - generic [ref=f4e19]:
+        - button "Ficha" [ref=f4e20] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e21]: ◈
+        - button "Ações" [ref=f4e23] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e24]: ✦
+        - button "Jornada" [ref=f4e26] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e27]: ⌁
+        - button "Regras" [ref=f4e29] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e30]: ♜
+    - main [ref=f4e32]:
+      - region [ref=f4e34]:
+        - paragraph [ref=f4e35]: PRIMEIRA RODADA
+        - heading "Abra sua mesa" [level=1] [ref=f4e36]
+        - paragraph [ref=f4e37]: Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.
+        - generic [ref=f4e38]:
+          - button "Criar personagem" [ref=f4e39] [cursor=pointer]
+          - button "Importar backup" [ref=f4e41] [cursor=pointer]
+        - region [ref=f4e43]:
+          - heading "Sem personagem ativo" [level=2] [ref=f4e45]
+          - generic [ref=f4e46]:
+            - paragraph [ref=f4e47]: Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.
+            - button "Abrir Compêndio" [ref=f4e48] [cursor=pointer]
+  - generic "Área de sobreposições"

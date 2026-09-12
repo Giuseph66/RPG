@@ -1,0 +1,24 @@
+.wizard { display: grid; gap: var(--spacing-lg); max-width: 72rem; padding: var(--spacing-lg) 0 var(--spacing-section); }
+.header { display: flex; justify-content: space-between; align-items: end; gap: var(--spacing-lg); }
+.header h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 5vw, 3rem); }
+.eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .15em; }
+.subtitle, .muted { margin: var(--spacing-sm) 0 0; color: var(--color-text-muted); }
+.stepNav { overflow-x: auto; }
+.stepNav ol { display: flex; gap: var(--spacing-xs); min-width: max-content; margin: 0; padding: 0; list-style: none; }
+.stepNav button { min-height: var(--size-touch-target); padding: .45rem .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-elevated); color: var(--color-text-muted); cursor: pointer; }
+.stepNav button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.stepNav .activeStep { border-color: var(--color-primary); color: var(--color-primary); font-weight: 700; }
+.content { min-width: 0; }
+.formGrid, .abilityInputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-md); }
+.abilityInputs { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--spacing-lg); }
+.choice { display: grid; max-width: 40rem; margin-bottom: var(--spacing-md); }
+.summary { display: grid; gap: .25rem; }
+.summary p { margin: 0; color: var(--color-text-muted); }
+.summary strong { color: var(--color-text); }
+.issues { margin-top: var(--spacing-lg); padding: var(--spacing-md); border: 1px solid var(--color-warning); border-radius: var(--radius-control); color: var(--color-warning); }
+.issues ul { margin: var(--spacing-sm) 0 0; padding-left: 1.2rem; }
+.issues small { color: var(--color-text-muted); }
+.error { margin: var(--spacing-sm) 0 0; color: var(--color-danger, #b42318); }
+.footer { display: flex; justify-content: space-between; gap: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--color-border); }
+.footerActions { display: flex; justify-content: flex-end; gap: var(--spacing-sm); }
+@media (max-width: 680px) { .wizard { padding-inline: var(--spacing-sm); } .header { align-items: stretch; flex-direction: column; } .formGrid, .abilityInputs { grid-template-columns: 1fr; } .footer { align-items: stretch; flex-direction: column; } .footerActions { justify-content: stretch; } .footerActions > * { flex: 1; } }

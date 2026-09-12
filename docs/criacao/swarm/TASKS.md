@@ -1,6 +1,6 @@
 # Tarefas de implementação — registro canônico
 
-IMPLEMENTAÇÃO DO SOFTWARE INICIADA. `CORE-001`, `DATA-001`, `DATA-002`, `DATA-003`, `DATA-004`, `DATA-005`, `DICE-001`, `ITEM-001`, `RULE-001`, `UI-001` e `STATE-001` estão `DONE`; `DICE-002` está em `REVIEW`, `UI-002` integra o overlay e `SPELL-001` está em execução com Luna.
+IMPLEMENTAÇÃO DO SOFTWARE INICIADA. `CORE-001`, `DATA-001`, `DATA-002`, `DATA-003`, `DATA-004`, `DATA-005`, `DICE-001`, `DICE-002`, `ITEM-001`, `RULE-001`, `UI-001`, `UI-002` e `STATE-001` estão `DONE`; `SPELL-001`, `ITEM-002` e `CHAR-002` estão em execução com Luna.
 
 36 tarefas, IDs estáveis. O campo “bloqueia” é o inverso exato de “dependências”; [DEPENDENCIES](DEPENDENCIES.md) deriva deste registro. Contratos comuns estão em 09/10/11 e dados/schemas; DATA-001 os materializa antes dos consumidores. Pendências semânticas de fonte continuam registradas em decisoes/PENDENCIAS, nunca resolvidas por default silencioso.
 
@@ -73,10 +73,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DATA-002`
 - Título: Loader e núcleo do rule pack.
-- Status: `DONE` — wiring Luna aceito: 77 testes DATA e typecheck passaram; magias/condições seguem pendências explícitas.
-- Responsável: `/root/wire_rulepack_content`.
+- Status: `DONE` — integração de condições aceita em `2026-09-11T19:03:00-04:00`.
+- Responsável: `/root/wire_condition_rulepack`.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
-- Reserva/heartbeat: Luna reservada em `2026-09-11T18:00:00-04:00`.
+- Evidência: manifesto declara `spell: 6`/`condition: 15` (checksums `8e1fdd97`/`7e539456`); 19 testes focais de rulepack, typecheck e `git diff --check` passaram.
 - Workspace: branch `main`, workspace compartilhado; base DATA-001 aceita.
 - Histórico: correção anterior de manifesto/schema por `/root/fix_rulepack`, aceita após testes focalizados 28/28 em `2026-09-11T16:55:56-04:00`.
 - Prioridade: P0.
@@ -155,8 +155,8 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `UI-002`
 - Título: Shell, navegação e header.
-- Status: `IN_PROGRESS` — integração Luna do overlay de dados no shell; router/header permanecem nos próprios paths UI-002.
-- Responsável: `/root/connect_dice_overlay`.
+- Status: `DONE` — shell, overlay host e rota profunda aceitos: testes, typecheck e prova em navegador desktop/mobile.
+- Responsável: `/root/fix_deep_route_reload`.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
 - Reserva/heartbeat: Luna reservada em `2026-09-11T17:36:00-04:00`.
 - Prioridade: P0.
@@ -194,7 +194,7 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DICE-002`
 - Título: Overlay e histórico de dados.
-- Status: `REVIEW` — overlay Luna entregue, 6 testes focais passaram; aguarda integração UI-002/CORE-001 e teste em navegador.
+- Status: `DONE` — overlay Luna aceito: 6 testes focais e fluxo mobile real (abertura, 1d20 e histórico) validados no navegador.
 - Responsável: `/root/build_dice_overlay`.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
 - Reserva/heartbeat: Luna reservada em `2026-09-11T17:55:00-04:00`.
@@ -252,7 +252,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CHAR-001`
 - Título: Domínio de criação e validação.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T18:55:00-04:00`.
+- Responsável: `/root/build_character_creation_domain`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/character/creation` passou (3/3); `git diff --check` passou. Typecheck global aguarda o término de `RULE-002` em escrita.
 - Prioridade: P1.
 - Dependências: RULE-001, DATA-004, DATA-005, ITEM-001, SPELL-001.
 - Bloqueia: CHAR-003, CHAR-004.
@@ -268,7 +271,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CHAR-002`
 - Título: Ficha rápida e expandida.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T18:45:00-04:00`.
+- Responsável: `/root/build_character_sheet`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/features/character/sheet/CharacterSheet.test.tsx` passou (3/3); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: UI-002, RULE-001, STATE-001.
 - Bloqueia: CHAR-003, UI-004.
@@ -284,7 +290,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CHAR-003`
 - Título: Wizard de criação e seleção.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:11:00-04:00`.
+- Responsável: `/root/build_character_creation_wizard`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/features/character/creation src/features/character/selection` passou (5/5); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: CHAR-001, CHAR-002.
 - Bloqueia: CORE-002, DATA-006.
@@ -300,7 +309,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CHAR-004`
 - Título: Progressão e escolhas de nível.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:22:00-04:00`.
+- Responsável: `/root/build_character_creation_wizard` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/character/progression src/features/character/progression` passou (6/6); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: CHAR-001, DATA-005.
 - Bloqueia: CORE-002, DATA-006, QA-001.
@@ -316,10 +328,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `SPELL-001`
 - Título: Catálogo de magias e acesso.
-- Status: `IN_PROGRESS` — execução Luna iniciada após DATA-002 aceitar o pack publicado.
-- Responsável: `/root/build_spell_content`.
+- Status: `DONE` — revisão do coordenador aceita em `2026-09-11T18:39:00-04:00`.
+- Responsável: `/root/build_spell_content_retry`.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
-- Reserva/heartbeat: Luna reservada em `2026-09-11T18:05:00-04:00`.
+- Evidência: `src/data/spells/**`; `npx vitest run src/data/spells` passou (5/5); `git diff --check` passou. Catálogo cobre seis registros canônicos e declara `partial` para as demais magias, sem fabricar dados.
 - Prioridade: P1.
 - Dependências: DATA-002.
 - Bloqueia: CHAR-001, SPELL-002, COMP-001.
@@ -354,7 +366,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `ITEM-002`
 - Título: Domínio de inventário e equipamento.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T18:45:00-04:00`.
+- Responsável: `/root/build_inventory_domain`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/inventory/inventory.test.ts` passou (8/8); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: RULE-001, ITEM-001.
 - Bloqueia: RULE-002, UI-004, QA-001.
@@ -370,7 +385,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `RULE-002`
 - Título: Combate, condições, descanso e morte.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:00:00-04:00`.
+- Responsável: `/root/build_combat_rules`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/rules/combat src/domain/rules/conditions src/domain/rules/rest` passou (7/7); `npm run typecheck` e `git diff --check` passaram. Handoff obrigatório: DATA-002 publica `src/data/conditions/**` no rule pack.
 - Prioridade: P0.
 - Dependências: RULE-001, ITEM-002, DATA-005.
 - Bloqueia: SPELL-002, UI-003, COMP-001, QA-001.
@@ -386,7 +404,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `SPELL-002`
 - Título: Conjuração e recursos mágicos.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:13:00-04:00`.
+- Responsável: `/root/build_combat_rules` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/spells/spells.test.ts src/data/spells/spells.test.ts` passou (11/11); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P0.
 - Dependências: RULE-001, RULE-002, SPELL-001, DATA-005.
 - Bloqueia: UI-003, QA-001.
@@ -402,7 +423,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `UI-003`
 - Título: Página Ações e execução de capacidades.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:23:00-04:00`.
+- Responsável: `/root/build_combat_rules` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/features/actions/Actions.test.tsx` passou (7/7); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P0.
 - Dependências: UI-002, RULE-002, SPELL-002, STATE-001.
 - Bloqueia: CORE-002.
@@ -418,7 +442,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `UI-004`
 - Título: Interface de inventário.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T18:53:00-04:00`.
+- Responsável: `/root/build_inventory_ui`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/features/inventory` passou (7/7); `git diff --check` passou. Typecheck global adiado enquanto `RULE-002` estava em escrita.
 - Prioridade: P1.
 - Dependências: ITEM-002, CHAR-002.
 - Bloqueia: CORE-002.
@@ -434,7 +461,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `MAP-001`
 - Título: Mapas, anexos e marcadores.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:04:00-04:00`.
+- Responsável: `/root/build_campaign_map`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/campaign/maps/maps.test.ts src/features/journey/map/MapViewer.test.tsx` passou (6/6); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: UI-002, STATE-001.
 - Bloqueia: CORE-002, DATA-006.
@@ -450,7 +480,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `JOUR-001`
 - Título: Campanha, diário, missões e NPCs.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:12:00-04:00`.
+- Responsável: `/root/build_campaign_map` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/domain/campaign/journal src/features/journey/journal src/features/journey/campaign` passou (11/11); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: UI-002, STATE-001.
 - Bloqueia: CORE-002, DATA-006.
@@ -466,7 +499,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `COMP-001`
 - Título: Compêndio local e favoritos.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:21:00-04:00`.
+- Responsável: `/root/build_campaign_map` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/application/compendium src/features/compendium` passou (8/8); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P1.
 - Dependências: UI-002, RULE-002, DATA-004, DATA-005, SPELL-001, ITEM-001.
 - Bloqueia: CORE-002, PWA-001.
@@ -482,15 +518,18 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CORE-002`
 - Título: Integrar features e serviços reais.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — registry e adoção por bootstrap/router aceitos em `2026-09-11T19:34:00-04:00`.
+- Responsável: `/root/build_combat_rules` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/app/bootstrap.test.tsx src/app/router.test.tsx src/app/feature-registry.test.ts` passou (7/7); `npm run typecheck` e `git diff --check` passaram. Pendências de dispatcher/read model são mostradas na UI, sem fixtures.
 - Prioridade: P0.
 - Dependências: DICE-002, CHAR-003, CHAR-004, UI-003, UI-004, MAP-001, JOUR-001, COMP-001.
 - Bloqueia: PWA-001, UI-005, QA-002.
 - Escopo: Conectar factories/exports públicos das features aos serviços e rotas, sem editar interior de módulos alheios; remover substitutos de integração.
-- Arquivos próprios: `src/app/feature-registry.ts`.
+- Arquivos próprios: `src/app/feature-registry.ts`; na etapa de adoção posterior ao registry, `src/app/bootstrap.tsx`; `src/app/router.tsx`; testes focais em `src/app/**`.
 - Arquivos somente leitura: `docs/criacao/00-START-HERE.md`; `docs/criacao/09-MODELO-DE-DADOS.md`; `docs/criacao/10-RULES-ENGINE.md`; `docs/criacao/11-DICE-ENGINE.md`; `docs/criacao/dados/schemas.md`; `docs/criacao/swarm/AGENT-PROTOCOL.md`; `src/app/bootstrap.tsx`; `src/app/router.tsx`; `src/application/ports/**`; `src/domain/contracts/**`; `src/features/**`; `docs/criacao/swarm/HANDOFF.md`.
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
-- Critério de aceite: Quatro destinos exercitam engines e repositories reais; fixtures/mocks não mascaram ausência de persistência ou custo; fronteiras de importação respeitadas.
+- Critério de aceite: Quatro destinos exercitam engines e repositories reais; fixtures/mocks não mascaram ausência de persistência ou custo; bootstrap e roteador adotam o registry por composição explícita; fronteiras de importação respeitadas.
 - Testes: Smoke integrado criar→rolar→agir→nota→recarregar e checagem dos imports; regressões encaminhadas ao dono do módulo.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: PWA-001, UI-005, QA-002. Passo principal: 18.
 
@@ -498,7 +537,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `DATA-006`
 - Título: Backup, migrações e recuperação completa.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:33:00-04:00`.
+- Responsável: `/root/build_character_creation_wizard` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/application/transfer src/infrastructure/persistence/migrations src/features/data-management` passou (6/6); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P0.
 - Dependências: DATA-003, CHAR-003, CHAR-004, JOUR-001, MAP-001.
 - Bloqueia: PWA-001, QA-002.
@@ -514,15 +556,18 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `PWA-001`
 - Título: Instalação, cache e atualização offline.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — worker e adoção por bootstrap aceitos em `2026-09-11T19:43:00-04:00`.
+- Responsável: `/root/build_combat_rules` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run src/app/bootstrap.test.tsx src/infrastructure/pwa/pwa.test.ts` passou (13/13); `npm run typecheck` e `git diff --check` passaram. Atualização espera decisão explícita do host/UI.
 - Prioridade: P0.
 - Dependências: CORE-002, DATA-006, COMP-001.
 - Bloqueia: UI-005, QA-003.
 - Escopo: Adicionar manifest/ícones e service worker versionado, shell/corpus necessário offline, fallback e atualização segura sem reload forçado.
-- Arquivos próprios: `src/infrastructure/pwa/**`; `public/manifest.webmanifest`; `public/icons/**`; `public/offline.html`.
+- Arquivos próprios: `src/infrastructure/pwa/**`; `public/manifest.webmanifest`; `public/icons/**`; `public/offline.html`; na adoção posterior ao worker, `src/app/bootstrap.tsx`; `index.html`; testes focais em `src/app/**`.
 - Arquivos somente leitura: `docs/criacao/00-START-HERE.md`; `docs/criacao/09-MODELO-DE-DADOS.md`; `docs/criacao/10-RULES-ENGINE.md`; `docs/criacao/11-DICE-ENGINE.md`; `docs/criacao/dados/schemas.md`; `docs/criacao/swarm/AGENT-PROTOCOL.md`; `docs/criacao/07-PWA-OFFLINE.md`; `src/app/bootstrap.tsx`; `vite.config.ts`; `src/application/transfer/**`.
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
-- Critério de aceite: Instalação orientada por plataforma; rotas profundas e sessão funcionam offline após preparo; atualização espera operação/salvamento; dados IndexedDB não são apagados por limpeza de cache.
+- Critério de aceite: Instalação orientada por plataforma; worker é registrado pela composição; rotas profundas e sessão funcionam offline após preparo; atualização espera operação/salvamento; dados IndexedDB não são apagados por limpeza de cache.
 - Testes: Primeira instalação, relaunch sem rede, asset antigo, atualização com draft, falta de storage, Safari/iOS e Android/desktop em matriz documentada.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: UI-005, QA-003. Passo principal: 15.
 
@@ -530,12 +575,15 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `UI-005`
 - Título: Auditoria responsiva e orçamento visual.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — correção do overflow e matriz aceita em `2026-09-11T20:04:00-04:00`.
+- Responsável: `/root/build_character_creation_wizard` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: matriz Playwright em 4 destinos × 5 larguras passou (20/20); correção mínima em CSS do compêndio; `npm run typecheck` e `git diff --check` passaram. Limites reais restantes estão em `docs/implementacao/responsividade/QA-002.md`.
 - Prioridade: P1.
 - Dependências: CORE-002, PWA-001.
 - Bloqueia: A11Y-001.
 - Escopo: Provar layouts mobile/tablet/desktop e documentar correções por proprietário; esta tarefa não edita CSS/feature alheia.
-- Arquivos próprios: `tests/responsive/**`; `docs/implementacao/responsividade/**`.
+- Arquivos próprios: `tests/responsive/**`; `docs/implementacao/responsividade/**`; após achado reproduzido, somente `src/features/compendium/compendium.module.css` e `src/components/layout/layout.module.css` para a correção correspondente.
 - Arquivos somente leitura: `docs/criacao/00-START-HERE.md`; `docs/criacao/09-MODELO-DE-DADOS.md`; `docs/criacao/10-RULES-ENGINE.md`; `docs/criacao/11-DICE-ENGINE.md`; `docs/criacao/dados/schemas.md`; `docs/criacao/swarm/AGENT-PROTOCOL.md`; `docs/criacao/06-RESPONSIVIDADE.md`; `docs/criacao/04-WIREFRAMES.md`; `src/components/layout/**`; `src/features/**`.
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: 320–1440 CSS px, paisagem e zoom sem controle encoberto; quatro destinos invariáveis; dados/mapa funcionam sem hover; correções aceitas pelos owners.
@@ -546,12 +594,15 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `A11Y-001`
 - Título: Auditoria de acessibilidade.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — foco real corrigido e revisão aceita em `2026-09-11T20:12:00-04:00`.
+- Responsável: `/root/build_character_creation_wizard` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: 15 testes focais AppModal/DiceOverlay/a11y passaram; Chromium confirmou retorno do foco ao acionador em 5174; `npm run typecheck` e `git diff --check` passaram. Limites estão em `docs/implementacao/acessibilidade/A11Y-001.md`.
 - Prioridade: P1.
 - Dependências: UI-005.
 - Bloqueia: QA-004.
 - Escopo: Executar plano AA e acessibilidade manual, registrando correções por owner; relatórios/testes exclusivos.
-- Arquivos próprios: `tests/accessibility/**`; `docs/implementacao/acessibilidade/**`.
+- Arquivos próprios: `tests/accessibility/**`; `docs/implementacao/acessibilidade/**`; após achado real reproduzido, somente `src/features/dice/DiceOverlay.tsx`; `src/features/dice/DiceOverlay.test.tsx`; `src/components/ui/feedback/internal/useReturnFocus.ts`; `src/components/ui/feedback/AppModal/AppModal.test.tsx` para a correção de retorno de foco.
 - Arquivos somente leitura: `docs/criacao/00-START-HERE.md`; `docs/criacao/09-MODELO-DE-DADOS.md`; `docs/criacao/10-RULES-ENGINE.md`; `docs/criacao/11-DICE-ENGINE.md`; `docs/criacao/dados/schemas.md`; `docs/criacao/swarm/AGENT-PROTOCOL.md`; `docs/criacao/13-ACESSIBILIDADE.md`; `src/components/ui/**`; `src/features/**`.
 - Arquivos proibidos: todo caminho fora dos arquivos próprios, inclusive documentos canônicos de contratos, outras features, catálogos e configurações; mudança cruzada via handoff. O agente não altera este registro diretamente: coordenador é o único escritor do status.
 - Critério de aceite: Teclado/foco/leitor de tela/contraste/zoom/reduced motion provados nos fluxos críticos; limitações explicitadas; sem declaração baseada só em scanner.
@@ -562,7 +613,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-001`
 - Título: Prova determinística de regras.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T20:02:00-04:00`.
+- Responsável: `/root/build_campaign_map` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run tests/rules/transversal-rules.test.ts` passou (6/6); `npm run typecheck` e `git diff --check` passaram.
 - Prioridade: P0.
 - Dependências: RULE-002, SPELL-002, ITEM-002, CHAR-004.
 - Bloqueia: QA-004.
@@ -578,7 +632,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-002`
 - Título: Integração de sessão e persistência.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:38:00-04:00`.
+- Responsável: `/root/build_character_creation_wizard` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npx vitest run tests/integration/session-persistence.integration.test.ts` passou (6/6); `git diff --check` passou. O typecheck global aguarda conclusão do PWA em escrita.
 - Prioridade: P0.
 - Dependências: CORE-002, DATA-006.
 - Bloqueia: QA-003.
@@ -594,7 +651,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-003`
 - Título: Prova de offline e atualização.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — revisão focal aceita em `2026-09-11T19:48:00-04:00`.
+- Responsável: `/root/build_combat_rules` (lane reutilizada).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
+- Evidência: `npm run build` passou; `npx vitest run tests/offline/production-artifact.test.ts src/infrastructure/pwa/pwa.test.ts` passou (9/9); Chromium validou artifact em preview 4174 sem tocar 5173. Limites de update real estão em `docs/implementacao/offline/QA-003-evidence.md`.
 - Prioridade: P0.
 - Dependências: PWA-001, QA-002.
 - Bloqueia: QA-004.
@@ -610,7 +670,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-004`
 - Título: Aceite final integrado.
-- Status: `TODO` — implementação não iniciada.
+- Status: `IN_PROGRESS` — achados #2 e #3 corrigidos e provados ao vivo (2026-09-11T22:20-04:00): `<main>` duplicado resolvido nos 6 componentes (troca para `<section aria-labelledby>`), `tests/acceptance/acceptance-matrix.sh` sai `EXIT 0`; `public/pwa-worker.js` usa `cache.match(request, {ignoreVary:true})`, reload offline após cache quente deixou de renderizar em branco. Achado #1 parcialmente corrigido pelo coordenador: `createInventoryDispatcher`/`createActionDispatcher`/`deriveActionCapabilities` implementados (`src/application/character/{inventory-dispatcher,action-dispatcher,action-capabilities}.ts`) e ligados em `src/app/bootstrap.tsx`/`src/app/router.tsx`; corrigido também um bug pré-existente de CORE-001 descoberto na verificação (`bootstrap.tsx` chamava `character.hydrate(id)` em vez de `character.select(id)` no boot — personagem ativo nunca era restaurado ao recarregar). Provado ao vivo (teste de integração jsdom+fake-indexeddb com boot real, descartado após uso): personagem carrega, banners "pendente" de ações/inventário somem, 4 capacidades reais aparecem (dano/cura/descanso curto/longo), clicar "Descanso curto"→confirmar persiste de verdade (revisão incrementa em nova conexão). Pendente ainda: criação de personagem (`CreationWizardService` nunca implementado), `CharacterSelection`/`DataManagementPanel` nunca montados em nenhuma rota, dispatchers de campanha/jornada ausentes, "attack" sempre pede CA de alvo (sem alvo modelado), dano/cura manual com valor fixo (sem campo numérico na UI). QA-004 precisa reexecutar o roteiro completo antes do aceite.
+- Rodada 2 (2026-09-11T23:10-04:00): criação de personagem ligada de ponta a ponta pelo coordenador (`creationService` real + wizard montado em `/character/create`, provado ao vivo — "Etapa 1 de 9: Identidade"; raça/classe ficam vazias até DATA-004/005 saírem do placeholder, limitação de conteúdo, não de wiring). Dano/cura manual ganharam valor real digitável (antes fixo em 5); ataque ganhou campo de CA do alvo real (antes sempre `needsInput`). Dispatchers de Campanha/Registros/Diário implementados (`src/application/campaign/{campaign-dispatcher,campaign-record-dispatcher,journal-dispatcher}.ts`) e ligados; `CampaignPanel`/`CampaignRecords` (quests/NPCs) funcionam de graça via `campaign.quests`/`campaign.npcs` já expostos pelo componente `JourneyCampaign`. Provado ao vivo: criar campanha real → "Ativa: Campanha de teste" persistido. 520/520 testes, typecheck e build limpos.
+  Pendente após rodada 2: Diário (`JournalWorkspace`/`JournalEditor`) ainda não montado no router (coleção separada da campanha, exige fetch assíncrono próprio); `CharacterSelection`/`DataManagementPanel` (export/import) nunca montados em nenhuma rota; recursos de personagem/features de classe (`spend-resource`) sem resolvedor de domínio; uso de item consumível não coberto; exclusão de campanha com conteúdo não é atômica (sem UnitOfWork); conteúdo de raças/classes/magias/equipamento ainda placeholder (DATA-004/005/SPELL-001/ITEM-001).
+- Responsável: Claude Code subagente (Agent tool) — executor QA-004; correções aplicadas por 5 subagentes + costura final pelo coordenador.
+- Lane/modelo/esforço: Claude Sonnet 5 / padrão; coordenador Claude Opus 5 / high.
 - Prioridade: P0.
 - Dependências: QA-001, QA-003, A11Y-001.
 - Bloqueia: REL-001.

@@ -2,8 +2,8 @@
  * Montagem REAL do pack `phb-ptbr-local-2017@1.0.0`. Autoridade:
  * docs/criacao/passos/08-classes-racas.md (escopo DATA-002).
  *
- * Os catálogos aceitos por DATA-004, DATA-005 e ITEM-001 são conectados aqui; magias e
- * condições continuam vazias até os respectivos owners entregarem seus catálogos.
+ * Os catálogos aceitos por DATA-004, DATA-005, ITEM-001, SPELL-001 e RULE-002 são conectados aqui;
+ * coberturas parciais permanecem explícitas nos próprios catálogos.
  */
 
 import { asEntityId } from "@domain/contracts/ids";
@@ -35,6 +35,8 @@ import { feats } from "../../feats";
 import { progression } from "../../progression";
 import { characterTemplates } from "../../character-templates";
 import { equipment } from "../../equipment";
+import { SPELL_CATALOG_COVERAGE, SPELL_DEFINITIONS } from "../../spells";
+import { CONDITION_DEFINITIONS } from "../../conditions";
 
 const publishedRaces: readonly RaceDefinition[] = races;
 
@@ -60,13 +62,13 @@ const publishedFeatures: readonly FeatureDefinition[] = features;
 
 const publishedResources: readonly ResourceDefinition[] = resources;
 
-// TODO(RULE-002): condições entregues por RULE-002 (Apêndice A, docs/criacao/regras/condicoes.md).
-const conditions: readonly ConditionDefinition[] = [];
+/** Catálogo de condições de RULE-002, com cobertura contextual pendente preservada nos dados. */
+const conditions: readonly ConditionDefinition[] = CONDITION_DEFINITIONS;
 
 const publishedEquipment: readonly EquipmentDefinition[] = equipment;
 
-// TODO(SPELL-001): magias entregues por SPELL-001 (docs/criacao/magia/).
-const spells: readonly SpellDefinition[] = [];
+/** Catálogo estruturado aceito por SPELL-001; a cobertura parcial permanece explícita. */
+const publishedSpells: readonly SpellDefinition[] = SPELL_DEFINITIONS;
 
 const publishedCharacterTemplates: readonly CharacterTemplate[] = characterTemplates;
 
@@ -93,13 +95,16 @@ export const PHB_PTBR_LOCAL_2017_INPUT: RulePackInput = {
   resources: publishedResources,
   conditions,
   equipment: publishedEquipment,
-  spells,
+  spells: publishedSpells,
   progression: publishedProgression,
   characterTemplates: publishedCharacterTemplates,
   abilities: ABILITIES,
   skills: SKILLS,
   diceFaces: DICE,
 };
+
+/** Cobertura pública do catálogo de magias; ausência não significa falta de acesso. */
+export { SPELL_CATALOG_COVERAGE };
 
 /** Monta e valida o pack local atual. */
 export function loadPhbPtBrLocal2017(): Result<RulePack, AppError> {

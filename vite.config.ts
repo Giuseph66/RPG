@@ -25,6 +25,10 @@ export default defineConfig({
       "@styles": fileURLToPath(new URL("./src/styles", import.meta.url)),
     },
   },
+  server: {
+    port: 5173,
+    allowedHosts: ["umbonate-theda-conterminously.ngrok-free.dev"],
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],

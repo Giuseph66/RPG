@@ -1,0 +1,52 @@
+- generic [ref=f7e3]:
+  - link "Pular para o conteúdo" [ref=f7e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=f7e5]:
+    - generic [ref=f7e6]:
+      - button "Selecionar personagem" [ref=f7e7] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f7e9]: ⚄
+        - generic [ref=f7e10]:
+          - generic [ref=f7e11]: Mesa de campanha
+          - generic [ref=f7e12]: Nenhum personagem ativo
+      - button "Abrir rolagem de dados" [ref=f7e13] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f7e16]: ⚄
+  - generic [ref=f7e17]:
+    - navigation "Destinos principais" [ref=f7e18]:
+      - generic [ref=f7e19]:
+        - button "Ficha" [ref=f7e20] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e21]: ◈
+        - button "Ações" [ref=f7e23] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e24]: ✦
+        - button "Jornada" [ref=f7e26] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e27]: ⌁
+        - button "Regras" [ref=f7e29] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f7e30]: ♜
+    - main [ref=f7e32]:
+      - region [ref=f7e34]:
+        - paragraph [ref=f7e35]: FERRAMENTAS DA MESA
+        - heading "Configurações" [level=1] [ref=f7e36]
+        - paragraph [ref=f7e37]: Ajustes pequenos ficam neste dispositivo e acompanham seu modo de jogar.
+        - generic [ref=f7e38]:
+          - region [ref=f7e39]:
+            - heading "Aparência" [level=2] [ref=f7e41]
+            - generic [ref=f7e42]:
+              - generic [ref=f7e43]:
+                - generic [ref=f7e44]: Tema
+                - combobox "Tema" [ref=f7e45]:
+                  - option "Sistema" [selected]
+                  - option "Noite de pedra"
+                  - option "Papel claro"
+              - generic [ref=f7e46]:
+                - checkbox "Reduzir movimento" [ref=f7e47]
+                - generic [ref=f7e48]: Reduzir movimento
+          - region [ref=f7e49]:
+            - heading "Dados e idioma" [level=2] [ref=f7e51]
+            - generic [ref=f7e52]:
+              - paragraph [ref=f7e53]:
+                - strong [ref=f7e54]: Idioma
+                - generic [ref=f7e55]: Português (Brasil)
+              - paragraph [ref=f7e56]:
+                - strong [ref=f7e57]: Histórico de dados
+                - generic [ref=f7e58]: 1000 entradas
+              - button "Restaurar retenção padrão" [ref=f7e59] [cursor=pointer]
+  - generic "Área de sobreposições"

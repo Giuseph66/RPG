@@ -1,0 +1,97 @@
+- generic [ref=f4e3]:
+  - link [aria-hidden] [ref=f4e58] [cursor=pointer]:
+    - /url: "#main-content"
+    - text: Pular para o conteúdo
+  - banner [aria-hidden] [ref=f4e59]:
+    - generic [ref=f4e6]:
+      - button [ref=f4e60] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e9]: ⚄
+        - generic [ref=f4e10]:
+          - generic [ref=f4e11]: Mesa de campanha
+          - generic [ref=f4e12]: Nenhum personagem ativo
+      - generic [ref=f4e13]: Escolha uma ficha para começar
+      - generic [ref=f4e14]:
+        - button [ref=f4e61] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e18]: ⚄
+        - button [ref=f4e62] [cursor=pointer]:
+          - generic [ref=f4e20]: Ajustes
+  - generic [aria-hidden] [ref=f4e21]:
+    - navigation [ref=f4e63]:
+      - generic [ref=f4e23]:
+        - button [ref=f4e64] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e25]: ◈
+          - generic [ref=f4e26]: Personagem
+        - button [ref=f4e65] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e28]: ✦
+          - generic [ref=f4e29]: Ações
+        - button [ref=f4e66] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e31]: ⌁
+          - generic [ref=f4e32]: Jornada
+        - button [ref=f4e67] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e34]: ♜
+          - generic [ref=f4e35]: Compêndio
+      - button [ref=f4e68] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e38]: ⚙
+        - generic [ref=f4e39]: Configurações
+    - main [ref=f4e40]:
+      - region [ref=f4e69]:
+        - paragraph [ref=f4e43]: PRIMEIRA RODADA
+        - heading [level=1] [ref=f4e70]: Abra sua mesa
+        - paragraph [ref=f4e45]: Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.
+        - generic [ref=f4e46]:
+          - button [ref=f4e71] [cursor=pointer]:
+            - generic [ref=f4e48]: Criar personagem
+          - button [ref=f4e72] [cursor=pointer]:
+            - generic [ref=f4e50]: Importar backup
+        - region [ref=f4e73]:
+          - heading [level=2] [ref=f4e74]: Sem personagem ativo
+          - generic [ref=f4e54]:
+            - paragraph [ref=f4e55]: Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.
+            - button [ref=f4e75] [cursor=pointer]:
+              - generic [ref=f4e57]: Abrir Compêndio
+  - generic "Área de sobreposições":
+    - dialog [ref=f4e77]:
+      - generic [ref=f4e78]:
+        - heading "Dados" [level=2] [ref=f4e79]
+        - button "Fechar" [ref=f4e80] [cursor=pointer]:
+          - generic [ref=f4e81]: ×
+      - generic [ref=f4e85]:
+        - paragraph [ref=f4e86]: "Fonte: header"
+        - generic [ref=f4e87]:
+          - generic [ref=f4e88]: Expressão dos dados
+          - paragraph [ref=f4e89]: Use NdF, NdF + M ou NdF - M.
+          - textbox "Expressão dos dados" [active] [ref=f4e90]: 1d20
+        - generic [ref=f4e91]:
+          - generic [ref=f4e92]:
+            - generic [ref=f4e93]: Quantidade
+            - spinbutton "Quantidade" [ref=f4e94]: "1"
+          - generic [ref=f4e95]:
+            - generic [ref=f4e96]: Faces
+            - combobox "Faces" [ref=f4e97]:
+              - option "d4"
+              - option "d6"
+              - option "d8"
+              - option "d10"
+              - option "d12"
+              - option "d20" [selected]
+              - option "d100"
+          - generic [ref=f4e98]:
+            - generic [ref=f4e99]: Modificador
+            - spinbutton "Modificador" [ref=f4e100]: "0"
+        - generic [ref=f4e102]:
+          - generic [ref=f4e103]: Modo
+          - combobox "Modo" [ref=f4e104]:
+            - option "Normal" [selected]
+            - option "Vantagem"
+            - option "Desvantagem"
+        - paragraph [ref=f4e105]: O resultado aparecerá aqui.
+        - region [ref=f4e106]:
+          - heading "Histórico" [level=3] [ref=f4e107]
+          - list [ref=f4e108]:
+            - listitem [ref=f4e109]:
+              - generic [ref=f4e110]:
+                - strong [ref=f4e111]: 1d20
+                - generic [ref=f4e112]: 8 → 8
+              - button "Rolar novamente" [ref=f4e113] [cursor=pointer]
+        - status [ref=f4e115]
+      - button "Rolar dados" [ref=f4e117] [cursor=pointer]

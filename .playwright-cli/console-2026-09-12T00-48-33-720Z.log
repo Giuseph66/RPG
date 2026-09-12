@@ -1,0 +1,3 @@
+[     216ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5183/favicon.ico:0
+[   10967ms] [ERROR] Failed to load resource: the server responded with a status of 503 () @ http://127.0.0.1:5183/assets/index-BRuAVSBb.js:0
+[   10968ms] [ERROR] Failed to load resource: the server responded with a status of 503 () @ http://127.0.0.1:5183/assets/index-DjC96jkX.css:0

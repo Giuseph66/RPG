@@ -1,0 +1,30 @@
+.mapViewer { display: grid; gap: var(--spacing-lg); padding: var(--spacing-lg); color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-surface); }
+.heading { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-lg); }
+.heading h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.4rem, 3vw, 2rem); }
+.eyebrow { margin: 0 0 var(--spacing-xs); color: var(--color-primary); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.controls { display: flex; align-items: center; gap: var(--spacing-xs); }
+.zoomValue { min-width: 3.5rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; text-align: center; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 19rem); gap: var(--spacing-lg); align-items: start; }
+.mapColumn { display: grid; gap: var(--spacing-sm); min-width: 0; }
+.mapActions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.surface { position: relative; min-height: 22rem; overflow: hidden; isolation: isolate; background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-control); outline: none; cursor: grab; }
+.surface:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 38%, transparent); }
+.panning { cursor: grabbing; }
+.canvas { position: absolute; inset: 0; transform-origin: 0 0; }
+.image { display: block; width: 100%; height: 100%; min-height: 22rem; object-fit: contain; user-select: none; pointer-events: none; }
+.marker { position: absolute; z-index: 1; display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; transform: translate(-50%, -50%); border: 2px solid var(--color-on-primary); border-radius: 50%; background: var(--color-primary); color: var(--color-on-primary); box-shadow: 0 2px 7px rgb(0 0 0 / 28%); cursor: pointer; }
+.marker:focus-visible, .marker:hover, .selectedMarker { outline: 3px solid color-mix(in srgb, var(--color-primary) 55%, white); outline-offset: 2px; }
+.groupPosition { position: absolute; z-index: 1; transform: translate(-50%, -50%); color: var(--color-text); font-size: 2rem; text-shadow: 0 1px 4px var(--color-surface); pointer-events: none; }
+.emptyImage { display: grid; justify-items: start; gap: var(--spacing-sm); min-height: 22rem; align-content: center; padding: var(--spacing-xl); color: var(--color-text-muted); }
+.emptyImage strong { color: var(--color-text); }
+.markerPanel { display: grid; gap: var(--spacing-md); padding: var(--spacing-md); background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.panelHeading { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
+.panelHeading h2 { margin: 0; font-size: 1rem; }
+.panelHeading span { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.markerList { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; }
+.markerListButton { display: flex; align-items: center; gap: var(--spacing-sm); width: 100%; min-height: var(--size-touch-target); padding: var(--spacing-xs) var(--spacing-sm); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.markerListButton:hover, .markerListButton:focus-visible, .markerListButton[aria-current="true"] { border-color: var(--color-primary); background: var(--color-surface); outline: none; }
+.markerDot { color: var(--color-primary); font-size: 1.25rem; line-height: 1; }
+.muted, .help { margin: 0; color: var(--color-text-muted); font-size: .82rem; }
+.help { font-size: .76rem; }
+@media (max-width: 760px) { .heading { align-items: start; flex-direction: column; } .layout { grid-template-columns: 1fr; } .surface, .image, .emptyImage { min-height: 18rem; } }

@@ -18,7 +18,7 @@ function loadedPack() {
 describe("resolveSpell", () => {
   it("id inexistente -> not-found", () => {
     const pack = loadedPack();
-    const result = resolveSpell(pack, { rulesetId: asRulesetId("phb-ptbr-local-2017"), entityId: asEntityId("fireball") });
+    const result = resolveSpell(pack, { rulesetId: asRulesetId("phb-ptbr-local-2017"), entityId: asEntityId("spell-not-in-catalog") });
     expect(isErr(result)).toBe(true);
     if (isErr(result)) {
       expect(result.error.code).toBe("not-found");

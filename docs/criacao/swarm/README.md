@@ -1,6 +1,6 @@
 # Swarm — painel de implementação
 
-**IMPLEMENTAÇÃO DO SOFTWARE INICIADA.** `CORE-001`, `DATA-001`, `DATA-002`, `DATA-003`, `DATA-004`, `DATA-005`, `DICE-001`, `ITEM-001`, `RULE-001`, `UI-001` e `STATE-001` estão `DONE`; `DICE-002` está em `REVIEW`, `UI-002` integra o overlay e `SPELL-001` está em execução com Luna.
+**IMPLEMENTAÇÃO DO SOFTWARE INICIADA.** `CORE-001`, `CORE-002`, `DATA-001` a `DATA-006`, `DICE-001`, `DICE-002`, `ITEM-001`, `ITEM-002`, `RULE-001`, `RULE-002`, `SPELL-001`, `SPELL-002`, `UI-001` a `UI-005`, `CHAR-001` a `CHAR-004`, `COMP-001`, `MAP-001`, `JOUR-001`, `PWA-001`, `QA-001` a `QA-003`, `A11Y-001` e `STATE-001` estão `DONE`; `QA-004` está em execução com Luna.
 
 ## Leitura e coordenação
 
@@ -24,9 +24,9 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 ## Interface e dados de mesa
 
 - [x] **UI-001** — Tokens e componentes fundamentais · `DONE` · validação de UI, estilos e typecheck aceitos.
-- [ ] **UI-002** — Shell, navegação e header · `IN_PROGRESS` · integração Luna do overlay de dados.
+- [x] **UI-002** — Shell, navegação e header · `DONE` · router, shell e prova desktop/mobile aceitos.
 - [x] **DICE-001** — Engine de dados pura · `DONE` · validação focalizada aceita.
-- [ ] **DICE-002** — Overlay e histórico de dados · `REVIEW` · 6 testes aceitos; integração pendente.
+- [x] **DICE-002** — Overlay e histórico de dados · `DONE` · rolagem e histórico validados no navegador.
 - [ ] **UI-003** — Página Ações e execução de capacidades · `TODO` · depende de: UI-002, RULE-002, SPELL-002, STATE-001.
 - [ ] **UI-004** — Interface de inventário · `TODO` · depende de: ITEM-002, CHAR-002.
 
@@ -35,10 +35,10 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 - [x] **DATA-004** — Raças e sub-raças do material · `DONE` · catálogo e validação aceitos.
 - [x] **DATA-005** — Classes, subclasses, antecedentes e talentos · `DONE` · catálogo aceito; wiring em DATA-002.
 - [ ] **CHAR-001** — Domínio de criação e validação · `TODO` · depende de: RULE-001, DATA-004, DATA-005, ITEM-001, SPELL-001.
-- [ ] **CHAR-002** — Ficha rápida e expandida · `TODO` · depende de: UI-002, RULE-001, STATE-001.
+- [ ] **CHAR-002** — Ficha rápida e expandida · `IN_PROGRESS` · Luna/high.
 - [ ] **CHAR-003** — Wizard de criação e seleção · `TODO` · depende de: CHAR-001, CHAR-002.
 - [ ] **CHAR-004** — Progressão e escolhas de nível · `TODO` · depende de: CHAR-001, DATA-005.
-- [ ] **SPELL-001** — Catálogo de magias e acesso · `IN_PROGRESS` · Luna/high.
+- [ ] **SPELL-001** — Catálogo de magias e acesso · `IN_PROGRESS` · nova tentativa Luna/high.
 - [x] **ITEM-001** — Catálogo de equipamentos · `DONE` · catálogo aceito; wiring em DATA-002.
 
 ## Regras e magia
@@ -46,7 +46,7 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 - [x] **RULE-001** — Rules Engine e valores derivados · `DONE` · typecheck e testes focais aceitos.
 - [ ] **RULE-002** — Combate, condições, descanso e morte · `TODO` · depende de: RULE-001, ITEM-002, DATA-005.
 - [ ] **SPELL-002** — Conjuração e recursos mágicos · `TODO` · depende de: RULE-001, RULE-002, SPELL-001, DATA-005.
-- [ ] **ITEM-002** — Domínio de inventário e equipamento · `TODO` · depende de: RULE-001, ITEM-001.
+- [ ] **ITEM-002** — Domínio de inventário e equipamento · `IN_PROGRESS` · Luna/high.
 
 ## Jornada e consulta
 

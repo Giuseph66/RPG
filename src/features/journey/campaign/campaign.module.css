@@ -1,0 +1,31 @@
+.workspace { display: grid; gap: var(--spacing-lg); }
+.panel, .records { display: grid; gap: var(--spacing-lg); padding: var(--spacing-lg); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-surface); }
+.heading, .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-md); }
+.heading h1, .sectionHeading h2 { margin: 0; font-family: var(--typography-display-font-family); }
+.sectionHeading h2 { font-size: 1.25rem; }
+.eyebrow { margin: 0 0 var(--spacing-xs); color: var(--color-primary); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.active { color: var(--color-primary); font-size: .84rem; }
+.campaignList, .records { display: grid; gap: var(--spacing-sm); }
+.campaignCard, .activeCampaign { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.activeCampaign { border-color: var(--color-primary); }
+.campaignCard button:first-child, .activeCampaign button:first-child { display: grid; flex: 1; gap: 2px; padding: var(--spacing-xs); border: 0; background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.campaignCard button:first-child:hover, .campaignCard button:first-child:focus-visible, .activeCampaign button:first-child:hover, .activeCampaign button:first-child:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.campaignCard button:first-child span, .activeCampaign button:first-child span { color: var(--color-text-muted); font-size: .8rem; }
+.createForm { display: grid; gap: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px solid var(--color-border); }
+.createForm h2 { margin: 0; font-size: 1.05rem; }
+.field { display: grid; gap: var(--spacing-xs); }
+.field span, .deletionOptions label > span { color: var(--color-text); font-size: .88rem; font-weight: 600; }
+.field textarea, .deletionOptions select { width: 100%; resize: vertical; }
+.deletionOptions { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); background: var(--color-surface-elevated); border-radius: var(--radius-control); }
+.deletionOptions label:first-child { display: grid; gap: var(--spacing-xs); }
+.checkbox { display: flex; align-items: start; gap: var(--spacing-sm); color: var(--color-text-muted); font-size: .8rem; }
+.checkbox input { margin-top: .2rem; }
+.records { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.records > section { display: grid; gap: var(--spacing-md); }
+.recordList { display: grid; gap: var(--spacing-sm); margin: 0; padding: 0; list-style: none; }
+.objectiveList { display: grid; gap: var(--spacing-xs); margin: 0; padding-left: 1.2rem; color: var(--color-text-muted); }
+.recordList li { display: flex; justify-content: space-between; gap: var(--spacing-md); padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.recordList p { margin: var(--spacing-xs) 0; color: var(--color-text-muted); font-size: .82rem; }
+.recordMeta, .muted { color: var(--color-text-muted); font-size: .78rem; }
+.muted { margin: 0; }
+@media (max-width: 700px) { .records { grid-template-columns: 1fr; } .panel, .records { padding: var(--spacing-md); } .campaignCard, .activeCampaign { align-items: stretch; flex-direction: column; } }

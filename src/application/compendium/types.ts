@@ -1,0 +1,145 @@
+import type { AnyDefinition } from "@data/rulepacks/lookup";
+import type { RulePack } from "@domain/contracts/definitions/rulepack";
+import type { EntityType, PackVersion, RulesetId, RulesetRef, TypedDefinitionRef } from "@domain/contracts/ids";
+import type { SourceRef } from "@domain/contracts/primitives";
+
+export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras";
+
+export type CompendiumCategoryStatus = "available" | "pending";
+
+export interface CompendiumCategory {
+  readonly id: CompendiumCategoryId;
+  readonly label: string;
+  readonly status: CompendiumCategoryStatus;
+  readonly targetId?: CompendiumCategoryId;
+}
+
+export const COMPENDIUM_CATEGORIES: readonly CompendiumCategory[] = [
+  { id: "rules", label: "Regras", status: "pending" },
+  { id: "combat", label: "Combate", status: "pending" },
+  { id: "condition", label: "Condições", status: "available" },
+  { id: "attributes", label: "Atributos", status: "pending" },
+  { id: "skills", label: "Perícias", status: "pending" },
+  { id: "race", label: "Raças", status: "available" },
+  { id: "subrace", label: "Sub-raças", status: "available" },
+  { id: "class", label: "Classes", status: "available" },
+  { id: "subclass", label: "Subclasses", status: "available" },
+  { id: "background", label: "Antecedentes", status: "available" },
+  { id: "equipment", label: "Equipamentos", status: "available" },
+  { id: "weapons", label: "Armas", status: "pending", targetId: "equipment" },
+  { id: "armor", label: "Armaduras", status: "pending", targetId: "equipment" },
+  { id: "feat", label: "Talentos", status: "available" },
+  { id: "spell", label: "Magia", status: "available" },
+  { id: "resource", label: "Recursos", status: "available" },
+  { id: "feature", label: "Características", status: "available" },
+  { id: "progression", label: "Progressão", status: "available" },
+  { id: "rest", label: "Descanso", status: "pending" },
+  { id: "movement", label: "Movimentação", status: "pending" },
+  { id: "adventure", label: "Aventura", status: "pending" },
+];
+
+/** Visual aliases resolve to the same canonical destination and never duplicate a definition. */
+export const COMPENDIUM_CATEGORY_ALIASES: Readonly<Record<string, CompendiumCategoryId>> = {
+  regras: "rules",
+  rule: "rules",
+  rules: "rules",
+  magia: "spell",
+  magias: "spell",
+  truques: "spell",
+  spells: "spell",
+  cantrips: "spell",
+  races: "race",
+  classes: "class",
+  backgrounds: "background",
+  equipment: "equipment",
+  condicoes: "condition",
+  conditions: "condition",
+};
+
+export interface CompendiumCatalogItem {
+  readonly entityType: EntityType;
+  readonly definition: AnyDefinition;
+  readonly ruleset: RulesetRef;
+  readonly aliases?: readonly string[];
+  readonly summary?: string;
+}
+
+export interface CompendiumIndexEntry {
+  readonly key: string;
+  readonly ref: TypedDefinitionRef;
+  readonly ruleset: RulesetRef;
+  readonly category: CompendiumCategoryId;
+  readonly title: string;
+  readonly aliases: readonly string[];
+  readonly tags: readonly string[];
+  readonly summary?: string;
+  readonly sourceRefs: readonly SourceRef[];
+}
+
+export interface CompendiumDetail extends CompendiumIndexEntry {
+  readonly definition: AnyDefinition;
+}
+
+export interface CompendiumFilters {
+  readonly query: string;
+  readonly category?: CompendiumCategoryId;
+  readonly tag?: string;
+  readonly favoriteOnly?: boolean;
+}
+
+export interface CompendiumSearchResult {
+  readonly entries: readonly CompendiumIndexEntry[];
+  readonly filters: CompendiumFilters;
+}
+
+export interface CompendiumFavoriteRef {
+  readonly rulesetId: RulesetId;
+  readonly rulesetVersion: PackVersion;
+  readonly entityType: EntityType;
+  readonly entityId: string;
+}
+
+export interface CompendiumFavoriteState {
+  readonly ref: CompendiumFavoriteRef;
+  readonly key: string;
+  readonly exists: boolean;
+  readonly entry?: CompendiumIndexEntry;
+}
+
+export interface CompendiumCategoryState {
+  readonly category: CompendiumCategory;
+  readonly status: "idle" | "loading" | "loaded" | "pending" | "error";
+  readonly entries: readonly CompendiumIndexEntry[];
+  readonly error?: string;
+}
+
+export interface CompendiumLoader {
+  (category: EntityType): Promise<readonly CompendiumCatalogItem[]>;
+}
+
+export interface CompendiumServiceOptions {
+  readonly items?: readonly CompendiumCatalogItem[];
+  readonly packs?: readonly RulePack[];
+  readonly pendingCategories?: readonly CompendiumCategoryId[];
+  readonly loadCategory?: CompendiumLoader;
+  readonly initialFavorites?: readonly CompendiumFavoriteRef[];
+}
+
+export type CompendiumError =
+  | { readonly code: "not-found"; readonly message: string; readonly entity: "definition" | "category"; readonly id: string }
+  | { readonly code: "category-pending"; readonly message: string; readonly category: CompendiumCategoryId }
+  | { readonly code: "category-load-failed"; readonly message: string; readonly category: CompendiumCategoryId };
+
+export function favoriteKey(ref: CompendiumFavoriteRef): string {
+  return `${ref.rulesetId}@${ref.rulesetVersion}:${ref.entityType}:${ref.entityId}`;
+}
+
+export function referenceFromEntry(entry: CompendiumIndexEntry): CompendiumFavoriteRef {
+  return { rulesetId: entry.ruleset.id, rulesetVersion: entry.ruleset.version, entityType: entry.ref.entityType, entityId: String(entry.ref.entityId) };
+}
+
+export function canonicalCategory(category: string | undefined): CompendiumCategoryId | undefined {
+  if (!category) return undefined;
+  const normalized = category.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  return COMPENDIUM_CATEGORY_ALIASES[normalized] ?? (COMPENDIUM_CATEGORIES.some((candidate) => candidate.id === normalized) ? normalized as CompendiumCategoryId : undefined);
+}

@@ -1,8 +1,19 @@
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { click, mount } from "@components/ui/testUtils";
-import { asUuid } from "@domain/contracts/ids";
+import { asIsoTimestamp, asUuid } from "@domain/contracts/ids";
+import { minimalCharacter } from "@domain/contracts/fixtures";
 import type { Character } from "@domain/contracts/character";
 import { createDiceOverlayController } from "@features/dice";
+import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
+import { equipmentBundles } from "@data/equipment/bundles";
+import { createCharacterDraft } from "@domain/character/creation";
+import { Compendium } from "@features/compendium";
+import { Actions } from "@features/actions";
+import { CharacterSheet } from "@features/character/sheet";
+import { CharacterProgression } from "@features/character/progression";
+import { CharacterCreationWizard } from "@features/character/creation";
+import { CharacterSelection } from "@features/character/selection";
 import { AppShell } from "./AppShell";
 import { matchRoute } from "@app/routes";
 
@@ -25,6 +36,7 @@ describe("AppShell", () => {
     expect(mounted.container.querySelector("h1")).toBe(document.activeElement);
     await click(mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')!);
     expect(onOpenDice).toHaveBeenCalledTimes(1);
+    expect(mounted.container.querySelector('[aria-label="Área de sobreposições"] [role="dialog"]')).toBeNull();
     await mounted.unmount();
   });
 
@@ -70,6 +82,30 @@ describe("AppShell", () => {
       await mounted.unmount();
     } finally {
       Object.defineProperty(window, "matchMedia", { configurable: true, value: previousMatchMedia });
+    }
+  });
+
+  it("keeps exactly one <main> landmark per route, even when the routed feature owns a top-level section", async () => {
+    const loaded = loadPhbPtBrLocal2017();
+    if (!loaded.ok) throw new Error(loaded.error.message);
+    const rulePack = loaded.value;
+    const rulesetRef = minimalCharacter.rulesetRef;
+    const draftResult = createCharacterDraft({ id: asUuid("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), rulesetRef, createdAt: asIsoTimestamp("2024-01-01T00:00:00.000Z") });
+    if (!draftResult.ok) throw new Error(draftResult.error.message);
+
+    const routedChildren: readonly { readonly label: string; readonly node: ReactElement }[] = [
+      { label: "Compendium", node: <Compendium entries={[]} /> },
+      { label: "Actions", node: <Actions character={minimalCharacter} /> },
+      { label: "CharacterSheet", node: <CharacterSheet character={minimalCharacter} /> },
+      { label: "CharacterProgression", node: <CharacterProgression character={minimalCharacter} catalog={rulePack} onApplyLevelUp={vi.fn()} /> },
+      { label: "CharacterCreationWizard", node: <CharacterCreationWizard draft={draftResult.value} catalog={{ rulePack, equipmentBundles }} /> },
+      { label: "CharacterSelection", node: <CharacterSelection drafts={[{ id: asUuid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"), currentStep: "class", updatedAt: asIsoTimestamp("2024-01-01T00:00:00.000Z") }]} /> },
+    ];
+
+    for (const { label, node } of routedChildren) {
+      const mounted = await mount(<AppShell route={matchRoute("/")} navigate={vi.fn()}>{node}</AppShell>);
+      expect(mounted.container.querySelectorAll("main"), `${label} should not add a second <main> inside AppShell's own landmark`).toHaveLength(1);
+      await mounted.unmount();
     }
   });
 });
