@@ -3,7 +3,7 @@ import type { EntityType } from "@domain/contracts/ids";
 import { catalogItemsFromPacks, buildCompendiumIndex, categoryEntries, createIndexEntry, itemKey } from "./indexer";
 import { CompendiumFavorites } from "./favorites";
 import { searchCompendium } from "./search";
-import { canonicalCategory, COMPENDIUM_CATEGORIES, type CompendiumCategory, type CompendiumCategoryId, type CompendiumCategoryState, type CompendiumDetail, type CompendiumError, type CompendiumFilters, type CompendiumIndexEntry, type CompendiumFavoriteState, type CompendiumServiceOptions } from "./types";
+import { canonicalCategory, COMPENDIUM_CATEGORIES, type CompendiumCatalogItem, type CompendiumCategory, type CompendiumCategoryId, type CompendiumCategoryState, type CompendiumDetail, type CompendiumError, type CompendiumFilters, type CompendiumIndexEntry, type CompendiumFavoriteState, type CompendiumReference, type CompendiumServiceOptions, type LegacyCompendiumDetailReference, type StaticCompendiumReference, type StaticCompendiumCategory } from "./types";
 
 export type CompendiumResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: CompendiumError };
 
@@ -16,7 +16,10 @@ export class CompendiumService {
   private readonly loadedCategories = new Set<CompendiumCategoryId>();
 
   constructor(options: CompendiumServiceOptions = {}) {
-    const items = options.items ?? (options.packs ? catalogItemsFromPacks(options.packs) : []);
+    const items: readonly CompendiumCatalogItem[] = [
+      ...(options.packs ? catalogItemsFromPacks(options.packs) : []),
+      ...(options.items ?? []),
+    ];
     this.index = buildCompendiumIndex(items);
     items.forEach((item) => { const entry = createIndexEntry(item); this.entriesByKey.set(entry.key, { entry, definition: item.definition }); });
     this.favorites = new CompendiumFavorites(options.initialFavorites);
@@ -25,7 +28,18 @@ export class CompendiumService {
   }
 
   getIndex(): readonly CompendiumIndexEntry[] { return this.index; }
-  getCategories(): readonly CompendiumCategory[] { return COMPENDIUM_CATEGORIES.map((category) => this.loadedCategories.has(category.id) ? { ...category, status: "available" } : this.pending.has(category.id) ? { ...category, status: "pending" } : category); }
+  getCategories(): readonly CompendiumCategory[] {
+    return COMPENDIUM_CATEGORIES.map((category) => {
+      const hasEntries = categoryEntries(this.index, category.id).length > 0;
+      return this.loadedCategories.has(category.id) || hasEntries
+        ? { ...category, status: "available" }
+        : this.pending.has(category.id)
+          ? { ...category, status: "pending" }
+          : category.status === "available"
+            ? { ...category, status: "pending" }
+            : category;
+    });
+  }
 
   search(filters: Partial<CompendiumFilters> = {}) {
     const base = searchCompendium(this.index, filters);
@@ -33,9 +47,17 @@ export class CompendiumService {
     return { entries, filters: base.filters };
   }
 
-  getDetail(ref: { readonly rulesetId: string; readonly entityType: EntityType; readonly entityId: string; readonly version?: string }): CompendiumResult<CompendiumDetail> {
-    const key = `${ref.rulesetId}@${ref.version ?? ""}:${ref.entityType}:${ref.entityId}`;
-    const found = this.entriesByKey.get(key) ?? (ref.version === undefined ? [...this.entriesByKey.values()].find(({ entry }) => String(entry.ref.rulesetId) === ref.rulesetId && entry.ref.entityType === ref.entityType && String(entry.ref.entityId) === ref.entityId) : undefined);
+  getDetail(ref: CompendiumReference | LegacyCompendiumDetailReference | { readonly kind: "static"; readonly rulesetId: string; readonly category: StaticCompendiumCategory; readonly entityId: string; readonly version?: string }): CompendiumResult<CompendiumDetail> {
+    const isStatic = (value: typeof ref): value is StaticCompendiumReference & { readonly version?: string } => "kind" in value && value.kind === "static";
+    const version = "version" in ref && ref.version ? ref.version : "";
+    const requestedVersion = "version" in ref ? ref.version : undefined;
+    const key = isStatic(ref)
+      ? `${ref.rulesetId}@${version}:static:${ref.category}:${ref.entityId}`
+      : `${ref.rulesetId}@${version}:${"entityType" in ref ? ref.entityType : ""}:${ref.entityId}`;
+    const found = this.entriesByKey.get(key) ?? (requestedVersion === undefined ? [...this.entriesByKey.values()].find(({ entry }) => {
+      if (String(entry.ref.rulesetId) !== ref.rulesetId || String(entry.ref.entityId) !== ref.entityId) return false;
+      return isStatic(ref) ? entry.ref.kind === "static" && entry.ref.category === ref.category : entry.ref.kind !== "static" && "entityType" in ref && entry.ref.entityType === ref.entityType;
+    }) : undefined);
     if (!found) return { ok: false, error: { code: "not-found", entity: "definition", id: ref.entityId, message: `Definição "${ref.entityId}" não encontrada no pack local.` } };
     return { ok: true, value: { ...found.entry, definition: found.definition } };
   }
@@ -48,7 +70,8 @@ export class CompendiumService {
   async loadCategory(requested: string): Promise<CompendiumResult<CompendiumCategoryState>> {
     const category = canonicalCategory(requested);
     if (!category) return { ok: false, error: { code: "not-found", entity: "category", id: requested, message: `Categoria "${requested}" não existe.` } };
-    if (this.pending.has(category)) {
+    const hasEntries = this.index.some((entry) => entry.category === category);
+    if (this.pending.has(category) && !hasEntries) {
       if (!this.loader || !["race", "subrace", "class", "subclass", "background", "feat", "feature", "resource", "condition", "equipment", "spell", "progression", "character-template"].includes(category)) return { ok: true, value: { category: this.getCategories().find((candidate) => candidate.id === category) ?? { id: category, label: category, status: "pending" }, status: "pending", entries: [] } };
       try {
         const items = await this.loader(category as EntityType);
@@ -67,7 +90,6 @@ export class CompendiumService {
   }
 }
 
-import type { CompendiumCatalogItem } from "./types";
 interface CompendiumCatalogRecord { readonly entry: CompendiumIndexEntry; readonly definition: CompendiumCatalogItem["definition"] }
 
 export function createCompendiumService(options: CompendiumServiceOptions = {}): CompendiumService { return new CompendiumService(options); }

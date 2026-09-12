@@ -499,10 +499,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `COMP-001`
 - Título: Compêndio local e favoritos.
-- Status: `DONE` — revisão focal aceita em `2026-09-11T19:21:00-04:00`.
-- Responsável: `/root/build_campaign_map` (lane reutilizada).
-- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
-- Evidência: `npx vitest run src/application/compendium src/features/compendium` passou (8/8); `npm run typecheck` e `git diff --check` passaram.
+- Status: `DONE` — cobertura do catálogo aceita em 2026-09-12 após publicar as nove categorias que antes apareciam como `Pendente`.
+- Responsável: `/root/build_campaign_map`, `/root/build_combat_rules`, `/root/publish_rules_and_rest`, `/root/publish_combat_movement_adventure` e coordenador (integração/QA).
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high; revisão independente Claude Code `claude-sonnet`.
+- Evidência: o catálogo passou de 1.319 para 1.383 entradas únicas: Regras (9), Combate (9), Atributos (6), Perícias (18), Descanso (6), Movimentação (7) e Aventura (9); Armas (37) e Armaduras (13) são recortes dos equipamentos. `QA-004-revalidacao-cobertura-compendio-2026-09-12.md` registra 24/24 testes focais, 533/533 completos, typecheck, build, diff check e smoke em 5183. Aventura declara cobertura mecânica parcial, sem campanhas, PNJs, mapas ou procedimentos do Mestre.
 - Prioridade: P1.
 - Dependências: UI-002, RULE-002, DATA-004, DATA-005, SPELL-001, ITEM-001.
 - Bloqueia: CORE-002, PWA-001.
@@ -518,10 +518,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CORE-002`
 - Título: Integrar features e serviços reais.
-- Status: `DONE` — registry e adoção por bootstrap/router aceitos em `2026-09-11T19:34:00-04:00`.
-- Responsável: `/root/build_combat_rules` (lane reutilizada).
-- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
-- Evidência: `npx vitest run src/app/bootstrap.test.tsx src/app/router.test.tsx src/app/feature-registry.test.ts` passou (7/7); `npm run typecheck` e `git diff --check` passaram. Pendências de dispatcher/read model são mostradas na UI, sem fixtures.
+- Status: `DONE` — R3-02 aceito na rodada 5 de QA-004 em 2026-09-12: campanha persistida é restaurada e exibida após reload.
+- Responsável: `/root/build_combat_rules`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
+- Evidência: testes focais de bootstrap/campanha passaram (16/16), typecheck e diff check passaram; QA-004 rodada 5 confirmou no build que a campanha permanece ativa após reload.
 - Prioridade: P0.
 - Dependências: DICE-002, CHAR-003, CHAR-004, UI-003, UI-004, MAP-001, JOUR-001, COMP-001.
 - Bloqueia: PWA-001, UI-005, QA-002.
@@ -594,10 +594,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `A11Y-001`
 - Título: Auditoria de acessibilidade.
-- Status: `DONE` — foco real corrigido e revisão aceita em `2026-09-11T20:12:00-04:00`.
-- Responsável: `/root/build_character_creation_wizard` (lane reutilizada).
-- Lane/modelo/esforço: Codex `gpt-5.6-luna` / `high`; Claude Code indisponível.
-- Evidência: 15 testes focais AppModal/DiceOverlay/a11y passaram; Chromium confirmou retorno do foco ao acionador em 5174; `npm run typecheck` e `git diff --check` passaram. Limites estão em `docs/implementacao/acessibilidade/A11Y-001.md`.
+- Status: `DONE` — R3-03/R4-01 aceitos na rodada 5 de QA-004 em 2026-09-12: mount frio alcança o skip link e navegação interna foca o novo título.
+- Responsável: `/root/fix_initial_skip_focus`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / medium.
+- Evidência: 9 testes focais AppShell/a11y passaram, typecheck e diff check passaram; QA-004 confirmou no Chromium o primeiro Tab, foco no novo título e retorno do diálogo. Limites estão em `docs/implementacao/acessibilidade/A11Y-001.md`.
 - Prioridade: P1.
 - Dependências: UI-005.
 - Bloqueia: QA-004.
@@ -670,11 +670,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-004`
 - Título: Aceite final integrado.
-- Status: `IN_PROGRESS` — achados #2 e #3 corrigidos e provados ao vivo (2026-09-11T22:20-04:00): `<main>` duplicado resolvido nos 6 componentes (troca para `<section aria-labelledby>`), `tests/acceptance/acceptance-matrix.sh` sai `EXIT 0`; `public/pwa-worker.js` usa `cache.match(request, {ignoreVary:true})`, reload offline após cache quente deixou de renderizar em branco. Achado #1 parcialmente corrigido pelo coordenador: `createInventoryDispatcher`/`createActionDispatcher`/`deriveActionCapabilities` implementados (`src/application/character/{inventory-dispatcher,action-dispatcher,action-capabilities}.ts`) e ligados em `src/app/bootstrap.tsx`/`src/app/router.tsx`; corrigido também um bug pré-existente de CORE-001 descoberto na verificação (`bootstrap.tsx` chamava `character.hydrate(id)` em vez de `character.select(id)` no boot — personagem ativo nunca era restaurado ao recarregar). Provado ao vivo (teste de integração jsdom+fake-indexeddb com boot real, descartado após uso): personagem carrega, banners "pendente" de ações/inventário somem, 4 capacidades reais aparecem (dano/cura/descanso curto/longo), clicar "Descanso curto"→confirmar persiste de verdade (revisão incrementa em nova conexão). Pendente ainda: criação de personagem (`CreationWizardService` nunca implementado), `CharacterSelection`/`DataManagementPanel` nunca montados em nenhuma rota, dispatchers de campanha/jornada ausentes, "attack" sempre pede CA de alvo (sem alvo modelado), dano/cura manual com valor fixo (sem campo numérico na UI). QA-004 precisa reexecutar o roteiro completo antes do aceite.
+- Status: `DONE` — rodada de cobertura do Compêndio aceita em 2026-09-12; substitui a rodada 5 como prova mais recente do estado integrado.
 - Rodada 2 (2026-09-11T23:10-04:00): criação de personagem ligada de ponta a ponta pelo coordenador (`creationService` real + wizard montado em `/character/create`, provado ao vivo — "Etapa 1 de 9: Identidade"; raça/classe ficam vazias até DATA-004/005 saírem do placeholder, limitação de conteúdo, não de wiring). Dano/cura manual ganharam valor real digitável (antes fixo em 5); ataque ganhou campo de CA do alvo real (antes sempre `needsInput`). Dispatchers de Campanha/Registros/Diário implementados (`src/application/campaign/{campaign-dispatcher,campaign-record-dispatcher,journal-dispatcher}.ts`) e ligados; `CampaignPanel`/`CampaignRecords` (quests/NPCs) funcionam de graça via `campaign.quests`/`campaign.npcs` já expostos pelo componente `JourneyCampaign`. Provado ao vivo: criar campanha real → "Ativa: Campanha de teste" persistido. 520/520 testes, typecheck e build limpos.
   Pendente após rodada 2: Diário (`JournalWorkspace`/`JournalEditor`) ainda não montado no router (coleção separada da campanha, exige fetch assíncrono próprio); `CharacterSelection`/`DataManagementPanel` (export/import) nunca montados em nenhuma rota; recursos de personagem/features de classe (`spend-resource`) sem resolvedor de domínio; uso de item consumível não coberto; exclusão de campanha com conteúdo não é atômica (sem UnitOfWork); conteúdo de raças/classes/magias/equipamento ainda placeholder (DATA-004/005/SPELL-001/ITEM-001).
-- Responsável: Claude Code subagente (Agent tool) — executor QA-004; correções aplicadas por 5 subagentes + costura final pelo coordenador.
-- Lane/modelo/esforço: Claude Sonnet 5 / padrão; coordenador Claude Opus 5 / high.
+- Responsável: coordenador; revalidação e R3-01 em `/root/build_campaign_map`, R3-02 em `/root/build_combat_rules`, R3-03 em `/root/fix_initial_skip_focus`.
+- Lane/modelo/esforço: coordenador `gpt-5.6-sol` / high; Codex `gpt-5.6-luna` / medium ou high; revisão independente Claude Code `claude-sonnet`.
 - Prioridade: P0.
 - Dependências: QA-001, QA-003, A11Y-001.
 - Bloqueia: REL-001.
@@ -686,11 +686,38 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Testes: Roteiro de sessão real, orçamento de carga/compêndio/imagem, uso de memória e regressões dos achados corrigidos.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: REL-001. Passo principal: 18.
 
+### Rodada 3 — revalidação bloqueada (2026-09-12)
+
+- Evidência: `docs/implementacao/qa/QA-004-revalidacao-2026-09-12.md`. `npm test` passou (86 arquivos, 520 testes), typecheck, build e `git diff --check` passaram; preview isolado em 5183, sem uso da porta 5173; matriz de aceite saiu `0`; recarga offline do compêndio passou.
+- R3-01 — `COMP-001` reaberto para `/root/build_campaign_map`: `/compendium` recebe filtros estáticos e nenhum callback de busca/seleção; digitar `adaga` nem selecionar um resultado atualiza a UI. Ownership: `src/app/router.tsx`, testes de router/compêndio e somente os props de Compendium indispensáveis.
+- R3-02 — `CORE-002` reaberto para `/root/build_combat_rules`: campanha criada existe no IndexedDB, mas não volta ativa após reload porque o bootstrap não a hidrata. Ownership: bootstrap e serviço/testes de campanha necessários à restauração.
+- R3-03 — `A11Y-001` reaberto para `/root/fix_initial_skip_focus`: `AppShell` foca `h1#route-title` já no mount inicial; o primeiro Tab ignora o skip link. Ownership: AppShell e testes focais de acessibilidade.
+- R3-04 — risco não bloqueador: o badge de offline no compêndio é estático; a revalidação observou worker e cache ativos, mas não simulou ausência de suporte/registro. Manter explícito na entrega se não houver estado verificável.
+
+### Rodada 4 — revalidação bloqueada (2026-09-12)
+
+- Evidência: `docs/implementacao/qa/QA-004-revalidacao-rodada4-2026-09-12.md`. `npm test` passou (87 arquivos, 526 testes), typecheck, build e `git diff --check` passaram; preview isolado em 5183 e matriz de aceite saíram limpos. R3-01 (busca/detalhe do Compêndio), R3-02 (campanha após reload), R3-03 (primeiro Tab), dado persistido e PWA offline foram provados no build.
+- R4-01 — `A11Y-001` permanece reaberto para `/root/fix_initial_skip_focus`: no mount frio o skip link é correto, mas após clicar navegação interna o `h1` existe sem ser programaticamente focável, e o foco fica no botão da navegação. Ownership: AppShell e testes focais de acessibilidade; preservar os dois comportamentos.
+
+### Rodada 5 — aceite concedido (2026-09-12)
+
+- Evidência: `docs/implementacao/qa/QA-004-revalidacao-rodada5-2026-09-12.md`. `npm test` passou (87 arquivos, 526 testes), typecheck, build e `git diff --check` passaram; preview isolado em 5183 e matriz de aceite saíram limpos, sem tocar a porta 5173.
+- R4-01 aceito: no navegador real, o mount frio deixa o primeiro Tab no skip link; `/` → `/compendium` move o foco para `h1#compendium-title`; o diálogo de dados devolve foco ao abridor. Compêndio, campanha após reload, histórico de dado e PWA offline também foram provados no build.
+- Limitações não bloqueadoras para REL-001: sem backend; backup/importação e diário/anexos não estão provados na UI; plataforma móvel, leitores de tela nativos, zoom real, CAS entre abas e atualização do worker durante draft não foram exercitados. O badge offline ainda é estático fora do cenário cacheado comprovado.
+
+### Rodada 6 — cobertura do Compêndio aceita (2026-09-12)
+
+- Evidência: `docs/implementacao/qa/QA-004-revalidacao-cobertura-compendio-2026-09-12.md`. Os testes focais passaram 24/24; a suíte completa passou 88 arquivos/533 testes; typecheck, build e `git diff --check` passaram. A prévia isolada em 5183 confirmou as nove categorias sem `Pendente`, fonte e favorito de verbete estático, e subconjuntos isolados de Armas/Armaduras. A porta 5173 permaneceu intocada.
+- Aceite: `COMP-001`, `QA-004` e `REL-001` podem ser concluídos. Aventura fica declarada como cobertura mecânica parcial; o 404 local de `favicon.ico` não afetou nenhuma rota ou gate.
+
 ## REL-001 — Polimento documental e entrega futura
 
 - ID: `REL-001`
 - Título: Polimento documental e entrega futura.
-- Status: `TODO` — implementação não iniciada.
+- Status: `DONE` — artefatos de entrega atualizados após o aceite da cobertura do Compêndio em 2026-09-12.
+- Responsável: `/root/update_release_coverage_docs` e coordenador.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / medium.
+- Evidência: `docs/implementacao/entrega/{README,RELEASE-NOTES,CHECKLIST}.md` registra 1.383 entradas únicas, as nove categorias publicadas, os subconjuntos de equipamento e o escopo mecânico parcial de Aventura. A revisão preserva ambiente validado, limites de PWA/backup e não anuncia exportação pela UI.
 - Prioridade: P1.
 - Dependências: QA-004.
 - Bloqueia: nenhuma; encerra entrega.

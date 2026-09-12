@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { AppModal, LiveRegion, Tabs } from "@components/ui";
 import { MapViewer } from "@features/journey/map";
 import { click, focus, keyDown, mount } from "@components/ui/testUtils";
+import { AppShell } from "@components/layout/AppShell";
+import { matchRoute } from "@app/routes";
 
 function ModalHarness() {
   const [open, setOpen] = useState(false);
@@ -10,6 +12,27 @@ function ModalHarness() {
 }
 
 describe("A11Y-001 contratos transversais", () => {
+  it("deixa o skip link receber o primeiro Tab no mount e foca o título após navegação", async () => {
+    const { container, rerender, unmount } = await mount(<AppShell route={matchRoute("/")} navigate={() => undefined} />);
+    const title = container.querySelector("main h1");
+    const skipLink = container.querySelector(".skip-link") as HTMLAnchorElement;
+
+    expect(document.activeElement).not.toBe(title);
+    await focus(document.body);
+    await keyDown(document.body, "Tab");
+    const firstTabStop = Array.from(container.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, [tabindex]"))
+      .filter((element) => !element.hasAttribute("disabled") && element.tabIndex >= 0)[0];
+    expect(firstTabStop).toBe(skipLink);
+    if (!firstTabStop) throw new Error("AppShell rendered no keyboard tab stop");
+    await focus(firstTabStop);
+    expect(document.activeElement).toBe(skipLink);
+    await rerender(<AppShell route={matchRoute("/character")} navigate={() => undefined} />);
+    const navigatedTitle = container.querySelector("main h1") as HTMLElement | null;
+    expect(navigatedTitle?.tabIndex).toBe(-1);
+    expect(navigatedTitle).toBe(document.activeElement);
+    await unmount();
+  });
+
   it("mantém nome, modalidade, foco inicial, contenção e retorno do AppModal", async () => {
     const { container, unmount } = await mount(<ModalHarness />);
     const trigger = container.querySelector("button") as HTMLButtonElement;

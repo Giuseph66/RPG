@@ -15,6 +15,7 @@ import { IndexedDbCharacterRepository } from "@infrastructure/persistence/indexe
 import { IndexedDbDiceHistoryRepository } from "@infrastructure/persistence/indexeddb/dice-history-repository";
 import { openDatabase } from "@infrastructure/persistence/indexeddb/open-database";
 import { STORE_NAMES } from "@infrastructure/persistence/indexeddb/schema";
+import { createCampaignApplicationService } from "@application/campaign";
 import { canonicalAsset, canonicalCampaign, canonicalJournal, canonicalMap, integrationAssetId, integrationCampaignId } from "../fixtures/backups/canonical";
 
 const clock = { now: () => asIsoTimestamp("2026-01-01T00:00:00.000Z") };
@@ -73,6 +74,25 @@ describe("QA-002 sessão e persistência", () => {
     expect(unwrap(await current.campaigns.listJournalEntries(canonicalCampaign.id))).toHaveLength(1);
     expect(unwrap(await current.campaigns.listMaps(canonicalCampaign.id))[0]?.assetId).toBe(integrationAssetId);
     expect(Array.from(unwrap(await current.assets.get(integrationAssetId)).bytes)).toEqual(Array.from(canonicalAsset.bytes));
+  });
+
+  it("reabre campanha salva e hidrata a seleção do serviço em conexão nova", async () => {
+    const name = `qa-r3-02-campaign-${sequence++}`;
+    const database = unwrap(await openDatabase({ name }));
+    opened.push(database);
+    const current = repos(database);
+    expect((await current.campaigns.save(canonicalCampaign, asRevision(0))).ok).toBe(true);
+    database.close();
+
+    const reopened = unwrap(await openDatabase({ name }));
+    opened.push(reopened);
+    const service = createCampaignApplicationService({ repository: repos(reopened).campaigns });
+    const restored = await service.hydrate(canonicalCampaign.id);
+
+    expect(restored).toMatchObject({ ok: true });
+    expect(service.store.selectedId).toBe(canonicalCampaign.id);
+    expect(service.store.getSnapshot().value?.name).toBe(canonicalCampaign.name);
+    service.dispose();
   });
 
   it("demonstra CAS real entre duas conexões", async () => {

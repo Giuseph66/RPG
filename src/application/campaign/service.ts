@@ -21,8 +21,14 @@ export class CampaignApplicationService {
     return this.store.select(id);
   }
 
+  list(): ReturnType<CampaignRepository["list"]> {
+    return this.repository.list();
+  }
+
   hydrate(id?: Uuid): Promise<Result<void, AppError>> {
-    return id === undefined ? this.store.hydrate() : this.store.hydrate(id);
+    // `AggregateStore.hydrate(id)` pressupõe que o ID já esteja selecionado para
+    // publicar o snapshot. A fachada deve manter essa pré-condição explícita.
+    return id === undefined ? this.store.hydrate() : this.store.select(id);
   }
 
   update(updater: (current: Campaign) => Campaign, immediate = false): Result<Campaign, AppError> {
@@ -44,6 +50,21 @@ export class CampaignApplicationService {
   dispose(): void {
     this.store.dispose();
   }
+}
+
+/**
+ * Escolhe uma campanha persistida quando não existe preferência de seleção no contrato de
+ * settings. A ordenação não depende da ordem de `getAll()` do adapter: atualização mais recente,
+ * depois criação mais recente e, por fim, ID ascendente para desempate estável.
+ */
+export function chooseCampaignForRestore(campaigns: readonly Campaign[]): Campaign | undefined {
+  return [...campaigns].sort((left, right) => {
+    const updated = right.updatedAt.localeCompare(left.updatedAt);
+    if (updated !== 0) return updated;
+    const created = right.createdAt.localeCompare(left.createdAt);
+    if (created !== 0) return created;
+    return String(left.id).localeCompare(String(right.id));
+  })[0];
 }
 
 export function createCampaignApplicationService(options: CampaignApplicationServiceOptions): CampaignApplicationService {

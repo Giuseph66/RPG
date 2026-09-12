@@ -23,9 +23,11 @@ export class CompendiumFavorites {
     const byKey = new Map(index.map((entry) => [entry.key, entry]));
     return [...this.keys].sort().map((key) => {
       const entry = byKey.get(key);
-      const [ruleset, entityType, ...idParts] = key.split(":");
+      const [ruleset, kindOrType, categoryOrId, ...rest] = key.split(":");
       const [rulesetId, rulesetVersion] = (ruleset ?? "@").split("@");
-      const ref: CompendiumFavoriteRef = { rulesetId: rulesetId as never, rulesetVersion: rulesetVersion as never, entityType: entityType as never, entityId: idParts.join(":") };
+      const ref: CompendiumFavoriteRef = kindOrType === "static"
+        ? { kind: "static", rulesetId: rulesetId as never, rulesetVersion: rulesetVersion as never, category: categoryOrId as never, entityId: rest.join(":") }
+        : { rulesetId: rulesetId as never, rulesetVersion: rulesetVersion as never, entityType: kindOrType as never, entityId: [categoryOrId, ...rest].join(":") };
       return { ref, key, exists: entry !== undefined, entry };
     });
   }

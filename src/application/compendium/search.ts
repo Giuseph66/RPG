@@ -1,4 +1,4 @@
-import { canonicalCategory, type CompendiumFilters, type CompendiumIndexEntry, type CompendiumSearchResult } from "./types";
+import { canonicalCategory, COMPENDIUM_CATEGORIES, COMPENDIUM_CATEGORY_SUBSET_TAG, type CompendiumFilters, type CompendiumIndexEntry, type CompendiumSearchResult } from "./types";
 
 export function normalizeSearchText(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim().replace(/\s+/g, " ");
@@ -24,8 +24,11 @@ function score(entry: CompendiumIndexEntry, query: string): number | undefined {
 export function searchCompendium(index: readonly CompendiumIndexEntry[], requested: Partial<CompendiumFilters> = {}): CompendiumSearchResult {
   const filters: CompendiumFilters = { query: requested.query ?? "", category: canonicalCategory(requested.category), tag: requested.tag, favoriteOnly: requested.favoriteOnly };
   const normalizedTag = filters.tag ? normalizeSearchText(filters.tag) : undefined;
+  const categoryDescriptor = filters.category ? COMPENDIUM_CATEGORIES.find((candidate) => candidate.id === filters.category) : undefined;
+  const categoryTarget = categoryDescriptor?.targetId ?? filters.category;
+  const categorySubsetTag = filters.category ? COMPENDIUM_CATEGORY_SUBSET_TAG[filters.category] : undefined;
   const ranked = index
-    .filter((entry) => !filters.category || entry.category === filters.category || (filters.category === "equipment" && ["equipment"].includes(entry.category)))
+    .filter((entry) => !filters.category || (entry.category === categoryTarget && (!categorySubsetTag || entry.tags.includes(categorySubsetTag))))
     .filter((entry) => !normalizedTag || entry.tags.some((tag) => normalizeSearchText(tag) === normalizedTag))
     .map((entry) => ({ entry, score: score(entry, filters.query) }))
     .filter((result): result is { readonly entry: CompendiumIndexEntry; readonly score: number } => result.score !== undefined)

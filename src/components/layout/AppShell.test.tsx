@@ -33,6 +33,8 @@ describe("AppShell", () => {
     expect(mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')).toBeTruthy();
     expect(mounted.container.textContent).toContain("Nenhum personagem ativo");
     expect(mounted.container.textContent).toContain("Criar personagem");
+    expect(mounted.container.querySelector("h1")).not.toBe(document.activeElement);
+    await mounted.rerender(<AppShell route={matchRoute("/character")} navigate={vi.fn()} onOpenDice={onOpenDice} />);
     expect(mounted.container.querySelector("h1")).toBe(document.activeElement);
     await click(mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')!);
     expect(onOpenDice).toHaveBeenCalledTimes(1);

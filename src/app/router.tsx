@@ -9,6 +9,8 @@ import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { Revision } from "@domain/contracts/versioning";
 import type { StoreStatus } from "@application/state";
 import type { ActionCapability } from "@features/actions";
+import type { CompendiumCategoryId, CompendiumDetail, CompendiumFilters } from "@application/compendium";
+import { Compendium } from "@features/compendium";
 import type { FeatureRegistry } from "./feature-registry";
 import { SettingsPanel } from "@features/settings";
 import { matchRoute, type RouteMatch } from "./routes";
@@ -77,6 +79,77 @@ function campaignStatus(status: StoreStatus | undefined): "idle" | "loading" | "
   return "idle";
 }
 
+function CompendiumRoute({ registry }: { readonly registry: FeatureRegistry }): ReactNode {
+  const service = registry.compendium.service;
+  const [filters, setFilters] = useState<CompendiumFilters>({ query: "" });
+  const [selected, setSelected] = useState<CompendiumDetail | undefined>();
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [error, setError] = useState<string | undefined>();
+  const [favoriteRevision, setFavoriteRevision] = useState(0);
+  void favoriteRevision;
+
+  const search = service.search(filters);
+  const categories = service.getCategories();
+  const favorites = service.getFavorites();
+
+  const onFiltersChange = (nextFilters: CompendiumFilters) => {
+    setFilters(nextFilters);
+    setError(undefined);
+    setStatus("idle");
+  };
+
+  const onSelect = (entry: typeof search.entries[number]) => {
+    const detail = service.getDetail(entry.ref);
+    if (!detail.ok) {
+      setSelected(undefined);
+      setError(detail.error.message);
+      setStatus("error");
+      return;
+    }
+    setSelected(detail.value);
+    setError(undefined);
+    setStatus("idle");
+  };
+
+  const onToggleFavorite = (entry: typeof search.entries[number]) => {
+    service.toggleFavorite(entry);
+    setFavoriteRevision((revision) => revision + 1);
+  };
+
+  const onLoadCategory = async (category: CompendiumCategoryId) => {
+    setStatus("loading");
+    setError(undefined);
+    const result = await service.loadCategory(category);
+    if (!result.ok) {
+      setStatus("error");
+      setError(result.error.message);
+      return;
+    }
+    setStatus("idle");
+    if (result.value.status === "loaded") setFilters((current) => ({ ...current, category }));
+  };
+
+  const CompendiumComponent = registry.compendium.component ?? Compendium;
+  return (
+    <CompendiumComponent
+      {...registry.compendium.bindProps({
+        entries: search.entries,
+        categories,
+        filters,
+        selected,
+        favorites,
+        status,
+        error,
+        offline: true,
+        onFiltersChange,
+        onSelect,
+        onToggleFavorite,
+        onLoadCategory,
+      })}
+    />
+  );
+}
+
 function renderRegistryRoute(
   match: RouteMatch,
   registry: FeatureRegistry,
@@ -124,8 +197,7 @@ function renderRegistryRoute(
     return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "compendium") {
-    const Compendium = registry.compendium.component;
-    return <Compendium {...registry.compendium.bindProps({ filters: { query: "" }, offline: true, status: "idle" })} />;
+    return <CompendiumRoute registry={registry} />;
   }
   return undefined;
 }

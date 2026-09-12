@@ -26,10 +26,19 @@ export function AppShell({
   onRetryBoot,
 }: AppShellProps) {
   const mainRef = useRef<HTMLElement>(null);
+  const hasMountedRef = useRef(false);
   const routeKey = `${route.path}:${route.kind}`;
 
   useEffect(() => {
-    mainRef.current?.querySelector<HTMLElement>("h1")?.focus();
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    const heading = mainRef.current?.querySelector<HTMLElement>("h1");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus();
+    }
   }, [routeKey]);
 
   const routeContent = children ?? <RouteFallback route={route} session={character} navigate={navigate} onCreateCharacter={onCreateCharacter} onImportCharacter={onImportCharacter} />;

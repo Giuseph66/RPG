@@ -1,9 +1,10 @@
 import type { AnyDefinition } from "@data/rulepacks/lookup";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
-import type { EntityType, PackVersion, RulesetId, RulesetRef, TypedDefinitionRef } from "@domain/contracts/ids";
+import type { EntityType, PackVersion, RulesetId, RulesetRef } from "@domain/contracts/ids";
 import type { SourceRef } from "@domain/contracts/primitives";
 
 export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras";
+export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure";
 
 export type CompendiumCategoryStatus = "available" | "pending";
 
@@ -26,8 +27,8 @@ export const COMPENDIUM_CATEGORIES: readonly CompendiumCategory[] = [
   { id: "subclass", label: "Subclasses", status: "available" },
   { id: "background", label: "Antecedentes", status: "available" },
   { id: "equipment", label: "Equipamentos", status: "available" },
-  { id: "weapons", label: "Armas", status: "pending", targetId: "equipment" },
-  { id: "armor", label: "Armaduras", status: "pending", targetId: "equipment" },
+  { id: "weapons", label: "Armas", status: "available", targetId: "equipment" },
+  { id: "armor", label: "Armaduras", status: "available", targetId: "equipment" },
   { id: "feat", label: "Talentos", status: "available" },
   { id: "spell", label: "Magia", status: "available" },
   { id: "resource", label: "Recursos", status: "available" },
@@ -37,6 +38,12 @@ export const COMPENDIUM_CATEGORIES: readonly CompendiumCategory[] = [
   { id: "movement", label: "Movimentação", status: "pending" },
   { id: "adventure", label: "Aventura", status: "pending" },
 ];
+
+/** Categories that reuse the equipment dataset but narrow it to a single equipment tag. */
+export const COMPENDIUM_CATEGORY_SUBSET_TAG: Readonly<Partial<Record<CompendiumCategoryId, string>>> = {
+  weapons: "weapon",
+  armor: "armor",
+};
 
 /** Visual aliases resolve to the same canonical destination and never duplicate a definition. */
 export const COMPENDIUM_CATEGORY_ALIASES: Readonly<Record<string, CompendiumCategoryId>> = {
@@ -54,11 +61,24 @@ export const COMPENDIUM_CATEGORY_ALIASES: Readonly<Record<string, CompendiumCate
   equipment: "equipment",
   condicoes: "condition",
   conditions: "condition",
+  atributos: "attributes",
+  pericias: "skills",
+  perícias: "skills",
 };
 
+export interface CompendiumStaticDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly tags: readonly string[];
+  readonly sourceRefs: readonly SourceRef[];
+}
+
 export interface CompendiumCatalogItem {
-  readonly entityType: EntityType;
-  readonly definition: AnyDefinition;
+  /** Present for rule-pack definitions; static entries use `kind: "static"`. */
+  readonly kind?: "rulepack" | "static";
+  readonly entityType?: EntityType;
+  readonly category?: StaticCompendiumCategory;
+  readonly definition: AnyDefinition | CompendiumStaticDefinition;
   readonly ruleset: RulesetRef;
   readonly aliases?: readonly string[];
   readonly summary?: string;
@@ -66,7 +86,7 @@ export interface CompendiumCatalogItem {
 
 export interface CompendiumIndexEntry {
   readonly key: string;
-  readonly ref: TypedDefinitionRef;
+  readonly ref: CompendiumReference;
   readonly ruleset: RulesetRef;
   readonly category: CompendiumCategoryId;
   readonly title: string;
@@ -77,7 +97,7 @@ export interface CompendiumIndexEntry {
 }
 
 export interface CompendiumDetail extends CompendiumIndexEntry {
-  readonly definition: AnyDefinition;
+  readonly definition: AnyDefinition | CompendiumStaticDefinition;
 }
 
 export interface CompendiumFilters {
@@ -92,11 +112,32 @@ export interface CompendiumSearchResult {
   readonly filters: CompendiumFilters;
 }
 
-export interface CompendiumFavoriteRef {
+export interface RulepackCompendiumReference {
+  readonly kind?: "rulepack";
   readonly rulesetId: RulesetId;
-  readonly rulesetVersion: PackVersion;
+  readonly entityId: string;
+  readonly entityType: EntityType;
+}
+
+export interface StaticCompendiumReference {
+  readonly kind: "static";
+  readonly rulesetId: RulesetId;
+  readonly entityId: string;
+  readonly category: StaticCompendiumCategory;
+}
+
+export type CompendiumReference = RulepackCompendiumReference | StaticCompendiumReference;
+
+export type CompendiumFavoriteRef =
+  | RulepackCompendiumReference & { readonly rulesetVersion: PackVersion }
+  | StaticCompendiumReference & { readonly rulesetVersion: PackVersion };
+
+/* Legacy-compatible shape accepted by getDetail for callers that have not yet added `kind`. */
+export interface LegacyCompendiumDetailReference {
+  readonly rulesetId: RulesetId | string;
   readonly entityType: EntityType;
   readonly entityId: string;
+  readonly version?: string;
 }
 
 export interface CompendiumFavoriteState {
@@ -131,10 +172,15 @@ export type CompendiumError =
   | { readonly code: "category-load-failed"; readonly message: string; readonly category: CompendiumCategoryId };
 
 export function favoriteKey(ref: CompendiumFavoriteRef): string {
-  return `${ref.rulesetId}@${ref.rulesetVersion}:${ref.entityType}:${ref.entityId}`;
+  return ref.kind === "static"
+    ? `${ref.rulesetId}@${ref.rulesetVersion}:static:${ref.category}:${ref.entityId}`
+    : `${ref.rulesetId}@${ref.rulesetVersion}:${ref.entityType}:${ref.entityId}`;
 }
 
 export function referenceFromEntry(entry: CompendiumIndexEntry): CompendiumFavoriteRef {
+  if (entry.ref.kind === "static") {
+    return { kind: "static", rulesetId: entry.ruleset.id, rulesetVersion: entry.ruleset.version, category: entry.ref.category, entityId: String(entry.ref.entityId) };
+  }
   return { rulesetId: entry.ruleset.id, rulesetVersion: entry.ruleset.version, entityType: entry.ref.entityType, entityId: String(entry.ref.entityId) };
 }
 

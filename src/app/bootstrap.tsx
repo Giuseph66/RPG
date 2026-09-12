@@ -14,12 +14,14 @@ import {
   CryptoIdGenerator,
   SystemClock,
   openDatabase,
+  type OpenDatabaseOptions,
 } from "@infrastructure/persistence/indexeddb";
 import { LocalStorageSettingsRepository } from "@infrastructure/preferences";
 import { createPlatformRandomSource } from "@domain/dice";
 import { createDiceOverlayController, type DiceOverlayController } from "@features/dice";
 import { createCompendiumService } from "@application/compendium";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
+import { STATIC_COMPENDIUM_ITEMS } from "@data/compendium";
 import { registerPwa, type PwaPlatform, type RegisteredPwa } from "@infrastructure/pwa";
 import { deriveCharacter } from "@domain/rules";
 import { deriveActionCapabilities, type DeriveActionCapabilitiesResult } from "@application/character/action-capabilities";
@@ -28,6 +30,7 @@ import { createInventoryDispatcher } from "@application/character/inventory-disp
 import { createCampaignDispatcher } from "@application/campaign/campaign-dispatcher";
 import { createCampaignRecordDispatcher } from "@application/campaign/campaign-record-dispatcher";
 import { createJournalDispatcher } from "@application/campaign/journal-dispatcher";
+import { chooseCampaignForRestore } from "@application/campaign";
 import type { Character, CharacterDraft } from "@domain/contracts/character";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { AvailableAction, RuleContext } from "@domain/contracts/rules";
@@ -73,9 +76,15 @@ export interface BootstrapProps {
   readonly pwaPlatform?: PwaPlatform;
 }
 
-/** Abre os adapters e hidrata somente preferências e o personagem ativo. */
-export async function createApplicationRuntime(): Promise<ApplicationRuntime> {
-  const opened = await openDatabase();
+export interface ApplicationRuntimeOptions {
+  /** Permite isolar uma instância de runtime sem alterar a composição de produção. */
+  readonly database?: OpenDatabaseOptions;
+  readonly settingsStorage?: Storage;
+}
+
+/** Abre os adapters e hidrata preferências, personagem ativo e campanha persistida. */
+export async function createApplicationRuntime(options: ApplicationRuntimeOptions = {}): Promise<ApplicationRuntime> {
+  const opened = await openDatabase(options.database);
   if (!opened.ok) throw new Error(opened.error.message);
 
   const database = opened.value;
@@ -86,7 +95,7 @@ export async function createApplicationRuntime(): Promise<ApplicationRuntime> {
   const services = createApplicationServices({
     characterRepository,
     campaignRepository,
-    settingsRepository: new LocalStorageSettingsRepository(),
+    settingsRepository: new LocalStorageSettingsRepository(options.settingsStorage),
     diceHistoryRepository: new IndexedDbDiceHistoryRepository(database, clock),
     unitOfWork: new IndexedDbUnitOfWork(database),
     clock,
@@ -107,6 +116,14 @@ export async function createApplicationRuntime(): Promise<ApplicationRuntime> {
       if (!character.ok) throw new Error(character.error.message);
     }
 
+    const campaigns = await services.campaign.list();
+    if (!campaigns.ok) throw new Error(campaigns.error.message);
+    const campaignToRestore = chooseCampaignForRestore(campaigns.value);
+    if (campaignToRestore) {
+      const campaign = await services.campaign.hydrate(campaignToRestore.id);
+      if (!campaign.ok) throw new Error(campaign.error.message);
+    }
+
     const diceOverlayController = createDiceOverlayController({
       history: services.dice,
       rng: createPlatformRandomSource(),
@@ -117,7 +134,7 @@ export async function createApplicationRuntime(): Promise<ApplicationRuntime> {
     const pack = loadPhbPtBrLocal2017();
     if (!pack.ok) throw new Error(pack.error.message);
     const activePack = pack.value;
-    const compendiumService = createCompendiumService({ packs: [activePack] });
+    const compendiumService = createCompendiumService({ packs: [activePack], items: STATIC_COMPENDIUM_ITEMS });
 
     // `executionsHolder` liga a lista reativa de capacidades (recalculada a cada snapshot de
     // personagem por `computeActionCapabilities`, chamado de `ReadyApplication`) ao dispatcher
@@ -187,7 +204,9 @@ export async function createApplicationRuntime(): Promise<ApplicationRuntime> {
     return { database, services, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
   } catch (cause) {
     services.character.dispose();
+    services.campaign.dispose();
     services.settings.dispose();
+    services.dice.dispose();
     database.close();
     throw cause;
   }
@@ -279,7 +298,9 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
         openedRuntime = nextRuntime;
         if (!active) {
           nextRuntime.services.character.dispose();
+          nextRuntime.services.campaign.dispose();
           nextRuntime.services.settings.dispose();
+          nextRuntime.services.dice.dispose();
           nextRuntime.database.close();
           return;
         }
@@ -297,7 +318,9 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
       active = false;
       if (openedRuntime) {
         openedRuntime.services.character.dispose();
+        openedRuntime.services.campaign.dispose();
         openedRuntime.services.settings.dispose();
+        openedRuntime.services.dice.dispose();
         openedRuntime.database.close();
       }
     };
