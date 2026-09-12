@@ -1,6 +1,6 @@
 # 05 — Ficha do personagem
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — CHAR-002 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -91,4 +91,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 CHAR-003 recebe superfície de revisão/seleção; UI-004 e CHAR-004 integram subáreas próprias; header continua sob UI-002.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

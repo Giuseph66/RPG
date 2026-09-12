@@ -1,6 +1,6 @@
 # Swarm — painel de implementação
 
-**COMPLETUDE DE PRODUTO REABERTA.** A cobertura do Compêndio permanece aceita, mas foram confirmadas superfícies ainda desconectadas, comandos sem resolvedor, exclusão não atômica e falta de divisão por rota. `CORE-002` e `QA-004` estão `IN_PROGRESS`; `REL-001` aguarda o novo aceite.
+**COMPLETUDE LOCAL ACEITA.** As superfícies, comandos, transação, divisão de bundle e proteção de atualização PWA foram corrigidos, revalidados e documentados. `CORE-002`, `QA-004` e `REL-001` estão `DONE`.
 
 ## Leitura e coordenação
 
@@ -19,7 +19,7 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 - [x] **DATA-002** — Loader e núcleo do rule pack · `DONE` · catálogos publicados e validados.
 - [x] **DATA-003** — Repositories locais e transações base · `DONE` · IndexedDB, CAS e recovery aceitos.
 - [x] **STATE-001** — Estado local e serviços de aplicação · `DONE` · stores e serviços aceitos.
-- [ ] **CORE-002** — Integrar features e serviços reais · `IN_PROGRESS` · montar seleção, diário, backup/importação e dividir rotas.
+- [x] **CORE-002** — Integrar features e serviços reais · `DONE` · seleção, diário, backup/importação e divisão por rota aceitos.
 
 ## Interface e dados de mesa
 
@@ -63,9 +63,9 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 - [x] **QA-001** — Prova determinística de regras · `DONE` · cenários aceitos.
 - [x] **QA-002** — Integração de sessão e persistência · `DONE` · integração aceita.
 - [x] **QA-003** — Prova de offline e atualização · `DONE` · prova offline aceita.
-- [ ] **QA-004** — Aceite final integrado · `IN_PROGRESS` · reaceite das superfícies, comandos, transação e divisão de bundle.
-- [ ] **REL-001** — Polimento documental e entrega futura · `TODO` · depende do novo aceite integrado.
+- [x] **QA-004** — Aceite final integrado · `DONE` · 110 testes focais, 588 completos, build e smoke offline aceitos.
+- [x] **REL-001** — Polimento documental e entrega futura · `DONE` · evidência de aceite consolidada.
 
 ## Próximo movimento
 
-Concluir as quatro frentes reabertas e repetir o aceite integrado. Conteúdo parcial da fonte, decisões de mesa pendentes e provas que requerem dispositivos físicos permanecem explicitamente rastreados; não serão simulados como concluídos.
+Os passos locais estão concluídos. Conteúdo parcial da fonte, decisões de mesa pendentes e provas que requerem dispositivos físicos permanecem explicitamente rastreados; não serão simulados como concluídos.

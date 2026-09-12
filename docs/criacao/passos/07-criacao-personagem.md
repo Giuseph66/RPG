@@ -1,6 +1,6 @@
 # 07 — Criação de personagem
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — CHAR-001 e CHAR-003 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -95,4 +95,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 Entregar exemplos válidos por perfil e erros recuperáveis a DATA-006/QA-002; CHAR-004 reutiliza sistema de escolhas na progressão.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

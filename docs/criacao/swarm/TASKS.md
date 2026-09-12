@@ -518,10 +518,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CORE-002`
 - Título: Integrar features e serviços reais.
-- Status: `IN_PROGRESS` — reaberto em 2026-09-12 para montar seleção de personagem, diário e gestão de backup/importação com serviços reais, além de dividir o carregamento por rota.
+- Status: `DONE` — integração reaceita em 2026-09-12: seleção, diário e gestão de dados estão montados com serviços reais; rotas e mesa 3D usam carregamento sob demanda.
 - Responsável: `/root/build_combat_rules`.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
-- Evidência: testes focais de bootstrap/campanha passaram (16/16), typecheck e diff check passaram; QA-004 rodada 5 confirmou no build que a campanha permanece ativa após reload.
+- Evidência: `QA-004-completude-2026-09-12.md` registra 17 arquivos/108 testes focais, 92 arquivos/586 testes completos, typecheck, build e diff check aprovados; smoke em 5184 confirmou `/character`, `/journey` e `/settings/data`, sem tocar 5173. A entrada ficou em 541815 bytes e `PhysicalDiceStage` (three/cannon-es) em chunk lazy separado.
 - Prioridade: P0.
 - Dependências: DICE-002, CHAR-003, CHAR-004, UI-003, UI-004, MAP-001, JOUR-001, COMP-001.
 - Bloqueia: PWA-001, UI-005, QA-002.
@@ -533,10 +533,9 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Testes: Smoke integrado criar→rolar→agir→nota→recarregar e checagem dos imports; regressões encaminhadas ao dono do módulo.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: PWA-001, UI-005, QA-002. Passo principal: 18.
 
-### Retomada de integração — 2026-09-12
+### Retomada de integração — aceite em 2026-09-12
 
-- Escopo ativo: `/root/wire_missing_surfaces` publica seleção de personagem, diário e backup/importação no roteador com serviços reais, além de code-splitting por rota. O owner preserva rotas profundas, foco e dados locais; não altera domínio/persistência.
-- Dependências de aceite: o fluxo de diário deve carregar do repositório real, e backup/importação deve aparecer em uma superfície navegável sem inventar APIs.
+- `/root/wire_missing_surfaces` publicou seleção de personagem, diário e backup/importação no roteador com serviços reais, preservando rotas profundas, foco e dados locais. A QA confirmou o carregamento do diário e a superfície de backup/importação navegável, sem APIs inventadas.
 
 ## DATA-006 — Backup, migrações e recuperação completa
 
@@ -675,7 +674,7 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-004`
 - Título: Aceite final integrado.
-- Status: `IN_PROGRESS` — reaberto em 2026-09-12 para aceitar as superfícies montadas, comandos de recurso/consumível, exclusão atômica e divisão por rota.
+- Status: `DONE` — aceite local integrado revalidado em 2026-09-12, inclusive para rascunhos de diário, chunks lazy offline e guarda global de erro.
 - Rodada 2 (2026-09-11T23:10-04:00): criação de personagem ligada de ponta a ponta pelo coordenador (`creationService` real + wizard montado em `/character/create`, provado ao vivo — "Etapa 1 de 9: Identidade"; raça/classe ficam vazias até DATA-004/005 saírem do placeholder, limitação de conteúdo, não de wiring). Dano/cura manual ganharam valor real digitável (antes fixo em 5); ataque ganhou campo de CA do alvo real (antes sempre `needsInput`). Dispatchers de Campanha/Registros/Diário implementados (`src/application/campaign/{campaign-dispatcher,campaign-record-dispatcher,journal-dispatcher}.ts`) e ligados; `CampaignPanel`/`CampaignRecords` (quests/NPCs) funcionam de graça via `campaign.quests`/`campaign.npcs` já expostos pelo componente `JourneyCampaign`. Provado ao vivo: criar campanha real → "Ativa: Campanha de teste" persistido. 520/520 testes, typecheck e build limpos.
   Pendente após rodada 2: Diário (`JournalWorkspace`/`JournalEditor`) ainda não montado no router (coleção separada da campanha, exige fetch assíncrono próprio); `CharacterSelection`/`DataManagementPanel` (export/import) nunca montados em nenhuma rota; recursos de personagem/features de classe (`spend-resource`) sem resolvedor de domínio; uso de item consumível não coberto; exclusão de campanha com conteúdo não é atômica (sem UnitOfWork); conteúdo de raças/classes/magias/equipamento ainda placeholder (DATA-004/005/SPELL-001/ITEM-001).
 - Responsável: coordenador; revalidação e R3-01 em `/root/build_campaign_map`, R3-02 em `/root/build_combat_rules`, R3-03 em `/root/fix_initial_skip_focus`.
@@ -693,8 +692,15 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 ### Retomada de completude — 2026-09-12
 
-- Frentes ativas: gasto de recurso de classe via `spend-resource`; uso de consumível com comando e persistência; exclusão `campaign-and-content` atômica; telas montadas e divisão de bundle por rota.
-- Critérios: nenhum comando inventa regra de mesa/fonte, e falha de persistência ou de transação não altera o estado confirmado. Conteúdo parcial e as 19 decisões em `decisoes/PENDENCIAS.md` permanecem limites explícitos, não são aprovados por inferência.
+- Aceite: gasto de recurso de classe via `spend-resource`, uso de consumível com comando e persistência, exclusão `campaign-and-content` atômica, telas montadas e divisão de bundle por rota foram verificados em `docs/implementacao/qa/QA-004-completude-2026-09-12.md`.
+- Evidência: 17 arquivos/110 testes focais, 92 arquivos/588 testes completos, typecheck, build e `git diff --check` passaram; smoke em 5184 e preview de produção em 5185 confirmaram rotas, overlay desktop/móvel, lazy load do dado físico e reutilização offline de chunk `/assets/`. A entrada final de 541932 bytes ficou dentro do limite de 642400; 5173 não foi usada.
+- Limites preservados: nenhum comando inventa regra de mesa/fonte. Conteúdo parcial e as 19 decisões em `decisoes/PENDENCIAS.md` continuam explícitos e sem inferência. Android/iOS físicos, Safari, leitor de tela nativo, zoom físico, CAS entre abas reais e atualização do worker em sessão real exigem ambientes externos.
+
+### Revalidação PWA — 2026-09-12
+
+- Aceite: a atualização PWA permanece bloqueada para diário `dirty`/`saving`/`conflict`/`error` e libera em `clean`/`saved`; chunks já requisitados em `/assets/` são reutilizados offline, sem cache dinâmico de navegação ou API.
+- Evidência: 20 testes locais de PWA/diário, revalidação QA focal 17 arquivos/110 testes, suíte completa 92 arquivos/588 testes, typecheck, build e diff check passaram. Smoke em 5184 e preview de produção em 5185 confirmaram o fluxo; processos auxiliares foram encerrados e 5173 não foi tocada.
+- Correção aceita: a guarda geral em `bootstrap.tsx` agora lista `error`, mesmo quando o store informa `hasPendingChanges: false`. O teste focal 8/8, a suíte completa, typecheck, build e diff check passaram; a entrada final é 541932 bytes.
 
 ### Rodada 3 — revalidação bloqueada (2026-09-12)
 
@@ -724,10 +730,10 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `REL-001`
 - Título: Polimento documental e entrega futura.
-- Status: `TODO` — documentação de entrega aguarda o novo aceite integrado.
+- Status: `DONE` — documentação de entrega atualizada e revisada a partir do aceite integrado em 2026-09-12.
 - Responsável: `/root/update_release_coverage_docs` e coordenador.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / medium.
-- Evidência: `docs/implementacao/entrega/{README,RELEASE-NOTES,CHECKLIST}.md` registra 1.383 entradas únicas, as nove categorias publicadas, os subconjuntos de equipamento e o escopo mecânico parcial de Aventura. A revisão preserva ambiente validado, limites de PWA/backup e não anuncia exportação pela UI.
+- Evidência: `docs/implementacao/entrega/{README,RELEASE-NOTES,CHECKLIST}.md` registra as rotas montadas, backup/importação pela UI, `spend-resource`, `consume-item`, transação atômica e divisão do dado 3D; preserva 1.383 entradas, conteúdo parcial, limites de PWA e as 19 decisões sem resposta. A revisão referencia o aceite local em `QA-004-completude-2026-09-12.md` e não anuncia prova física inexistente.
 - Prioridade: P1.
 - Dependências: QA-004.
 - Bloqueia: nenhuma; encerra entrega.

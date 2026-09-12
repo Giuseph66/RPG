@@ -1,6 +1,6 @@
 # 17 — Acessibilidade
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — A11Y-001 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -92,4 +92,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 QA-004 recebe matriz de critérios/evidências e pendências; correções exigem confirmação do owner e reteste específico antes do gate.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

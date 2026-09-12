@@ -47,6 +47,60 @@ describe("PWA infrastructure", () => {
     expect(classifyPwaRequest({ url: "https://cdn.example/app.js", origin })).toBe("network");
   });
 
+  it("mantém chunk lazy já requisitado disponível offline sem capturar navegação ou API", async () => {
+    const source = readFileSync(resolve(process.cwd(), "public/pwa-worker.js"), "utf8");
+    type Listener = (event: { readonly request: Request; readonly respondWith: (response: Promise<Response>) => void }) => void;
+    const listeners = new Map<string, Listener>();
+    const entries = new Map<string, Response>();
+    const cache = {
+      addAll: vi.fn(async () => undefined),
+      put: vi.fn(async (request: Request | string, response: Response) => {
+        entries.set(typeof request === "string" ? request : request.url, response);
+      }),
+      match: vi.fn(async (request: Request | string) => entries.get(typeof request === "string" ? request : request.url)),
+    };
+    const cacheStorage = {
+      open: vi.fn(async () => cache),
+      keys: vi.fn(async () => []),
+      delete: vi.fn(async () => true),
+    };
+    const workerSelf = {
+      location: { origin: "https://rpg.local" },
+      addEventListener: (type: string, listener: Listener) => { listeners.set(type, listener); },
+      clients: { claim: vi.fn(async () => undefined) },
+      skipWaiting: vi.fn(async () => undefined),
+    };
+    let online = true;
+    const fetcher = vi.fn(async () => {
+      if (!online) throw new Error("offline");
+      return new Response("lazy chunk", { status: 200, headers: { "Content-Type": "application/javascript" } });
+    });
+    const worker = new Function("self", "caches", "fetch", source) as (self: typeof workerSelf, caches: typeof cacheStorage, fetch: typeof fetcher) => void;
+    worker(workerSelf, cacheStorage, fetcher);
+
+    const lazyRequest = new Request("https://rpg.local/assets/journey-ABC.js", { method: "GET" });
+    let firstResponse: Promise<Response> | undefined;
+    listeners.get("fetch")?.({ request: lazyRequest, respondWith: (response) => { firstResponse = response; } });
+    await expect(firstResponse).resolves.toMatchObject({ status: 200 });
+    expect(cache.put).toHaveBeenCalledWith(lazyRequest, expect.any(Response));
+
+    online = false;
+    let offlineResponse: Promise<Response> | undefined;
+    listeners.get("fetch")?.({ request: lazyRequest, respondWith: (response) => { offlineResponse = response; } });
+    await expect(offlineResponse).resolves.toMatchObject({ status: 200 });
+
+    const navigation = { url: "https://rpg.local/journey", method: "GET", mode: "navigate", destination: "document" } as unknown as Request;
+    const api = new Request("https://rpg.local/api/session", { method: "GET" });
+    const navigationEvent = { request: navigation, respondWith: vi.fn() };
+    const apiEvent = { request: api, respondWith: vi.fn() };
+    online = true;
+    listeners.get("fetch")?.(navigationEvent);
+    await expect(navigationEvent.respondWith).toHaveBeenCalled();
+    listeners.get("fetch")?.(apiEvent);
+    expect(apiEvent.respondWith).not.toHaveBeenCalled();
+    expect(cache.put).toHaveBeenCalledTimes(1);
+  });
+
   it("limpa só caches PWA antigos e preserva caches de aplicação", () => {
     expect(shouldDeletePwaCache("rpg-companion-pwa-shell-2026.09.10")).toBe(true);
     expect(isCurrentPwaCache(PWA_CACHE_NAMES.shell)).toBe(true);

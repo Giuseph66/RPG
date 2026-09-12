@@ -8,6 +8,8 @@
  */
 
 export { Dice3D, type Dice3DHandle, type Dice3DProps } from "./Dice3D";
+export { PhysicalDiceStage, type PhysicalDiceStageProps } from "./PhysicalDiceStage";
+export { orientationForValue } from "./orientationFor";
 export {
   DiceTable,
   type DiceTableOptions,

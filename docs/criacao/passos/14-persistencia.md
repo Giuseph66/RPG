@@ -1,6 +1,6 @@
 # 14 — Persistência, backup e recuperação
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — DATA-003 e DATA-006 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -97,4 +97,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 STATE-001 recebe adapter inicial; PWA-001 recebe garantias e limites de save/migration; QA-002 recebe backups versionados e cenários de falha.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

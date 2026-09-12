@@ -1,6 +1,6 @@
 # 10 — Magia
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — SPELL-001 e SPELL-002 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -94,4 +94,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 UI-003 recebe capacidades/erros/custos; COMP-001 recebe definição consultável; QA-001 recebe fixtures por perfil conjurador.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

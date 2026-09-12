@@ -1,6 +1,6 @@
 # 15 — PWA e operação offline
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — aceite local registrado em [QA-004](../../implementacao/qa/QA-004-completude-2026-09-12.md); validações físicas externas permanecem pendentes.
 
 Prioridade: P0.
 
@@ -32,9 +32,9 @@ Prometer prompts de instalação idênticos no iPhone/Android, backend, CDN obri
 
 CORE-002, DATA-006 e COMP-001 aceitos; corpus offline mínimo identificado; configuração Vite pertence CORE-001 e muda por handoff.
 
-## 6. Arquivos que futuramente serão criados/modificados
+## 6. Arquivos criados/modificados
 
-Caminhos propostos; nada criado nesta fase. Ownership por tarefa em [OWNERSHIP](../swarm/OWNERSHIP.md).
+Ownership por tarefa em [OWNERSHIP](../swarm/OWNERSHIP.md).
 
 - `src/infrastructure/pwa/**`
 - `public/manifest.webmanifest`
@@ -71,27 +71,26 @@ Primeiro acesso sem rede, cache parcial, versão antiga, SW esperando, draft pen
 
 Validar offline só no dev server; precache de imagem enorme; atualizar pacote sem compatibilidade; anunciar “tudo offline” com conteúdo ainda remoto.
 
-## 14. Testes necessários
+## 14. Testes necessários e executados
 
-Testes FUTUROS; não executados nesta etapa.
+Os gates locais foram executados e registrados em [QA-004](../../implementacao/qa/QA-004-completude-2026-09-12.md).
 
-- **PWA-001**: Primeira instalação, relaunch sem rede, asset antigo, atualização com draft, falta de storage, Safari/iOS e Android/desktop em matriz documentada.
+- **PWA-001**: 92 arquivos e 586 testes passaram na suíte completa; typecheck, build e diff passaram. O smoke Chromium cobriu rotas profundas, draft/update, overlay e fluxo móvel simulado. Android/iOS físicos, Safari, leitor de tela nativo, zoom físico, CAS entre abas reais e atualização de Service Worker em sessão real permanecem pendentes.
 
 ## 15. Critérios de aceite
 
 - **PWA-001**: Instalação orientada por plataforma; rotas profundas e sessão funcionam offline após preparo; atualização espera operação/salvamento; dados IndexedDB não são apagados por limpeza de cache.
 
-Existência de código ou mock não conclui integração. Cada task só vira DONE após aceite e revisão; aguardar a ordem do DAG.
+O aceite cobre os gates locais e o smoke Chromium documentados no QA-004. As verificações externas listadas acima continuam como limitações, sem serem declaradas como provadas.
 
 ## 16. Checklist
 
-- [ ] Preparar shell e conteúdo offline explícitos.
-- [ ] Adiar ativação durante operação pendente.
-- [ ] Provar atualização sem perda de dados.
+- [x] Preparar shell e conteúdo offline explícitos.
+- [x] Adiar ativação durante operação pendente.
+- [x] Provar atualização sem perda de dados nos gates locais.
 
 ## 17. Handoff
 
 QA-003 recebe artefato/cenários/versões de cache e instrução de instalação; UI-005 recebe comportamento de viewport instalada.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

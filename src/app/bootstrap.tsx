@@ -44,6 +44,7 @@ import type { AvailableAction, RuleContext } from "@domain/contracts/rules";
 import type { ActionCapability } from "@features/actions";
 import { createCharacterDraft } from "@domain/character/creation";
 import type { CreationWizardService } from "@features/character/creation";
+import type { JournalDraftState } from "@domain/campaign/journal";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
 import { AppRouter } from "./router";
 
@@ -282,14 +283,20 @@ function errorMessage(value: unknown): string | undefined {
     : undefined;
 }
 
-const PENDING_STORE_STATUSES = new Set(["dirty", "saving", "conflict"]);
+const PENDING_STORE_STATUSES = new Set(["dirty", "saving", "conflict", "error"]);
 
-/** Predicado conservador: só bloqueia atualização quando um store expõe trabalho real pendente. */
-export function hasPendingApplicationWork(services: ApplicationServices): boolean {
-  return [services.character.store, services.campaign.store, services.settings.store, services.dice.store].some((store) => {
+/** Predicado conservador: só libera atualização quando stores e rascunhos locais estão resolvidos. */
+export function hasPendingApplicationWork(services: ApplicationServices, journalDraftState?: () => JournalDraftState | undefined): boolean {
+  const storesHavePendingWork = [services.character.store, services.campaign.store, services.settings.store, services.dice.store].some((store) => {
     const snapshot = store.getSnapshot();
     return snapshot.hasPendingChanges || PENDING_STORE_STATUSES.has(snapshot.status);
   });
+  if (storesHavePendingWork) return true;
+
+  const journalState = journalDraftState?.();
+  // `error` também mantém texto não persistido no dispatcher; só clean/saved
+  // significam que o draft foi descartado ou gravado com sucesso.
+  return journalState !== undefined && journalState.status !== "clean" && journalState.status !== "saved";
 }
 
 function ReadyApplication({ services, diceOverlayController, registry, computeActionCapabilities, pack, createDraft, onCharacterCreated, initialPath, onRetryBoot, pwaPlatform }: { readonly services: ApplicationServices; readonly diceOverlayController: DiceOverlayController; readonly registry: FeatureRegistry; readonly computeActionCapabilities: ApplicationRuntime["computeActionCapabilities"]; readonly pack: RulePack; readonly createDraft: () => CharacterDraft; readonly onCharacterCreated: (character: Character) => void; readonly initialPath?: string; readonly onRetryBoot: () => void; readonly pwaPlatform?: PwaPlatform }) {
@@ -304,7 +311,7 @@ function ReadyApplication({ services, diceOverlayController, registry, computeAc
   useEffect(() => {
     let active = true;
     let registered: RegisteredPwa | undefined;
-    void registerPwa({ platform: pwaPlatform, hasPendingWork: () => hasPendingApplicationWork(services) }).then((result) => {
+    void registerPwa({ platform: pwaPlatform, hasPendingWork: () => hasPendingApplicationWork(services, registry.journey.getJournalDraftState) }).then((result) => {
       if (!result.ok) return;
       if (!active) {
         result.value.dispose();

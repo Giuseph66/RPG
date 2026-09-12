@@ -1,6 +1,6 @@
 # 09 — Combate e página Ações
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — RULE-002 e UI-003 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -97,4 +97,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 UI-003 consome RuleResult sem recalcular; QA-001 recebe cenários de interação; CORE-002 integra serviço real e verifica que fixtures não ocultam transação ausente.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

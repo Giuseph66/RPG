@@ -1,6 +1,6 @@
 # 04 — Dice Engine e interface global
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — DICE-001 e DICE-002 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -94,4 +94,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 RULE-001 recebe engine pura e RNG; UI-003 recebe abertura contextual e registro; store recebe resultado tipado sem side effect oculto.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { AppModal, BottomSheet, Button, InlineStatus, Input, LiveRegion, Select } from "@components/ui";
 import { DiceHistory } from "./DiceHistory";
@@ -6,6 +6,12 @@ import { DiceResult } from "./DiceResult";
 import { DiceSelector } from "./DiceSelector";
 import { useDiceOverlay, type DiceOverlayController } from "./controller";
 import styles from "./dice.module.css";
+
+// Carregada sob demanda: traz three/cannon-es, que só devem entrar no bundle
+// depois da primeira abertura do overlay (ver QA-004).
+const PhysicalDiceStage = lazy(() =>
+  import("@features/dice3d/PhysicalDiceStage").then((module) => ({ default: module.PhysicalDiceStage })),
+);
 
 export interface DiceOverlayProps { readonly controller: DiceOverlayController; }
 
@@ -37,5 +43,14 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
     </div>
   );
   const footer = <Button variant="primary" busy={state.status === "rolling" || state.status === "saving"} onClick={() => void controller.roll()}>Rolar dados</Button>;
-  return mobile ? <BottomSheet open={state.open} title="Dados" onClose={controller.close} initialFocusRef={inputRef} footer={footer}>{content}</BottomSheet> : <AppModal open={state.open} title="Dados" onClose={controller.close} initialFocusRef={inputRef} footer={footer}>{content}</AppModal>;
+  return (
+    <>
+      {state.open ? (
+        <Suspense fallback={<div aria-hidden="true" />}>
+          <PhysicalDiceStage roll={state.result} active={state.open} />
+        </Suspense>
+      ) : null}
+      {mobile ? <BottomSheet open={state.open} title="Dados" onClose={controller.close} initialFocusRef={inputRef} footer={footer}>{content}</BottomSheet> : <AppModal open={state.open} title="Dados" onClose={controller.close} initialFocusRef={inputRef} footer={footer}>{content}</AppModal>}
+    </>
+  );
 }

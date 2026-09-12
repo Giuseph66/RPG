@@ -1,6 +1,6 @@
 # 11 — Inventário e equipamento
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — ITEM-001, ITEM-002 e UI-004 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -97,4 +97,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 RULE-002 recebe propriedades/capacidades de ataque; UI-003 recebe itens utilizáveis; DATA-006 recebe estrutura e invariantes de importação.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

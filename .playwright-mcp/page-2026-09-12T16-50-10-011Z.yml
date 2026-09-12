@@ -1,0 +1,32 @@
+- generic [ref=f4e3]:
+  - link "Pular para o conteúdo" [ref=f4e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner "Sessão de campanha" [ref=f4e5]:
+    - generic [ref=f4e6]:
+      - button "Selecionar personagem" [ref=f4e7] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e9]: ⚄
+        - generic [ref=f4e10]:
+          - generic [ref=f4e11]: Mesa de campanha
+          - generic [ref=f4e12]: Nenhum personagem ativo
+      - generic [ref=f4e13]: Escolha uma ficha para começar
+      - button "Abrir rolagem de dados" [ref=f4e14] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f4e17]: ⚄
+  - generic [ref=f4e18]:
+    - navigation "Destinos principais" [ref=f4e19]:
+      - generic [ref=f4e20]:
+        - button "Ficha" [ref=f4e21] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e22]: ◈
+        - button "Ações" [ref=f4e24] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e25]: ✦
+        - button "Jornada" [ref=f4e27] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e28]: ⌁
+        - button "Regras" [ref=f4e30] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f4e31]: ♜
+    - main [ref=f4e33]:
+      - region [ref=f4e34]:
+        - paragraph [ref=f4e35]: ABRINDO A MESA
+        - heading "Abrindo dados locais" [level=1] [ref=f4e36]
+        - status [ref=f4e37]:
+          - generic [aria-hidden] [ref=f4e38]: ℹ
+          - generic [ref=f4e39]: Preparando preferências, personagem e campanha.
+  - generic "Área de sobreposições"

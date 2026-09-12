@@ -1,6 +1,6 @@
 # 08 — Classes, raças e progressão
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — DATA-002, DATA-004, DATA-005 e CHAR-004 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -110,4 +110,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 CHAR-001, SPELL-002, RULE-002 e COMP-001 recebem catálogos/versão/cobertura; pendências precisas evitam bloqueio global injustificado.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

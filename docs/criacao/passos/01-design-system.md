@@ -1,6 +1,6 @@
 # 01 — Design system
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — UI-001 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -92,4 +92,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 UI-002 recebe tokens/primitives estáveis; features usam componentes existentes e solicitam extensão sem cloná-los.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

@@ -1,6 +1,6 @@
 # 18 — Integração e testes
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — CORE-002 e QA-001–QA-004 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -107,4 +107,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 REL-001 recebe relatório final, versões/ambientes e limitações; coordenador atualiza status apenas após revisão e demonstração.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

@@ -13,7 +13,7 @@ function isNavigation(request) {
   return request.mode === "navigate" || request.destination === "document";
 }
 
-function isCorpus(request) {
+function isStaticAsset(request) {
   const path = new URL(request.url).pathname;
   return path.startsWith("/assets/") || path.startsWith("/corpus/");
 }
@@ -23,14 +23,13 @@ async function networkNavigation(request) {
   try { shell = await caches.open(SHELL_CACHE); } catch { shell = undefined; }
   try {
     const response = await fetch(request);
-    if (response.ok && shell) await shell.put(request, response.clone());
     return response;
   } catch {
     return (shell && (await shell.match(request))) || (shell && (await shell.match("/index.html"))) || (shell && (await shell.match("/offline.html"))) || new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 }
 
-async function cacheCorpus(request) {
+async function cacheStaticAsset(request) {
   let corpus;
   try { corpus = await caches.open(CORPUS_CACHE); } catch { corpus = undefined; }
   const cached = corpus && await corpus.match(request, { ignoreVary: true });
@@ -74,6 +73,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || !sameOrigin(request)) return;
   if (isNavigation(request)) event.respondWith(networkNavigation(request));
-  else if (isCorpus(request)) event.respondWith(cacheCorpus(request));
+  // Chunks lazy do build em /assets/ e entram no cache na primeira requisição.
+  // A fronteira continua explícita: API, navegação e downloads pessoais não entram aqui.
+  else if (isStaticAsset(request)) event.respondWith(cacheStaticAsset(request));
   else if (["/", "/index.html", "/manifest.webmanifest", "/offline.html"].includes(new URL(request.url).pathname)) event.respondWith(cacheShell(request));
 });

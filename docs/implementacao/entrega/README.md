@@ -18,7 +18,7 @@ Abra a URL mostrada pelo Vite. Para gerar e servir o artefato de produção:
 
 ```text
 npm run build
-npx vite preview --host 127.0.0.1 --port 5183 --strictPort
+npx vite preview --host 127.0.0.1 --port 5185 --strictPort
 ```
 
 O projeto não possui script `npm run preview`; o segundo comando é a forma
@@ -30,18 +30,19 @@ rule pack local podem continuar disponíveis sem rede.
 
 As rotas primárias são:
 
-- `/character`: ficha do personagem ativo; `/character/create` abre o wizard de
-  criação.
+- `/character`: seleção de personagens; `/character/create` abre o wizard de
+  criação e `/character/:id` abre a ficha selecionada.
 - `/actions`: capacidades e custos disponíveis para o personagem ativo. O
   caller fornece decisões como alvo e entradas exigidas; opções sem cobertura
   ficam bloqueadas ou pendentes.
-- `/journey`: criação/seleção de campanhas locais. A campanha persistida é
-  restaurada no novo runtime; sem preferência `activeCampaignId`, a seleção de
-  retomada usa `updatedAt` mais recente, depois `createdAt` mais recente e ID
-  ascendente.
+- `/journey`: campanhas locais e workspace/editor do diário. A campanha
+  persistida é restaurada no novo runtime; sem preferência `activeCampaignId`,
+  a seleção de retomada usa `updatedAt` mais recente, depois `createdAt` mais
+  recente e ID ascendente.
 - `/compendium`: busca e detalhe do catálogo local, com fonte e metadados.
 - `/settings`: tema, redução de movimento, idioma e retenção do histórico de
-  dados.
+  dados; `/settings/data` monta backup, importação, recuperação e reset
+  seletivo.
 
 O cabeçalho abre a rolagem de dados. A rolagem usa o RNG de plataforma e o
   resultado é gravado no histórico local quando o armazenamento está disponível.
@@ -73,11 +74,9 @@ exportação/importação de personagem ou campanha, prévia de conflitos,
 migrações e recuperação de registros corrompidos. A confirmação de importação e
 o modo `copy`/`replace` são decisões do caller.
 
-Backup e recuperação ainda não estão montados em uma rota da aplicação. Para o
-uso atual, a tela `DataManagementPanel` existe como componente e os serviços
-podem ser compostos por um host; não há fluxo de exportação/importação na UI
-aceita até essa superfície ser conectada. Também não existe cópia automática
-fora deste navegador.
+`DataManagementPanel` está montado em `/settings/data` (e `/data`) com os
+serviços reais de exportação, importação, recuperação e reset seletivo. Também
+não existe cópia automática fora deste navegador.
 
 ## Instalação e uso offline
 
@@ -90,4 +89,21 @@ Instalação depende do navegador e de contexto seguro (HTTPS ou localhost).
 Após uma abertura online completa e a preparação dos caches, o build validado
 reabriu `/compendium` e `/compendium/spells/fire-bolt` com a rede desligada no
 Chromium. A primeira visita offline, uma instalação em Android/iOS e a
-atualização durante um rascunho não foram provadas nesta entrega.
+atualização durante um rascunho em dispositivo físico não foram provadas nesta
+entrega. A integração local preserva rascunhos pendentes e adia a atualização
+entre instâncias até decisão explícita do host/UI.
+
+## Escopo de conteúdo e validação
+
+O catálogo local tem 1.383 entradas, mas permanece parcial por decisão de
+escopo: há nove raças, um subconjunto de subclasses, seis magias e catálogo
+parcial de talentos. Aventura cobre regras mecânicas resumidas, sem campanhas,
+PNJs, mapas prontos ou procedimentos completos do Mestre. Esse conteúdo é
+backlog contínuo e não deve ser apresentado como cobertura integral.
+
+Os 19 itens de `docs/criacao/decisoes/PENDENCIAS.md` continuam sem resposta e
+bloqueados por decisão explícita da mesa; não foram resolvidos por inferência.
+O QA local foi aceito no Chromium. Android/iOS físicos, Safari, leitor de tela
+nativo, zoom físico de 200/400%, instalação/eviction e suspensão pelo sistema
+operacional permanecem evidências externas pendentes, sem constituir defeito
+do gate local.

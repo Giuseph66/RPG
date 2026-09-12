@@ -1,6 +1,6 @@
 # 03 — Modelo do personagem e estado
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — DATA-001 e STATE-001 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -99,4 +99,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 DATA-001 publica assinaturas/erros/fixtures; STATE-001 publica comandos/seletores e política de concorrência ao shell/features; mudanças passam pelo owner do contrato.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

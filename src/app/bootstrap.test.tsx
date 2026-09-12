@@ -11,6 +11,7 @@ import { fixtureRulesetRef } from "@domain/contracts/fixtures";
 import { asIsoTimestamp, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import { IndexedDbCampaignRepository, openDatabase } from "@infrastructure/persistence/indexeddb";
+import type { JournalDraftState } from "@domain/campaign/journal";
 
 async function mountRoute(node: Parameters<typeof mount>[0]) {
   const mounted = await mount(node);
@@ -169,6 +170,9 @@ describe("Bootstrap", () => {
       const cleanStore = { getSnapshot: () => ({ status: "clean" as const, hasPendingChanges: false }) };
       const cleanServices = { character: { store: cleanStore }, campaign: { store: cleanStore }, settings: { store: cleanStore }, dice: { store: cleanStore } } as unknown as ApplicationServices;
       expect(hasPendingApplicationWork(cleanServices)).toBe(false);
+      const errorStore = { getSnapshot: () => ({ status: "error" as const, hasPendingChanges: false }) };
+      const errorServices = { character: { store: errorStore }, campaign: { store: cleanStore }, settings: { store: cleanStore }, dice: { store: cleanStore } } as unknown as ApplicationServices;
+      expect(hasPendingApplicationWork(errorServices)).toBe(true);
     } finally {
       await act(async () => root.unmount());
       runtime.services.character.dispose();
@@ -176,5 +180,18 @@ describe("Bootstrap", () => {
       runtime.database.close();
       container.remove();
     }
+  });
+
+  it("bloqueia atualização com rascunho de diário não persistido e libera após salvar ou descartar", () => {
+    const cleanStore = { getSnapshot: () => ({ status: "clean" as const, hasPendingChanges: false }) };
+    const services = { character: { store: cleanStore }, campaign: { store: cleanStore }, settings: { store: cleanStore }, dice: { store: cleanStore } } as unknown as ApplicationServices;
+    let journalState: JournalDraftState | undefined = { status: "dirty" } as JournalDraftState;
+
+    expect(hasPendingApplicationWork(services, () => journalState)).toBe(true);
+    journalState = { status: "saved" } as JournalDraftState;
+    expect(hasPendingApplicationWork(services, () => journalState)).toBe(false);
+    journalState = { status: "dirty" } as JournalDraftState;
+    journalState = undefined;
+    expect(hasPendingApplicationWork(services, () => journalState)).toBe(false);
   });
 });

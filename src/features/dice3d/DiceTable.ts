@@ -20,6 +20,7 @@ import {
   type DieAppearance,
 } from "./appearance";
 import { CAMINHO_PADRAO, carregarDado } from "./assets";
+import { orientationForValue } from "./orientationFor";
 import { lerDado, type LeituraDado } from "./readout";
 import type { DieMeta, Quat } from "./types";
 
@@ -57,6 +58,18 @@ export interface RollOptions {
   impulse?: number;
   /** Módulo máximo do giro inicial, em rad/s. */
   spin?: number;
+  /**
+   * Valores finais desejados, na mesma ordem dos dados alvo (`ids`, ou a
+   * ordem de inserção quando `ids` for omitido).
+   *
+   * O número NUNCA vem da física: vem do motor de dados do domínio
+   * (`RandomSource` auditado, usado no histórico/reroll/rngVersion). A queda,
+   * o quique e o giro inicial são livres e caóticos; só na reta final, quando
+   * o dado já está naturalmente desacelerando, um leve torque de correção o
+   * guia pra assentar exatamente nesse valor — não existe um "pulo" visível
+   * depois de parado, porque a correção acontece ENQUANTO ele ainda gira.
+   */
+  results?: readonly number[];
 }
 
 interface Instancia {
@@ -67,9 +80,28 @@ interface Instancia {
   corpo: CANNON.Body;
   materialCorpo: THREE.MeshPhysicalMaterial;
   materialNumeros: THREE.MeshStandardMaterial;
+  /** Orientação-alvo desta rolagem (`RollOptions.results`), se houver. */
+  resultAlvo?: Quat;
+  /** `true` assim que o torque de correção começa a agir nesta instância. */
+  ajustando: boolean;
 }
 
 const PASSO = 1 / 60;
+
+/**
+ * Abaixo dessas velocidades o dado já está "morrendo" naturalmente (ainda
+ * girando, mas perdendo força) — é o momento de começar a guiá-lo pro valor
+ * certo. Começar antes disso faria o torque brigar com um dado ainda em
+ * queda livre / quicando com força, o que pareceria artificial.
+ */
+const LIMIAR_VEL_ANG_AJUSTE = 2.4; // rad/s
+const LIMIAR_VEL_LIN_AJUSTE = 8; // cm/s
+/** Ganho do controle proporcional: rad/s de correção por radiano de erro. */
+const GANHO_AJUSTE = 7;
+/** Teto de velocidade angular que o torque de correção pode impor. */
+const VEL_ANG_MAX_AJUSTE = 6; // rad/s
+/** Erro angular abaixo do qual a correção é considerada concluída. */
+const ERRO_ANGULO_OK = 0.02; // rad (~1,1°)
 
 export class DiceTable {
   readonly scene = new THREE.Scene();
@@ -256,6 +288,7 @@ export class DiceTable {
       corpo,
       materialCorpo,
       materialNumeros,
+      ajustando: false,
     });
     return slot;
   }
@@ -293,6 +326,19 @@ export class DiceTable {
 
   private buscar(id: string, slot: number): Instancia | undefined {
     return this.instancias.find((i) => i.id === id && i.slot === slot);
+  }
+
+  /** Remove todos os dados da mesa (corpo físico, malha e materiais). */
+  clear(): void {
+    this.rolando?.resolve([]);
+    this.rolando = null;
+    for (const inst of this.instancias) {
+      this.world.removeBody(inst.corpo);
+      this.scene.remove(inst.grupo);
+      inst.materialCorpo.dispose();
+      inst.materialNumeros.dispose();
+    }
+    this.instancias.length = 0;
   }
 
   // --------------------------------------------------------------- rolagem
@@ -334,6 +380,7 @@ export class DiceTable {
       const raio = espalhar * (0.35 + 0.65 * this.random());
       const [qx, qy, qz, qw] = this.quatUniforme();
 
+      inst.corpo.type = CANNON.Body.DYNAMIC;
       inst.corpo.wakeUp();
       inst.corpo.position.set(
         Math.cos(ang) * raio,
@@ -345,6 +392,12 @@ export class DiceTable {
       inst.corpo.angularVelocity.set(this.faixa(giro), this.faixa(giro), this.faixa(giro));
       inst.corpo.force.setZero();
       inst.corpo.torque.setZero();
+
+      inst.ajustando = false;
+      inst.resultAlvo =
+        opts.results?.[k] !== undefined
+          ? orientationForValue(inst.meta, opts.results[k], this.random)
+          : undefined;
     });
 
     return new Promise<RollOutcome[]>((resolve) => {
@@ -366,11 +419,69 @@ export class DiceTable {
     return { id: inst.id, slot: inst.slot, ...leitura };
   }
 
+  /**
+   * Guia suavemente um dado até `resultAlvo`, sem tirá-lo da simulação física.
+   *
+   * Só entra em ação quando o dado já está desacelerando naturalmente (abaixo
+   * de `LIMIAR_VEL_*_AJUSTE`) — antes disso, deixa a queda/quique/giro
+   * totalmente livres. A partir daí, aplica um controle proporcional: quanto
+   * maior o erro de orientação, mais rápido ele gira na direção certa,
+   * exatamente como se o próprio giro estivesse "morrendo" ali. O corpo
+   * continua `DYNAMIC` o tempo todo — gravidade e colisão seguem valendo —
+   * então não existe nenhum instante em que o dado pareça teletransportar ou
+   * girar sozinho depois de já ter parado.
+   */
+  private guiarParaAlvo(inst: Instancia): void {
+    const alvo = inst.resultAlvo;
+    if (!alvo) return;
+    const corpo = inst.corpo;
+
+    if (!inst.ajustando) {
+      const dentroDoLimiar =
+        corpo.angularVelocity.length() < LIMIAR_VEL_ANG_AJUSTE &&
+        corpo.velocity.length() < LIMIAR_VEL_LIN_AJUSTE;
+      if (!dentroDoLimiar) return;
+      inst.ajustando = true;
+    }
+
+    const atualInv = corpo.quaternion.inverse();
+    const alvoQuat = new CANNON.Quaternion(alvo[0], alvo[1], alvo[2], alvo[3]);
+    const delta = alvoQuat.mult(atualInv);
+    const [eixo, anguloBruto] = delta.toAxisAngle();
+    // toAxisAngle devolve [0, 2π): acima de π o caminho mais curto é o
+    // suplementar negativo em torno do MESMO eixo
+    const erro = anguloBruto > Math.PI ? anguloBruto - 2 * Math.PI : anguloBruto;
+
+    if (Math.abs(erro) < ERRO_ANGULO_OK && corpo.angularVelocity.length() < 0.3) {
+      corpo.angularVelocity.setZero();
+      corpo.velocity.scale(0.4, corpo.velocity);
+      inst.resultAlvo = undefined; // corrigido: solta o controle, deixa dormir em paz
+      return;
+    }
+
+    const modulo = Math.max(-VEL_ANG_MAX_AJUSTE, Math.min(VEL_ANG_MAX_AJUSTE, erro * GANHO_AJUSTE));
+    const desejada = eixo.scale(modulo);
+    // mistura em vez de substituir: preserva a sensação de giro ja existente
+    corpo.angularVelocity.set(
+      corpo.angularVelocity.x * 0.55 + desejada.x * 0.45,
+      corpo.angularVelocity.y * 0.55 + desejada.y * 0.45,
+      corpo.angularVelocity.z * 0.55 + desejada.z * 0.45,
+    );
+    // freia a translação residual: sem isso o dado "andaria" enquanto gira
+    // para o lugar certo, em vez de so girar no proprio eixo ate assentar
+    corpo.velocity.scale(0.9, corpo.velocity);
+  }
+
   // ------------------------------------------------------------------ loop
 
   private tick(): void {
     if (this.descartado) return;
     const dt = Math.min(this.relogio.getDelta(), 0.1);
+
+    if (this.rolando) {
+      for (const inst of this.rolando.alvos) this.guiarParaAlvo(inst);
+    }
+
     this.world.step(PASSO, dt, 4);
 
     for (const inst of this.instancias) {

@@ -1,6 +1,6 @@
 # 16 — Responsividade
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — UI-005 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -92,4 +92,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 A11Y-001 recebe superfícies estabilizadas e limitações de viewport; owners recebem relatórios reproduzíveis, não permissão de edição transversal.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

@@ -1,6 +1,6 @@
 # 06 — Rules Engine
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — RULE-001 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -92,4 +92,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 CHAR-001/002 recebem seletores/validação; RULE-002/ITEM-002/SPELL-002 recebem pipeline/precedência e contratos para ampliar domínio sem duplicação.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

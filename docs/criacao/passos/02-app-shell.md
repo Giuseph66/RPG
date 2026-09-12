@@ -1,6 +1,6 @@
 # 02 — App shell
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — UI-002 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P0.
 
@@ -94,4 +94,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 DICE-002 e features recebem pontos de entrada/slots do shell e contrato de navegação; CORE-002 recebe exports reais para composição final.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

@@ -1,6 +1,6 @@
 # 12 — Jornada, campanha e mapa
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — MAP-001 e JOUR-001 concluídas; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -97,4 +97,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 DATA-006 recebe inventário de anexos/vínculos para backup; COMP-001 não indexa notas pessoais como regras; CORE-002 integra subáreas por exports.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

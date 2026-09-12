@@ -1,12 +1,12 @@
 # Passos de implementação
 
-**IMPLEMENTAÇÃO DO SOFTWARE NÃO INICIADA.** 20 passos, numerados 00–19, cada um com metadados e 17 seções. Inspirados na organização do [Pixel — docs/Passos](https://github.com/Giuseph66/Pixel/tree/main/docs/Passos): uma responsabilidade delimitada, pré-requisitos, arquivos, armadilhas, aceite e limites de prova; nenhuma arquitetura Godot copiada.
+20 passos, numerados 00–19, cada um com metadados e 17 seções. O planejamento é histórico; o registro [TASKS](../swarm/TASKS.md) e os relatórios de [QA](../../implementacao/qa/) são as fontes de evidência da implementação. Inspirados na organização do [Pixel — docs/Passos](https://github.com/Giuseph66/Pixel/tree/main/docs/Passos): uma responsabilidade delimitada, pré-requisitos, arquivos, armadilhas, aceite e limites de prova; nenhuma arquitetura Godot copiada.
 
 ## Ordem de leitura não é ordem de execução
 
 Ler na numeração para entender o produto; agendar pelo [DAG de tarefas](../swarm/DEPENDENCIES.md). Um passo pode conter tarefas de fases diferentes: no passo 03, DATA-001 congela contratos antes de DATA-003 criar persistência base; STATE-001 vem depois. No passo 14, DATA-003 ocorre cedo e DATA-006 completa migração/backup mais tarde. Engine de dados avança sem shell; seu overlay espera shell. Catálogos do passo 08 destravam criação do passo 07. Não criar dependências circulares entre passos tentando torná-los blocos indivisíveis.
 
-Todas as verificações descritas são futuras; esta documentação não afirma testes/lint/build executados. Aplicar autorizações vigentes na fase de implementação. Só CORE-001 está READY no estado inicial; nenhum passo representa software pronto.
+As verificações e limitações de cada passo devem ser lidas junto aos registros de TASKS e QA. Provas físicas externas permanecem explicitamente pendentes quando os relatórios assim indicarem; nenhum passo inventa essa evidência.
 
 | Passo | Tema | Tasks |
 | --- | --- | --- |

@@ -1,6 +1,6 @@
 # 19 — Polimento e entrega
 
-Estado: TODO — implementação não iniciada.
+Estado: DONE — REL-001 concluída; aceite canônico registrado em TASKS/QA.
 
 Prioridade: P1.
 
@@ -91,4 +91,3 @@ Existência de código ou mock não conclui integração. Cada task só vira DON
 Coordenador recebe pacote de entrega e backlog posterior com IDs preservados. Nenhuma implementação deve começar ou continuar automaticamente após a fase documental atual.
 
 Entregar arquivos tocados, exports/contratos, critérios provados, comandos realmente executados, limitações e dependências ao coordenador, conforme [HANDOFF](../swarm/HANDOFF.md). Nunca editar ownership alheio nem declarar validação não executada.
-

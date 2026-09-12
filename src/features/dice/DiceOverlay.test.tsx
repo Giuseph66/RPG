@@ -1,3 +1,4 @@
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { createSequenceRandomSource } from "@domain/dice";
@@ -38,6 +39,25 @@ describe("DiceOverlay", () => {
     await click(rollButton);
     expect(container.querySelectorAll('[aria-label^="Dado "]').length).toBe(1);
     expect(container.querySelector('[role="status"]')?.textContent).toContain("total 20");
+    await unmount();
+  });
+
+  it("não monta a mesa física de dados enquanto o overlay está fechado", async () => {
+    const dice = controller();
+    const { container, unmount } = await mount(<DiceOverlay controller={dice} />);
+    expect(container.querySelector("canvas")).toBeNull();
+    await unmount();
+  });
+
+  it("carrega a mesa física dinamicamente ao abrir o overlay", async () => {
+    const dice = controller();
+    const { container, unmount } = await mount(<DiceOverlay controller={dice} />);
+    await act(async () => {
+      dice.open({ source: "fab" });
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+    expect(container.querySelector("canvas")).not.toBeNull();
     await unmount();
   });
 });
