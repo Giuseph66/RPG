@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fixtureRulesetRef, minimalCharacter, diceRollAdvantageSample } from "@domain/contracts/fixtures";
 import { asCommandId, asIsoTimestamp, asUuid } from "@domain/contracts/ids";
@@ -143,6 +143,97 @@ describe("DATA-003 IndexedDB", () => {
     const stale = await campaigns.saveQuest(campaign.id, { ...quest, title: "stale" }, asRevision(1));
     if (stale.ok) throw new Error("CAS de Quest foi ignorado");
     expect(stale.error.code).toBe("conflict");
+  });
+
+  it("remove campanha, diário, mapa e asset vinculado em um commit único", async () => {
+    const campaigns = new IndexedDbCampaignRepository(db, clock);
+    const assets = new IndexedDbAssetRepository(db, clock);
+    const campaign: Campaign = {
+      id: asUuid("11111111-1111-4111-8111-111111111111"),
+      schemaVersion: 1,
+      revision: asRevision(0),
+      name: "Campanha atômica",
+      description: "",
+      rulesetRef: fixtureRulesetRef,
+      characterIds: [],
+      sessionCounter: 0,
+      npcs: [],
+      quests: [],
+      objectives: [],
+      settings: { optionalRules: [], abilityGenerationMethod: "standard-array", advancementMethod: "xp" },
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    const journalId = asUuid("22222222-2222-4222-8222-222222222222");
+    const mapId = asUuid("33333333-3333-4333-8333-333333333333");
+    const assetId = asUuid("44444444-4444-4444-8444-444444444444");
+    expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+    expect((await campaigns.saveJournalEntry({
+      id: journalId,
+      campaignId: campaign.id,
+      title: "Sessão",
+      body: "Resumo",
+      linkedEntityIds: [],
+      tags: [],
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    })).ok).toBe(true);
+    expect((await assets.put({ id: assetId, mediaType: "image/png", bytes: new Uint8Array([1]), hash: "hash", originalName: "map.png" })).ok).toBe(true);
+    expect((await campaigns.saveMap({ id: mapId, campaignId: campaign.id, name: "Mapa", assetId, pins: [], revision: asRevision(0) }, asRevision(0))).ok).toBe(true);
+
+    const deleted = await campaigns.deleteCampaignAndContent(campaign.id, asRevision(1));
+    expect(deleted).toEqual({ ok: true, value: undefined });
+    expect((await campaigns.get(campaign.id)).ok).toBe(false);
+    expect((await campaigns.getJournalEntry(journalId)).ok).toBe(false);
+    expect((await campaigns.getMap(mapId)).ok).toBe(false);
+    expect((await assets.get(assetId)).ok).toBe(false);
+  });
+
+  it("faz rollback de todo o conteúdo quando um delete intermediário falha", async () => {
+    const campaigns = new IndexedDbCampaignRepository(db, clock);
+    const assets = new IndexedDbAssetRepository(db, clock);
+    const campaign: Campaign = {
+      id: asUuid("55555555-5555-4555-8555-555555555555"),
+      schemaVersion: 1,
+      revision: asRevision(0),
+      name: "Campanha rollback",
+      description: "",
+      rulesetRef: fixtureRulesetRef,
+      characterIds: [],
+      sessionCounter: 0,
+      npcs: [],
+      quests: [],
+      objectives: [],
+      settings: { optionalRules: [], abilityGenerationMethod: "standard-array", advancementMethod: "xp" },
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    };
+    const journalId = asUuid("66666666-6666-4666-8666-666666666666");
+    const mapId = asUuid("77777777-7777-4777-8777-777777777777");
+    const assetId = asUuid("88888888-8888-4888-8888-888888888888");
+    expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+    expect((await campaigns.saveJournalEntry({ id: journalId, campaignId: campaign.id, title: "Sessão", body: "Resumo", linkedEntityIds: [], tags: [], createdAt: clock.now(), updatedAt: clock.now() })).ok).toBe(true);
+    expect((await assets.put({ id: assetId, mediaType: "image/png", bytes: new Uint8Array([1]), hash: "hash", originalName: "map.png" })).ok).toBe(true);
+    expect((await campaigns.saveMap({ id: mapId, campaignId: campaign.id, name: "Mapa", assetId, pins: [], revision: asRevision(0) }, asRevision(0))).ok).toBe(true);
+
+    const originalDelete = IDBObjectStore.prototype.delete;
+    let deleteCalls = 0;
+    const deleteSpy = vi.spyOn(IDBObjectStore.prototype, "delete").mockImplementation(function (this: IDBObjectStore, key: IDBValidKey | IDBKeyRange) {
+      deleteCalls += 1;
+      if (deleteCalls === 2) throw new Error("falha injetada no segundo delete");
+      return originalDelete.call(this, key);
+    });
+    try {
+      const result = await campaigns.deleteCampaignAndContent(campaign.id, asRevision(1));
+      expect(result.ok).toBe(false);
+    } finally {
+      deleteSpy.mockRestore();
+    }
+
+    expect((await campaigns.get(campaign.id)).ok).toBe(true);
+    expect((await campaigns.getJournalEntry(journalId)).ok).toBe(true);
+    expect((await campaigns.getMap(mapId)).ok).toBe(true);
+    expect((await assets.get(assetId)).ok).toBe(true);
   });
 
   it("reabre o banco e conserva o registro confirmado", async () => {

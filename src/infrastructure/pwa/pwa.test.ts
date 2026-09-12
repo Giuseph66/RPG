@@ -75,6 +75,90 @@ describe("PWA infrastructure", () => {
     result.value.dispose();
   });
 
+  it("coordena avisos entre abas sem compartilhar trabalho pendente", async () => {
+    type Listener = (event: { readonly data: unknown }) => void;
+    const channels = new Set<Set<Listener>>();
+    const createBroadcastChannel = vi.fn(() => {
+      const ownListeners = new Set<Listener>();
+      channels.add(ownListeners);
+      return {
+        postMessage: (message: unknown) => {
+          for (const otherListeners of channels) {
+            if (otherListeners === ownListeners) continue;
+            for (const listener of otherListeners) listener({ data: message });
+          }
+        },
+        addEventListener: (_type: "message", listener: Listener) => {
+          ownListeners.add(listener);
+        },
+        removeEventListener: (_type: "message", listener: Listener) => {
+          ownListeners.delete(listener);
+        },
+        close: () => {
+          channels.delete(ownListeners);
+          ownListeners.clear();
+        },
+      };
+    });
+    let pendingFirst = true;
+    let updateFoundFirst: (() => void) | undefined;
+    let updateFoundSecond: (() => void) | undefined;
+    const firstWorker = { postMessage: vi.fn() };
+    const firstRegistration = {
+      scope: "/",
+      waiting: null as typeof firstWorker | null,
+      addEventListener: vi.fn((_type: string, listener: () => void) => { updateFoundFirst = listener; }),
+      removeEventListener: vi.fn(),
+    };
+    const secondRegistration = {
+      scope: "/",
+      waiting: null,
+      addEventListener: vi.fn((_type: string, listener: () => void) => { updateFoundSecond = listener; }),
+      removeEventListener: vi.fn(),
+    };
+    const register = vi.fn()
+      .mockResolvedValueOnce(firstRegistration)
+      .mockResolvedValueOnce(secondRegistration);
+    const platform = { serviceWorker: { register }, createBroadcastChannel };
+    const first = await registerPwa({ platform, hasPendingWork: () => pendingFirst });
+    const second = await registerPwa({ platform });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+
+    firstRegistration.waiting = firstWorker;
+    updateFoundFirst?.();
+    expect(first.value.getUpdateState()).toBe("deferred");
+    expect(second.value.getUpdateState()).toBe("available");
+
+    expect(first.value.applyUpdate()).toMatchObject({ ok: false, error: { code: "update-deferred" } });
+    expect(firstWorker.postMessage).not.toHaveBeenCalled();
+    pendingFirst = false;
+    expect(first.value.applyUpdate()).toMatchObject({ ok: true });
+    expect(firstWorker.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING", version: PWA_VERSION });
+    expect(second.value.getUpdateState()).toBe("available");
+    expect(createBroadcastChannel).toHaveBeenCalledTimes(2);
+    first.value.dispose();
+    second.value.dispose();
+    expect(updateFoundSecond).toBeDefined();
+  });
+
+  it("continua funcionando quando BroadcastChannel não está disponível", async () => {
+    const postMessage = vi.fn();
+    const result = await registerPwa({
+      platform: {
+        serviceWorker: {
+          register: vi.fn(async () => ({ waiting: { postMessage } })),
+        },
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.applyUpdate()).toMatchObject({ ok: true });
+    expect(postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING", version: PWA_VERSION });
+    result.value.dispose();
+  });
+
   it("reporta ausência de suporte e falha de registro sem lançar", async () => {
     await expect(registerPwa({ platform: {} })).resolves.toMatchObject({ ok: false, error: { code: "unsupported" } });
     const failure = await registerPwa({ platform: { serviceWorker: { register: vi.fn(async () => { throw new Error("storage blocked"); }) } } });

@@ -113,6 +113,24 @@ def paint_faces(ob, face_nums, base_rgb, attr="FaceCol"):
     return attr
 
 
+def paint_uniform(ob, rgb, attr="FaceCol"):
+    """Pinta a malha toda com UMA cor solida, sem rampa por valor.
+
+    Para corpos com centenas de triangulos (as esferas com facetas do d3/d5,
+    ou qualquer solido sem numeracao por face) o truque de "numero fake por
+    indice" usado em paint_faces() produziria ruido: cada triangulo cai num
+    ponto arbitrario da rampa e o resultado vira um mosaico aleatorio de cor.
+    """
+    me = ob.data
+    for a in list(me.color_attributes):
+        me.color_attributes.remove(a)
+    ca = me.color_attributes.new(name=attr, type="FLOAT_COLOR", domain="CORNER")
+    r, g, b = rgb
+    ca.data.foreach_set("color", [r, g, b, 1.0] * len(me.loops))
+    me.update()
+    return attr
+
+
 def face_color_material(name, attr="FaceCol"):
     mat = bpy.data.materials.get(name)
     if mat:
@@ -276,6 +294,41 @@ def build_vertex_numbers(ob, vert_nums, coll, lift=0.010, frac=0.58, fill=0.34):
             m = (Matrix.Translation(c + d * frac + nrm * lift)
                  @ base @ Matrix.Scale(size, 4))
             _emit(bm, s, m)
+    return _finish_numbers(bm, ob, coll)
+
+
+def belt_numbers_bmesh(n, values, R, cut, lift=0.010, fill=0.85, start_offset=0.0):
+    """Bmesh com um numero gravado em cada vao curvo entre facetas (d3/d5 reais).
+
+    Fica em bmesh solto (sem virar objeto) de proposito: o chamador ainda
+    precisa aplicar a MESMA rotacao usada para deitar o corpo do dado no chao
+    (orient_face_down) antes de converter isso em objeto - a formula do angulo
+    do vao so vale no referencial original da esfera com cortes (builder()),
+    antes de qualquer rotacao.
+
+    `values[j]` e o numero do vao j (angulo (j+0.5)*360/n).
+    """
+    bm = bmesh.new()
+    raio_texto = R * math.sqrt(max(0.0, 1.0 - cut * cut)) * 1.05
+    for j, val in enumerate(values):
+        ang = (2.0 * math.pi * (j + 0.5) / n) + start_offset
+        pos_dir = Vector((math.cos(ang), math.sin(ang), 0.0))
+        centro = pos_dir * R
+        normal = pos_dir
+        s = str(val)
+        size = fill * raio_texto / max(1.0, 0.60 * len(s))
+        # _face_frame ja e usada (e validada) por build_numbers em todos os
+        # outros dados - reaproveitar em vez de uma base artesanal evita
+        # divergencia de convencao (o inline anterior saia espelhado).
+        m = (Matrix.Translation(centro + normal * lift)
+             @ _face_frame(normal) @ Matrix.Scale(size, 4))
+        _emit(bm, s, m)
+    return bm
+
+
+def build_belt_numbers(ob, n, values, coll, R, cut, lift=0.010, fill=0.85, start_offset=0.0):
+    """Atalho sem controle de rotacao externa - ver belt_numbers_bmesh."""
+    bm = belt_numbers_bmesh(n, values, R, cut, lift, fill, start_offset)
     return _finish_numbers(bm, ob, coll)
 
 

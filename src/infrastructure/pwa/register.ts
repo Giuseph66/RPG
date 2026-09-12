@@ -17,13 +17,32 @@ export interface PwaRegistration {
   readonly removeEventListener?: (type: string, listener: () => void) => void;
 }
 
+export interface PwaBroadcastMessageEvent {
+  readonly data: unknown;
+}
+
+export interface PwaBroadcastChannel {
+  readonly postMessage: (message: unknown) => void;
+  readonly addEventListener?: (type: "message", listener: (event: PwaBroadcastMessageEvent) => void) => void;
+  readonly removeEventListener?: (type: "message", listener: (event: PwaBroadcastMessageEvent) => void) => void;
+  readonly close?: () => void;
+}
+
 export interface PwaServiceWorkerContainer {
   readonly register: (url: string, options?: { readonly scope?: string }) => Promise<PwaRegistration>;
 }
 
 export interface PwaPlatform {
   readonly serviceWorker?: PwaServiceWorkerContainer;
+  /** Fábrica injetável para coordenar abas; ausência é um fallback suportado. */
+  readonly createBroadcastChannel?: (name: string) => PwaBroadcastChannel;
 }
+
+export const PWA_UPDATE_CHANNEL = "rpg-companion-pwa-updates";
+
+type PwaUpdateMessage =
+  | { readonly type: "update-available"; readonly version: string }
+  | { readonly type: "update-applied"; readonly version: string };
 
 export type PwaUpdateState = "current" | "available" | "deferred";
 
@@ -55,11 +74,28 @@ export interface RegisteredPwa {
 
 function defaultPlatform(): PwaPlatform {
   if (typeof navigator === "undefined") return {};
-  return { serviceWorker: navigator.serviceWorker };
+  const createBroadcastChannel = typeof BroadcastChannel === "undefined"
+    ? undefined
+    : (name: string): PwaBroadcastChannel => {
+        const channel = new BroadcastChannel(name);
+        return {
+          postMessage: (message) => channel.postMessage(message),
+          addEventListener: (_type, listener) => channel.addEventListener("message", listener as unknown as EventListener),
+          removeEventListener: (_type, listener) => channel.removeEventListener("message", listener as unknown as EventListener),
+          close: () => channel.close(),
+        };
+      };
+  return { serviceWorker: navigator.serviceWorker, createBroadcastChannel };
 }
 
 function errorCause(cause: unknown): string | undefined {
   return cause instanceof Error ? cause.message : typeof cause === "string" ? cause : undefined;
+}
+
+function isPwaUpdateMessage(value: unknown): value is PwaUpdateMessage {
+  if (!value || typeof value !== "object") return false;
+  const message = value as { type?: unknown; version?: unknown };
+  return (message.type === "update-available" || message.type === "update-applied") && typeof message.version === "string";
 }
 
 /**
@@ -83,8 +119,34 @@ export async function registerPwa(options: PwaRegistrationOptions = {}): Promise
 
   let updateState: PwaUpdateState = registration.waiting ? "available" : "current";
   const hasPendingWork = options.hasPendingWork ?? (() => false);
+  let channel: PwaBroadcastChannel | undefined;
+  try {
+    channel = platform.createBroadcastChannel?.(PWA_UPDATE_CHANNEL);
+  } catch {
+    channel = undefined;
+  }
+  const announce = (message: PwaUpdateMessage) => {
+    try {
+      channel?.postMessage(message);
+    } catch {
+      // Falha de coordenação entre abas não pode impedir o PWA local.
+    }
+  };
+  const onChannelMessage = (event: PwaBroadcastMessageEvent) => {
+    if (!isPwaUpdateMessage(event.data)) return;
+    if (event.data.type === "update-available") {
+      updateState = hasPendingWork() ? "deferred" : "available";
+      return;
+    }
+    // Outra aba pode ter aplicado a versão; esta aba ainda decide quando
+    // aplicar, após verificar seu próprio trabalho pendente.
+    updateState = hasPendingWork() ? "deferred" : "available";
+  };
+  channel?.addEventListener?.("message", onChannelMessage);
+  if (registration.waiting) announce({ type: "update-available", version });
   const onUpdateFound = () => {
     updateState = hasPendingWork() ? "deferred" : "available";
+    announce({ type: "update-available", version });
   };
   registration.addEventListener?.("updatefound", onUpdateFound);
 
@@ -106,6 +168,7 @@ export async function registerPwa(options: PwaRegistrationOptions = {}): Promise
       if (waiting) {
         waiting.postMessage({ type: "SKIP_WAITING", version });
         updateState = "current";
+        announce({ type: "update-applied", version });
       } else {
         updateState = "current";
       }
@@ -120,7 +183,15 @@ export async function registerPwa(options: PwaRegistrationOptions = {}): Promise
         return err({ code: "registration-failed", message: "Verificação de atualização offline falhou.", cause: errorCause(cause) });
       }
     },
-    dispose: () => registration.removeEventListener?.("updatefound", onUpdateFound),
+    dispose: () => {
+      registration.removeEventListener?.("updatefound", onUpdateFound);
+      channel?.removeEventListener?.("message", onChannelMessage);
+      try {
+        channel?.close?.();
+      } catch {
+        // Canal já encerrado ou indisponível não altera o ciclo de vida local.
+      }
+    },
   };
   return ok(handle);
 }

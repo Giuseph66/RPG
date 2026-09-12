@@ -144,6 +144,11 @@ export interface EquipItemPayload {
   readonly equippedState: InventoryEquippedState;
 }
 
+export interface ConsumeItemPayload {
+  readonly inventoryItemId: Uuid;
+  readonly equipmentRef: DefinitionRef;
+}
+
 export interface UpdateChoicesPayload {
   readonly selections: readonly ChoiceSelection[];
 }
@@ -167,6 +172,7 @@ export type Command =
   | CommandEnvelope<"resolve-death-save", ResolveDeathSavePayload>
   | CommandEnvelope<"rest", RestPayload>
   | CommandEnvelope<"equip-item", EquipItemPayload>
+  | CommandEnvelope<"consume-item", ConsumeItemPayload>
   | CommandEnvelope<"update-choices", UpdateChoicesPayload>
   | CommandEnvelope<"level-up", LevelUpPayload>;
 

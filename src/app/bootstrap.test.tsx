@@ -4,12 +4,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { Bootstrap, createApplicationRuntime, hasPendingApplicationWork } from "@app/bootstrap";
+import { mount } from "@components/ui/testUtils";
 import type { ApplicationServices } from "@application/state";
 import { createCampaign } from "@domain/campaign/journal";
 import { fixtureRulesetRef } from "@domain/contracts/fixtures";
 import { asIsoTimestamp, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import { IndexedDbCampaignRepository, openDatabase } from "@infrastructure/persistence/indexeddb";
+
+async function mountRoute(node: Parameters<typeof mount>[0]) {
+  const mounted = await mount(node);
+  await act(async () => {
+    await vi.dynamicImportSettled();
+    for (let index = 0; index < 10; index += 1) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+  });
+  return mounted;
+}
 
 describe("Bootstrap", () => {
   it("keeps the application landmark visible while local data opens", () => {
@@ -21,13 +33,13 @@ describe("Bootstrap", () => {
 
   it("renders the initial route through the real shell after boot", async () => {
     const runtime = await createApplicationRuntime();
+    const mounted = await mountRoute(<Bootstrap runtime={runtime} initialPath="/compendium" />);
     try {
-      const markup = renderToStaticMarkup(<Bootstrap runtime={runtime} initialPath="/compendium" />);
-
-      expect(markup).toContain("Ábaco");
-      expect(markup).toContain('aria-current="page"');
-      expect(markup).toContain("Compêndio");
+      expect(mounted.container.textContent).toContain("Ábaco");
+      expect(mounted.container.innerHTML).toContain('aria-current="page"');
+      expect(mounted.container.textContent).toContain("Compêndio");
     } finally {
+      await mounted.unmount();
       runtime.services.character.dispose();
       runtime.services.settings.dispose();
       runtime.database.close();
@@ -62,13 +74,18 @@ describe("Bootstrap", () => {
       expect(runtime.registry.compendium.service.getCategories().find((category) => category.id === "attributes")).toMatchObject({ status: "available" });
       expect(runtime.registry.compendium.service.getCategories().find((category) => category.id === "skills")).toMatchObject({ status: "available" });
       const routes = [
-        ["/character", "Nenhum personagem selecionado"],
+        ["/character", "Carregando personagens"],
         ["/actions", "Nenhum personagem selecionado"],
         ["/journey", "Nenhuma campanha local criada"],
         ["/compendium", "Ábaco"],
       ] as const;
       for (const [path, expected] of routes) {
-        expect(renderToStaticMarkup(<Bootstrap runtime={runtime} initialPath={path} />)).toContain(expected);
+        const mounted = await mountRoute(<Bootstrap runtime={runtime} initialPath={path} />);
+        try {
+          expect(mounted.container.textContent).toContain(expected);
+        } finally {
+          await mounted.unmount();
+        }
       }
     } finally {
       runtime.services.character.dispose();
@@ -94,13 +111,14 @@ describe("Bootstrap", () => {
     seeded.value.close();
 
     const runtime = await createApplicationRuntime({ database: { name } });
+    const mounted = await mountRoute(<Bootstrap runtime={runtime} initialPath="/journey" />);
     try {
-      const markup = renderToStaticMarkup(<Bootstrap runtime={runtime} initialPath="/journey" />);
       expect(runtime.services.campaign.store.selectedId).toBe(created.value.id);
       expect(runtime.services.campaign.store.getSnapshot().value?.name).toBe("Campanha persistida");
-      expect(markup).toContain("Campanha persistida");
-      expect(markup).toContain("Ativa: Campanha persistida");
+      expect(mounted.container.textContent).toContain("Campanha persistida");
+      expect(mounted.container.textContent).toContain("Ativa: Campanha persistida");
     } finally {
+      await mounted.unmount();
       runtime.services.character.dispose();
       runtime.services.campaign.dispose();
       runtime.services.settings.dispose();

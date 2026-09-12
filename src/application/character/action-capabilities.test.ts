@@ -70,6 +70,15 @@ const resourceDefinition: ResourceDefinition = {
   recoveryAmountRule: { kind: "full" },
 };
 
+const variableResourceDefinition: ResourceDefinition = {
+  id: asEntityId("channel-divinity"), name: "Canalizar Divindade", tags: [], sourceRefs: [],
+  ownerRef: ref("wizard"), unit: "uses",
+  capacityRule: { kind: "fixed", amount: 1 },
+  spendRules: [{ kind: "variable", description: "Custo depende da opção escolhida." }],
+  recoveryTriggers: [{ kind: "short-rest" }],
+  recoveryAmountRule: { kind: "full" },
+};
+
 const blockedFeature: FeatureDefinition = {
   id: asEntityId("wild-shape-block"), name: "Forma Selvagem (bloqueada)", tags: [], sourceRefs: [],
   activation: { kind: "action" }, eligibility: [], effects: [], resourceCosts: [], choices: [],
@@ -103,7 +112,7 @@ function pack(): RulePack {
     subclasses: new Map(),
     backgrounds: new Map(), feats: new Map(),
     features: new Map([[blockedFeature.id, blockedFeature], [passiveFeature.id, passiveFeature]]),
-    resources: new Map([[resourceDefinition.id, resourceDefinition]]),
+    resources: new Map([[resourceDefinition.id, resourceDefinition], [variableResourceDefinition.id, variableResourceDefinition]]),
     conditions: new Map(),
     equipment: new Map([[weaponDefinition.id, weaponDefinition]]),
     spells: new Map([[knownSpell.id, knownSpell], [blockedSpell.id, blockedSpell]]),
@@ -186,8 +195,14 @@ describe("deriveActionCapabilities", () => {
     expect(executions.has("rest:long")).toBe(true);
 
     const resourceCapability = capabilities.find((c) => c.id === `resource:${char.resources[0].id}`);
-    expect(resourceCapability?.status).toBe("unsupported");
-    expect(executions.has(resourceCapability!.id)).toBe(false);
+    expect(resourceCapability?.status).toBe("available");
+    expect(resourceCapability?.costs).toEqual([{ label: "Usos restantes", remaining: 1 }]); // capacidade 2, gasto 1
+    const resourceExecution = executions.get(resourceCapability!.id);
+    expect(resourceExecution).toBeDefined();
+    expect(resourceExecution?.command.kind).toBe("spend-resource");
+    const spent = resourceExecution!.resolve({ character: char, rolls: new Map() });
+    expect(spent.status).toBe("success");
+    if (spent.status === "success") expect(spent.nextState.resources[0].spent).toBe(2);
 
     const blockedFeatureCapability = capabilities.find((c) => c.id === "feature:wild-shape-block");
     expect(blockedFeatureCapability?.status).toBe("blocked");
@@ -271,5 +286,39 @@ describe("deriveActionCapabilities", () => {
     const withArmorClass = execution.resolve({ character: char, rolls, targetArmorClass: 10 });
     expect(withArmorClass.status).toBe("success");
     if (withArmorClass.status === "success") expect(withArmorClass.nextState.hp.current).toBe(char.hp.current - 7);
+  });
+
+  it("recurso sem capacidade derivada fica unsupported com motivo distinto, sem execução e sem gastar", () => {
+    const char = character({
+      resources: [
+        ...character().resources,
+        { id: asUuid("11111111-1111-4111-8111-000000000005"), definitionRef: ref("channel-divinity"), ownerInstanceId: asUuid("11111111-1111-4111-8111-000000000004"), spent: 0 },
+      ],
+    });
+    const idGenerator = fakeIdGenerator();
+    const { capabilities, executions } = deriveActionCapabilities(char, derivedFor(char), pack(), idGenerator);
+
+    const variableResource = capabilities.find((c) => c.id === `resource:${char.resources[1].id}`);
+    expect(variableResource?.status).toBe("unsupported");
+    expect(variableResource?.description).toContain("Capacidade do recurso não foi derivada");
+    expect(executions.has(variableResource!.id)).toBe(false);
+    // Nada foi gasto: nenhum estado é aplicado para uma capacidade unsupported.
+    expect(char.resources[1].spent).toBe(0);
+  });
+
+  it("recurso com custo variável fica unsupported mesmo com capacidade derivada", () => {
+    const char = character({
+      resources: [
+        ...character().resources,
+        { id: asUuid("11111111-1111-4111-8111-000000000005"), definitionRef: ref("channel-divinity"), ownerInstanceId: asUuid("11111111-1111-4111-8111-000000000004"), spent: 0 },
+      ],
+    });
+    const derived = { ...derivedFor(char), resourceCapacities: [...derivedFor(char).resourceCapacities, { definitionRef: ref("channel-divinity"), capacity: exp(1) }] };
+    const { capabilities, executions } = deriveActionCapabilities(char, derived, pack(), fakeIdGenerator());
+    const variableResource = capabilities.find((c) => c.id === `resource:${char.resources[1].id}`);
+    expect(variableResource?.status).toBe("unsupported");
+    expect(variableResource?.description).toContain("Custo de uso variável");
+    expect(executions.has(variableResource!.id)).toBe(false);
+    expect(char.resources[1].spent).toBe(0);
   });
 });

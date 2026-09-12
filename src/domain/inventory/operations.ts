@@ -1,6 +1,9 @@
-import { type InventoryEquippedState, type InventoryItem } from "@domain/contracts/character";
+import { type Character, type InventoryEquippedState, type InventoryItem } from "@domain/contracts/character";
 import { appError, err, ok, type Result, type AppError } from "@domain/contracts/errors";
-import { type CoinDenomination, type Currency } from "@domain/contracts/primitives";
+import { type EquipmentDefinition } from "@domain/contracts/definitions/equipment";
+import { type DefinitionRef } from "@domain/contracts/ids";
+import { type Command, type Effect, type RuleError, type RuleResult } from "@domain/contracts/rules";
+import { type CoinDenomination, type Currency, type SourceRef } from "@domain/contracts/primitives";
 import { type InventoryItemInput, type InventoryMutation, type InventoryState, type InventoryTransfer } from "./model";
 import { normalizeCurrency, validateContainerGraph, validateCurrency, validateInventoryItem, validateQuantity } from "./validation";
 
@@ -122,6 +125,75 @@ export function removeItemQuantity(state: InventoryState, itemId: string, quanti
   if (quantity > current.quantity) return err(appError.validation("quantity", "Quantidade removida excede a quantidade disponível."));
   if (quantity === current.quantity) return removeInventoryItem(state, itemId);
   return setItemQuantity(state, itemId, current.quantity - quantity);
+}
+
+export interface ConsumeItemContext {
+  readonly processedCommandIds?: ReadonlySet<string>;
+}
+
+function consumeSource(equipment: EquipmentDefinition, fallback: DefinitionRef): DefinitionRef | SourceRef {
+  return equipment.sourceRefs[0] ?? fallback;
+}
+
+function consumeSourceRef(equipment: EquipmentDefinition): SourceRef | undefined {
+  return equipment.sourceRefs[0];
+}
+
+function consumeRejected(message: string, source: DefinitionRef | SourceRef, code: RuleError["code"] = "invalid-command"): RuleResult {
+  return {
+    status: "rejected",
+    errors: [{ code, message, sourceRef: source }],
+    sourceRefs: "chapter" in source ? [source] : [],
+  };
+}
+
+/**
+ * Resolve o comando de consumo sem inventar cura, dano ou outro efeito. A definição do
+ * equipamento é fornecida pelo catálogo imutável; seu `effectDescription` é preservado na
+ * explicação para a mesa resolver efeitos ainda não automatizados.
+ */
+export function consumeItem(
+  character: Character,
+  command: Extract<Command, { readonly kind: "consume-item" }>,
+  equipment: EquipmentDefinition,
+  context: ConsumeItemContext = {},
+): RuleResult {
+  const fallbackRef: DefinitionRef = command.payload.equipmentRef;
+  const source = consumeSource(equipment, fallbackRef);
+  const sourceRefs = consumeSourceRef(equipment);
+  if (command.characterId !== character.id) return consumeRejected("Comando de consumo não pertence ao personagem recebido.", source, "invalid-context");
+  if (context.processedCommandIds?.has(String(command.commandId))) {
+    return { status: "success", nextState: character, effects: [], explanations: [{ value: "Comando de consumo já processado; nenhum item foi consumido novamente.", contributions: [{ sourceRef: source, description: "Idempotência do comando de consumo." }] }], sourceRefs: sourceRefs ? [sourceRefs] : [] };
+  }
+  if (command.payload.equipmentRef.rulesetId !== equipment.sourceRefs[0]?.sourceId && equipment.sourceRefs.length > 0) {
+    return consumeRejected("A definição do item pertence a outro ruleset.", source, "invalid-context");
+  }
+  if (command.payload.equipmentRef.entityId !== equipment.id) return consumeRejected("A definição resolvida não corresponde ao item solicitado.", source, "invalid-command");
+  const consumable = equipment.consumable;
+  if (!consumable || consumable.consumeOnUse !== true) return consumeRejected(`Item "${equipment.name}" não é consumível.`, source, "invalid-context");
+  const validInventory = createInventoryState(character.inventory, character.currency);
+  if (!validInventory.ok) return consumeRejected(validInventory.error.message, source, "invalid-command");
+  const itemIndexValue = character.inventory.findIndex((item) => item.id === command.payload.inventoryItemId);
+  if (itemIndexValue === -1) return consumeRejected(`Item "${command.payload.inventoryItemId}" não está na posse do personagem.`, source, "invalid-context");
+  const item = character.inventory[itemIndexValue];
+  if (item.equipmentRef.rulesetId !== command.payload.equipmentRef.rulesetId || item.equipmentRef.entityId !== command.payload.equipmentRef.entityId) {
+    return consumeRejected("A instância do inventário não corresponde à definição consumida.", source, "invalid-command");
+  }
+  if (!Number.isInteger(item.quantity) || !Number.isFinite(item.quantity) || item.quantity < 1) return consumeRejected("Quantidade inválida para consumo.", source, "invalid-command");
+  const inventory = item.quantity === 1
+    ? character.inventory.filter((_, index) => index !== itemIndexValue)
+    : character.inventory.map((entry, index) => index === itemIndexValue ? { ...entry, quantity: entry.quantity - 1 } : entry);
+  const effect: Effect = { kind: "inventory-changed", targetCharacterId: character.id, sourceRef: fallbackRef, payload: { inventoryItemId: item.id } };
+  const description = consumable.effectDescription
+    ? `${equipment.name} consumido: ${consumable.effectDescription} Efeito mecânico permanece pendente de resolução específica.`
+    : `${equipment.name} consumido; a definição não declara efeito mecânico automatizável.`;
+  return {
+    status: "success",
+    nextState: { ...character, inventory },
+    effects: [effect],
+    explanations: [{ value: description, contributions: [{ sourceRef: source, description }] }],
+    sourceRefs: sourceRefs ? [sourceRefs] : [],
+  };
 }
 
 export function adjustCurrency(state: InventoryState, denomination: CoinDenomination, delta: number): Result<InventoryState, AppError> {

@@ -63,6 +63,19 @@ describe("Inventory", () => {
     await unmount();
   });
 
+  it("shows Consumir only for eligible consumables and emits the dedicated intent", async () => {
+    const onIntent = vi.fn();
+    const potion = { ...item("potion", 2), consumable: { consumeOnUse: true, effectDescription: "recupera PV conforme a definição" } };
+    const { container, unmount } = await mount(<Inventory items={[potion, item("sword", 1)]} currency={currency} onIntent={onIntent} />);
+    const consume = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Consumir")) as HTMLButtonElement;
+    expect(consume).toBeTruthy();
+    await fireEvent(consume, new MouseEvent("click", { bubbles: true }));
+    expect(onIntent).toHaveBeenCalledWith({ kind: "consume", itemId: potion.item.id, equipmentRef: potion.item.equipmentRef });
+    expect(container.textContent).toContain("recupera PV conforme a definição");
+    expect(Array.from(container.querySelectorAll("button")).filter((button) => button.textContent?.includes("Consumir"))).toHaveLength(1);
+    await unmount();
+  });
+
   it("preserves source order and stable row ids", async () => {
     const { container, unmount } = await mount(<Inventory items={[item("sword", 1), item("rope", 2)]} currency={currency} />);
     const rows = Array.from(container.querySelectorAll("tbody tr"));

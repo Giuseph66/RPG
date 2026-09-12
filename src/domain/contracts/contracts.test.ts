@@ -173,6 +173,7 @@ describe("Narrowing de Command", () => {
       case "level-up":
         return `level-up:${command.payload.classId}`;
     }
+    return command.kind;
   }
 
   it("narrows apply-damage com payload tipado por kind", () => {

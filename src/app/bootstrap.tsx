@@ -10,12 +10,15 @@ import {
   IndexedDbCampaignRepository,
   IndexedDbCharacterRepository,
   IndexedDbDiceHistoryRepository,
+  IndexedDbAssetRepository,
   IndexedDbUnitOfWork,
   CryptoIdGenerator,
   SystemClock,
   openDatabase,
   type OpenDatabaseOptions,
 } from "@infrastructure/persistence/indexeddb";
+import { STORE_NAMES } from "@infrastructure/persistence/indexeddb/schema";
+import { requestToPromise, runTransaction } from "@infrastructure/persistence/indexeddb/transaction";
 import { LocalStorageSettingsRepository } from "@infrastructure/preferences";
 import { createPlatformRandomSource } from "@domain/dice";
 import { createDiceOverlayController, type DiceOverlayController } from "@features/dice";
@@ -31,6 +34,10 @@ import { createCampaignDispatcher } from "@application/campaign/campaign-dispatc
 import { createCampaignRecordDispatcher } from "@application/campaign/campaign-record-dispatcher";
 import { createJournalDispatcher } from "@application/campaign/journal-dispatcher";
 import { chooseCampaignForRestore } from "@application/campaign";
+import { createBackupService, DataManagementService } from "@application/transfer";
+import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
+import type { BackupEnvelope, ImportMode } from "@domain/contracts/backup";
+import type { Asset } from "@domain/contracts/campaign";
 import type { Character, CharacterDraft } from "@domain/contracts/character";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { AvailableAction, RuleContext } from "@domain/contracts/rules";
@@ -82,6 +89,44 @@ export interface ApplicationRuntimeOptions {
   readonly settingsStorage?: Storage;
 }
 
+function decodeImportedAsset(asset: BackupEnvelope["assets"][number]): Asset {
+  const binary = typeof atob === "function" ? atob(asset.bytes) : Buffer.from(asset.bytes, "base64").toString("binary");
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return { id: asset.id, mediaType: asset.mediaType, bytes, hash: asset.hash, width: asset.width, height: asset.height, originalName: `imported-${asset.id}` };
+}
+
+/** O callback do backup usa uma transação única do banco para todos os registros do envelope. */
+function commitBackupEnvelope(database: IDBDatabase, input: { readonly envelope: BackupEnvelope; readonly mode: ImportMode }): Promise<Result<{ readonly rootId: BackupEnvelope["rootId"] }, AppError>> {
+  void input.mode;
+  const stores = [STORE_NAMES.characters, STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.rolls, STORE_NAMES.favorites, STORE_NAMES.assets];
+  return runTransaction(database, stores, "readwrite", async (tx) => {
+    const { envelope } = input;
+    for (const record of envelope.records.characters) await requestToPromise(tx.objectStore(STORE_NAMES.characters).put(record));
+    for (const record of envelope.records.campaigns) await requestToPromise(tx.objectStore(STORE_NAMES.campaigns).put(record));
+    for (const record of envelope.records.journalEntries) await requestToPromise(tx.objectStore(STORE_NAMES.journalEntries).put(record));
+    for (const record of envelope.records.maps) await requestToPromise(tx.objectStore(STORE_NAMES.maps).put(record));
+    for (const record of envelope.records.rolls) await requestToPromise(tx.objectStore(STORE_NAMES.rolls).put(record));
+    for (const id of envelope.records.favorites) await requestToPromise(tx.objectStore(STORE_NAMES.favorites).put({ id }));
+    for (const asset of envelope.assets) await requestToPromise(tx.objectStore(STORE_NAMES.assets).put(decodeImportedAsset(asset)));
+    return ok({ rootId: envelope.rootId });
+  });
+}
+
+function resetLocalData(database: IDBDatabase, request: { readonly scope: "characters" | "campaigns" | "assets" | "dice-history" | "all" }): Promise<Result<void, AppError>> {
+  const byScope: Record<typeof request.scope, readonly string[]> = {
+    characters: [STORE_NAMES.characters, STORE_NAMES.drafts],
+    campaigns: [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps],
+    assets: [STORE_NAMES.assets],
+    "dice-history": [STORE_NAMES.rolls],
+    all: Object.values(STORE_NAMES),
+  };
+  return runTransaction(database, byScope[request.scope], "readwrite", async (tx) => {
+    for (const name of byScope[request.scope]) await requestToPromise(tx.objectStore(name).clear());
+    return ok(undefined);
+  });
+}
+
 /** Abre os adapters e hidrata preferências, personagem ativo e campanha persistida. */
 export async function createApplicationRuntime(options: ApplicationRuntimeOptions = {}): Promise<ApplicationRuntime> {
   const opened = await openDatabase(options.database);
@@ -92,6 +137,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   const idGenerator = new CryptoIdGenerator();
   const characterRepository = new IndexedDbCharacterRepository(database, clock);
   const campaignRepository = new IndexedDbCampaignRepository(database, clock);
+  const assetRepository = new IndexedDbAssetRepository(database, clock);
   const services = createApplicationServices({
     characterRepository,
     campaignRepository,
@@ -188,6 +234,20 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const campaignDispatcher = createCampaignDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock, rulesetRef });
     const campaignRecordDispatcher = createCampaignRecordDispatcher({ campaignService: services.campaign });
     const journalDispatcher = createJournalDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock });
+    const backup = createBackupService({
+      characters: characterRepository,
+      campaigns: campaignRepository,
+      assets: assetRepository,
+      appVersion: "0.0.0",
+      now: () => clock.now(),
+      idGenerator,
+      availableRulesets: [rulesetRef],
+      commitImport: (input) => commitBackupEnvelope(database, input),
+    });
+    const dataManagement = new DataManagementService({
+      backup,
+      reset: (request) => resetLocalData(database, request),
+    });
 
     const registry = createFeatureRegistry({
       services,
@@ -199,6 +259,10 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       campaignDispatcher,
       campaignRecordDispatcher,
       journalDispatcher,
+      listCharacters: () => characterRepository.list(),
+      listJournalEntries: (campaignId) => campaignRepository.listJournalEntries(campaignId),
+      journalDraftState: () => journalDispatcher.getDraftState(),
+      dataManagement: { service: dataManagement, previewImport: (envelope) => backup.previewImport(envelope) },
     });
 
     return { database, services, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };

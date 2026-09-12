@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { isErr, isOk } from "@domain/contracts/errors";
-import { asEntityId, asUuid, type DefinitionRef } from "@domain/contracts/ids";
+import { asCommandId, asEntityId, asUuid, type DefinitionRef } from "@domain/contracts/ids";
 import { type Character } from "@domain/contracts/character";
+import { minimalCharacter } from "@domain/contracts/fixtures";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 
@@ -16,6 +17,7 @@ import {
   removeInventoryItem,
   transferInventoryItem,
   validateQuantity,
+  consumeItem,
 } from "./index";
 
 const PACK_RESULT = loadPhbPtBrLocal2017();
@@ -128,5 +130,37 @@ describe("inventory domain", () => {
     const added = addInventoryItem(state.value, created.value);
     expect(isOk(added)).toBe(true);
     expect(state.value.inventory).toHaveLength(0);
+  });
+
+  it("consome exatamente uma unidade e deixa o efeito declarado como pendência", () => {
+    const inventoryItem = item("10", "healing-potion", 2);
+    const command = { commandId: asCommandId("consume-10"), characterId: minimalCharacter.id, expectedRevision: minimalCharacter.revision, kind: "consume-item" as const, payload: { inventoryItemId: inventoryItem.id, equipmentRef: inventoryItem.equipmentRef } };
+    const result = consumeItem({ ...minimalCharacter, inventory: [inventoryItem] }, command, PACK.equipment.get(asEntityId("healing-potion"))!);
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      expect(result.nextState.inventory[0]?.quantity).toBe(1);
+      expect(result.effects[0]?.kind).toBe("inventory-changed");
+      expect(result.explanations[0]?.value).toContain("pendente");
+    }
+  });
+
+  it("remove a última unidade, rejeita item ausente/não consumível e respeita idempotência", () => {
+    const potion = item("11", "healing-potion", 1);
+    const command = { commandId: asCommandId("consume-11"), characterId: minimalCharacter.id, expectedRevision: minimalCharacter.revision, kind: "consume-item" as const, payload: { inventoryItemId: potion.id, equipmentRef: potion.equipmentRef } };
+    const consumed = consumeItem({ ...minimalCharacter, inventory: [potion] }, command, PACK.equipment.get(asEntityId("healing-potion"))!);
+    expect(consumed.status).toBe("success");
+    if (consumed.status === "success") expect(consumed.nextState.inventory).toHaveLength(0);
+    const absent = consumeItem({ ...minimalCharacter, inventory: [] }, command, PACK.equipment.get(asEntityId("healing-potion"))!);
+    expect(absent.status).toBe("rejected");
+    const nonConsumable = item("12", "dagger", 1);
+    const nonConsumableCommand = { ...command, commandId: asCommandId("consume-12"), payload: { inventoryItemId: nonConsumable.id, equipmentRef: nonConsumable.equipmentRef } };
+    const rejected = consumeItem({ ...minimalCharacter, inventory: [nonConsumable] }, nonConsumableCommand, PACK.equipment.get(asEntityId("dagger"))!);
+    expect(rejected.status).toBe("rejected");
+    const duplicate = consumeItem({ ...minimalCharacter, inventory: [potion] }, command, PACK.equipment.get(asEntityId("healing-potion"))!, { processedCommandIds: new Set([String(command.commandId)]) });
+    expect(duplicate.status).toBe("success");
+    if (duplicate.status === "success") {
+      expect(duplicate.nextState.inventory).toHaveLength(1);
+      expect(duplicate.effects).toHaveLength(0);
+    }
   });
 });

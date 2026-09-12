@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { minimalCharacter } from "@domain/contracts/fixtures";
 import { type Character, type CharacterSummary, type CharacterDraft } from "@domain/contracts/character";
-import { type AppError, err, ok, type Result } from "@domain/contracts/errors";
+import { appError, type AppError, err, ok, type Result } from "@domain/contracts/errors";
 import { type CommandReceipt, type Command, type RuleResult } from "@domain/contracts/rules";
 import { asCommandId, asEntityId, asIsoTimestamp, asUuid, type Uuid } from "@domain/contracts/ids";
 import { asRevision, type Revision } from "@domain/contracts/versioning";
@@ -11,6 +11,7 @@ import { type Clock } from "@application/ports/clock";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { createSequenceRandomSource } from "@domain/dice";
 import { resolveCombatCommand } from "@domain/rules/combat";
+import { spendResource } from "@domain/rules/resources";
 
 import { type ActionCapabilityExecution } from "./action-capabilities";
 import { createActionDispatcher } from "./action-dispatcher";
@@ -225,5 +226,57 @@ describe("createActionDispatcher", () => {
 
     expect(commitSpy).not.toHaveBeenCalled();
     expect(saves).toHaveLength(0);
+  });
+
+  describe("spend-resource", () => {
+    const resourceId = asUuid("33333333-3333-4333-8333-000000000001");
+    function characterWithResource(spent: number): Character {
+      return {
+        ...minimalCharacter,
+        resources: [{ id: resourceId, definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("second-wind") }, ownerInstanceId: asUuid("33333333-3333-4333-8333-000000000002"), spent }],
+      };
+    }
+    function buildExecution(character: Character): ActionCapabilityExecution {
+      const command: Command = { commandId: asCommandId("cmd-spend-1"), characterId: character.id, expectedRevision: character.revision, kind: "spend-resource", payload: { resourceStateId: resourceId, amount: 1 } };
+      return { command, rollPlan: [], resolve: ({ character: liveCharacter }) => spendResource(liveCharacter, { ...command.payload, capacity: 2 }) };
+    }
+
+    it("gasta o recurso com sucesso e persiste via characterService.commands.commit", async () => {
+      const character = characterWithResource(0);
+      const { service, saves } = await activeService(character);
+      const execution = buildExecution(character);
+      const dispatch = createActionDispatcher({ characterService: service, capabilitiesById: new Map([["spend-1", execution]]), rng: createSequenceRandomSource([]), idGenerator: fakeIdGenerator(), clock });
+
+      const result = await dispatch({ commandId: execution.command.commandId, characterId: character.id, capabilityId: "spend-1", kind: "resource" }) as RuleResult;
+
+      expect(result.status).toBe("success");
+      if (result.status === "success") expect(result.nextState.resources[0].spent).toBe(1);
+      expect(saves).toHaveLength(1);
+    });
+
+    it("saldo insuficiente é rejeitado e nada é persistido", async () => {
+      const character = characterWithResource(2); // já no teto (capacity 2)
+      const { service, saves } = await activeService(character);
+      const execution = buildExecution(character);
+      const dispatch = createActionDispatcher({ characterService: service, capabilitiesById: new Map([["spend-1", execution]]), rng: createSequenceRandomSource([]), idGenerator: fakeIdGenerator(), clock });
+
+      const result = await dispatch({ commandId: execution.command.commandId, characterId: character.id, capabilityId: "spend-1", kind: "resource" }) as RuleResult;
+
+      expect(result.status).toBe("rejected");
+      if (result.status === "rejected") expect(result.errors[0].code).toBe("insufficient-resource");
+      expect(saves).toHaveLength(0);
+    });
+
+    it("falha de persistência é reportada como rejected sem mascarar o RuleResult calculado", async () => {
+      const character = characterWithResource(0);
+      const { service } = await activeService(character, err(appError.conflict(character.revision, asRevision((character.revision as unknown as number) + 1), "revisão desatualizada")));
+      const execution = buildExecution(character);
+      const dispatch = createActionDispatcher({ characterService: service, capabilitiesById: new Map([["spend-1", execution]]), rng: createSequenceRandomSource([]), idGenerator: fakeIdGenerator(), clock });
+
+      const result = await dispatch({ commandId: execution.command.commandId, characterId: character.id, capabilityId: "spend-1", kind: "resource" }) as RuleResult;
+
+      expect(result.status).toBe("rejected");
+      if (result.status === "rejected") expect(result.errors[0].message).toContain("Falha ao persistir o comando");
+    });
   });
 });

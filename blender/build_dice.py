@@ -27,14 +27,14 @@ SPECS = [
      lambda: D.sphere(4), 2.0, (0.92, 0.14, 0.08), "one", 1, True),
     ("d2",   2,   "Lente / moeda",
      lambda: D.coin(64, thick=0.30), 2.4, (0.95, 0.72, 0.12), "largest:2", 1, False),
-    ("d3",   3,   "Almofada arredondada de 3 faces",
-     lambda: D.rounded_die(3, R=1.15, body=0.80, tip=0.80, offset=0.36),
-     2.4, (0.93, 0.33, 0.12), "largest:3", 1, True),
+    ("d3",   3,   "Esfera com 3 facetas (referencia STL)",
+     lambda: D.sphere_with_flats(3, R=1.15, cut=0.80),
+     2.4, (0.93, 0.33, 0.12), "belt:3:0.80", 1, True),
     ("d4",   4,   "Tetraedro (Platonico)",
      lambda: D.platonic("tetra"), 2.8, (0.87, 0.11, 0.20), "vertices", 1, False),
-    ("d5",   5,   "Almofada arredondada de 5 faces",
-     lambda: D.rounded_die(5, R=1.10, body=0.85, tip=0.72, offset=0.30),
-     2.5, (0.96, 0.55, 0.08), "largest:5", 1, True),
+    ("d5",   5,   "Esfera com 5 facetas (referencia STL)",
+     lambda: D.sphere_with_flats(5, R=1.20, cut=0.90),
+     2.5, (0.96, 0.55, 0.08), "belt:5:0.90", 1, True),
     ("d6",   6,   "Hexaedro / cubo (Platonico)",
      lambda: D.platonic("cube"), 2.4, (0.97, 0.78, 0.06), "all", 1, False),
     ("d7",   7,   "Prisma pentagonal",
@@ -97,15 +97,23 @@ def purge():
 
 
 def orient_face_down(bm, avoid_sides=False):
+    """Gira bm para a maior face (ou maior face 'nao lateral') apontar para baixo.
+
+    Devolve a matriz de rotacao usada. Para dados do tipo 'belt' (d3/d5), essa
+    mesma matriz precisa ser aplicada tambem ao bmesh dos numeros gravados,
+    que foi construido ANTES desta rotacao (a formula do angulo do vao so vale
+    no referencial original da esfera com cortes) - ver o ramo 'belt:' em build().
+    """
     f = max(bm.faces, key=lambda x: x.calc_area())
     if avoid_sides:
         cand = [x for x in bm.faces if abs(x.normal.normalized().z) < 0.5]
         if cand:
             f = max(cand, key=lambda x: x.calc_area())
     q = f.normal.normalized().rotation_difference(Vector((0.0, 0.0, -1.0)))
-    bmesh.ops.transform(bm, matrix=q.to_matrix().to_4x4(), verts=bm.verts[:])
+    m = q.to_matrix().to_4x4()
+    bmesh.ops.transform(bm, matrix=m, verts=bm.verts[:])
     bm.normal_update()
-    return bm
+    return m
 
 
 def floor_offset(bm):
@@ -160,7 +168,40 @@ def build():
         bm = builder()
         D.normalize(bm, diam)
         nf, nv, ne, rin, rout = D.face_stats(bm)
-        orient_face_down(bm, avoid_sides=name in ("d3", "d5"))
+
+        belt_pre = None
+        if strat.startswith("belt:"):
+            # PRECISA rodar antes de orient_face_down: a formula do angulo do
+            # vao so vale no referencial original da esfera com cortes, onde
+            # as normais das facetas ficam exatamente no plano XY (z=0),
+            # igualmente espacadas. Depois da rotacao que deita o dado, esse
+            # plano vira um circulo qualquer da esfera e atan2(y,x) deixa de
+            # corresponder a ordem fisica das facetas.
+            _, n_s, cut_s = strat.split(":")
+            n_belt, cut = int(n_s), float(cut_s)
+            bm.faces.ensure_lookup_table()
+            cand_idx = sorted(range(len(bm.faces)),
+                              key=lambda i: -bm.faces[i].calc_area())[:n_belt]
+            ordem = sorted(cand_idx, key=lambda i: math.atan2(
+                bm.faces[i].calc_center_median().y,
+                bm.faces[i].calc_center_median().x))
+            face_nums = {
+                fi: D.gap_value_for_flat(n_belt, k, start=start)
+                for k, fi in enumerate(ordem)
+            }
+            valores_vao = [start + j for j in range(n_belt)]
+            # lift generoso: um glifo achatado sobre uma esfera "afunda" nas
+            # bordas por causa da curvatura (efeito sagita) - lift pequeno
+            # (o mesmo usado nas faces planas dos outros dados) deixa o
+            # numero parcialmente embaixo da casca, invisivel.
+            num_bm = N.belt_numbers_bmesh(n_belt, valores_vao,
+                                          R=diam / 2.0, cut=cut, lift=diam * 0.05)
+            belt_pre = (face_nums, num_bm)
+
+        rot = orient_face_down(bm, avoid_sides=name in ("d3", "d5"))
+        if belt_pre is not None:
+            # mesma rotacao do corpo, para os numeros ficarem colados na casca
+            bmesh.ops.transform(belt_pre[1], matrix=rot, verts=belt_pre[1].verts[:])
         dz = floor_offset(bm)
 
         col, row = i % COLS, i // COLS
@@ -171,11 +212,19 @@ def build():
         ob = D.bm_to_object(bm, name, coll, bevel=bevel, material=mat, smooth=smooth)
         ob.location = (x, y, dz)
 
-        if strat == "vertices":
+        if strat.startswith("belt:"):
+            face_nums, num_bm = belt_pre
+            N.paint_uniform(ob, rgb)
+            N._finish_numbers(num_bm, ob, ncoll)
+            nums = sorted(face_nums.values())
+            opostos = None
+            pares = sorted(face_nums.items())
+            ob["num_faces"] = [k for k, _ in pares]
+            ob["num_values"] = [v for _, v in pares]
+        elif strat == "vertices":
             # convencao do d4: o numero fica nos cantos, o resultado e o apice
             vert_nums = N.number_vertices(ob.data, start=start)
-            cores = {i: i + 1 for i in range(len(ob.data.polygons))}
-            N.paint_faces(ob, cores, rgb)
+            N.paint_uniform(ob, rgb)
             N.build_vertex_numbers(ob, vert_nums, ncoll, lift=diam * 0.005)
             vp = sorted(vert_nums.items())
             ob["vertex_mode"] = True

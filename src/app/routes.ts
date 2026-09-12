@@ -15,7 +15,7 @@ export const PRIMARY_ROUTES: readonly PrimaryRoute[] = [
   { id: "compendium", label: "Compêndio", shortLabel: "Regras", path: "/compendium", question: "Como funciona?" },
 ];
 
-export type AppRouteKind = PrimaryRouteId | "settings" | "onboarding" | "not-found";
+export type AppRouteKind = PrimaryRouteId | "settings" | "data" | "onboarding" | "not-found";
 
 export interface RouteMatch {
   readonly kind: AppRouteKind;
@@ -40,6 +40,9 @@ export function matchRoute(pathname: string): RouteMatch {
 
   if (!first) return { kind: "onboarding", path, params: {} };
   if (first === "settings" && segments.length === 1) return { kind: "settings", path, params: {} };
+  if ((first === "data" || (first === "settings" && second === "data")) && (segments.length === 1 || segments.length === 2)) {
+    return { kind: "data", path, params: {} };
+  }
   if (first === "character") {
     if (second === "create") return { kind: "character", primary: "character", path, params: { mode: "create" } };
     if (second) return { kind: "character", primary: "character", path, params: { id: second } };

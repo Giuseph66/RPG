@@ -55,12 +55,16 @@
  * - "concentration": só aparece quando `character.concentration` está ativo; sempre
  *   `reason: "voluntary"`.
  * - "resource" (recursos de personagem e features de classe não passivas): `Command.kind
- *   "spend-resource"` existe no contrato (`domain/contracts/rules.ts`) mas NÃO tem resolvedor de
- *   domínio implementado em nenhum lugar de `src/domain` (confirmado por busca; só o tipo
- *   existe). Por isso estas capacidades nunca ganham uma `ActionCapabilityExecution` — ficam
- *   `status: "unsupported"` (recursos do personagem) ou `status: "blocked"`/`"pending"`
- *   (features de classe/subclasse com `automationStatus !== "automated"`, citando
- *   `pendingDecisionIds`), listadas apenas para visibilidade, nunca mascaradas.
+ *   "spend-resource"` é resolvido por `spendResource` (`domain/rules/resources/index.ts`). Cada
+ *   `ResourceState` do personagem com `spendRules` inequívoco (exatamente uma regra
+ *   `{kind: "per-use"}`) ganha uma `ActionCapabilityExecution` que gasta esse valor fixo,
+ *   validando saldo contra `derived.resourceCapacities` (nunca recalculado aqui). Recurso sem
+ *   definição no pack, sem entrada em `resourceCapacities`, ou com custo `"variable"`/múltiplas
+ *   `spendRules` (quantidade depende de escolha de mesa) fica `status: "unsupported"` — o motor
+ *   não inventa qual quantidade gastar. Features de classe/subclasse com
+ *   `automationStatus !== "automated"` continuam `status: "blocked"`/`"pending"` citando
+ *   `pendingDecisionIds`: não existe `Command` dedicado à ativação genérica de uma feature, só ao
+ *   gasto de um `ResourceState` já existente.
  *
  * "item" (uso de item consumível) não é coberto nesta rodada — não há Command dedicado a uso de
  * item nem contexto suficiente para derivar uma lista seguramente; ver handoff.
@@ -78,6 +82,7 @@ import { type Command, type RuleResult } from "@domain/contracts/rules";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { resolveCombatCommand, type CombatCommandContext } from "@domain/rules/combat";
 import { resolveRest, type RestInput } from "@domain/rules/rest";
+import { spendResource } from "@domain/rules/resources";
 import { castSpell, previewCast } from "@domain/spells";
 import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
 import { type ActionCapability, type ActionCapabilityKind } from "@features/actions/types";
@@ -490,26 +495,73 @@ function pendingResolutionLabel(pending: PendingResolution): string {
 
 /**
  * `resource`: recursos de estado do personagem + features de classe/subclasse não passivas.
- * Nenhuma delas ganha `ActionCapabilityExecution` — `Command.kind "spend-resource"` não tem
- * resolvedor de domínio implementado (só o tipo existe em `domain/contracts/rules.ts`), e não
- * existe um `Command` dedicado à ativação genérica de uma feature. Ficam listadas com
- * `status: "unsupported"`/`"blocked"`/`"pending"` para visibilidade, nunca mascaradas.
+ * Um `ResourceState` só ganha `ActionCapabilityExecution` quando a definição está no pack, tem
+ * capacidade derivada (`derived.resourceCapacities`) e exatamente uma `spendRule` do tipo
+ * `"per-use"` (quantidade fixa, sem ambiguidade). Caso contrário fica `status: "unsupported"`
+ * explicando o motivo, nunca mascarada. Features não passivas continuam
+ * `status: "blocked"`/`"pending"` — não existe `Command` dedicado à ativação genérica delas.
  */
-function buildResourceCapabilities(character: Character, derived: CharacterDerived, pack: RulePack, idGenerator: IdGenerator): ActionCapability[] {
+function buildResourceCapabilities(
+  character: Character,
+  derived: CharacterDerived,
+  pack: RulePack,
+  idGenerator: IdGenerator,
+): { readonly capabilities: ActionCapability[]; readonly executions: readonly (readonly [string, ActionCapabilityExecution])[] } {
   const capabilities: ActionCapability[] = [];
+  const executions: (readonly [string, ActionCapabilityExecution])[] = [];
 
   for (const resourceState of character.resources) {
     const definition = pack.resources.get(resourceState.definitionRef.entityId);
     const capacity = derived.resourceCapacities.find((entry) => sameRef(entry.definitionRef, resourceState.definitionRef));
+    const id = `resource:${resourceState.id}`;
+    const remaining = capacity ? Math.max(0, capacity.capacity.value - resourceState.spent) : undefined;
+    const spendRule = definition && definition.spendRules.length === 1 && definition.spendRules[0].kind === "per-use" ? definition.spendRules[0] : undefined;
+
+    if (!definition || !capacity || !spendRule) {
+      capabilities.push({
+        id,
+        commandId: idGenerator.commandId(),
+        kind: "resource",
+        label: definition?.name ?? String(resourceState.definitionRef.entityId),
+        description: !definition
+          ? "Definição do recurso ausente no rule pack ativo; nada foi inventado no lugar."
+          : !capacity
+            ? "Capacidade do recurso não foi derivada; o motor não gasta recurso sem um máximo conhecido."
+            : "Custo de uso variável ou ambíguo (mais de uma regra de gasto); requer decisão de mesa não modelada nesta versão.",
+        sourceRefs: definition?.sourceRefs,
+        costs: remaining !== undefined ? [{ label: "Usos restantes", remaining }] : undefined,
+        status: "unsupported",
+      });
+      continue;
+    }
+
+    const commandId = idGenerator.commandId();
+    const command: Command = {
+      commandId,
+      characterId: character.id,
+      expectedRevision: character.revision,
+      kind: "spend-resource",
+      payload: { resourceStateId: resourceState.id, amount: spendRule.amount },
+    };
     capabilities.push({
-      id: `resource:${resourceState.id}`,
-      commandId: idGenerator.commandId(),
+      id,
+      commandId,
       kind: "resource",
-      label: definition?.name ?? String(resourceState.definitionRef.entityId),
-      description: "Sem resolvedor de domínio para o comando \"spend-resource\" nesta composição; listado apenas para visibilidade, não é executável nesta versão.",
-      costs: capacity ? [{ label: "Usos restantes", remaining: Math.max(0, capacity.capacity.value - resourceState.spent) }] : undefined,
-      status: "unsupported",
+      label: definition.name,
+      description: `Gasta ${spendRule.amount} uso(s) de ${definition.name}.`,
+      sourceRefs: definition.sourceRefs,
+      costs: [{ label: "Usos restantes", remaining: remaining ?? 0 }],
+      status: "available",
     });
+    executions.push([
+      id,
+      {
+        command,
+        rollPlan: [],
+        resolve: ({ character: liveCharacter }) =>
+          spendResource(liveCharacter, { ...command.payload, capacity: capacity.capacity.value, sourceRef: definition.sourceRefs[0] }),
+      },
+    ]);
   }
 
   const pendingLabels = character.pendingResolutions.map(pendingResolutionLabel);
@@ -531,7 +583,7 @@ function buildResourceCapabilities(character: Character, derived: CharacterDeriv
         : undefined,
     });
   }
-  return capabilities;
+  return { capabilities, executions };
 }
 
 /**
@@ -558,13 +610,14 @@ export function deriveActionCapabilities(
     ...spells.capabilities,
     ...rests.capabilities,
     ...concentration.capabilities,
-    ...resources,
+    ...resources.capabilities,
   ];
   const executions = new Map<string, ActionCapabilityExecution>([
     ...attacks.executions,
     ...manualHp.executions,
     ...spells.executions,
     ...rests.executions,
+    ...resources.executions,
     ...concentration.executions,
   ]);
 

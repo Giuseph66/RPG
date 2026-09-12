@@ -27,6 +27,8 @@ export interface CampaignRepository {
   list(filter?: CampaignFilter): Promise<Result<readonly Campaign[], AppError>>;
   save(campaign: Campaign, expectedRevision: Revision): Promise<Result<Revision, AppError>>;
   delete(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>>;
+  /** Remove campanha e todo conteúdo vinculado em uma única transação. */
+  deleteCampaignAndContent(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>>;
 
   getJournalEntry(id: Uuid): Promise<Result<JournalEntry, AppError>>;
   listJournalEntries(campaignId: Uuid): Promise<Result<readonly JournalEntry[], AppError>>;

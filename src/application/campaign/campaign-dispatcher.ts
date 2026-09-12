@@ -136,35 +136,9 @@ export function createCampaignDispatcher(options: CampaignDispatcherOptions): (i
       return;
     }
 
-    if (plan.value.scope === "campaign-and-content") {
-      const journalEntries = await repository.listJournalEntries(id.value);
-      if (!journalEntries.ok) {
-        fail(journalEntries.error, intent);
-        return;
-      }
-      for (const entry of journalEntries.value) {
-        const deleted = await repository.deleteJournalEntry(entry.id);
-        if (!deleted.ok) {
-          fail(deleted.error, intent);
-          return;
-        }
-      }
-
-      const maps = await repository.listMaps(id.value);
-      if (!maps.ok) {
-        fail(maps.error, intent);
-        return;
-      }
-      for (const map of maps.value) {
-        const deleted = await repository.deleteMap(map.id, map.revision);
-        if (!deleted.ok) {
-          fail(deleted.error, intent);
-          return;
-        }
-      }
-    }
-
-    const deleted = await repository.delete(id.value, current.value.revision);
+    const deleted = plan.value.scope === "campaign-and-content"
+      ? await repository.deleteCampaignAndContent(id.value, current.value.revision)
+      : await repository.delete(id.value, current.value.revision);
     if (!deleted.ok) {
       fail(deleted.error, intent);
       return;

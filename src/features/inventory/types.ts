@@ -2,6 +2,7 @@ import type { EquipmentImpact } from "@domain/inventory/impact";
 import type { InventoryItem } from "@domain/contracts/character";
 import type { CoinDenomination, CopperPieces, Currency, Grams } from "@domain/contracts/primitives";
 import type { EquipmentProperty } from "@domain/contracts/definitions/equipment";
+import type { CommandId, DefinitionRef } from "@domain/contracts/ids";
 
 /** Dados resolvidos para uma instância. O componente não consulta o rule pack. */
 export interface InventoryItemView {
@@ -12,6 +13,7 @@ export interface InventoryItemView {
   readonly unitValueCp?: CopperPieces | number;
   readonly properties?: readonly EquipmentProperty[];
   readonly description?: string;
+  readonly consumable?: { readonly consumeOnUse: boolean; readonly effectDescription: string };
 }
 
 export type InventoryIntent =
@@ -19,7 +21,8 @@ export type InventoryIntent =
   | { readonly kind: "set-currency"; readonly denomination: CoinDenomination; readonly amount: number }
   | { readonly kind: "equip"; readonly itemId: InventoryItem["id"] }
   | { readonly kind: "unequip"; readonly itemId: InventoryItem["id"] }
-  | { readonly kind: "remove"; readonly itemId: InventoryItem["id"]; readonly equipped: boolean };
+  | { readonly kind: "remove"; readonly itemId: InventoryItem["id"]; readonly equipped: boolean }
+  | { readonly kind: "consume"; readonly itemId: InventoryItem["id"]; readonly equipmentRef: DefinitionRef; readonly commandId?: CommandId };
 
 export type InventoryStatus = "idle" | "loading" | "error";
 

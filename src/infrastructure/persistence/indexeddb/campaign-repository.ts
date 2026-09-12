@@ -160,6 +160,67 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     });
   }
 
+  /**
+   * Remove campanha, diário, mapas e assets que ficaram sem referência em uma única
+   * transação. Todas as leituras e validações acontecem antes do primeiro delete para que
+   * um registro inválido também deixe o agregado inteiro intacto.
+   */
+  async deleteCampaignAndContent(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>> {
+    return runTransaction(
+      this.db,
+      [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.assets],
+      "readwrite",
+      async (tx) => {
+        const campaigns = tx.objectStore(STORE_NAMES.campaigns);
+        const rawCampaign = await requestToPromise(campaigns.get(id));
+        if (rawCampaign === undefined) return err(appError.notFound("campaign", id));
+        if (!isCampaignEnvelope(rawCampaign)) return err(appError.corruptRecord(id));
+        const schemaError = checkCampaignSchemaVersion(rawCampaign);
+        if (schemaError) return err(schemaError);
+        if (asRevision(rawCampaign.revision) !== expectedRevision) {
+          return err(appError.conflict(expectedRevision, asRevision(rawCampaign.revision)));
+        }
+
+        const journalStore = tx.objectStore(STORE_NAMES.journalEntries);
+        const rawJournalEntries = await requestToPromise(journalStore.index("campaignId").getAll(id));
+        for (const raw of rawJournalEntries) {
+          if (!isJournalEntryShape(raw)) return err(appError.corruptRecord(id));
+        }
+
+        const mapsStore = tx.objectStore(STORE_NAMES.maps);
+        const rawMaps = await requestToPromise(mapsStore.index("campaignId").getAll(id));
+        for (const raw of rawMaps) {
+          if (!isMapEnvelope(raw) || typeof (raw as MapRecord).assetId !== "string") {
+            return err(appError.corruptRecord(id));
+          }
+        }
+
+        const allRawMaps = await requestToPromise(mapsStore.getAll());
+        const deletedMapIds = new Set(rawMaps.map((raw) => (raw as MapRecord).id));
+        const deletedAssetIds = new Set(rawMaps.map((raw) => (raw as MapRecord).assetId));
+        const retainedAssetIds = new Set<string>();
+        for (const raw of allRawMaps) {
+          if (!isMapEnvelope(raw) || typeof (raw as MapRecord).assetId !== "string") {
+            return err(appError.corruptRecord(id));
+          }
+          if (!deletedMapIds.has((raw as MapRecord).id)) retainedAssetIds.add((raw as MapRecord).assetId);
+        }
+
+        // Só assets pertencentes exclusivamente aos mapas removidos são órfãos; um asset
+        // compartilhado por outro mapa precisa sobreviver à exclusão desta campanha.
+        for (const raw of rawJournalEntries) await requestToPromise(journalStore.delete((raw as JournalEntry).id));
+        for (const raw of rawMaps) await requestToPromise(mapsStore.delete((raw as MapRecord).id));
+        for (const assetId of deletedAssetIds) {
+          if (!retainedAssetIds.has(assetId)) {
+            await requestToPromise(tx.objectStore(STORE_NAMES.assets).delete(assetId));
+          }
+        }
+        await requestToPromise(campaigns.delete(id));
+        return ok(undefined);
+      },
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Journal (sem CAS)
   // -------------------------------------------------------------------------

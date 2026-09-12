@@ -518,7 +518,7 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `CORE-002`
 - Título: Integrar features e serviços reais.
-- Status: `DONE` — R3-02 aceito na rodada 5 de QA-004 em 2026-09-12: campanha persistida é restaurada e exibida após reload.
+- Status: `IN_PROGRESS` — reaberto em 2026-09-12 para montar seleção de personagem, diário e gestão de backup/importação com serviços reais, além de dividir o carregamento por rota.
 - Responsável: `/root/build_combat_rules`.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
 - Evidência: testes focais de bootstrap/campanha passaram (16/16), typecheck e diff check passaram; QA-004 rodada 5 confirmou no build que a campanha permanece ativa após reload.
@@ -532,6 +532,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Critério de aceite: Quatro destinos exercitam engines e repositories reais; fixtures/mocks não mascaram ausência de persistência ou custo; bootstrap e roteador adotam o registry por composição explícita; fronteiras de importação respeitadas.
 - Testes: Smoke integrado criar→rolar→agir→nota→recarregar e checagem dos imports; regressões encaminhadas ao dono do módulo.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: PWA-001, UI-005, QA-002. Passo principal: 18.
+
+### Retomada de integração — 2026-09-12
+
+- Escopo ativo: `/root/wire_missing_surfaces` publica seleção de personagem, diário e backup/importação no roteador com serviços reais, além de code-splitting por rota. O owner preserva rotas profundas, foco e dados locais; não altera domínio/persistência.
+- Dependências de aceite: o fluxo de diário deve carregar do repositório real, e backup/importação deve aparecer em uma superfície navegável sem inventar APIs.
 
 ## DATA-006 — Backup, migrações e recuperação completa
 
@@ -670,7 +675,7 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `QA-004`
 - Título: Aceite final integrado.
-- Status: `DONE` — rodada de cobertura do Compêndio aceita em 2026-09-12; substitui a rodada 5 como prova mais recente do estado integrado.
+- Status: `IN_PROGRESS` — reaberto em 2026-09-12 para aceitar as superfícies montadas, comandos de recurso/consumível, exclusão atômica e divisão por rota.
 - Rodada 2 (2026-09-11T23:10-04:00): criação de personagem ligada de ponta a ponta pelo coordenador (`creationService` real + wizard montado em `/character/create`, provado ao vivo — "Etapa 1 de 9: Identidade"; raça/classe ficam vazias até DATA-004/005 saírem do placeholder, limitação de conteúdo, não de wiring). Dano/cura manual ganharam valor real digitável (antes fixo em 5); ataque ganhou campo de CA do alvo real (antes sempre `needsInput`). Dispatchers de Campanha/Registros/Diário implementados (`src/application/campaign/{campaign-dispatcher,campaign-record-dispatcher,journal-dispatcher}.ts`) e ligados; `CampaignPanel`/`CampaignRecords` (quests/NPCs) funcionam de graça via `campaign.quests`/`campaign.npcs` já expostos pelo componente `JourneyCampaign`. Provado ao vivo: criar campanha real → "Ativa: Campanha de teste" persistido. 520/520 testes, typecheck e build limpos.
   Pendente após rodada 2: Diário (`JournalWorkspace`/`JournalEditor`) ainda não montado no router (coleção separada da campanha, exige fetch assíncrono próprio); `CharacterSelection`/`DataManagementPanel` (export/import) nunca montados em nenhuma rota; recursos de personagem/features de classe (`spend-resource`) sem resolvedor de domínio; uso de item consumível não coberto; exclusão de campanha com conteúdo não é atômica (sem UnitOfWork); conteúdo de raças/classes/magias/equipamento ainda placeholder (DATA-004/005/SPELL-001/ITEM-001).
 - Responsável: coordenador; revalidação e R3-01 em `/root/build_campaign_map`, R3-02 em `/root/build_combat_rules`, R3-03 em `/root/fix_initial_skip_focus`.
@@ -685,6 +690,11 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Critério de aceite: Todos gates obrigatórios têm prova e revisão; nenhuma pendência bloqueadora marcada resolvida por mock; features limitadas explicitamente expostas; ausência de backend confirmada.
 - Testes: Roteiro de sessão real, orçamento de carga/compêndio/imagem, uso de memória e regressões dos achados corrigidos.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: REL-001. Passo principal: 18.
+
+### Retomada de completude — 2026-09-12
+
+- Frentes ativas: gasto de recurso de classe via `spend-resource`; uso de consumível com comando e persistência; exclusão `campaign-and-content` atômica; telas montadas e divisão de bundle por rota.
+- Critérios: nenhum comando inventa regra de mesa/fonte, e falha de persistência ou de transação não altera o estado confirmado. Conteúdo parcial e as 19 decisões em `decisoes/PENDENCIAS.md` permanecem limites explícitos, não são aprovados por inferência.
 
 ### Rodada 3 — revalidação bloqueada (2026-09-12)
 
@@ -714,7 +724,7 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 
 - ID: `REL-001`
 - Título: Polimento documental e entrega futura.
-- Status: `DONE` — artefatos de entrega atualizados após o aceite da cobertura do Compêndio em 2026-09-12.
+- Status: `TODO` — documentação de entrega aguarda o novo aceite integrado.
 - Responsável: `/root/update_release_coverage_docs` e coordenador.
 - Lane/modelo/esforço: Codex `gpt-5.6-luna` / medium.
 - Evidência: `docs/implementacao/entrega/{README,RELEASE-NOTES,CHECKLIST}.md` registra 1.383 entradas únicas, as nove categorias publicadas, os subconjuntos de equipamento e o escopo mecânico parcial de Aventura. A revisão preserva ambiente validado, limites de PWA/backup e não anuncia exportação pela UI.

@@ -1,6 +1,6 @@
 # Swarm — painel de implementação
 
-**IMPLEMENTAÇÃO E REVALIDAÇÃO CONCLUÍDAS.** A cobertura do Compêndio foi reaberta e aceita: as nove categorias visíveis agora têm conteúdo local, fonte, busca, detalhe e favoritos; `COMP-001`, `QA-004` e `REL-001` estão `DONE`.
+**COMPLETUDE DE PRODUTO REABERTA.** A cobertura do Compêndio permanece aceita, mas foram confirmadas superfícies ainda desconectadas, comandos sem resolvedor, exclusão não atômica e falta de divisão por rota. `CORE-002` e `QA-004` estão `IN_PROGRESS`; `REL-001` aguarda o novo aceite.
 
 ## Leitura e coordenação
 
@@ -19,7 +19,7 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 - [x] **DATA-002** — Loader e núcleo do rule pack · `DONE` · catálogos publicados e validados.
 - [x] **DATA-003** — Repositories locais e transações base · `DONE` · IndexedDB, CAS e recovery aceitos.
 - [x] **STATE-001** — Estado local e serviços de aplicação · `DONE` · stores e serviços aceitos.
-- [x] **CORE-002** — Integrar features e serviços reais · `DONE` · R3-02 aceito na rodada 4.
+- [ ] **CORE-002** — Integrar features e serviços reais · `IN_PROGRESS` · montar seleção, diário, backup/importação e dividir rotas.
 
 ## Interface e dados de mesa
 
@@ -63,9 +63,9 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 - [x] **QA-001** — Prova determinística de regras · `DONE` · cenários aceitos.
 - [x] **QA-002** — Integração de sessão e persistência · `DONE` · integração aceita.
 - [x] **QA-003** — Prova de offline e atualização · `DONE` · prova offline aceita.
-- [x] **QA-004** — Aceite final integrado · `DONE` · rodada de cobertura aceita com 533 testes e smoke em 5183.
-- [x] **REL-001** — Polimento documental e entrega futura · `DONE` · entrega atualizada com cobertura e limites reais.
+- [ ] **QA-004** — Aceite final integrado · `IN_PROGRESS` · reaceite das superfícies, comandos, transação e divisão de bundle.
+- [ ] **REL-001** — Polimento documental e entrega futura · `TODO` · depende do novo aceite integrado.
 
 ## Próximo movimento
 
-Todos os passos estão aceitos. Antes de iniciar uma nova etapa de produto, reavaliar a estratégia de orquestração e o próximo escopo com o usuário.
+Concluir as quatro frentes reabertas e repetir o aceite integrado. Conteúdo parcial da fonte, decisões de mesa pendentes e provas que requerem dispositivos físicos permanecem explicitamente rastreados; não serão simulados como concluídos.

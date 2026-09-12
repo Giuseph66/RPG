@@ -339,6 +339,55 @@ def prism_points_rh(n, R, h):
     return pts
 
 
+def sphere_with_flats(n, R=1.0, cut=0.5, subdiv=4):
+    """Esfera com n cortes planos em volta de um eixo - o d3/d5 de referencia real.
+
+    As faces de corte ficam LISAS (sem numero); os algarismos vao gravados nos
+    vaos curvos entre facetas vizinhas (ver dice_numbers.build_belt_numbers).
+    Isso reproduz a peca fisica de referencia (fotografada e escaneada em STL):
+    3 (ou 5) facetas circulares planas de apoio, sem gravacao, e o numero
+    aparece na regiao arredondada entre duas facetas - a que fica no topo
+    quando a peca esta apoiada na faceta oposta.
+
+    `cut` e a distancia do plano de corte ao centro, em fracao de R: quanto
+    mais perto de 1.0, mais raso o corte (faceta pequena); valores da peca
+    real ficam por volta de 0.5-0.6.
+    """
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=subdiv, radius=R)
+    for k in range(n):
+        ang = 2.0 * math.pi * k / n
+        normal = Vector((math.cos(ang), math.sin(ang), 0.0))
+        co = normal * (R * cut)
+        res = bmesh.ops.bisect_plane(
+            bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:],
+            plane_co=co, plane_no=normal, clear_outer=True,
+        )
+        corte = [g for g in res["geom_cut"] if isinstance(g, bmesh.types.BMEdge)]
+        if corte:
+            bmesh.ops.edgeloop_fill(bm, edges=corte)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.normal_update()
+    return bm
+
+
+def gap_value_for_flat(n, k, start=1):
+    """Numero que aparece no topo quando a faceta `k` (0-indexado) fica embaixo.
+
+    Vale para n IMPAR (caso do d3/d5): o ponto mais alto, quando a faceta k
+    esta apoiada na mesa, e sempre o centro exato do vao entre duas OUTRAS
+    facetas - nunca uma faceta isolada. A prova: se as facetas ficam em
+    angulos a_j = j*360/n e os vaos em g_j = (j+0.5)*360/n, o topo da faceta
+    k fica em a_k+180. Resolvendo a_k+180 = g_j da j = k + (n-1)/2 (mod n),
+    que so cai em inteiro quando n e impar - por isso essa peca nao existe
+    com n par.
+    """
+    if n % 2 == 0:
+        raise ValueError("gap_value_for_flat exige n impar (d3, d5, d7 impar...)")
+    j = int(k + (n - 1) // 2) % n
+    return start + j
+
+
 def rounded_die(n, R=1.15, body=0.80, tip=0.78, offset=0.34, segments=14):
     """Dado 'almofada' arredondado com n faces laterais planas (d3 / d5 reais).
 

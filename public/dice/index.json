@@ -1,0 +1,186 @@
+{
+ "unit": "cm",
+ "gravity": -981.0,
+ "dice": [
+  {
+   "id": "d1",
+   "faces": 1,
+   "solid": "Esfera",
+   "readout": "bottom",
+   "diameterCm": 2.003,
+   "model": "/dice/d1.glb",
+   "meta": "/dice/d1.json"
+  },
+  {
+   "id": "d2",
+   "faces": 2,
+   "solid": "Lente / moeda",
+   "readout": "top",
+   "diameterCm": 3.419,
+   "model": "/dice/d2.glb",
+   "meta": "/dice/d2.json"
+  },
+  {
+   "id": "d3",
+   "faces": 3,
+   "solid": "Esfera com 3 facetas (referencia STL)",
+   "readout": "bottom",
+   "diameterCm": 2.584,
+   "model": "/dice/d3.glb",
+   "meta": "/dice/d3.json"
+  },
+  {
+   "id": "d4",
+   "faces": 4,
+   "solid": "Tetraedro (Platonico)",
+   "readout": "apex",
+   "diameterCm": 3.652,
+   "model": "/dice/d4.glb",
+   "meta": "/dice/d4.json"
+  },
+  {
+   "id": "d5",
+   "faces": 5,
+   "solid": "Esfera com 5 facetas (referencia STL)",
+   "readout": "bottom",
+   "diameterCm": 2.593,
+   "model": "/dice/d5.glb",
+   "meta": "/dice/d5.json"
+  },
+  {
+   "id": "d6",
+   "faces": 6,
+   "solid": "Hexaedro / cubo (Platonico)",
+   "readout": "top",
+   "diameterCm": 2.817,
+   "model": "/dice/d6.glb",
+   "meta": "/dice/d6.json"
+  },
+  {
+   "id": "d7",
+   "faces": 7,
+   "solid": "Prisma pentagonal",
+   "readout": "bottom",
+   "diameterCm": 2.837,
+   "model": "/dice/d7.glb",
+   "meta": "/dice/d7.json"
+  },
+  {
+   "id": "d8",
+   "faces": 8,
+   "solid": "Octaedro (Platonico)",
+   "readout": "top",
+   "diameterCm": 2.817,
+   "model": "/dice/d8.glb",
+   "meta": "/dice/d8.json"
+  },
+  {
+   "id": "d10",
+   "faces": 10,
+   "solid": "Trapezoedro pentagonal",
+   "readout": "top",
+   "diameterCm": 3.162,
+   "model": "/dice/d10.glb",
+   "meta": "/dice/d10.json"
+  },
+  {
+   "id": "d12",
+   "faces": 12,
+   "solid": "Dodecaedro (Platonico)",
+   "readout": "top",
+   "diameterCm": 2.694,
+   "model": "/dice/d12.glb",
+   "meta": "/dice/d12.json"
+  },
+  {
+   "id": "d14",
+   "faces": 14,
+   "solid": "Trapezoedro heptagonal",
+   "readout": "top",
+   "diameterCm": 3.25,
+   "model": "/dice/d14.glb",
+   "meta": "/dice/d14.json"
+  },
+  {
+   "id": "d16",
+   "faces": 16,
+   "solid": "Bipiramide octogonal",
+   "readout": "top",
+   "diameterCm": 2.845,
+   "model": "/dice/d16.glb",
+   "meta": "/dice/d16.json"
+  },
+  {
+   "id": "d20",
+   "faces": 20,
+   "solid": "Icosaedro (Platonico)",
+   "readout": "top",
+   "diameterCm": 2.909,
+   "model": "/dice/d20.glb",
+   "meta": "/dice/d20.json"
+  },
+  {
+   "id": "d24",
+   "faces": 24,
+   "solid": "Hexaedro tetraquis (Catalan)",
+   "readout": "top",
+   "diameterCm": 3.04,
+   "model": "/dice/d24.glb",
+   "meta": "/dice/d24.json"
+  },
+  {
+   "id": "d30",
+   "faces": 30,
+   "solid": "Triacontaedro rombico (Catalan)",
+   "readout": "top",
+   "diameterCm": 3.165,
+   "model": "/dice/d30.glb",
+   "meta": "/dice/d30.json"
+  },
+  {
+   "id": "d48",
+   "faces": 48,
+   "solid": "Dodecaedro disdiaquis (Catalan)",
+   "readout": "top",
+   "diameterCm": 3.408,
+   "model": "/dice/d48.glb",
+   "meta": "/dice/d48.json"
+  },
+  {
+   "id": "d50",
+   "faces": 50,
+   "solid": "Poliedro esferico de 50 faces",
+   "readout": "bottom",
+   "diameterCm": 3.387,
+   "model": "/dice/d50.glb",
+   "meta": "/dice/d50.json"
+  },
+  {
+   "id": "d60",
+   "faces": 60,
+   "solid": "Hexecontaedro deltoidal (Catalan)",
+   "readout": "top",
+   "diameterCm": 3.492,
+   "model": "/dice/d60.glb",
+   "meta": "/dice/d60.json"
+  },
+  {
+   "id": "d100",
+   "faces": 100,
+   "solid": "Zocchiedro - 100 faces",
+   "readout": "bottom",
+   "diameterCm": 4.56,
+   "model": "/dice/d100.glb",
+   "meta": "/dice/d100.json"
+  },
+  {
+   "id": "d120",
+   "faces": 120,
+   "solid": "Triacontaedro disdiaquis (Catalan)",
+   "readout": "top",
+   "diameterCm": 5.172,
+   "model": "/dice/d120.glb",
+   "meta": "/dice/d120.json"
+  }
+ ]
+}

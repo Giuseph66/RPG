@@ -3,11 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApplicationServices } from "@application/state";
 import { createCompendiumService } from "@application/compendium";
 import { asEntityId, asRulesetId } from "@domain/contracts/ids";
-import { Actions } from "@features/actions";
-import { CharacterSheet } from "@features/character/sheet";
-import { Compendium } from "@features/compendium";
-import { Inventory } from "@features/inventory";
-import { MapViewer } from "@features/journey/map";
 
 import { createFeatureRegistry } from "./feature-registry";
 
@@ -29,11 +24,11 @@ describe("feature registry", () => {
     const registry = createFeatureRegistry({ services: characterServices, compendiumService: catalog, actionDispatcher });
 
     expect(registry.destinations).toEqual(["character", "actions", "journey", "compendium"]);
-    expect(registry.character.components.Sheet).toBe(CharacterSheet);
-    expect(registry.actions.component).toBe(Actions);
-    expect(registry.inventory.component).toBe(Inventory);
-    expect(registry.journey.components.Map).toBe(MapViewer);
-    expect(registry.compendium.component).toBe(Compendium);
+    expect("components" in registry.character).toBe(false);
+    expect("component" in registry.actions).toBe(false);
+    expect("component" in registry.inventory).toBe(false);
+    expect("components" in registry.journey).toBe(false);
+    expect("component" in registry.compendium).toBe(false);
     expect(registry.compendium.bindProps({ filters: { query: "smoke" } }).entries[0]?.title).toBe("Magia smoke");
     expect(registry.compendium.bindProps({}).categories?.length).toBeGreaterThan(0);
     expect(registry.actions.bindProps({}).onIntent).toBe(actionDispatcher);

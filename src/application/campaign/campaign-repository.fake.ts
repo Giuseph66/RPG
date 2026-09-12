@@ -65,6 +65,17 @@ export function createFakeCampaignRepository(seed: readonly Campaign[] = []): Fa
       campaigns.delete(id);
       return ok(undefined);
     },
+    deleteCampaignAndContent: async (id, expectedRevision) => {
+      const existing = campaigns.get(id);
+      if (!existing) return err(appError.notFound("campaign", id));
+      if (existing.revision !== expectedRevision) return err(appError.conflict(expectedRevision, existing.revision));
+      const journalIds = [...journalEntries.values()].filter((entry) => entry.campaignId === id).map((entry) => entry.id);
+      const mapIds = [...maps.values()].filter((map) => map.campaignId === id).map((map) => map.id);
+      campaigns.delete(id);
+      journalIds.forEach((entryId) => journalEntries.delete(entryId));
+      mapIds.forEach((mapId) => maps.delete(mapId));
+      return ok(undefined);
+    },
 
     getJournalEntry: async (id) => {
       const found = journalEntries.get(id);

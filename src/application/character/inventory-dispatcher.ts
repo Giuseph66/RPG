@@ -18,6 +18,9 @@
 
 import { type Character } from "@domain/contracts/character";
 import { type AppError, ok, type Result } from "@domain/contracts/errors";
+import { type EquipmentDefinition } from "@domain/contracts/definitions/equipment";
+import { asCommandId, type CommandId } from "@domain/contracts/ids";
+import { findEquipment } from "@data/equipment";
 import {
   createInventoryState,
   equipInventoryItem,
@@ -25,7 +28,9 @@ import {
   setCurrency,
   setItemQuantity,
   unequipInventoryItem,
+  consumeItem,
 } from "@domain/inventory/operations";
+import { type RuleResult } from "@domain/contracts/rules";
 import { type InventoryState } from "@domain/inventory/model";
 import { type InventoryIntent } from "@features/inventory/types";
 
@@ -40,6 +45,23 @@ export interface InventoryDispatcherOptions {
    * ignorados e o estado permanece intocado (nenhum `update`/`save` é disparado).
    */
   readonly onError?: (error: AppError, intent: InventoryIntent) => void;
+  readonly onResult?: (result: RuleResult, intent: InventoryIntent) => void;
+}
+
+let generatedCommandSequence = 0;
+
+function commandIdFor(intent: Extract<InventoryIntent, { readonly kind: "consume" }>): CommandId {
+  if (intent.commandId) return intent.commandId;
+  const random = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${++generatedCommandSequence}`;
+  return asCommandId(`consume-item-${random}`);
+}
+
+function ruleError(result: Exclude<RuleResult, { readonly status: "success" }>): AppError {
+  if (result.status === "needsInput") {
+    return { code: "validation-error", field: "consume-item", message: result.requests[0]?.reason ?? "O comando de consumo exige uma entrada adicional." };
+  }
+  const first = result.errors[0];
+  return { code: "validation-error", field: first?.field ?? "consume-item", message: first?.message ?? "O comando de consumo foi rejeitado." };
 }
 
 function applyIntent(state: InventoryState, intent: InventoryIntent): Result<InventoryState, AppError> {
@@ -63,6 +85,8 @@ function applyIntent(state: InventoryState, intent: InventoryIntent): Result<Inv
       const result = removeInventoryItem(state, String(intent.itemId));
       return result.ok ? ok({ inventory: result.value.inventory, currency: state.currency }) : result;
     }
+    case "consume":
+      return { ok: false, error: { code: "validation-error", field: "consume-item", message: "Consumo deve ser resolvido pelo comando dedicado." } };
   }
 }
 
@@ -73,7 +97,7 @@ function applyIntent(state: InventoryState, intent: InventoryIntent): Result<Inv
  * `createInventoryDispatcher(options: { readonly characterService: CharacterApplicationService; readonly onError?: (error: AppError, intent: InventoryIntent) => void }): (intent: InventoryIntent) => void`
  */
 export function createInventoryDispatcher(options: InventoryDispatcherOptions): (intent: InventoryIntent) => void {
-  const { characterService, onError } = options;
+  const { characterService, onError, onResult } = options;
 
   return (intent: InventoryIntent): void => {
     const character: Character | undefined = characterService.store.getSnapshot().value;
@@ -82,6 +106,41 @@ export function createInventoryDispatcher(options: InventoryDispatcherOptions): 
         { code: "validation-error", field: "character", message: "Nenhum personagem ativo para aplicar o intent de inventário." },
         intent,
       );
+      return;
+    }
+
+    if (intent.kind === "consume") {
+      const definition: EquipmentDefinition | undefined = findEquipment(String(intent.equipmentRef.entityId));
+      if (!definition) {
+        onError?.({ code: "not-found", entity: "equipment", id: String(intent.equipmentRef.entityId), message: `Equipamento "${intent.equipmentRef.entityId}" não foi encontrado no catálogo local.` }, intent);
+        return;
+      }
+      const command = {
+        commandId: commandIdFor(intent),
+        characterId: character.id,
+        expectedRevision: character.revision,
+        kind: "consume-item" as const,
+        payload: { inventoryItemId: intent.itemId, equipmentRef: intent.equipmentRef },
+      };
+      const result = consumeItem(character, command, definition);
+      if (result.status !== "success") {
+        onResult?.(result, intent);
+        onError?.(ruleError(result), intent);
+        return;
+      }
+      if (!characterService.commands) {
+        onError?.({ code: "validation-error", field: "commands", message: "A composição não conectou a persistência de comandos; o item não foi consumido." }, intent);
+        return;
+      }
+      void characterService.commands.commit(command, result).then(async (committed) => {
+        if (!committed.ok) {
+          onError?.(committed.error, intent);
+          return;
+        }
+        const refreshed = await characterService.select(character.id);
+        if (!refreshed.ok) onError?.(refreshed.error, intent);
+        else onResult?.(result, intent);
+      });
       return;
     }
 
