@@ -29,9 +29,14 @@ describe("AppShell", () => {
     const onOpenDice = vi.fn();
     const mounted = await mount(<AppShell route={matchRoute("/")} navigate={vi.fn()} onOpenDice={onOpenDice} />);
     const navigation = mounted.container.querySelector('[aria-label="Destinos principais"]')!;
-    expect(navigation.firstElementChild?.querySelectorAll("button")).toHaveLength(6);
-    expect(mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')).toBeTruthy();
-    expect(mounted.container.textContent).toContain("Nenhum personagem ativo");
+    const destinations = navigation.firstElementChild?.querySelectorAll("button");
+    const diceButton = mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')!;
+    expect(destinations).toHaveLength(5);
+    expect(Array.from(destinations ?? []).map((item) => item.lastElementChild?.textContent)).toEqual(["Ficha", "Ações", "Jornada", "Regras", "Conta"]);
+    expect(navigation.firstElementChild?.contains(diceButton)).toBe(false);
+    expect(mounted.container.textContent).toContain("Mesa de campanha");
+    expect(mounted.container.textContent).toContain("Nenhum personagem");
+    expect(mounted.container.querySelector('[aria-label="Abrir ajustes"]')).toBeTruthy();
     expect(mounted.container.textContent).toContain("Criar personagem");
     expect(mounted.container.querySelector("h1")).not.toBe(document.activeElement);
     await mounted.rerender(<AppShell route={matchRoute("/character")} navigate={vi.fn()} onOpenDice={onOpenDice} />);

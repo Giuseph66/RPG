@@ -1,11 +1,12 @@
 .content { display: flex; flex-direction: column; gap: var(--spacing-md); }
-.context, .muted { margin: 0; color: var(--color-text-muted); font-size: .85rem; }
+.context { display: inline-flex; align-items: center; gap: var(--spacing-xs); margin: 0; padding: var(--spacing-xs) var(--spacing-sm); color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-left: 2px solid var(--color-primary); font-size: .82rem; letter-spacing: .04em; }
+.muted { margin: 0; color: var(--color-text-muted); font-size: .85rem; }
 .selectorGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-sm); }
 .controls { display: grid; grid-template-columns: minmax(0, 1fr); }
-.result, .history { padding-top: var(--spacing-sm); border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent); }
+.result, .history { padding: var(--spacing-md); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); background: color-mix(in srgb, var(--color-surface-elevated) 72%, transparent); }
 .result h3, .history h3 { margin: 0 0 var(--spacing-sm); font-family: var(--typography-heading-font-family); font-size: 1rem; }
 .diceFaces { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-.face, .discarded { display: grid; place-items: center; min-width: 2.5rem; min-height: 2.5rem; border: 1px solid var(--color-primary); border-radius: var(--radius-control); color: var(--color-text); font-weight: 700; }
+.face, .discarded { display: grid; place-items: center; min-width: 2.5rem; min-height: 2.5rem; border: 1px solid var(--color-primary); border-radius: var(--radius-control); color: var(--color-text); font-family: var(--typography-numeric-font-family); font-size: 1.1rem; font-weight: 700; }
 .discarded { color: var(--color-text-muted); border-color: var(--color-border); text-decoration: line-through; opacity: .7; }
 .total { display: flex; justify-content: space-between; gap: var(--spacing-md); margin: var(--spacing-md) 0 0; color: var(--color-text-muted); }
 .total strong { color: var(--color-primary); font-size: 1.15rem; }
@@ -20,3 +21,4 @@
 .face:hover { background: color-mix(in srgb, var(--color-primary) 22%, var(--color-background)); }
 @media (prefers-reduced-motion: reduce) { .content * { transition: none !important; animation: none !important; } }
 @media (max-width: 520px) { .selectorGrid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .history li { align-items: flex-start; flex-direction: column; } }

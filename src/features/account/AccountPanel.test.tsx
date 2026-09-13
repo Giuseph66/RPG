@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, mount } from "@components/ui/testUtils";
 import type { AuthError, AuthPort, AuthSession } from "@application/ports/auth-port";
 import { err, ok } from "@domain/contracts/errors";
+import { asUuid } from "@domain/contracts/ids";
 import { AccountPanel } from "./AccountPanel";
 
 function fakeAuth(initial: AuthSession | null = null) {
@@ -105,5 +106,29 @@ describe("AccountPanel", () => {
     expect(auth.signOut).toHaveBeenCalledTimes(1);
     expect(mounted.container.textContent).toContain("Entrar");
     await mounted.unmount();
+  });
+
+  it("exibe somente mesas fornecidas e abre a colaboração pelo callback real", async () => {
+    const onOpenCollaboration = vi.fn();
+    const onOpenSession = vi.fn();
+    const mounted = await mount(<AccountPanel onOpenCollaboration={onOpenCollaboration} onOpenSession={onOpenSession} campaigns={[{ id: asUuid("00000000-0000-4000-8000-000000000021"), name: "Tumba Rubra", role: "master", participantCount: 3 }]} />);
+    expect(mounted.container.textContent).toContain("Tumba Rubra");
+    expect(mounted.container.textContent).not.toContain("Campanha de exemplo");
+    const sessionButton = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Abrir mesa"));
+    await fireEvent(sessionButton!, new MouseEvent("click", { bubbles: true }));
+    expect(onOpenSession).toHaveBeenCalledTimes(1);
+    const collaborationButton = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Abrir colaboração"));
+    await fireEvent(collaborationButton!, new MouseEvent("click", { bubbles: true }));
+    expect(onOpenCollaboration).toHaveBeenCalledTimes(1);
+    await mounted.unmount();
+  });
+
+  it("só mostra Offline quando o estado recebido é offline", async () => {
+    const local = await mount(<AccountPanel />);
+    expect(local.container.textContent).not.toContain("Offline");
+    await local.unmount();
+    const offline = await mount(<AccountPanel syncState="offline" />);
+    expect(offline.container.textContent).toContain("Offline");
+    await offline.unmount();
   });
 });

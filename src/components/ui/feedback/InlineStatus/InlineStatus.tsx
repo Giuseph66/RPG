@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CheckCircle, Info, Warning, XCircle } from "@phosphor-icons/react";
 
 import styles from "./InlineStatus.module.css";
 
@@ -12,11 +13,11 @@ export interface InlineStatusProps {
   children: ReactNode;
 }
 
-const TONE_GLYPH: Record<InlineStatusTone, string> = {
-  info: "ℹ",
-  success: "✓",
-  warning: "!",
-  error: "✕",
+const TONE_GLYPH: Record<InlineStatusTone, typeof Info> = {
+  info: Info,
+  success: CheckCircle,
+  warning: Warning,
+  error: XCircle,
 };
 
 /**
@@ -24,13 +25,14 @@ const TONE_GLYPH: Record<InlineStatusTone, string> = {
  * only announces via a live region role, does not move keyboard focus.
  */
 export function InlineStatus({ tone, assertive = false, children }: InlineStatusProps) {
+  const Glyph = TONE_GLYPH[tone];
   return (
     <div
       role={assertive ? "alert" : "status"}
       className={[styles.status, styles[tone]].join(" ")}
     >
       <span aria-hidden="true" className={styles.glyph}>
-        {TONE_GLYPH[tone]}
+        <Glyph size={18} weight="bold" />
       </span>
       <span>{children}</span>
     </div>

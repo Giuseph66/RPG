@@ -7,6 +7,7 @@
   justify-content: center;
   padding: var(--spacing-lg);
   background-color: var(--color-backdrop);
+  backdrop-filter: blur(0.2rem);
 }
 
 .dialog {
@@ -18,10 +19,11 @@
   max-height: 100%;
   overflow-y: auto;
   padding: var(--spacing-lg);
-  background-color: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-warm);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-overlay);
   box-shadow: var(--shadow-overlay);
+  scrollbar-color: var(--color-border) var(--color-surface);
 }
 
 .header {
@@ -38,6 +40,7 @@
   font-weight: var(--typography-heading-font-weight);
   line-height: var(--typography-heading-line-height);
   color: var(--color-text);
+  letter-spacing: 0.02em;
 }
 
 .body {

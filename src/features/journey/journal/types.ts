@@ -14,6 +14,7 @@ export interface JournalEditorProps {
   readonly links?: readonly JournalLinkStatus[];
   readonly onIntent?: (intent: JournalIntent) => void;
   readonly onCreateEntry?: () => void;
+  readonly onBackToList?: () => void;
   readonly className?: string;
 }
 

@@ -3,9 +3,9 @@
   z-index: var(--z-overlay-popover);
   max-width: 20rem;
   padding: var(--spacing-md);
-  background-color: var(--color-surface-elevated);
+  background-color: var(--color-surface-warm);
   color: var(--color-text);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-surface);
   box-shadow: var(--shadow-overlay);
 }

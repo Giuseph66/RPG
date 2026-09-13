@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { Badge, Button, InlineStatus, Input, SectionCard } from "@components/ui";
+import { artworkForClass } from "../../../assets/art/fantasy";
 import type { Ability, Skill } from "@domain/contracts/primitives";
 import type { Character } from "@domain/contracts/character";
 import type { CharacterDerived, Explanation } from "@domain/contracts/derived";
@@ -11,6 +12,21 @@ import type { CharacterRollIntent, CharacterSheetPatch, CharacterSheetProps, Cha
 import styles from "./character-sheet.module.css";
 
 const ABILITIES: readonly Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
+const CLASS_ALIASES: Readonly<Record<string, string>> = {
+  guerreiro: "fighter",
+  paladino: "paladin",
+  ladino: "rogue",
+  mago: "wizard",
+  feiticeiro: "sorcerer",
+  clerigo: "cleric",
+  clérigo: "cleric",
+  druida: "druid",
+  barbaro: "barbarian",
+  bárbaro: "barbarian",
+  patrulheiro: "ranger",
+  bardo: "bard",
+  bruxo: "warlock",
+};
 const ALIGNMENTS: Readonly<Record<NonNullable<Character["alignment"]>, string>> = {
   "lawful-good": "Leal e bom",
   "neutral-good": "Neutro e bom",
@@ -65,7 +81,7 @@ function LoadingState() {
 }
 
 function EmptyState() {
-  return <section className={styles.state} aria-labelledby="sheet-empty-title"><span className={styles.stateMark} aria-hidden="true">✦</span><h1 id="sheet-empty-title">Nenhum personagem selecionado</h1><p>Selecione uma ficha para consultar atributos, recursos e narrativa. A ficha permanece vazia até que um personagem real seja escolhido.</p></section>;
+  return <section className={styles.state} aria-labelledby="sheet-empty-title"><img className={styles.stateArt} src={artworkForClass(undefined).src} alt={artworkForClass(undefined).alt} /><span className={styles.stateMark} aria-hidden="true">✦</span><h1 id="sheet-empty-title">Nenhum personagem selecionado</h1><p>Selecione uma ficha para consultar atributos, recursos e narrativa. A ficha permanece vazia até que um personagem real seja escolhido.</p></section>;
 }
 
 function ErrorState({ error }: { readonly error?: unknown }) {
@@ -111,6 +127,8 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const currentView = view === "expanded";
   const staleDerived = derived && derived.characterId !== character.id;
   const classes = character.classes.length === 0 ? "Classe pendente" : character.classes.map((entry) => `${formatRef(entry.classId)} ${entry.level}`).join(" · ");
+  const primaryClass = character.classes[0]?.classId;
+  const heroArtwork = artworkForClass(CLASS_ALIASES[String(primaryClass ?? "").toLowerCase()] ?? String(primaryClass ?? ""));
   const primarySpeed = derived?.speedsCm.find((speed) => speed.kind === "walk")?.value.value;
   const abilityMap = new Map(derived?.abilityScores.map((item) => [item.ability, item]) ?? []);
 
@@ -124,6 +142,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   return (
     <section className={styles.sheet} aria-labelledby="character-sheet-title">
       <header className={styles.hero}>
+        <div className={styles.heroArt}><img src={heroArtwork.src} alt={heroArtwork.alt} /></div>
         <div>
           <p className={styles.eyebrow}>FICHA DO PERSONAGEM</p>
           <h1 id="character-sheet-title">{valueOr(draft, "name", character.name) || "Personagem sem nome"}</h1>

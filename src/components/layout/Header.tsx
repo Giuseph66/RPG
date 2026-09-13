@@ -1,75 +1,58 @@
-import { Button, IconButton, ProgressBar } from "@components/ui";
+import { CampaignSigil, IconButton } from "@components/ui";
+import { Gear } from "../../assets/icons";
 import type { Character } from "@domain/contracts/character";
+import type { RouteMatch } from "@app/routes";
 import styles from "./layout.module.css";
-import type { SessionCharacter } from "./layout.types";
+import type { SessionCampaign, SessionCharacter } from "./layout.types";
 
 interface HeaderProps {
   readonly session?: SessionCharacter;
+  readonly campaign?: SessionCampaign;
+  readonly route: RouteMatch;
   readonly navigate: (to: string) => void;
-  readonly onOpenDice?: (source: "header" | "fab") => void;
   readonly onSelectCharacter?: () => void;
 }
 
-function diceTriggerSource(): "header" | "fab" {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "header";
-  return window.matchMedia("(max-width: 820px)").matches ? "fab" : "header";
+function routeContext(route: RouteMatch, character?: Character, campaign?: SessionCampaign): string {
+  const campaignName = campaign?.value?.name;
+  switch (route.kind) {
+    case "journey": return campaignName ?? "Jornada";
+    case "character": return character?.name ?? "Ficha";
+    case "actions": return character ? `Ações · ${character.name}` : "Ações";
+    case "compendium": return "Compêndio";
+    case "account": return "Conta";
+    case "collaboration": return "Mesa compartilhada";
+    case "settings": return "Ajustes";
+    case "data": return "Dados";
+    case "session": return campaignName ?? "Sessão";
+    case "onboarding": return character?.name ?? "Nenhum personagem";
+    default: return campaignName ?? "Visão geral";
+  }
 }
 
-function displayClass(character: Character): string {
-  const first = character.classes[0];
-  if (!first) return "Aventureiro";
-  return first.classId.replaceAll("-", " ");
-}
-
-function DieMark() {
-  return <span className={styles.dieMark} aria-hidden="true">⚄</span>;
-}
-
-export function Header({ session, navigate, onOpenDice, onSelectCharacter }: HeaderProps) {
+export function Header({ session, campaign, route, navigate, onSelectCharacter }: HeaderProps) {
   const character = session?.value ?? undefined;
-  const hp = character?.hp;
-  const isLowHp = Boolean(hp && hp.current > 0 && hp.current <= 5);
-  const saveLabel = session?.status === "saving" ? "Salvando" : session?.status === "error" ? "Alterações pendentes" : "Salvo";
+  const context = routeContext(route, character, campaign);
 
   return (
-    <header className={styles.header} aria-label="Sessão de campanha">
+    <header className={styles.header} aria-label="Mesa de campanha">
       <div className={styles.headerInner}>
         <button
           type="button"
           className={styles.identityButton}
           onClick={onSelectCharacter ?? (() => navigate("/character"))}
-          aria-label={character ? `Selecionar personagem ${character.name}` : "Selecionar personagem"}
+          aria-label="Abrir ficha de personagem"
         >
-          <span className={styles.brandMark}><DieMark /></span>
+          <span className={styles.brandMark}><CampaignSigil /></span>
           <span className={styles.identityCopy}>
-            <span className={styles.identityName}>{character?.name ?? "Mesa de campanha"}</span>
-            <span className={styles.identityMeta}>
-              {character ? `${displayClass(character)} · nível ${character.classes[0]?.level ?? "—"}` : "Nenhum personagem ativo"}
-            </span>
+            <span className={styles.identityName}>Mesa de campanha</span>
+            <span className={styles.identityContext}>{context}</span>
           </span>
         </button>
-
-        {character && hp ? (
-          <div className={styles.sessionStats} aria-label="Resumo da ficha">
-            <button type="button" className={[styles.statBlock, isLowHp ? styles.statAlert : ""].filter(Boolean).join(" ")} onClick={() => navigate("/character#hp")}>
-              {session?.derived?.maxHitPoints ? <ProgressBar value={hp.current} max={session.derived.maxHitPoints} tempValue={hp.temp} label="Pontos de vida" tone="hp" /> : <span className={styles.statLine}><span className={styles.statLabel}>PV</span><strong>{hp.current}{hp.temp > 0 ? ` +${hp.temp}` : ""}</strong></span>}
-            </button>
-            <button type="button" className={styles.statChip} onClick={() => navigate("/character#resource")}>
-              <span className={styles.statLabel}>CA</span><strong>{session?.derived?.armorClass ?? "—"}</strong>
-            </button>
-            {session?.derived?.primaryResource ? <button type="button" className={styles.statChip} onClick={() => navigate("/character#resource")}><span className={styles.statLabel}>{session.derived.primaryResource.label}</span><strong>{session.derived.primaryResource.current}/{session.derived.primaryResource.max}</strong></button> : null}
-            <span className={styles.saveState} role="status"><span className={styles.saveDot} aria-hidden="true" />{saveLabel}</span>
-          </div>
-        ) : (
-          <span className={styles.headerHint}>Escolha uma ficha para começar</span>
-        )}
-
         <div className={styles.headerActions}>
-          <IconButton label="Abrir rolagem de dados" icon={<DieMark />} variant="secondary" className={styles.headerDiceButton} onClick={() => onOpenDice?.(diceTriggerSource())} />
-          <Button variant="secondary" size="sm" onClick={() => navigate("/settings")}>Ajustes</Button>
+          <IconButton label="Abrir ajustes" icon={<Gear size={20} weight="duotone" />} variant="ghost" className={styles.headerSettingsButton} onClick={() => navigate("/settings")} />
         </div>
       </div>
-      {session?.errorMessage ? <div className={styles.headerNotice} role="status">{session.errorMessage}</div> : null}
     </header>
   );
 }

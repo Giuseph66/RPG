@@ -17,6 +17,9 @@ export const PRIMARY_ROUTES: readonly PrimaryRoute[] = [
   { id: "collaboration", label: "Mesa", shortLabel: "Mesa", path: "/collaboration", question: "Quem joga conosco?" },
 ];
 
+/** Visual destinations. Collaboration remains a deep compatibility route. */
+export const PRIMARY_NAV_ROUTES = PRIMARY_ROUTES.filter((route) => route.id !== "collaboration");
+
 export type AppRouteKind = PrimaryRouteId | "session" | "settings" | "account" | "data" | "onboarding" | "not-found";
 
 export interface RouteMatch {

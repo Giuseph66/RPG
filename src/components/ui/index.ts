@@ -48,3 +48,9 @@ export type { InlineStatusProps, InlineStatusTone } from "./feedback/InlineStatu
 
 export { LiveRegion } from "./feedback/LiveRegion/LiveRegion";
 export type { LiveRegionProps } from "./feedback/LiveRegion/LiveRegion";
+
+export { CampaignSigil } from "./brand/CampaignSigil";
+export type { CampaignSigilProps } from "./brand/CampaignSigil";
+
+export { DiceD20Mark } from "./brand/DiceD20Mark";
+export type { DiceD20MarkProps } from "./brand/DiceD20Mark";

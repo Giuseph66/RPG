@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
   ApplicationServicesProvider,
@@ -53,13 +53,14 @@ import { createCharacterDraft } from "@domain/character/creation";
 import type { CreationWizardService } from "@features/character/creation";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { AuthPort } from "@application/ports/auth-port";
-import type { AccountAvailability } from "@features/account";
+import type { AccountAvailability, AccountSyncState } from "@features/account";
 import { FirebaseAuthAdapter, createFirebaseAssetStorageAdapter, getFirebaseApp, getFirebaseConfigDiagnostic } from "@infrastructure/cloud/firebase";
 import type { AssetTransferPort } from "@application/ports/asset-transfer";
 import { getFirestoreClient, createFirebaseFirestoreSyncAdapter } from "@infrastructure/cloud/firebase";
 import { createSessionGatedOutboxRepository, createSyncOutboxService, createSyncRuntime, type SyncRuntime } from "@application/sync";
 import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityStorage, type MembershipService } from "@application/membership";
 import { createSessionService, type SessionService } from "@application/session";
+import type { SyncRuntimeSnapshot } from "@application/sync";
 import { type SessionAuthorizationPort } from "@application/session/authorization";
 import { type AccountId, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
@@ -77,6 +78,9 @@ const STATIC_RULE_CONTEXT: RuleContext = {
   availableActions: ["action", "bonus-action", "reaction", "free"] satisfies readonly AvailableAction[],
   tablePolicies: [],
 };
+
+const EMPTY_SYNC_SNAPSHOT: SyncRuntimeSnapshot = { state: "signed-out" };
+const EMPTY_SYNC_SUBSCRIBE = (_listener: () => void): (() => void) => () => undefined;
 
 export interface ApplicationRuntime {
   readonly database: IDBDatabase;
@@ -587,9 +591,25 @@ export function hasPendingApplicationWork(services: ApplicationServices, journal
   return journalState !== undefined && journalState.status !== "clean" && journalState.status !== "saved";
 }
 
-function ReadyApplication({ services, diceOverlayController, registry, computeActionCapabilities, pack, createDraft, onCharacterCreated, initialPath, onRetryBoot, pwaPlatform }: { readonly services: ApplicationServices; readonly diceOverlayController: DiceOverlayController; readonly registry: FeatureRegistry; readonly computeActionCapabilities: ApplicationRuntime["computeActionCapabilities"]; readonly pack: RulePack; readonly createDraft: () => CharacterDraft; readonly onCharacterCreated: (character: Character) => void; readonly initialPath?: string; readonly onRetryBoot: () => void; readonly pwaPlatform?: PwaPlatform }) {
+function accountSyncState(snapshot: SyncRuntimeSnapshot): AccountSyncState {
+  switch (snapshot.state) {
+    case "syncing": return "pending";
+    case "offline":
+    case "error": return "offline";
+    case "ready": return "synced";
+    case "local-only":
+    case "signed-out": return "local";
+  }
+}
+
+function ReadyApplication({ services, diceOverlayController, registry, computeActionCapabilities, pack, createDraft, onCharacterCreated, sync, initialPath, onRetryBoot, pwaPlatform }: { readonly services: ApplicationServices; readonly diceOverlayController: DiceOverlayController; readonly registry: FeatureRegistry; readonly computeActionCapabilities: ApplicationRuntime["computeActionCapabilities"]; readonly pack: RulePack; readonly createDraft: () => CharacterDraft; readonly onCharacterCreated: (character: Character) => void; readonly sync?: SyncRuntime; readonly initialPath?: string; readonly onRetryBoot: () => void; readonly pwaPlatform?: PwaPlatform }) {
   const characterSnapshot = useExternalStore(services.character.store);
   const campaignSnapshot = useExternalStore(services.campaign.store);
+  const syncSnapshot = useSyncExternalStore(
+    sync?.subscribe ?? EMPTY_SYNC_SUBSCRIBE,
+    sync ? () => sync.snapshot : () => EMPTY_SYNC_SNAPSHOT,
+    sync ? () => sync.snapshot : () => EMPTY_SYNC_SNAPSHOT,
+  );
   // Recalculado a cada revisão do personagem ativo — nunca reaproveita capacidades de outro
   // personagem/estado (achado #1 de QA-004: a lista não pode ficar presa a um snapshot velho).
   const actionCapabilities = useMemo(
@@ -633,6 +653,7 @@ function ReadyApplication({ services, diceOverlayController, registry, computeAc
         pack={pack}
         createDraft={createDraft}
         onCharacterCreated={onCharacterCreated}
+        syncState={accountSyncState(syncSnapshot)}
         onRetryBoot={onRetryBoot}
       />
     </ApplicationServicesProvider>
@@ -694,7 +715,7 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
     setAttempt((current) => current + 1);
   };
 
-  if (runtime) return <ReadyApplication services={runtime.services} diceOverlayController={runtime.diceOverlayController} registry={runtime.registry} computeActionCapabilities={runtime.computeActionCapabilities} pack={runtime.pack} createDraft={runtime.createDraft} onCharacterCreated={runtime.onCharacterCreated} initialPath={initialPath} onRetryBoot={retry} pwaPlatform={pwaPlatform} />;
+  if (runtime) return <ReadyApplication services={runtime.services} diceOverlayController={runtime.diceOverlayController} registry={runtime.registry} computeActionCapabilities={runtime.computeActionCapabilities} pack={runtime.pack} createDraft={runtime.createDraft} onCharacterCreated={runtime.onCharacterCreated} sync={runtime.sync} initialPath={initialPath} onRetryBoot={retry} pwaPlatform={pwaPlatform} />;
 
   return (
     <AppRouter

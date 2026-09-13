@@ -16,6 +16,7 @@ import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { Revision } from "@domain/contracts/versioning";
 import type { StoreStatus } from "@application/state";
 import type { ActionCapability } from "@features/actions";
+import type { AccountSyncState } from "@features/account";
 import type { CompendiumCategoryId, CompendiumDetail, CompendiumFilters } from "@application/compendium";
 import type { FeatureRegistry } from "./feature-registry";
 import { matchRoute, type RouteMatch } from "./routes";
@@ -286,9 +287,23 @@ function DataManagementRoute({ registry, character, campaign }: { readonly regis
   return <Suspense fallback={<section aria-live="polite"><h1>Backup e recuperação</h1><InlineStatus tone="info">Carregando ferramentas de dados locais…</InlineStatus></section>}><LazyDataManagementPanel characterId={character?.value?.id} campaignId={campaign?.value?.id} status={status} error={error} preview={preview} pendingEnvelope={pendingEnvelope} recovery={recovery} onIntent={onIntent} /></Suspense>;
 }
 
-function AccountRoute({ registry, navigate }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void }) {
+function AccountRoute({ registry, navigate, syncState, campaign }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void; readonly syncState?: AccountSyncState; readonly campaign?: AppRouterProps["campaign"] }) {
+  const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
+  useEffect(() => {
+    let active = true;
+    void registry.journey.service.list().then((result) => {
+      if (active && result.ok) setCampaigns(result.value);
+    });
+    return () => { active = false; };
+  }, [registry.journey.service]);
   const Account = LazyAccountPanel;
-  return <Account {...registry.account.bindProps({ onBackToLocal: () => navigate("/character") })} />;
+  return <Account {...registry.account.bindProps({
+    onBackToLocal: () => navigate("/character"),
+    campaigns: campaigns.map((item) => ({ id: item.id, name: item.name })),
+    onOpenCollaboration: () => navigate("/collaboration"),
+    onOpenSession: (campaignId) => navigate(`/session/${campaignId}`),
+    onOpenSettings: () => navigate("/settings"),
+  })} {...(syncState ? { syncState } : {})} />;
 }
 
 function CollaborationRoute({ registry, campaign, navigate }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void }) {
@@ -431,6 +446,7 @@ function renderRegistryRoute(
   pack: AppRouterProps["pack"],
   createDraft: AppRouterProps["createDraft"],
   onCharacterCreated: AppRouterProps["onCharacterCreated"],
+  syncState: AppRouterProps["syncState"],
   navigate: (to: string) => void,
 ): ReactNode | undefined {
   const currentCharacter = character?.value ?? undefined;
@@ -470,7 +486,7 @@ function renderRegistryRoute(
   if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} />;
   if (match.kind === "session") return <SessionRoute registry={registry} match={match} />;
   if (match.kind === "data") return <DataManagementRoute registry={registry} character={character} campaign={campaign} />;
-  if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} />;
+  if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} syncState={syncState} campaign={campaign} />;
   return undefined;
 }
 
@@ -497,14 +513,15 @@ export function useAppNavigation(initialPath?: string): AppNavigation {
 }
 
 /** Small History API router: keeps the shell usable without adding a package. */
-export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
+export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, navigation.navigate) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <><LazySettingsPanel store={shellProps.settingsStore} /> {registry ? <DataManagementRoute registry={registry} character={character} campaign={campaign} /> : null}</> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, navigation.navigate) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <><LazySettingsPanel store={shellProps.settingsStore} /> {registry ? <DataManagementRoute registry={registry} character={character} campaign={campaign} /> : null}</> : undefined);
 
   return (
     <AppShell
       {...shellProps}
       character={character}
+      campaign={campaign}
       diceOverlayController={diceOverlayController}
       route={navigation.match}
       navigate={navigation.navigate}

@@ -12,6 +12,7 @@
   font-weight: var(--typography-label-font-weight);
   line-height: 1;
   cursor: pointer;
+  letter-spacing: 0.025em;
   transition:
     background-color var(--motion-feedback) var(--motion-easing),
     border-color var(--motion-feedback) var(--motion-easing),
@@ -31,6 +32,8 @@
 .primary {
   background-color: var(--color-primary);
   color: var(--color-on-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 78%, var(--color-gold-muted));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 .primary:hover:not(.blocked) {
@@ -43,9 +46,9 @@
 }
 
 .secondary {
-  background-color: transparent;
+  background-color: var(--color-surface-warm);
   color: var(--color-text);
-  border-color: var(--color-border);
+  border-color: var(--color-border-soft);
 }
 
 .secondary:hover:not(.blocked) {
@@ -64,7 +67,7 @@
 }
 
 .ghost:hover:not(.blocked) {
-  background-color: color-mix(in srgb, var(--color-surface) 70%, white 6%);
+  background-color: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
 }
 
 .ghost:active:not(.blocked) {
@@ -75,6 +78,7 @@
 .danger {
   background-color: var(--color-danger);
   color: var(--color-on-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 80%, var(--color-hp));
 }
 
 .danger:hover:not(.blocked) {
@@ -88,7 +92,8 @@
 
 .blocked {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.58;
+  box-shadow: none;
 }
 
 .labelWithSpinner {

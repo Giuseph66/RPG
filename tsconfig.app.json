@@ -25,7 +25,8 @@
       "@infrastructure/*": ["./src/infrastructure/*"],
       "@features/*": ["./src/features/*"],
       "@components/*": ["./src/components/*"],
-      "@styles/*": ["./src/styles/*"]
+      "@styles/*": ["./src/styles/*"],
+      "@assets/*": ["./src/assets/*"]
     }
   },
   "include": ["src", "tests"]

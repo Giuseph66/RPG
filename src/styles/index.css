@@ -10,5 +10,12 @@
  * See the UI-001 handoff for the formal request to CORE-001/UI-002.
  */
 
+/* Bundled fontsource files keep the local-first app usable without a CDN. */
+@import "@fontsource/cinzel/400.css";
+@import "@fontsource/cinzel/600.css";
+@import "@fontsource/cinzel/700.css";
+@import "@fontsource/alegreya/400.css";
+@import "@fontsource/alegreya/500.css";
+@import "@fontsource/alegreya/600.css";
 @import "./tokens.css";
 @import "./global.css";

@@ -9,10 +9,16 @@ import { RouteFallback } from "./RouteFallback";
 import type { AppShellProps } from "./layout.types";
 import styles from "./layout.module.css";
 
-export type { AppShellProps, BootState, SessionCharacter } from "./layout.types";
+export type { AppShellProps, BootState, SessionCharacter, SessionCampaign } from "./layout.types";
+
+function navigationDiceSource(): "header" | "fab" {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "header";
+  return window.matchMedia("(max-width: 767px)").matches ? "fab" : "header";
+}
 
 export function AppShell({
   character,
+  campaign,
   bootState = "ready",
   bootErrorMessage,
   children,
@@ -55,9 +61,9 @@ export function AppShell({
   return (
     <div className={styles.appShell}>
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
-      <Header session={character} navigate={navigate} onOpenDice={openDice} onSelectCharacter={onSelectCharacter} />
+      <Header session={character} campaign={campaign} route={route} navigate={navigate} onSelectCharacter={onSelectCharacter} />
       <div className={styles.shellBody}>
-        <PrimaryNavigation route={route} navigate={navigate} />
+        <PrimaryNavigation route={route} navigate={navigate} onOpenDice={() => openDice(navigationDiceSource())} />
         <main ref={mainRef} id="main-content" className={[styles.main, isPrimary ? "" : styles.utilityMain].filter(Boolean).join(" ")} tabIndex={-1}>
           {bootState === "booting" ? (
             <section className={styles.stateContent} aria-labelledby="boot-title"><p className={styles.eyebrow}>ABRINDO A MESA</p><h1 id="boot-title" tabIndex={-1} className={styles.pageTitle}>Abrindo dados locais</h1><InlineStatus tone="info">Preparando preferências, personagem e campanha.</InlineStatus></section>

@@ -25,8 +25,26 @@ body {
   font-size: var(--typography-body-font-size);
   font-weight: var(--typography-body-font-weight);
   line-height: var(--typography-body-line-height);
+  background-image: radial-gradient(
+    circle at 50% -20%,
+    color-mix(in srgb, var(--color-primary) 8%, transparent),
+    transparent 42rem
+  );
   -webkit-font-smoothing: antialiased;
   text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--typography-heading-font-family);
+  letter-spacing: 0.015em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-hp) 65%, var(--color-background));
+  color: var(--color-text);
 }
 
 img,

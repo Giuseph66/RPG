@@ -2,7 +2,7 @@ import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { mount } from "@components/ui/testUtils";
+import { click, mount } from "@components/ui/testUtils";
 import { createApplicationRuntime } from "./bootstrap";
 import { AppRouter } from "./router";
 import { fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
@@ -60,6 +60,26 @@ describe("AppRouter", () => {
       expect(mounted.container.textContent).toContain("Conta");
       expect(mounted.container.textContent).toContain("Firebase Authentication ainda não está disponível");
     } finally {
+      await mounted.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("conecta conta às rotas reais de colaboração e configurações", async () => {
+    const runtime = await createApplicationRuntime({ authAvailability: { available: false, missingKeys: ["VITE_FIREBASE_API_KEY"] } });
+    const originalUrl = window.location.href;
+    const mounted = await mountRoute(<AppRouter initialPath="/account" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      const collaboration = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Abrir colaboração"));
+      expect(collaboration).toBeTruthy();
+      await click(collaboration!);
+      expect(window.location.pathname).toBe("/collaboration");
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
       await mounted.unmount();
       runtime.services.character.dispose();
       runtime.services.campaign.dispose();

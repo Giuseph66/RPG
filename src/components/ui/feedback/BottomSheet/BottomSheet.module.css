@@ -6,6 +6,7 @@
   align-items: flex-end;
   justify-content: center;
   background-color: var(--color-backdrop);
+  backdrop-filter: blur(0.2rem);
 }
 
 .sheet {
@@ -17,11 +18,12 @@
   max-height: 85vh;
   overflow-y: auto;
   padding: var(--spacing-lg);
-  background-color: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-warm);
+  border: 1px solid var(--color-border-soft);
   border-top-left-radius: var(--radius-overlay);
   border-top-right-radius: var(--radius-overlay);
   box-shadow: var(--shadow-overlay);
+  padding-bottom: max(var(--spacing-lg), env(safe-area-inset-bottom));
 }
 
 .grabber {
@@ -44,6 +46,7 @@
   font-size: var(--typography-heading-font-size);
   font-weight: var(--typography-heading-font-weight);
   color: var(--color-text);
+  letter-spacing: 0.02em;
 }
 
 .body {

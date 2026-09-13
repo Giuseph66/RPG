@@ -1,12 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { asAccountId, asUuid } from "@domain/contracts/ids";
 import type { Membership } from "@domain/contracts/cloud-sync";
-import { Button, InlineStatus, Input, SectionCard } from "@components/ui";
+import { ArrowsClockwise, GiCrossedSwords, GiPerson, WifiSlash } from "@assets/icons";
+import { Button, CampaignSigil, InlineStatus, Input, SectionCard } from "@components/ui";
 import type { CollaborationCharacter, CollaborationPanelProps } from "./types";
 import styles from "./collaboration.module.css";
 
 function statusLabel(status: Membership["status"]): string {
   return status === "active" ? "Ativo" : status === "invited" ? "Convite pendente" : "Revogado";
+}
+
+function syncCopy(state: CollaborationPanelProps["syncState"]): { readonly label: string; readonly description: string; readonly tone: "info" | "warning" | "success" } {
+  switch (state) {
+    case "offline": return { label: "Offline", description: "Sem conexão. Alterações locais serão enviadas quando a rede voltar.", tone: "warning" };
+    case "pending": return { label: "Sincronização pendente", description: "Há convites ou vínculos aguardando confirmação.", tone: "info" };
+    case "synced": return { label: "Sincronizado", description: "Convites e vínculos confirmados pela conta.", tone: "success" };
+    default: return { label: "Somente neste dispositivo", description: "Participação local; nenhuma sincronização é presumida.", tone: "info" };
+  }
 }
 
 export function CollaborationPanel({ membership, session, campaigns = [], characters = [], activeCampaignId, syncState = "local", onOpenSession, onLinkCharacter, onUnlinkCharacter }: CollaborationPanelProps) {
@@ -21,6 +31,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const selectedCampaign = campaigns.find((campaign) => String(campaign.id) === selectedId);
+  const sync = syncCopy(syncState);
 
   useEffect(() => {
     setSelectedId(activeCampaignId ? String(activeCampaignId) : String(campaigns[0]?.id ?? ""));
@@ -100,13 +111,13 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
     setMessage("Personagem desvinculado da campanha.");
   }
 
-  if (!membership || !actorId) return <section className={styles.panel} aria-labelledby="collaboration-title"><p className={styles.eyebrow}>MESA COMPARTILHADA</p><h1 id="collaboration-title" className={styles.title} tabIndex={-1}>Colaboração</h1><InlineStatus tone="info">A identidade local ainda não está disponível. Entre em uma conta se quiser sincronizar; seus dados continuam neste dispositivo.</InlineStatus></section>;
+  if (!membership || !actorId) return <section className={styles.panel} aria-labelledby="collaboration-title"><header className={styles.hero}><div><p className={styles.eyebrow}>MESA COMPARTILHADA</p><h1 id="collaboration-title" className={styles.title} tabIndex={-1}>Colaboração</h1><p className={styles.intro}>Convites, participantes e fichas ligadas à campanha.</p></div><CampaignSigil aria-hidden="true" /></header><InlineStatus tone="info">A identidade local ainda não está disponível. Entre em uma conta se quiser sincronizar; seus dados continuam neste dispositivo.</InlineStatus></section>;
 
   return <section className={styles.panel} aria-labelledby="collaboration-title">
-    <header><p className={styles.eyebrow}>MESA COMPARTILHADA</p><h1 id="collaboration-title" className={styles.title} tabIndex={-1}>Colaboração</h1><p className={styles.intro}>{session ? "Convites e alterações ficam locais primeiro e podem sincronizar com sua conta." : "Você está usando uma identidade local persistente. Mestre, jogadores e convites funcionam offline neste dispositivo; vincule uma conta depois para sincronizar."} {syncState === "offline" ? "Sem conexão: serão enviados quando a rede voltar." : syncState === "pending" ? "Há alterações aguardando sincronização." : ""}</p></header>
-    <InlineStatus tone={syncState === "offline" ? "warning" : syncState === "pending" ? "info" : "success"}>{syncState === "offline" ? "Offline" : syncState === "pending" ? "Sincronização pendente" : syncState === "local" ? "Somente neste dispositivo" : "Sincronizado"}</InlineStatus>
+    <header className={styles.hero}><div><p className={styles.eyebrow}>MESA COMPARTILHADA</p><h1 id="collaboration-title" className={styles.title} tabIndex={-1}>Colaboração</h1><p className={styles.intro}>{session ? "Convites e alterações ficam locais primeiro e podem sincronizar com sua conta." : "Você está usando uma identidade local persistente. Mestre, jogadores e convites ficam neste dispositivo até uma conta ser vinculada."}</p></div><CampaignSigil aria-hidden="true" /></header>
+    <div className={styles.statusLine}><InlineStatus tone={sync.tone}>{sync.label}</InlineStatus><span>{sync.description}</span>{syncState === "offline" ? <WifiSlash size={18} aria-label="Sem conexão" /> : syncState === "pending" ? <ArrowsClockwise size={18} aria-label="Sincronização pendente" /> : null}</div>
     {campaigns.length === 0 ? <SectionCard heading="Campanhas" headingLevel={2}><p className={styles.empty}>Crie uma campanha para convidar jogadores.</p></SectionCard> : <>
-      <SectionCard heading="Campanha" headingLevel={2}><label className={styles.label} htmlFor="collaboration-campaign">Escolha a campanha</label><select id="collaboration-campaign" className={styles.select} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{campaigns.map((campaign) => <option key={String(campaign.id)} value={String(campaign.id)}>{campaign.name}</option>)}</select>{onOpenSession && selectedCampaign ? <Button className={styles.sessionButton} variant="secondary" onClick={() => onOpenSession(selectedCampaign.id)}>Abrir sessões</Button> : null}</SectionCard>
+      <SectionCard heading="Campanha" headingLevel={2}><label className={styles.label} htmlFor="collaboration-campaign">Escolha a campanha</label><select id="collaboration-campaign" className={styles.select} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{campaigns.map((campaign) => <option key={String(campaign.id)} value={String(campaign.id)}>{campaign.name}</option>)}</select>{onOpenSession && selectedCampaign ? <Button className={styles.sessionButton} variant="secondary" onClick={() => onOpenSession(selectedCampaign.id)}><GiCrossedSwords aria-hidden="true" /> Abrir sessões</Button> : null}</SectionCard>
       {message ? <InlineStatus tone={message.includes("salvo") || message.includes("aceito") || message.includes("vinculado") || message.includes("desvinculado") ? "success" : "error"}>{message}</InlineStatus> : null}
       {isMaster ? <SectionCard heading="Convidar jogador" headingLevel={2}><div className={styles.inviteForm}><Input label="UID ou identificador da conta" hint="O modelo atual aceita o AccountId; o email só funciona se for usado como identificador pela conta." value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="off" /><Button busy={busy} disabled={busy || !identifier.trim()} onClick={() => void invite()}>Enviar convite</Button></div></SectionCard> : null}
       <SectionCard heading={isMaster ? "Jogadores e mestre" : "Minha participação"} headingLevel={2}>
@@ -129,6 +140,6 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
         </>}
       </SectionCard> : null}
     </>}
-    {invitations.length > 0 ? <SectionCard heading="Convites recebidos" headingLevel={2}><ul className={styles.memberList}>{invitations.map((item) => <li key={`${item.campaignId}:${item.accountId}`} className={styles.member}><span>Convite para {selectedCampaign?.name ?? item.campaignId}</span><Button size="sm" disabled={busy} onClick={() => void accept(String(item.campaignId))}>Aceitar</Button></li>)}</ul></SectionCard> : null}
+    {invitations.length > 0 ? <SectionCard heading="Convites recebidos" headingLevel={2}><ul className={styles.memberList}>{invitations.map((item) => <li key={`${item.campaignId}:${item.accountId}`} className={styles.member}><span><GiPerson aria-hidden="true" /> Convite para {selectedCampaign?.name ?? item.campaignId}</span><Button size="sm" disabled={busy} onClick={() => void accept(String(item.campaignId))}>Aceitar</Button></li>)}</ul></SectionCard> : null}
   </section>;
 }

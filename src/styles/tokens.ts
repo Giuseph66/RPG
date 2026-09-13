@@ -11,28 +11,31 @@
  */
 
 export const colorHex = {
-  background: "#000000",
-  surface: "#140507",
-  surfaceElevated: "#24090d",
-  primary: "#e95562",
-  secondary: "#bd7680",
-  hp: "#f05a67",
-  xp: "#a6c77b",
-  magic: "#8eb5e8",
-  warning: "#f0b35e",
-  danger: "#ff7a82",
-  text: "#fff4f2",
-  textMuted: "#d4b8bb",
-  border: "#9b5a64",
-  focus: "#ffb3b8",
-  controlDisabled: "#76515a",
-  onPrimary: "#000000",
-  onSecondary: "#000000",
-  onHp: "#000000",
-  onXp: "#000000",
-  onMagic: "#000000",
-  onWarning: "#000000",
-  onDanger: "#000000",
+  background: "#070a0b",
+  surface: "#0c1113",
+  surfaceElevated: "#11191c",
+  surfaceWarm: "#17110d",
+  primary: "#a97845",
+  secondary: "#d0ab72",
+  goldMuted: "#9b7951",
+  hp: "#c2484d",
+  xp: "#829b5f",
+  magic: "#7694c9",
+  warning: "#d0ab72",
+  danger: "#d35459",
+  text: "#f0e4d4",
+  textMuted: "#b8aa9b",
+  border: "#be905b",
+  borderSoft: "rgba(190, 144, 91, 0.42)",
+  focus: "#d0ab72",
+  controlDisabled: "#786b5f",
+  onPrimary: "#070a0b",
+  onSecondary: "#070a0b",
+  onHp: "#ffffff",
+  onXp: "#070a0b",
+  onMagic: "#070a0b",
+  onWarning: "#070a0b",
+  onDanger: "#070a0b",
   backdrop: "rgba(0, 0, 0, 0.78)",
 } as const;
 
@@ -57,41 +60,37 @@ export const radius = {
 
 export const shadow = {
   none: "none",
-  overlay: "0 20px 40px rgba(0, 0, 0, 0.8)",
+  overlay: "0 20px 40px rgba(0, 0, 0, 0.72)",
+  surface: "0 8px 24px rgba(0, 0, 0, 0.24)",
 } as const;
 
 export const typography = {
   display: {
-    fontFamily:
-      "Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif",
+    fontFamily: "'Cinzel', Georgia, serif",
     fontSize: "1.75rem",
     fontWeight: "700",
     lineHeight: "1.2",
   },
   heading: {
-    fontFamily:
-      "Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif",
+    fontFamily: "'Cinzel', Georgia, serif",
     fontSize: "1.25rem",
     fontWeight: "600",
     lineHeight: "1.3",
   },
   body: {
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontFamily: "'Alegreya', Georgia, serif",
     fontSize: "1rem",
     fontWeight: "400",
     lineHeight: "1.5",
   },
   label: {
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontFamily: "'Alegreya', Georgia, serif",
     fontSize: "0.875rem",
     fontWeight: "600",
     lineHeight: "1.4",
   },
   numeric: {
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontFamily: "'Alegreya', Georgia, serif",
     fontSize: "1.125rem",
     fontWeight: "600",
     lineHeight: "1.2",

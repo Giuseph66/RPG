@@ -59,3 +59,17 @@
   .confirmRow { align-items: stretch; flex-direction: column; }
   .commandHint { max-width: none; }
 }
+
+/* Command deck: restrained bronze hierarchy keeps unavailable capabilities legible. */
+.actions { max-width: 90rem; }
+.hero { background: linear-gradient(105deg, var(--color-surface-warm), var(--color-surface-elevated) 64%, var(--color-surface)); border-color: var(--color-border-soft); box-shadow: var(--shadow-surface); }
+.eyebrow { color: var(--color-secondary); }
+.availability strong { color: var(--color-secondary); }
+.listPanel, .review, .emptyReview { border-color: var(--color-border-soft); background: linear-gradient(145deg, var(--color-surface), var(--color-surface-elevated)); box-shadow: var(--shadow-surface); }
+.review { border-top-color: var(--color-secondary); }
+.capability { border-color: var(--color-border-soft); }
+.capability:hover, .capability.selected { border-color: var(--color-secondary); }
+.capability.selected { box-shadow: 0 0 0 1px var(--color-secondary); }
+.count { border-color: var(--color-secondary); color: var(--color-secondary); }
+.emptyReview { background: color-mix(in srgb, var(--color-surface) 84%, var(--color-primary)); }
+.emptyReview > span { color: var(--color-secondary); }

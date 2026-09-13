@@ -128,7 +128,7 @@ describe("Bootstrap", () => {
       const routes = [
         ["/character", "Carregando personagens"],
         ["/actions", "Nenhum personagem selecionado"],
-        ["/journey", "Nenhuma campanha local criada"],
+        ["/journey", "Nenhuma campanha local"],
         ["/compendium", "Ábaco"],
       ] as const;
       for (const [path, expected] of routes) {
@@ -168,7 +168,7 @@ describe("Bootstrap", () => {
       expect(runtime.services.campaign.store.selectedId).toBe(created.value.id);
       expect(runtime.services.campaign.store.getSnapshot().value?.name).toBe("Campanha persistida");
       expect(mounted.container.textContent).toContain("Campanha persistida");
-      expect(mounted.container.textContent).toContain("Ativa: Campanha persistida");
+      expect(mounted.container.textContent).toContain("Ativa");
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();

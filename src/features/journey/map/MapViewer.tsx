@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, PointerEvent, WheelEvent } from "react";
 
 import { Button } from "@components/ui";
+import { ArrowsOut, Crosshair, MapPin, MapTrifold, Minus, Plus } from "@phosphor-icons/react";
 import { normalizeCoordinate } from "@domain/campaign/maps";
 
 import { markerViewCoordinate, markerViewId, markerViewLabel, type MapViewerProps } from "./types";
@@ -112,14 +113,14 @@ export function MapViewer({
   const selectMarker = (id: string) => onMarkerSelect?.(id);
 
   return (
-    <section className={[styles.mapViewer, className ?? ""].filter(Boolean).join(" ")} aria-labelledby="map-viewer-title">
+    <section id="journey-map" className={[styles.mapViewer, className ?? ""].filter(Boolean).join(" ")} aria-labelledby="map-viewer-title">
       <div className={styles.heading}>
-        <div><p className={styles.eyebrow}>Jornada</p><h1 id="map-viewer-title">{title}</h1></div>
+        <div className={styles.titleBlock}><span className={styles.titleIcon} aria-hidden="true"><MapTrifold size={23} weight="duotone" /></span><div><p className={styles.eyebrow}>Jornada · cartografia</p><h1 id="map-viewer-title">{title}</h1></div></div>
         <div className={styles.controls} aria-label="Controles do mapa">
-          <Button size="sm" variant="secondary" aria-label="Reduzir zoom" onClick={() => zoomBy(-ZOOM_STEP)}>−</Button>
+          <Button size="sm" variant="secondary" aria-label="Reduzir zoom" onClick={() => zoomBy(-ZOOM_STEP)}><Minus size={17} aria-hidden="true" /></Button>
           <span className={styles.zoomValue} aria-live="polite">{Math.round(viewport.zoom * 100)}%</span>
-          <Button size="sm" variant="secondary" aria-label="Aumentar zoom" onClick={() => zoomBy(ZOOM_STEP)}>+</Button>
-          <Button size="sm" variant="ghost" aria-label="Ajustar mapa" onClick={resetViewport}>Ajustar</Button>
+          <Button size="sm" variant="secondary" aria-label="Aumentar zoom" onClick={() => zoomBy(ZOOM_STEP)}><Plus size={17} aria-hidden="true" /></Button>
+          <Button size="sm" variant="ghost" aria-label="Ajustar mapa" onClick={resetViewport}><ArrowsOut size={17} aria-hidden="true" /> Ajustar</Button>
         </div>
       </div>
 
@@ -148,18 +149,18 @@ export function MapViewer({
                 {groupPosition !== undefined ? (() => { const position = typeof groupPosition === "number" ? { x: groupPosition, y: groupPosition } : groupPosition; return <span className={styles.groupPosition} style={{ left: `${normalizeCoordinate(position.x) * 100}%`, top: `${normalizeCoordinate(position.y) * 100}%` }} aria-label="Posição do grupo" title="Posição do grupo">◎</span>; })() : null}
               </div>
             ) : (
-              <div className={styles.emptyImage} role="status"><strong>Este mapa não tem imagem.</strong><span>Importe uma imagem local para visualizar os marcadores.</span></div>
+              <div className={styles.emptyImage} role="status"><MapTrifold size={40} weight="duotone" aria-hidden="true" /><strong>Este mapa não tem imagem.</strong><span>Importe uma imagem local para visualizar os marcadores.</span></div>
             )}
           </div>
           <div className={styles.mapActions}>
-            {onAddMarker ? <Button size="sm" variant="secondary" onClick={() => onAddMarker({ x: 0.5, y: 0.5 })}>Adicionar local</Button> : null}
-            <Button size="sm" variant="ghost" aria-label="Voltar ao marcador" disabled={!selectedMarker} disabledReason={selectedMarker ? undefined : "Selecione um local para centralizá-lo."} onClick={focusSelectedMarker}>Voltar ao marcador</Button>
+            {onAddMarker ? <Button size="sm" variant="secondary" onClick={() => onAddMarker({ x: 0.5, y: 0.5 })}><MapPin size={17} aria-hidden="true" /> Adicionar local</Button> : null}
+            <Button size="sm" variant="ghost" aria-label="Voltar ao marcador" disabled={!selectedMarker} disabledReason={selectedMarker ? undefined : "Selecione um local para centralizá-lo."} onClick={focusSelectedMarker}><Crosshair size={17} aria-hidden="true" /> Voltar ao marcador</Button>
           </div>
         </div>
 
         <aside className={styles.markerPanel} aria-labelledby="map-locations-title">
-          <div className={styles.panelHeading}><h2 id="map-locations-title">Locais</h2><span>{markers.length}</span></div>
-          {markers.length === 0 ? <p className={styles.muted}>Nenhum local marcado ainda.</p> : <ul className={styles.markerList}>{markers.map((marker) => { const id = markerViewId(marker); return <li key={id}><button type="button" className={styles.markerListButton} aria-current={selectedMarkerId === id ? "true" : undefined} onClick={() => selectMarker(id)}><span className={styles.markerDot} aria-hidden="true">{marker.iconToken || "•"}</span><span>{markerViewLabel(marker)}</span></button></li>; })}</ul>}
+          <div className={styles.panelHeading}><div className={styles.panelTitle}><MapPin size={19} weight="duotone" aria-hidden="true" /><h2 id="map-locations-title">Locais</h2></div><span>{markers.length}</span></div>
+          {markers.length === 0 ? <p className={styles.muted}>Nenhum local marcado ainda.</p> : <ul className={styles.markerList}>{markers.map((marker) => { const id = markerViewId(marker); return <li key={id}><button type="button" className={styles.markerListButton} aria-current={selectedMarkerId === id ? "true" : undefined} onClick={() => selectMarker(id)}><span className={styles.markerDot} aria-hidden="true"><MapPin size={18} weight="duotone" /></span><span>{markerViewLabel(marker)}</span></button></li>; })}</ul>}
         </aside>
       </div>
       <p className={styles.help}>Arraste para mover. Use as setas, + e − com o mapa focado.</p>

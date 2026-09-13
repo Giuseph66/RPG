@@ -15,23 +15,23 @@
 .info {
   background-color: color-mix(in srgb, var(--color-magic) 18%, var(--color-surface));
   color: var(--color-text);
-  border-color: var(--color-magic);
+  border-color: color-mix(in srgb, var(--color-magic) 70%, transparent);
 }
 
 .success {
   background-color: color-mix(in srgb, var(--color-xp) 18%, var(--color-surface));
   color: var(--color-text);
-  border-color: var(--color-xp);
+  border-color: color-mix(in srgb, var(--color-xp) 70%, transparent);
 }
 
 .warning {
   background-color: color-mix(in srgb, var(--color-warning) 18%, var(--color-surface));
   color: var(--color-text);
-  border-color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 70%, transparent);
 }
 
 .error {
   background-color: color-mix(in srgb, var(--color-danger) 18%, var(--color-surface));
   color: var(--color-text);
-  border-color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 70%, transparent);
 }

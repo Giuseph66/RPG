@@ -3,6 +3,8 @@ import type { StoreStatus } from "@application/state/external-store";
 import type { ReactNode } from "react";
 import type { SettingsStore } from "@application/settings";
 import type { DiceOverlayController, DiceOverlaySource } from "@features/dice";
+import type { Campaign } from "@domain/contracts/campaign";
+import type { AccountSyncState } from "@features/account";
 
 export type BootState = "booting" | "ready" | "error";
 
@@ -17,8 +19,15 @@ export interface SessionCharacter {
   };
 }
 
+export interface SessionCampaign {
+  readonly value?: Campaign | null;
+  readonly status?: StoreStatus | "idle";
+  readonly errorMessage?: string;
+}
+
 export interface AppShellProps {
   readonly character?: SessionCharacter;
+  readonly campaign?: SessionCampaign;
   readonly bootState?: BootState;
   readonly bootErrorMessage?: string;
   readonly children?: ReactNode;
@@ -33,4 +42,6 @@ export interface AppShellProps {
   readonly onImportCharacter?: () => void;
   readonly onRetryBoot?: () => void;
   readonly settingsStore?: SettingsStore;
+  /** Optional sync read-model supplied by runtime composition. */
+  readonly syncState?: AccountSyncState;
 }

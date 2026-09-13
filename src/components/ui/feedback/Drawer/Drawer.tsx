@@ -1,5 +1,6 @@
 import { useId, useRef } from "react";
 import type { MouseEvent, ReactNode, RefObject } from "react";
+import { X } from "@phosphor-icons/react";
 
 import { IconButton } from "../../IconButton/IconButton";
 import { useEscapeKey } from "../internal/useEscapeKey";
@@ -63,7 +64,7 @@ export function Drawer({
         <h2 id={titleId} className={styles.title}>
           {title}
         </h2>
-        <IconButton label="Fechar" icon={<span>×</span>} onClick={onClose} />
+        <IconButton label="Fechar" icon={<X size={20} weight="bold" />} onClick={onClose} />
       </div>
       <div className={styles.body}>{children}</div>
     </div>

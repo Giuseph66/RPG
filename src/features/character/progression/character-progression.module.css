@@ -16,3 +16,9 @@
 .progression :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
 .pending { background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface)); }
 @media (max-width: 720px) { .progression { padding-inline: var(--spacing-sm); } .header, .footer { align-items: stretch; flex-direction: column; } .grid, .formGrid { grid-template-columns: 1fr; } .xpRow { align-items: stretch; flex-direction: column; } }
+
+.progression { max-width: 86rem; }
+.eyebrow { color: var(--color-secondary); font-family: var(--typography-label-font-family); text-transform: uppercase; }
+.progression :where(input, select, textarea) { border-color: var(--color-border-soft); }
+.pending { background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface-warm)); border-color: var(--color-warning); }
+.footer { border-color: var(--color-border-soft); }

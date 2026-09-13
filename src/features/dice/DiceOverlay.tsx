@@ -19,13 +19,22 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
   const state = useDiceOverlay(controller);
   const inputRef = useRef<HTMLInputElement>(null);
   const [mobile, setMobile] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     const query = window.matchMedia?.("(max-width: 680px)");
-    if (!query) return undefined;
-    const update = () => setMobile(query.matches);
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!query && !reduced) return undefined;
+    const update = () => {
+      setMobile(query?.matches ?? window.innerWidth <= 680);
+      setReducedMotion(reduced?.matches ?? false);
+    };
     update();
-    query.addEventListener?.("change", update);
-    return () => query.removeEventListener?.("change", update);
+    query?.addEventListener?.("change", update);
+    reduced?.addEventListener?.("change", update);
+    return () => {
+      query?.removeEventListener?.("change", update);
+      reduced?.removeEventListener?.("change", update);
+    };
   }, []);
 
   const content = (
@@ -45,7 +54,7 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
   const footer = <Button variant="primary" busy={state.status === "rolling" || state.status === "saving"} onClick={() => void controller.roll()}>Rolar dados</Button>;
   return (
     <>
-      {state.open ? (
+      {state.open && !reducedMotion ? (
         <Suspense fallback={<div aria-hidden="true" />}>
           <PhysicalDiceStage roll={state.result} active={state.open} />
         </Suspense>
