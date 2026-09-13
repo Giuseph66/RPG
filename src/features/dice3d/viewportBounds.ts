@@ -10,7 +10,11 @@ import * as THREE from "three";
 
 /** Folga entre a parede e a borda visível, para o dado nunca raspar a tela. */
 export const MARGEM_PAREDE = 3; // cm
-/** Piso de segurança: uma área menor que isso não caberia nem um dado grande. */
+/**
+ * Piso de segurança padrão: uma área menor que isso não caberia nem um dado
+ * grande. Um palco pequeno (um dado só, enquadramento de herói) pode baixar
+ * este piso pelo parâmetro `minimo`.
+ */
 export const LIMITE_MINIMO = 7; // cm
 
 export interface LimitesMesa {
@@ -31,6 +35,7 @@ export interface LimitesMesa {
 export function limitesVisiveis(
   camera: THREE.PerspectiveCamera,
   maximo: number,
+  minimo: number = LIMITE_MINIMO,
 ): LimitesMesa {
   camera.updateMatrixWorld();
   const origem = camera.position;
@@ -50,7 +55,7 @@ export function limitesVisiveis(
     return { x: maximo, z: maximo };
   }
   return {
-    x: Math.max(LIMITE_MINIMO, Math.min(maximo, minX - MARGEM_PAREDE)),
-    z: Math.max(LIMITE_MINIMO, Math.min(maximo, minZ - MARGEM_PAREDE)),
+    x: Math.max(minimo, Math.min(maximo, minX - MARGEM_PAREDE)),
+    z: Math.max(minimo, Math.min(maximo, minZ - MARGEM_PAREDE)),
   };
 }

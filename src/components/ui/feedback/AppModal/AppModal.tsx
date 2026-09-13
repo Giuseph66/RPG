@@ -17,6 +17,8 @@ export interface AppModalProps {
   dismissOnBackdrop?: boolean;
   footer?: ReactNode;
   describedById?: string;
+  /** Extra class on the dialog surface, for feature-specific skins. */
+  className?: string;
 }
 
 /**
@@ -36,6 +38,7 @@ export function AppModal({
   dismissOnBackdrop = true,
   footer,
   describedById,
+  className,
 }: AppModalProps) {
   const titleId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,7 +63,7 @@ export function AppModal({
         aria-labelledby={titleId}
         aria-describedby={describedById}
         tabIndex={-1}
-        className={styles.dialog}
+        className={[styles.dialog, className].filter(Boolean).join(" ")}
       >
         <div className={styles.header}>
           <h2 id={titleId} className={styles.title}>

@@ -14,7 +14,7 @@
 
 import * as CANNON from "cannon-es";
 
-import { upDirectionForValue } from "./orientationFor";
+import { orientationForValue, upDirectionForValue } from "./orientationFor";
 import { lerDado } from "./readout";
 import type { DieMeta, Quat } from "./types";
 
@@ -22,6 +22,29 @@ import type { DieMeta, Quat } from "./types";
 export const PASSO = 1 / 60;
 /** Passos consecutivos praticamente imóveis para considerar o dado assentado. */
 const PASSOS_PARADO = 20;
+/**
+ * Passos extras, com atrito exagerado, concedidos a quem não parou sozinho
+ * dentro do orçamento normal.
+ *
+ * Existe por causa do Zocchiedro do d100: quase esférico, ele rola até o teto
+ * de passos em qualquer tamanho de mesa (medido: 480/480 em arenas de 4,5 a
+ * 26 cm). A gravação terminava com o dado em movimento — daí o tremor no fim
+ * da animação, e uma pose final instável, que é o pior lugar possível para
+ * medir qual face ficou para cima.
+ */
+const PASSOS_ASSENTAR = 90;
+const AMORTECIMENTO_ASSENTAR = { linear: 0.9, angular: 0.96 };
+/**
+ * Rastejo: devagar demais para ainda ser queda, rápido demais para contar como
+ * parado. O Zocchiedro do d100 entra nisso e fica (medido: 0,3 cm/s até o teto
+ * de passos). Depois de `PASSOS_RASTEJO` assim, a queda é dada por encerrada e
+ * o trecho de assentamento assume — não faz sentido gastar segundos de
+ * animação vendo um dado quase esférico passear.
+ */
+const FATOR_RASTEJO = 4;
+const PASSOS_RASTEJO = 45;
+/** Passos finais com o corpo travado, garantindo fim de animação imóvel. */
+const PASSOS_CONGELAR = 10;
 const VEL_PARADO = 0.6; // cm/s
 const VEL_ANG_PARADO = 0.6; // rad/s
 
@@ -194,13 +217,28 @@ export function simularEGravar(
     corpo.wakeUp();
   });
 
-  const trilhas = dados.map(() => new Float32Array(maxPassos * 7));
+  const limite = maxPassos + PASSOS_ASSENTAR + PASSOS_CONGELAR;
+  const trilhas = dados.map(() => new Float32Array(limite * 7));
   let passos = 0;
   let quietos = 0;
 
-  for (let s = 0; s < maxPassos; s += 1) {
-    // passo fixo de um argumento = determinístico, sem subpassos variáveis
-    world.step(PASSO);
+  const estaParado = () =>
+    dados.every(
+      (d) =>
+        d.corpo.sleepState === CANNON.Body.SLEEPING ||
+        (d.corpo.velocity.length() < VEL_PARADO &&
+          d.corpo.angularVelocity.length() < VEL_ANG_PARADO),
+    );
+
+  const estaRastejando = () =>
+    dados.every(
+      (d) =>
+        d.corpo.sleepState === CANNON.Body.SLEEPING ||
+        (d.corpo.velocity.length() < VEL_PARADO * FATOR_RASTEJO &&
+          d.corpo.angularVelocity.length() < VEL_ANG_PARADO * FATOR_RASTEJO),
+    );
+
+  const gravarPasso = (s: number) => {
     dados.forEach((dado, k) => {
       const { position: p, quaternion: q } = dado.corpo;
       const base = s * 7;
@@ -213,16 +251,65 @@ export function simularEGravar(
       t[base + 5] = q.z;
       t[base + 6] = q.w;
     });
+  };
+
+  let rastejando = 0;
+  for (let s = 0; s < maxPassos; s += 1) {
+    // passo fixo de um argumento = determinístico, sem subpassos variáveis
+    world.step(PASSO);
+    gravarPasso(s);
     passos = s + 1;
 
-    const parados = dados.every(
-      (d) =>
-        d.corpo.sleepState === CANNON.Body.SLEEPING ||
-        (d.corpo.velocity.length() < VEL_PARADO &&
-          d.corpo.angularVelocity.length() < VEL_ANG_PARADO),
-    );
-    quietos = parados ? quietos + 1 : 0;
+    quietos = estaParado() ? quietos + 1 : 0;
     if (quietos >= PASSOS_PARADO) break;
+
+    rastejando = estaRastejando() ? rastejando + 1 : 0;
+    if (rastejando >= PASSOS_RASTEJO) break;
+  }
+
+  // Quem ainda rolava ganha um trecho final com atrito alto até deitar. A
+  // queda já aconteceu: este trecho não decide nada, só entrega uma pose final
+  // estável — sem ele o d100 termina a animação girando.
+  if (quietos < PASSOS_PARADO) {
+    const amortecimentoOriginal = dados.map((d) => ({
+      linear: d.corpo.linearDamping,
+      angular: d.corpo.angularDamping,
+    }));
+    dados.forEach((d) => {
+      d.corpo.linearDamping = AMORTECIMENTO_ASSENTAR.linear;
+      d.corpo.angularDamping = AMORTECIMENTO_ASSENTAR.angular;
+    });
+
+    for (let s = passos; s < limite; s += 1) {
+      world.step(PASSO);
+      gravarPasso(s);
+      passos = s + 1;
+
+      quietos = estaParado() ? quietos + 1 : 0;
+      if (quietos >= PASSOS_PARADO) break;
+    }
+
+    // Ainda rastejando no fim do orçamento: o corpo é travado e ainda leva
+    // alguns passos para acomodar na face. A pose final é imposta logo depois
+    // (ver `simularAlinhado`), então nada aqui decide resultado — isto existe
+    // só para a animação terminar parada.
+    if (quietos < PASSOS_PARADO) {
+      dados.forEach((d) => {
+        d.corpo.velocity.setZero();
+        d.corpo.angularVelocity.setZero();
+      });
+      const ate = Math.min(limite, passos + PASSOS_CONGELAR);
+      for (let s = passos; s < ate; s += 1) {
+        world.step(PASSO);
+        gravarPasso(s);
+        passos = s + 1;
+      }
+    }
+
+    dados.forEach((d, k) => {
+      d.corpo.linearDamping = amortecimentoOriginal[k].linear;
+      d.corpo.angularDamping = amortecimentoOriginal[k].angular;
+    });
   }
 
   return { passos, trilhas };
@@ -291,6 +378,23 @@ export function simularAlinhado(
     );
     girarTrilha(gravacao.trilhas[k], gravacao.passos, D);
     dado.corpo.quaternion.copy(dado.corpo.quaternion.mult(D));
+
+    if (valorExibido(dado) === results[k]) return;
+
+    // Sem simetria exata do casco (Zocchiedro do d100, d50), a rotação mínima
+    // leva a face pedida para o lugar da que caiu, mas gira junto o campo de
+    // normais inteiro — e outra face pode terminar mais alta que ela. Medido:
+    // até 12 de 12 lançamentos exibindo um número diferente do sorteado.
+    //
+    // Então aqui a pose final deixa de ser derivada e passa a ser imposta: a
+    // face pedida aponta exatamente para +Y, o que a torna a mais alta por
+    // construção. O dado fica com a inclinação da parceira quase oposta (no
+    // d100, no máximo ~12°), imperceptível num sólido quase esférico.
+    const alvo = orientationForValue(dado.meta, results[k]);
+    const qFinal = new CANNON.Quaternion(alvo[0], alvo[1], alvo[2], alvo[3]);
+    const correcao = dado.corpo.quaternion.inverse().mult(qFinal);
+    girarTrilha(gravacao.trilhas[k], gravacao.passos, correcao);
+    dado.corpo.quaternion.copy(dado.corpo.quaternion.mult(correcao));
   });
 
   const valores = dados.map(valorExibido);

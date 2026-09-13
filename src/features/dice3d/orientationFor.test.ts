@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { lerDado } from "./readout";
@@ -122,5 +125,30 @@ describe("orientationForValue — convenção de base (d3 tipo referência)", ()
     const lido = lerDado(d3Belt, q);
     expect(lido.convention).toBe("bottom");
     expect(lido.value).toBe(valor);
+  });
+});
+
+/**
+ * Regressão do d100/d50: o asset marca `readout: "bottom"`, mas num sólido
+ * quase esférico toda face apoiada tem uma parceira virada para cima acima do
+ * limiar, então `lerDado` resolve pelo topo. Enquanto `upDirectionForValue`
+ * seguia `meta.readout`, as duas pontas usavam convenções opostas e o dado
+ * assentava exibindo um número que não era o sorteado.
+ */
+describe("ida e volta com os metadados reais do catálogo", () => {
+  const catalogo = JSON.parse(
+    readFileSync(resolve(process.cwd(), "public/dice/index.json"), "utf-8"),
+  ) as { dice: { id: string; meta: string }[] };
+
+  it.each(catalogo.dice.map((d) => d.id))("%s exibe o valor pedido", (id) => {
+    const meta = JSON.parse(
+      readFileSync(resolve(process.cwd(), `public/dice/${id}.json`), "utf-8"),
+    ) as DieMeta;
+    const valores = meta.readout === "apex" ? meta.vertexValues ?? [] : meta.values;
+
+    for (const valor of valores) {
+      const q = orientationForValue(meta, valor, () => 0.37);
+      expect(lerDado(meta, q).value).toBe(valor);
+    }
   });
 });

@@ -1,24 +1,383 @@
-.content { display: flex; flex-direction: column; gap: var(--spacing-md); }
-.context { display: inline-flex; align-items: center; gap: var(--spacing-xs); margin: 0; padding: var(--spacing-xs) var(--spacing-sm); color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); border-left: 2px solid var(--color-primary); font-size: .82rem; letter-spacing: .04em; }
+/**
+ * Mesa de rolagem: o dado 3D é o herói da tela, o resto (chips, avançado,
+ * histórico) orbita em volta dele. Mesma pedra e mesmo bronze do app-bar,
+ * para o modal ler como parte da mesma peça de mobiliário.
+ */
+
+/* ------------------------------------------------------------- superfície */
+
+.surface {
+  position: relative;
+  max-height: 100%;
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(90% 60% at 50% 0, color-mix(in srgb, var(--color-hp) 12%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-background) 52%, transparent), color-mix(in srgb, var(--color-background) 86%, transparent)),
+    url("../../assets/art/textures/header-stone.webp");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  border: 1px solid color-mix(in srgb, var(--color-border) 62%, transparent);
+  box-shadow: var(--shadow-overlay), 0 0 40px color-mix(in srgb, var(--color-hp) 14%, transparent);
+}
+
+/* Segundo filete: a moldura dupla do enquadramento de ficha antiga. */
+.surface::before {
+  content: "";
+  position: absolute;
+  inset: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent);
+  border-radius: calc(var(--radius-overlay) - 0.25rem);
+  pointer-events: none;
+}
+
+/* Losangos de canto, presos ao filete interno. */
+.surface::after {
+  content: "";
+  position: absolute;
+  inset: 0.4rem;
+  background-image:
+    radial-gradient(circle at 0 0, var(--color-border) 0 2.5px, transparent 2.5px),
+    radial-gradient(circle at 100% 0, var(--color-border) 0 2.5px, transparent 2.5px),
+    radial-gradient(circle at 0 100%, var(--color-border) 0 2.5px, transparent 2.5px),
+    radial-gradient(circle at 100% 100%, var(--color-border) 0 2.5px, transparent 2.5px);
+  opacity: .75;
+  pointer-events: none;
+}
+
+.surface h2 {
+  flex: 1;
+  font-family: var(--typography-display-font-family);
+  font-size: 1.45rem;
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+/* O X do AppModal vem preenchido; aqui ele é só um traço na moldura. */
+.surface [aria-label="Fechar"] {
+  color: var(--color-secondary);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-border) 42%, transparent);
+}
+
+.surface [aria-label="Fechar"]:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-color: var(--color-secondary);
+}
+
+/* Compensa a largura do botão X para o título cair no centro óptico. */
+.surfaceModal { max-width: 34rem; max-height: min(100%, 52rem); }
+.surfaceModal h2 { padding-left: 2.5rem; }
+
+/* Em tela pequena a mesa toma tudo: não sobra nada atrás que valha a pena. */
+.surfaceSheet {
+  max-height: 100dvh;
+  height: 100dvh;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.surfaceSheet h2 { padding-left: 0; }
+
+.content { display: flex; flex-direction: column; gap: var(--spacing-md); color: var(--color-text); }
+
+.tagline {
+  margin: calc(var(--spacing-sm) * -1) 0 0;
+  color: var(--color-text-muted);
+  font-family: var(--typography-body-font-family);
+  font-size: .92rem;
+  font-style: italic;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ palco */
+
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  max-height: 32vh;
+  overflow: hidden;
+  border-radius: var(--radius-surface);
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%),
+    radial-gradient(circle at 50% 50%, transparent 52%, color-mix(in srgb, var(--color-background) 84%, transparent) 100%);
+}
+
+/* Círculo arcano atrás do dado: dois anéis e uma coroa de marcas. */
+.stageRune {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(74%, 17rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 1px solid color-mix(in srgb, var(--color-hp) 44%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--color-hp) 16%, transparent);
+}
+
+/* Coroa de marcas, confinada a uma faixa fina junto à borda. */
+.stageRune::before {
+  content: "";
+  position: absolute;
+  inset: -5%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--color-hp) 72%, transparent) 0 1.4deg, transparent 1.4deg 10deg);
+  mask: radial-gradient(circle, transparent 0 calc(50% - 7px), #000 calc(50% - 6px) calc(50% - 1px), transparent 50%);
+  animation: runeSpin 60s linear infinite;
+}
+
+.stageRune::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border: 1px solid color-mix(in srgb, var(--color-hp) 26%, transparent);
+  border-radius: 50%;
+}
+
+.stageRolling .stageRune::before { animation-duration: 7s; }
+
+@keyframes runeSpin { to { transform: rotate(1turn); } }
+
+.stageFallback, .stageIdle {
+  width: 46%;
+  max-width: 9.5rem;
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--color-hp) 40%, transparent));
+}
+
+/* Some assim que a física assume o palco. */
+.stageIdle { position: absolute; }
+
+/* --------------------------------------------------------------- resultado */
+
+.result {
+  display: grid;
+  justify-items: center;
+  gap: var(--spacing-xs);
+  text-align: center;
+}
+
+.resultFormula {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--typography-body-font-family);
+  font-size: .92rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+
+.resultTotal {
+  margin: 0;
+  color: var(--color-secondary);
+  font-family: var(--typography-display-font-family);
+  font-size: clamp(2.6rem, 12vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-secondary) 34%, transparent);
+}
+
+.critSuccess, .critFailure {
+  margin: 0;
+  font-family: var(--typography-body-font-family);
+  font-size: .95rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.critSuccess { color: var(--color-hp); text-shadow: 0 0 14px color-mix(in srgb, var(--color-hp) 46%, transparent); }
+.critFailure { color: var(--color-text-muted); }
+
 .muted { margin: 0; color: var(--color-text-muted); font-size: .85rem; }
-.selectorGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-sm); }
-.controls { display: grid; grid-template-columns: minmax(0, 1fr); }
-.result, .history { padding: var(--spacing-md); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); background: color-mix(in srgb, var(--color-surface-elevated) 72%, transparent); }
-.result h3, .history h3 { margin: 0 0 var(--spacing-sm); font-family: var(--typography-heading-font-family); font-size: 1rem; }
-.diceFaces { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
-.face, .discarded { display: grid; place-items: center; min-width: 2.5rem; min-height: 2.5rem; border: 1px solid var(--color-primary); border-radius: var(--radius-control); color: var(--color-text); font-family: var(--typography-numeric-font-family); font-size: 1.1rem; font-weight: 700; }
-.discarded { color: var(--color-text-muted); border-color: var(--color-border); text-decoration: line-through; opacity: .7; }
-.total { display: flex; justify-content: space-between; gap: var(--spacing-md); margin: var(--spacing-md) 0 0; color: var(--color-text-muted); }
-.total strong { color: var(--color-primary); font-size: 1.15rem; }
+
+.diceFaces { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--spacing-xs); }
+
+.face, .discarded, .modifierChip {
+  display: grid;
+  place-items: center;
+  min-width: 2.1rem;
+  min-height: 2.1rem;
+  padding: 0 var(--spacing-xs);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-background) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 46%, transparent);
+  border-radius: var(--radius-control);
+  font-family: var(--typography-numeric-font-family);
+  font-size: .95rem;
+  font-weight: 700;
+}
+
+.discarded { color: var(--color-text-muted); text-decoration: line-through; opacity: .6; }
+.modifierChip { color: var(--color-secondary); border-style: dashed; }
+
+/* ------------------------------------------------------------------ chips */
+
+.quickRow { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--spacing-xs); }
+
+.quickChip {
+  display: grid;
+  place-items: center;
+  gap: .15rem;
+  min-width: 3.1rem;
+  min-height: var(--size-touch-target);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-background) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 38%, transparent);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: color var(--motion-feedback) var(--motion-easing), border-color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing);
+}
+
+.quickChip:hover { color: var(--color-text); border-color: color-mix(in srgb, var(--color-border) 72%, transparent); }
+.quickChip:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.quickChipActive {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-hp) 20%, transparent);
+  border-color: color-mix(in srgb, var(--color-hp) 76%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-hp) 26%, transparent);
+}
+
+.quickChipMore { color: var(--color-secondary); border-style: dashed; }
+.quickGlyph { display: grid; place-items: center; font-size: 1.35rem; line-height: 1; }
+.quickGlyph svg { width: 1.4rem; height: 1.4rem; }
+.quickChipActive .quickGlyph { color: var(--color-hp); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-hp) 50%, transparent)); }
+.quickLabel { font-family: var(--typography-label-font-family); font-size: .72rem; letter-spacing: .04em; }
+
+/* --------------------------------------------------------------- controles */
+
+.controlBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.stepper, .modeGroup { display: grid; gap: .25rem; }
+
+.stepperLabel {
+  color: var(--color-text-muted);
+  font-family: var(--typography-label-font-family);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.stepperRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: .2rem;
+  background: color-mix(in srgb, var(--color-background) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 38%, transparent);
+  border-radius: var(--radius-control);
+}
+
+.stepperButton {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  color: var(--color-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing);
+}
+
+.stepperButton:hover:not(:disabled) { color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 20%, transparent); }
+.stepperButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.stepperButton:disabled { color: var(--color-control-disabled); cursor: not-allowed; }
+
+.stepperValue {
+  min-width: 2.4rem;
+  color: var(--color-text);
+  font-family: var(--typography-numeric-font-family);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.modeRow { display: flex; gap: .15rem; padding: .2rem; background: color-mix(in srgb, var(--color-background) 62%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 38%, transparent); border-radius: var(--radius-control); }
+
+.modeButton {
+  min-height: 1.9rem;
+  padding: 0 var(--spacing-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  font-family: var(--typography-label-font-family);
+  font-size: .76rem;
+  cursor: pointer;
+  transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing);
+}
+
+.modeButton:hover:not(:disabled) { color: var(--color-text); }
+.modeButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.modeButton:disabled { color: var(--color-control-disabled); cursor: not-allowed; }
+
+.modeButtonActive {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-hp) 26%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-hp) 62%, transparent);
+}
+
+.modeHint { color: var(--color-text-muted); font-size: .68rem; letter-spacing: .04em; }
+
+/* ------------------------------------------------------------- histórico */
+
+.historyDisclosure { border-top: 1px solid color-mix(in srgb, var(--color-border) 28%, transparent); padding-top: var(--spacing-sm); }
+
+.historySummary {
+  min-height: var(--size-touch-target);
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-family: var(--typography-label-font-family);
+  font-size: .85rem;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+
+.historySummary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.history { padding-top: var(--spacing-sm); }
+.history h3 { margin: 0 0 var(--spacing-sm); font-family: var(--typography-heading-font-family); font-size: .95rem; }
 .history ol { display: grid; gap: var(--spacing-xs); padding: 0; margin: 0; list-style: none; }
 .history li { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--size-touch-target); }
 .history li > span { display: grid; min-width: 0; }
 .history small { color: var(--color-text-muted); }
-.content { color: var(--color-text); }
-.content :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
-.content :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
-.face { background: color-mix(in srgb, var(--color-primary) 12%, var(--color-background)); }
-.face:hover { background: color-mix(in srgb, var(--color-primary) 22%, var(--color-background)); }
-@media (prefers-reduced-motion: reduce) { .content * { transition: none !important; animation: none !important; } }
-@media (max-width: 520px) { .selectorGrid { grid-template-columns: 1fr; } }
-@media (max-width: 520px) { .history li { align-items: flex-start; flex-direction: column; } }
+
+/* ------------------------------------------------------------------- CTA */
+
+.rollButton {
+  width: 100%;
+  gap: var(--spacing-sm);
+  color: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-background) 55%, transparent);
+  border-color: color-mix(in srgb, var(--color-border) 70%, transparent);
+  font-size: .92rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.rollButton:hover { color: var(--color-text); border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+.rollButton svg { width: 1.25rem; height: 1.25rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .content * { transition: none !important; animation: none !important; }
+  .stageRune::before { animation: none; }
+}
+
+@media (max-width: 520px) {
+  .selectorGrid { grid-template-columns: 1fr; }
+  .history li { align-items: flex-start; flex-direction: column; }
+}

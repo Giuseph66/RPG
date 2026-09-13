@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-import { AppModal, BottomSheet, Button, InlineStatus, Input, LiveRegion, Select } from "@components/ui";
+import { AppModal, BottomSheet, Button, InlineStatus, LiveRegion } from "@components/ui";
+import { GiDiceTwentyFacesTwenty } from "../../assets/icons";
+import diceMedallion from "../../assets/art/icons/d20-medallion.webp";
 import { DiceHistory } from "./DiceHistory";
 import { DiceResult } from "./DiceResult";
-import { DiceSelector } from "./DiceSelector";
+import { DiceControls, DiceQuickPicker } from "./DiceSelector";
 import { useDiceOverlay, type DiceOverlayController } from "./controller";
 import styles from "./dice.module.css";
 
@@ -17,9 +19,9 @@ export interface DiceOverlayProps { readonly controller: DiceOverlayController; 
 
 export function DiceOverlay({ controller }: DiceOverlayProps) {
   const state = useDiceOverlay(controller);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [mobile, setMobile] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [catalogoAberto, setCatalogoAberto] = useState(false);
   useEffect(() => {
     const query = window.matchMedia?.("(max-width: 680px)");
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)");
@@ -37,29 +39,67 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
     };
   }, []);
 
+  const rolling = state.status === "rolling" || state.status === "saving";
+  const expression = state.expression;
+
   const content = (
     <div className={styles.content}>
-      <p className={styles.context}>Fonte: {state.source ?? "mesa"}{state.characterId ? " · personagem ativo" : ""}</p>
-      <Input ref={inputRef} label="Expressão dos dados" value={state.formula} onChange={(event) => controller.setFormula(event.target.value)} hint="Use NdF, NdF + M ou NdF - M." error={state.validationError} autoComplete="off" />
-      {state.expression ? <DiceSelector expression={state.expression} onQuantityChange={controller.setQuantity} onFacesChange={controller.setFaces} onModifierChange={controller.setModifier} /> : null}
-      <div className={styles.controls}>
-        <Select label="Modo" value={state.mode} onChange={(event) => controller.setMode(event.target.value as "normal" | "advantage" | "disadvantage")} options={[{ value: "normal", label: "Normal" }, { value: "advantage", label: "Vantagem" }, { value: "disadvantage", label: "Desvantagem" }]} />
+      <p className={styles.tagline}>Deixe o destino falar.</p>
+
+      {expression ? (
+        <DiceControls
+          expression={expression}
+          mode={state.mode}
+          onQuantityChange={controller.setQuantity}
+          onModifierChange={controller.setModifier}
+          onModeChange={controller.setMode}
+        />
+      ) : null}
+
+      <div className={[styles.stage, rolling ? styles.stageRolling : ""].filter(Boolean).join(" ")}>
+        <span className={styles.stageRune} aria-hidden="true" />
+        {state.open && !reducedMotion ? (
+          <Suspense fallback={<div aria-hidden="true" />}>
+            <PhysicalDiceStage roll={state.result} active={state.open} variant="inline" />
+          </Suspense>
+        ) : (
+          // Sem física (movimento reduzido): a moeda do d20 segura o palco.
+          <img className={styles.stageFallback} src={diceMedallion} alt="" aria-hidden="true" />
+        )}
+        {/* Antes da primeira rolagem a mesa física está vazia — a moeda ocupa
+            o palco para o círculo não nascer oco, e sai quando os dados caem. */}
+        {!state.result && !reducedMotion ? <img className={styles.stageIdle} src={diceMedallion} alt="" aria-hidden="true" /> : null}
       </div>
-      {state.persistenceError ? <InlineStatus tone="error" assertive>Resultado obtido, mas não foi possível salvar no histórico. Tente novamente.</InlineStatus> : null}
+
       <DiceResult roll={state.result} />
-      <DiceHistory entries={state.history} onReroll={(roll) => void controller.reroll(roll)} />
+
+      <DiceQuickPicker
+        faces={expression?.faces ?? 20}
+        onFacesChange={controller.setFaces}
+        expanded={catalogoAberto}
+        onToggleExpanded={() => setCatalogoAberto((aberto) => !aberto)}
+      />
+
+      {state.validationError ? <InlineStatus tone="error">{state.validationError}</InlineStatus> : null}
+      {state.persistenceError ? <InlineStatus tone="error" assertive>Resultado obtido, mas não foi possível salvar no histórico. Tente novamente.</InlineStatus> : null}
+
+      <details className={styles.historyDisclosure}>
+        <summary className={styles.historySummary}>Histórico de rolagens</summary>
+        <DiceHistory entries={state.history} onReroll={(roll) => void controller.reroll(roll)} />
+      </details>
+
       <LiveRegion message={state.announcement} />
     </div>
   );
-  const footer = <Button variant="primary" busy={state.status === "rolling" || state.status === "saving"} onClick={() => void controller.roll()}>Rolar dados</Button>;
-  return (
-    <>
-      {state.open && !reducedMotion ? (
-        <Suspense fallback={<div aria-hidden="true" />}>
-          <PhysicalDiceStage roll={state.result} active={state.open} />
-        </Suspense>
-      ) : null}
-      {mobile ? <BottomSheet open={state.open} title="Dados" onClose={controller.close} initialFocusRef={inputRef} footer={footer}>{content}</BottomSheet> : <AppModal open={state.open} title="Dados" onClose={controller.close} initialFocusRef={inputRef} footer={footer}>{content}</AppModal>}
-    </>
+
+  const footer = (
+    <Button className={styles.rollButton} variant="secondary" busy={rolling} onClick={() => void controller.roll()}>
+      <GiDiceTwentyFacesTwenty aria-hidden="true" />
+      {state.result ? "Rolar novamente" : "Rolar dados"}
+    </Button>
   );
+
+  return mobile
+    ? <BottomSheet open={state.open} title="Dados" onClose={controller.close} footer={footer} className={`${styles.surface} ${styles.surfaceSheet}`}>{content}</BottomSheet>
+    : <AppModal open={state.open} title="Dados" onClose={controller.close} footer={footer} className={`${styles.surface} ${styles.surfaceModal}`}>{content}</AppModal>;
 }

@@ -105,6 +105,56 @@ export function lerDado(
   };
 }
 
+const convencoesPorFace = new WeakMap<DieMeta, DieReadout[]>();
+
+/**
+ * Convenção que `lerDado` vai realmente aplicar quando o número `indice` for o
+ * resultado — e ela é **por face**, não por dado.
+ *
+ * `meta.readout` descreve o projeto do sólido, mas a leitura é adaptativa: o
+ * topo só perde para a base quando nenhuma face passa do limiar. Então, para
+ * uma face marcada `bottom`, a pergunta certa é: deitando ESTA face, sobra
+ * alguma virada para cima acima do limiar? Se sobra, quem `lerDado` vai
+ * devolver é a de cima — logo, para exibir este número, ele tem que ir para o
+ * topo, não para o apoio.
+ *
+ * Dois casos reais no catálogo:
+ * - d100 (Zocchiedro) e d50: toda face tem parceira quase oposta (0.977 e
+ *   0.964), então todas viram leitura de topo, apesar do asset dizer `bottom`.
+ * - d7 (prisma pentagonal): as duas tampas são exatamente opostas e leem pelo
+ *   topo; os cinco lados não têm oposta (0.809) e leem pelo apoio. Mesmo dado,
+ *   convenções diferentes por face.
+ *
+ * Quem inverte a leitura (`upDirectionForValue`) precisa consultar isto. Com as
+ * pontas em convenções opostas, o dado assenta exibindo um número que não é o
+ * sorteado — era o que acontecia no d100 e nas tampas do d7.
+ */
+export function convencaoDaFace(
+  meta: DieMeta,
+  indice: number,
+  limiar = LIMIAR_ASSENTADO,
+): DieReadout {
+  if (meta.readout !== "bottom") return meta.readout;
+
+  let tabela = convencoesPorFace.get(meta);
+  if (!tabela) {
+    const normais = meta.faceNormals.map((n) => {
+      const l = Math.hypot(n[0], n[1], n[2]) || 1;
+      return [n[0] / l, n[1] / l, n[2] / l] as Vec3;
+    });
+    tabela = normais.map((apoiada) => {
+      let melhorTopo = -Infinity;
+      for (const outra of normais) {
+        const alinhamento = -(apoiada[0] * outra[0] + apoiada[1] * outra[1] + apoiada[2] * outra[2]);
+        if (alinhamento > melhorTopo) melhorTopo = alinhamento;
+      }
+      return melhorTopo >= limiar ? "top" : "bottom";
+    });
+    convencoesPorFace.set(meta, tabela);
+  }
+  return tabela[indice] ?? meta.readout;
+}
+
 /**
  * `true` quando o sólido é isoedro (todas as faces congruentes) e portanto o
  * dado é matematicamente honesto. Dados como o d7 (prisma) e os d3/d5

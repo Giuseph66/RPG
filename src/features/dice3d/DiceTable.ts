@@ -14,7 +14,9 @@ import * as THREE from "three";
 
 import {
   APARENCIA_PADRAO,
+  atualizarMaterialArestas,
   atualizarMaterialCorpo,
+  criarMaterialArestas,
   criarMaterialCorpo,
   criarMaterialNumeros,
   type DieAppearance,
@@ -28,7 +30,7 @@ import {
   type PoseInicial,
 } from "./rollSimulation";
 import { lerDado, type LeituraDado } from "./readout";
-import { limitesVisiveis } from "./viewportBounds";
+import { LIMITE_MINIMO, limitesVisiveis } from "./viewportBounds";
 import type { DieMeta, Quat } from "./types";
 
 export interface DiceTableOptions {
@@ -46,12 +48,30 @@ export interface DiceTableOptions {
    * o lançamento use o RNG auditado do projeto em vez de `Math.random`.
    */
   random?: () => number;
-  /** Segundos de simulação antes de desistir de esperar o dado parar. */
+  /**
+   * Segundos de simulação antes de desistir de esperar o dado parar. Padrão
+   * `4`: dado clássico assenta em menos de 1 s, e quem não assenta é porque
+   * não vai assentar — o Zocchiedro do d100 rola indefinidamente, e esperar
+   * 8 s só rendia animação parada de pé. Depois deste teto entra o trecho de
+   * assentamento de `simularEGravar`.
+   */
   maxRollSeconds?: number;
   /** Ajustes baratos para telas pequenas; não altera a matemática do dado. */
   mobile?: boolean;
   /** Subpassos máximos do mundo por frame (o padrão é 4). */
   maxPhysicsSubsteps?: number;
+  /**
+   * Multiplicador da distância da câmera. `1` é o enquadramento de mesa
+   * inteira; valores menores aproximam (palco pequeno, poucos dados) e
+   * encolhem junto a área jogável, já que as paredes são derivadas do que a
+   * câmera enxerga (ver `limitesVisiveis`).
+   */
+  cameraDistance?: number;
+  /**
+   * Meia-largura mínima da arena, em cm. Padrão `LIMITE_MINIMO` (7). Só baixe
+   * num palco com um dado só: a arena encolhe junto com o enquadramento.
+   */
+  minBounds?: number;
 }
 
 export interface RollOutcome extends LeituraDado {
@@ -92,6 +112,8 @@ interface Instancia {
   corpo: CANNON.Body;
   materialCorpo: THREE.MeshPhysicalMaterial;
   materialNumeros: THREE.MeshStandardMaterial;
+  materialArestas: THREE.LineBasicMaterial;
+  arestas: THREE.LineSegments[];
 }
 
 export class DiceTable {
@@ -103,6 +125,7 @@ export class DiceTable {
   private readonly canvas: HTMLCanvasElement;
   private readonly basePath: string;
   private readonly bounds: number;
+  private readonly minBounds: number;
   private readonly random: () => number;
   private readonly maxRollSeconds: number;
   private readonly pixelRatioCap: number;
@@ -129,8 +152,9 @@ export class DiceTable {
     this.canvas = opts.canvas;
     this.basePath = opts.basePath ?? CAMINHO_PADRAO;
     this.bounds = opts.bounds ?? 26;
+    this.minBounds = Math.max(1, opts.minBounds ?? LIMITE_MINIMO);
     this.random = opts.random ?? Math.random;
-    this.maxRollSeconds = opts.maxRollSeconds ?? 8;
+    this.maxRollSeconds = opts.maxRollSeconds ?? 4;
     const mobile = opts.mobile === true;
     this.pixelRatioCap = mobile ? 1.25 : 2;
     this.maxPhysicsSubsteps = Math.max(1, Math.trunc(opts.maxPhysicsSubsteps ?? (mobile ? 3 : 4)));
@@ -152,7 +176,8 @@ export class DiceTable {
     }
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 500);
-    this.camera.position.set(0, 46, 34);
+    const distancia = Math.max(0.2, opts.cameraDistance ?? 1);
+    this.camera.position.set(0, 46 * distancia, 34 * distancia);
     this.camera.lookAt(0, 0, 0);
 
     this.montarLuzes();
@@ -300,7 +325,7 @@ export class DiceTable {
    * está garantidamente dentro do enquadramento, em qualquer proporção de tela.
    */
   private atualizarLimites(): void {
-    const { x, z } = limitesVisiveis(this.camera, this.bounds);
+    const { x, z } = limitesVisiveis(this.camera, this.bounds, this.minBounds);
     this.limiteX = x;
     this.limiteZ = z;
     this.posicionarParedes();
@@ -319,17 +344,24 @@ export class DiceTable {
     const grupo = new THREE.Group();
     const materialCorpo = criarMaterialCorpo(a);
     const materialNumeros = criarMaterialNumeros(a);
+    const materialArestas = criarMaterialArestas(a);
+    const arestas: THREE.LineSegments[] = [];
 
     gltf.scene.traverse((o) => {
       if (!(o instanceof THREE.Mesh)) return;
-      const clone = new THREE.Mesh(
-        o.geometry,
-        o.name.endsWith("_num") ? materialNumeros : materialCorpo,
-      );
+      const doCorpo = !o.name.endsWith("_num");
+      const clone = new THREE.Mesh(o.geometry, doCorpo ? materialCorpo : materialNumeros);
       clone.castShadow = true;
       clone.receiveShadow = false;
       clone.name = o.name;
       grupo.add(clone);
+
+      if (doCorpo && a.edgeColor !== null) {
+        const linha = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry), materialArestas);
+        linha.name = `${o.name}_arestas`;
+        grupo.add(linha);
+        arestas.push(linha);
+      }
     });
     this.scene.add(grupo);
 
@@ -356,6 +388,8 @@ export class DiceTable {
       corpo,
       materialCorpo,
       materialNumeros,
+      materialArestas,
+      arestas,
     });
     return slot;
   }
@@ -389,6 +423,12 @@ export class DiceTable {
       inst.materialNumeros.metalness = aparencia.numberMetalness;
     }
     inst.materialNumeros.needsUpdate = true;
+    atualizarMaterialArestas(inst.materialArestas, aparencia);
+    if (aparencia.edgeColor === null) {
+      inst.arestas.forEach((l) => (l.visible = false));
+    } else if (aparencia.edgeColor !== undefined) {
+      inst.arestas.forEach((l) => (l.visible = true));
+    }
   }
 
   private buscar(id: string, slot: number): Instancia | undefined {
@@ -406,6 +446,8 @@ export class DiceTable {
       this.scene.remove(inst.grupo);
       inst.materialCorpo.dispose();
       inst.materialNumeros.dispose();
+      inst.materialArestas.dispose();
+      inst.arestas.forEach((l) => l.geometry.dispose());
     }
     this.instancias.length = 0;
   }
@@ -586,6 +628,10 @@ export class DiceTable {
     this.camera.aspect = l / a;
     this.camera.updateProjectionMatrix();
     this.atualizarLimites();
+    // Trocar o buffer invalida o que estava desenhado. Com os dados parados
+    // não há loop rodando para repintar, então o canvas ficaria em branco —
+    // é o que acontecia ao reabrir o modal com uma rolagem já na mesa.
+    if (!this.animationRunning && !this.descartado) this.renderFrame();
   }
 
   dispose(): void {
@@ -598,6 +644,8 @@ export class DiceTable {
       this.scene.remove(inst.grupo);
       inst.materialCorpo.dispose();
       inst.materialNumeros.dispose();
+      inst.materialArestas.dispose();
+      inst.arestas.forEach((l) => l.geometry.dispose());
     }
     this.instancias.length = 0;
     this.renderer.dispose();

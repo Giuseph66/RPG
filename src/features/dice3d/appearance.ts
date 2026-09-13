@@ -31,6 +31,9 @@ export interface DieAppearance {
   numberColor?: THREE.ColorRepresentation;
   numberRoughness?: number;
   numberMetalness?: number;
+  /** Cor das arestas do corpo (destaque tipo "linha dourada"). `null` desliga. */
+  edgeColor?: THREE.ColorRepresentation | null;
+  edgeOpacity?: number;
 }
 
 export const APARENCIA_PADRAO: DieAppearance = {
@@ -43,6 +46,28 @@ export const APARENCIA_PADRAO: DieAppearance = {
   numberColor: "#f7f7fa",
   numberRoughness: 0.35,
   numberMetalness: 0,
+  edgeColor: "#ffe9b0",
+  edgeOpacity: 0.55,
+};
+
+/**
+ * Acabamento da mesa do app: obsidiana com algarismos em bronze, a mesma
+ * dupla da moeda do d20 e do resto do mobiliário. Desliga a rampa de cor por
+ * face que vem do GLB (`vertexColors`), senão o dado sai colorido de fábrica
+ * e briga com a paleta.
+ */
+export const APARENCIA_MESA: DieAppearance = {
+  color: "#14100d",
+  vertexColors: false,
+  roughness: 0.34,
+  metalness: 0.32,
+  clearcoat: 0.7,
+  clearcoatRoughness: 0.12,
+  numberColor: "#D0AB72",
+  numberRoughness: 0.3,
+  numberMetalness: 0.55,
+  edgeColor: "#D0AB72",
+  edgeOpacity: 0.85,
 };
 
 const carregadorTextura = new THREE.TextureLoader();
@@ -94,6 +119,16 @@ export function criarMaterialNumeros(a: DieAppearance): THREE.MeshStandardMateri
   });
 }
 
+/** Linha das arestas do corpo, por cima do material físico — dá contorno ao dado. */
+export function criarMaterialArestas(a: DieAppearance): THREE.LineBasicMaterial {
+  return new THREE.LineBasicMaterial({
+    color: a.edgeColor ?? "#ffe9b0",
+    transparent: true,
+    opacity: a.edgeOpacity ?? 0.6,
+    depthTest: true,
+  });
+}
+
 /** Aplica mudanças de aparência num material já em cena, sem recriá-lo. */
 export function atualizarMaterialCorpo(
   m: THREE.MeshPhysicalMaterial,
@@ -113,5 +148,12 @@ export function atualizarMaterialCorpo(
     m.thickness = a.transmission > 0 ? 1 : 0;
   }
   if (a.ior !== undefined) m.ior = a.ior;
+  m.needsUpdate = true;
+}
+
+/** Aplica mudanças de cor/opacidade nas arestas sem recriar o material. */
+export function atualizarMaterialArestas(m: THREE.LineBasicMaterial, a: DieAppearance): void {
+  if (a.edgeColor !== undefined && a.edgeColor !== null) m.color.set(a.edgeColor);
+  if (a.edgeOpacity !== undefined) m.opacity = a.edgeOpacity;
   m.needsUpdate = true;
 }

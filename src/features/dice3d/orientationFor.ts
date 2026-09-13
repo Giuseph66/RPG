@@ -11,6 +11,7 @@
  * número gravado no histórico/rngVersion.
  */
 
+import { convencaoDaFace } from "./readout";
 import type { DieMeta, Quat, Vec3 } from "./types";
 
 function normalize(v: Vec3): Vec3 {
@@ -78,6 +79,13 @@ function yawQuat(rad: number): Quat {
  *             invertida;
  * - `apex`  → não é face nenhuma, é o vértice numerado.
  *
+ * A convenção vem de `convencaoDaFace`, não de `meta.readout`, e é decidida
+ * face a face: num sólido quase esférico (d100, d50) toda face lê pelo topo
+ * mesmo com o asset marcado `bottom`, e no prisma do d7 as tampas leem pelo
+ * topo enquanto os lados leem pelo apoio. Usar a convenção do asset devolvia a
+ * direção oposta nesses casos — o dado assentava com o número sorteado
+ * escondido embaixo.
+ *
  * Serve de alvo tanto para `orientationForValue` quanto para o alinhamento
  * iterativo da mesa física (`DiceTable`), que compara esta direção com a que
  * de fato ficou pra cima ao fim da simulação.
@@ -97,7 +105,7 @@ export function upDirectionForValue(meta: DieMeta, value: number): Vec3 {
   const i = meta.values.indexOf(value);
   if (i < 0) throw new Error(`Dado "${meta.id}" não tem o valor ${value}`);
   const n = normalize(meta.faceNormals[i]);
-  return meta.readout === "bottom" ? [-n[0], -n[1], -n[2]] : n;
+  return convencaoDaFace(meta, i) === "bottom" ? [-n[0], -n[1], -n[2]] : n;
 }
 
 /**
