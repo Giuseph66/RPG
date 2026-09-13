@@ -12,7 +12,7 @@ export const PRIMARY_ROUTES: readonly PrimaryRoute[] = [
   { id: "character", label: "Personagem", shortLabel: "Ficha", path: "/character", question: "Quem sou e qual meu estado?" },
   { id: "actions", label: "Ações", shortLabel: "Ações", path: "/actions", question: "O que posso usar agora?" },
   { id: "journey", label: "Jornada", shortLabel: "Jornada", path: "/journey", question: "Onde estamos e o que aconteceu?" },
-  { id: "compendium", label: "Compêndio", shortLabel: "Regras", path: "/compendium", question: "Como funciona?" },
+  { id: "compendium", label: "Regras", shortLabel: "Regras", path: "/compendium", question: "Como funciona?" },
   { id: "account", label: "Conta", shortLabel: "Conta", path: "/account", question: "Quem está na mesa?" },
   { id: "collaboration", label: "Mesa", shortLabel: "Mesa", path: "/collaboration", question: "Quem joga conosco?" },
 ];

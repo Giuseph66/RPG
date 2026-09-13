@@ -1,5 +1,6 @@
-import { CampaignSigil, IconButton } from "@components/ui";
+import { IconButton } from "@components/ui";
 import { Gear } from "../../assets/icons";
+import campaignSigil from "../../assets/art/icons/campaign-sigil.webp";
 import type { Character } from "@domain/contracts/character";
 import type { RouteMatch } from "@app/routes";
 import styles from "./layout.module.css";
@@ -19,7 +20,7 @@ function routeContext(route: RouteMatch, character?: Character, campaign?: Sessi
     case "journey": return campaignName ?? "Jornada";
     case "character": return character?.name ?? "Ficha";
     case "actions": return character ? `Ações · ${character.name}` : "Ações";
-    case "compendium": return "Compêndio";
+    case "compendium": return "Regras";
     case "account": return "Conta";
     case "collaboration": return "Mesa compartilhada";
     case "settings": return "Ajustes";
@@ -43,7 +44,7 @@ export function Header({ session, campaign, route, navigate, onSelectCharacter }
           onClick={onSelectCharacter ?? (() => navigate("/character"))}
           aria-label="Abrir ficha de personagem"
         >
-          <span className={styles.brandMark}><CampaignSigil /></span>
+          <span className={styles.brandMark}><img className={styles.brandMarkImage} src={campaignSigil} alt="" /></span>
           <span className={styles.identityCopy}>
             <span className={styles.identityName}>Mesa de campanha</span>
             <span className={styles.identityContext}>{context}</span>

@@ -1,30 +1,33 @@
 .appShell { --app-bar-height: 4.75rem; min-height: 100vh; background: var(--color-background); }
-.header { position: sticky; isolation: isolate; top: 0; z-index: var(--z-sticky); background-color: var(--color-background); background-image: radial-gradient(120% 180% at 3% 0, color-mix(in srgb, var(--color-hp) 10%, transparent), transparent 46%), linear-gradient(180deg, var(--color-surface), color-mix(in srgb, var(--color-background) 82%, var(--color-surface))); border-bottom: 1px solid color-mix(in srgb, var(--color-border) 28%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--color-hp) 10%, transparent), 0 10px 24px rgba(0, 0, 0, .45); }
-.header::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .16; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23grain)' opacity='0.55'/%3E%3C/svg%3E"); background-size: 180px 180px; }
+.header { position: sticky; isolation: isolate; top: 0; z-index: var(--z-sticky); background-color: var(--color-background); background-image: radial-gradient(120% 180% at 3% 0, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 34%, transparent), color-mix(in srgb, var(--color-background) 74%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--color-primary) 12%, transparent), 0 10px 24px rgba(0, 0, 0, .45); }
 .headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); max-width: 1440px; margin: 0 auto; padding: max(var(--spacing-sm), env(safe-area-inset-top)) var(--spacing-xl) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
 .identityButton { display: flex; min-width: 0; align-items: center; gap: var(--spacing-md); padding: var(--spacing-xs); margin: calc(var(--spacing-xs) * -1); color: var(--color-text); background: none; border: 0; border-radius: var(--radius-control); text-align: left; cursor: pointer; }
-.identityButton:hover .identityName { color: var(--color-primary); }
-.identityButton:hover .brandMark { border-color: var(--color-hp); box-shadow: inset 0 0 14px color-mix(in srgb, var(--color-hp) 30%, transparent), 0 0 18px color-mix(in srgb, var(--color-hp) 30%, transparent); }
+.identityButton:hover .identityName { color: var(--color-text); }
+.identityButton:hover .brandMarkImage { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-hp) 78%, transparent)) drop-shadow(0 0 18px color-mix(in srgb, var(--color-hp) 48%, transparent)); }
 .identityButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.brandMark { position: relative; display: grid; place-items: center; width: 2.6rem; height: 2.6rem; flex: 0 0 auto; color: var(--color-hp); background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--color-hp) 16%, transparent), transparent 68%), color-mix(in srgb, var(--color-background) 86%, var(--color-hp)); border: 1px solid color-mix(in srgb, var(--color-hp) 70%, transparent); border-radius: var(--radius-control); box-shadow: inset 0 0 12px color-mix(in srgb, var(--color-hp) 22%, transparent), 0 0 14px color-mix(in srgb, var(--color-hp) 18%, transparent); }
-.brandMark svg { width: 1.7rem; height: 1.7rem; }
+.brandMark { display: grid; place-items: center; width: 2.7rem; height: 2.7rem; flex: 0 0 auto; }
+.brandMarkImage { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-hp) 60%, transparent)) drop-shadow(0 0 12px color-mix(in srgb, var(--color-hp) 34%, transparent)); transition: filter var(--motion-feedback) var(--motion-easing); }
 .identityCopy { display: grid; min-width: 0; gap: .1rem; line-height: 1.15; }
-.identityName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); font-family: var(--typography-body-font-family); font-size: 1.12rem; font-weight: 700; letter-spacing: .01em; }
+.identityName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-secondary); font-family: var(--typography-body-font-family); font-size: 1.12rem; font-weight: 700; letter-spacing: .01em; }
 .identityContext { overflow: hidden; color: var(--color-text-muted); text-overflow: ellipsis; white-space: nowrap; font-family: var(--typography-body-font-family); font-size: .78rem; letter-spacing: .04em; }
 .headerActions { display: flex; align-items: center; margin-left: auto; }
-.headerSettingsButton { flex-shrink: 0; color: color-mix(in srgb, var(--color-text-muted) 82%, transparent); }
-.headerSettingsButton:hover { color: var(--color-text); }
+.headerSettingsButton { flex-shrink: 0; color: color-mix(in srgb, var(--color-border) 88%, transparent); }
+.headerSettingsButton:hover { color: var(--color-secondary); }
 .shellBody { display: flex; max-width: 1440px; min-height: calc(100vh - var(--app-bar-height)); margin: 0 auto; }
-.navigation { width: 14rem; flex: 0 0 14rem; padding: var(--spacing-xl) var(--spacing-md); border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
+.navigation { width: 14rem; flex: 0 0 14rem; padding: var(--spacing-xl) var(--spacing-md); background-color: var(--color-background); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 40%, transparent), color-mix(in srgb, var(--color-background) 80%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .navigationList { display: grid; gap: var(--spacing-xs); }
-.navItem, .navUtility { display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text-muted); background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); font-size: .9rem; text-align: left; cursor: pointer; }
-.navItem:hover, .navUtility:hover { color: var(--color-text); background: var(--color-surface); }
-.navItemActive { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 44%, transparent); }
-.navGlyph { display: grid; place-items: center; width: 1.3rem; color: var(--color-primary); text-align: center; font-size: 1.05rem; }
-.navGlyph svg { width: 1.15rem; height: 1.15rem; }
+.navItem, .navUtility { position: relative; display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text-muted); background: none; border: 0; border-radius: var(--radius-control); font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
+.navItem:hover, .navUtility:hover { color: var(--color-text); }
+.navItem:active, .navUtility:active { transform: translateY(1px); }
+.navItem:focus-visible, .navUtility:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.navItemActive { color: var(--color-text); }
+.navGlyph { display: grid; place-items: center; width: 1.3rem; color: color-mix(in srgb, var(--color-primary) 76%, var(--color-text-muted)); text-align: center; font-size: 1.05rem; opacity: .92; transition: color var(--motion-feedback) var(--motion-easing), filter var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
+.navGlyph svg { width: 1.2rem; height: 1.2rem; }
+.navItemActive .navGlyph { color: var(--color-danger); opacity: 1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-danger) 58%, transparent)) drop-shadow(0 0 14px color-mix(in srgb, var(--color-danger) 38%, transparent)); }
 .navDice { display: flex; width: 100%; margin-top: var(--spacing-xs); }
-.navDiceMark { display: grid; place-items: center; }
-.navDiceMark svg { width: 1.6rem; height: 1.6rem; }
+.navDiceMark { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; flex: 0 0 auto; overflow: hidden; border-radius: 50%; }
+.navDiceImage { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform var(--motion-feedback) var(--motion-easing); }
+.navDice:hover .navDiceImage { transform: scale(1.06); }
 .navShortLabel { display: none; }
 .navigationRule { height: 1px; margin: var(--spacing-xl) var(--spacing-sm); background: color-mix(in srgb, var(--color-border) 55%, transparent); }
 .navUtility { width: 100%; }
@@ -46,19 +49,26 @@
   .appShell { --app-bar-height: 4.5rem; }
   .headerInner { padding: max(var(--spacing-xs), env(safe-area-inset-top)) var(--spacing-md) var(--spacing-xs); }
   .shellBody { display: block; min-height: calc(100vh - var(--app-bar-height)); padding-bottom: calc(var(--size-nav-height) + var(--spacing-xl) + env(safe-area-inset-bottom)); }
-  .navigation { position: fixed; right: 0; bottom: 0; left: 0; z-index: var(--z-navigation); display: flex; width: auto; height: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); padding: var(--spacing-xs) var(--spacing-sm) env(safe-area-inset-bottom); background: var(--color-surface); border-top: 1px solid var(--color-border); border-right: 0; }
-  .navigationList { display: grid; flex: 1; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
-  .navItem, .navUtility { flex: 1; min-width: 0; min-height: var(--size-touch-target); padding: var(--spacing-xs); justify-content: center; flex-direction: column; gap: 0; font-size: .68rem; text-align: center; }
+  .navigation { position: fixed; right: 0; bottom: 0; left: 0; z-index: var(--z-navigation); display: flex; box-sizing: border-box; width: auto; height: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); padding: var(--spacing-xs) var(--spacing-sm) env(safe-area-inset-bottom); background-color: var(--color-surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 55%, transparent), color-mix(in srgb, var(--color-surface) 90%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent); border-right: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .3); }
+  .navigationList { display: grid; flex: 1; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; gap: 0; }
+  .navItem, .navUtility { flex: 1; min-width: 0; min-height: var(--size-touch-target); padding: .35rem var(--spacing-xs) .3rem; justify-content: center; flex-direction: column; gap: .16rem; border-radius: var(--radius-control); font-size: .72rem; line-height: 1; text-align: center; }
+  .navItem:hover { color: var(--color-text); }
+  .navItemActive { color: var(--color-text); }
+  .navItemActive .navGlyph { transform: translateY(-1px) scale(1.06); }
+  .navItemActive .navShortLabel { font-weight: 700; }
+  .navGlyph svg { width: 1.3rem; height: 1.3rem; }
   .navigationRule, .navUtility span:last-child { display: none; }
   .navLabel { display: none; }
   .navShortLabel { display: inline; }
   .navUtility { display: none; }
-  .navDice { position: absolute; z-index: 1; bottom: calc(env(safe-area-inset-bottom) + 2.25rem); left: 50%; width: 3.875rem; min-width: 3.875rem; min-height: 3.875rem; margin: 0; padding: 0; transform: translateX(-50%); color: var(--color-secondary); background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--color-secondary) 22%, transparent), transparent 58%), var(--color-surface-warm); border: 2px solid var(--color-background); border-radius: 50%; box-shadow: 0 0 0 1px var(--color-primary), inset 0 0 0 1px color-mix(in srgb, var(--color-secondary) 72%, transparent), var(--shadow-overlay); }
-  .navDice:hover { color: var(--color-text); background: color-mix(in srgb, var(--color-surface-warm) 75%, var(--color-primary)); }
-  .navDiceMark { width: 100%; height: 100%; }
-  .navDiceMark svg { width: 3.1rem; height: 3.1rem; color: var(--color-secondary); }
+  .navDice { position: absolute; z-index: 1; bottom: calc(env(safe-area-inset-bottom) + 3rem); left: 50%; width: 4.25rem; min-width: 4.25rem; min-height: 4.25rem; margin: 0; padding: 0; transform: translateX(-50%); color: var(--color-secondary); background: none; border: 0; border-radius: 50%; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); }
+  .navDice:hover { color: var(--color-text); }
+  .navDice:active { transform: translateX(-50%) translateY(1px) scale(.98); }
+  .navDice:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }
+  .navDiceMark { width: 100%; height: 100%; background: none; box-shadow: none; }
+  .navDice:hover .navDiceImage { transform: scale(1.05); }
   .navDice .navLabel, .navDice .navShortLabel { display: none; }
-  .nav-journey { padding-top: var(--spacing-lg); }
+  .nav-journey { padding-top: 1.15rem; }
   .main { padding: var(--spacing-xl) var(--spacing-md); }
 }
 @media (max-width: 420px) {

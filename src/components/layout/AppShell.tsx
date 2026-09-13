@@ -68,7 +68,7 @@ export function AppShell({
           {bootState === "booting" ? (
             <section className={styles.stateContent} aria-labelledby="boot-title"><p className={styles.eyebrow}>ABRINDO A MESA</p><h1 id="boot-title" tabIndex={-1} className={styles.pageTitle}>Abrindo dados locais</h1><InlineStatus tone="info">Preparando preferências, personagem e campanha.</InlineStatus></section>
           ) : bootState === "error" ? (
-            <section className={styles.stateContent} aria-labelledby="error-title"><p className={styles.eyebrow}>RECUPERAÇÃO</p><h1 id="error-title" tabIndex={-1} className={styles.pageTitle}>A mesa não abriu</h1><InlineStatus tone="error">{bootErrorMessage ?? "Não foi possível hidratar os dados locais."}</InlineStatus><button type="button" className={styles.retryButton} onClick={onRetryBoot}>Tentar novamente</button><p className={styles.mutedCopy}>Você pode continuar no Compêndio e abrir dados avulsos enquanto a recuperação é resolvida.</p></section>
+            <section className={styles.stateContent} aria-labelledby="error-title"><p className={styles.eyebrow}>RECUPERAÇÃO</p><h1 id="error-title" tabIndex={-1} className={styles.pageTitle}>A mesa não abriu</h1><InlineStatus tone="error">{bootErrorMessage ?? "Não foi possível hidratar os dados locais."}</InlineStatus><button type="button" className={styles.retryButton} onClick={onRetryBoot}>Tentar novamente</button><p className={styles.mutedCopy}>Você pode continuar nas Regras e abrir dados avulsos enquanto a recuperação é resolvida.</p></section>
           ) : (
             <div key={routeKey} className={styles.routeMount}>
               {routeContent}

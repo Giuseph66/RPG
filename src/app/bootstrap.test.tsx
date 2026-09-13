@@ -76,7 +76,7 @@ describe("Bootstrap", () => {
     try {
       expect(mounted.container.textContent).toContain("Ábaco");
       expect(mounted.container.innerHTML).toContain('aria-current="page"');
-      expect(mounted.container.textContent).toContain("Compêndio");
+      expect(mounted.container.textContent).toContain("Regras");
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();

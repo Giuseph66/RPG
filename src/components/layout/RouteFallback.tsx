@@ -15,7 +15,7 @@ const CONTENT: Record<string, { eyebrow: string; title: string; description: str
   character: { eyebrow: "FICHA ATIVA", title: "Personagem", description: "Seu estado de mesa, escolhas e recursos ficam reunidos aqui." },
   actions: { eyebrow: "PRONTO PARA AGIR", title: "Ações", description: "Ações disponíveis entram neste espaço conforme as features forem conectadas." },
   journey: { eyebrow: "REGISTRO DA MESA", title: "Jornada", description: "Mapa, diário, objetivos e pessoas importantes da campanha." },
-  compendium: { eyebrow: "FONTE LOCAL", title: "Compêndio", description: "Consulte regras e definições do pack local sem perder o contexto da sessão." },
+  compendium: { eyebrow: "FONTE LOCAL", title: "Regras", description: "Consulte regras e definições do pack local sem perder o contexto da sessão." },
   settings: { eyebrow: "FERRAMENTAS", title: "Configurações", description: "Preferências da mesa e do comportamento local." },
 };
 
@@ -29,9 +29,9 @@ export function RouteFallback({ route, session, navigate, onCreateCharacter, onI
       <section className={styles.routeContent} aria-labelledby="route-title">
         <p className={styles.eyebrow}>PRIMEIRA RODADA</p>
         <h1 id="route-title" tabIndex={-1} className={styles.pageTitle}>Abra sua mesa</h1>
-        <p className={styles.lead}>Crie ou importe uma ficha para começar. O Compêndio e as rolagens avulsas continuam disponíveis.</p>
+        <p className={styles.lead}>Crie ou importe uma ficha para começar. As Regras e as rolagens avulsas continuam disponíveis.</p>
         <div className={styles.actionRow}><Button onClick={onCreateCharacter ?? (() => navigate("/character/create"))}>Criar personagem</Button><Button variant="secondary" onClick={onImportCharacter}>Importar backup</Button></div>
-        <SectionCard heading="Sem personagem ativo" headingLevel={2}><p className={styles.cardCopy}>Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.</p><Button variant="ghost" onClick={() => navigate("/compendium")}>Abrir Compêndio</Button></SectionCard>
+        <SectionCard heading="Sem personagem ativo" headingLevel={2}><p className={styles.cardCopy}>Nenhuma estatística foi inventada. Quando a ficha estiver pronta, PV, recurso e condições aparecerão no cabeçalho.</p><Button variant="ghost" onClick={() => navigate("/compendium")}>Abrir Regras</Button></SectionCard>
       </section>
     );
   }
@@ -44,7 +44,7 @@ export function RouteFallback({ route, session, navigate, onCreateCharacter, onI
       <h1 id="route-title" tabIndex={-1} className={styles.pageTitle}>{content.title}</h1>
       <p className={styles.lead}>{content.description}</p>
       {needsCharacter && !session?.value ? (
-        <InlineStatus tone="info">Esta área precisa de uma ficha ativa. Você ainda pode consultar o Compêndio e abrir dados avulsos.</InlineStatus>
+        <InlineStatus tone="info">Esta área precisa de uma ficha ativa. Você ainda pode consultar as Regras e abrir dados avulsos.</InlineStatus>
       ) : (
         <SectionCard heading={route.kind === "compendium" ? "Índice local" : "Ponto de entrada"} headingLevel={2}>
           <p className={styles.cardCopy}>{route.kind === "compendium" ? "Categorias e detalhes referenciados serão conectados ao índice do pack." : "O slot da feature está pronto para receber o fluxo da mesa."}</p>

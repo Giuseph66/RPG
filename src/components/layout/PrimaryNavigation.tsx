@@ -1,6 +1,6 @@
 import { PRIMARY_NAV_ROUTES, pathForRoute, primaryRouteFor, type RouteMatch } from "@app/routes";
-import { GiCrossedSwords, GiPerson, GiScrollUnfurled, GiSpellBook } from "../../assets/icons";
-import { DiceD20Mark } from "@components/ui";
+import { GiCrossedSwords, GiPerson, GiScrollUnfurled, GiSpellBook, User } from "../../assets/icons";
+import diceMedallion from "../../assets/art/icons/d20-medallion.webp";
 import styles from "./layout.module.css";
 
 interface PrimaryNavigationProps {
@@ -24,7 +24,7 @@ export function PrimaryNavigation({ route, navigate, onOpenDice }: PrimaryNaviga
               aria-current={selected ? "page" : undefined}
               onClick={() => navigate(pathForRoute(item.id))}
             >
-              <span className={styles.navGlyph} aria-hidden="true">{item.id === "character" ? <GiPerson /> : item.id === "actions" ? <GiCrossedSwords /> : item.id === "journey" ? <GiScrollUnfurled /> : item.id === "compendium" ? <GiSpellBook /> : <GiPerson />}</span>
+              <span className={styles.navGlyph} aria-hidden="true">{item.id === "character" ? <GiPerson /> : item.id === "actions" ? <GiCrossedSwords /> : item.id === "journey" ? <GiScrollUnfurled /> : item.id === "compendium" ? <GiSpellBook /> : item.id === "account" ? <User weight="fill" /> : <GiPerson />}</span>
               <span className={styles.navLabel}>{item.label}</span>
               <span className={styles.navShortLabel}>{item.shortLabel}</span>
             </button>
@@ -32,7 +32,7 @@ export function PrimaryNavigation({ route, navigate, onOpenDice }: PrimaryNaviga
         })}
       </div>
       <button type="button" className={[styles.navItem, styles.navDice].join(" ")} onClick={() => onOpenDice?.()} aria-label="Abrir rolagem de dados">
-        <span className={styles.navDiceMark} aria-hidden="true"><DiceD20Mark /></span>
+        <span className={styles.navDiceMark} aria-hidden="true"><img className={styles.navDiceImage} src={diceMedallion} alt="" /></span>
         <span className={styles.navLabel}>Dados</span><span className={styles.navShortLabel}>D20</span>
       </button>
       <div className={styles.navigationRule} aria-hidden="true" />
