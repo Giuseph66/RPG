@@ -186,6 +186,8 @@ export interface CastRequest {
   readonly targetContext: SpellTargetContext;
   readonly componentContext: SpellComponentContext;
   readonly choices: readonly ChoiceSelection[];
+  /** IDs dos resultados já rolados e vinculados ao comando de conjuração. */
+  readonly diceResultIds?: readonly Uuid[];
 }
 
 export interface SpellSlotCost {

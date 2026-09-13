@@ -130,6 +130,12 @@ describe("Narrowing de AppError", () => {
       case "missing-ruleset":
       case "corrupt-record":
       case "unresolved-rule":
+      case "membership-unauthenticated":
+      case "membership-forbidden":
+      case "membership-not-found":
+      case "membership-invalid-state":
+      case "membership-validation":
+      case "membership-unavailable":
         return error.code;
     }
   }
@@ -211,15 +217,15 @@ describe("Tipos inválidos são rejeitados em tempo de compilação", () => {
     expect(invalidRejected.status).toBe("rejected");
   });
 
-  it("DiceExpression.faces é uma união fechada (4|6|8|10|12|20|100)", () => {
+  it("DiceExpression.faces é uma união fechada do catálogo de dados", () => {
     const invalidExpression: DiceExpression = {
       quantity: 1,
-      // @ts-expect-error faces:7 não pertence à união fechada de DiceFaces
-      faces: 7,
+      // @ts-expect-error faces:9 não pertence à união fechada de DiceFaces
+      faces: 9,
       modifier: 0,
       mode: "normal",
     };
-    expect(invalidExpression.faces).toBe(7);
+    expect(invalidExpression.faces).toBe(9);
   });
 
   it("Character exige schemaVersion", () => {

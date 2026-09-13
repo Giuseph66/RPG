@@ -53,6 +53,22 @@ describe("AppRouter", () => {
     }
   });
 
+  it("mounts the account surface and keeps local mode explicit when Firebase is absent", async () => {
+    const runtime = await createApplicationRuntime({ authAvailability: { available: false, missingKeys: ["VITE_FIREBASE_API_KEY"] } });
+    const mounted = await mountRoute(<AppRouter initialPath="/account" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      expect(mounted.container.textContent).toContain("Conta");
+      expect(mounted.container.textContent).toContain("Firebase Authentication ainda não está disponível");
+    } finally {
+      await mounted.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
   it("wires compendium search and detail through the real route composition", async () => {
     const runtime = await createApplicationRuntime();
     const mounted = await mountRoute(<AppRouter initialPath="/compendium" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);

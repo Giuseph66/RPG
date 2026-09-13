@@ -11,6 +11,7 @@ export type DicePurpose =
   | "free"
   | "attack"
   | "damage"
+  | "healing"
   | "saving-throw"
   | "skill-check"
   | "initiative"

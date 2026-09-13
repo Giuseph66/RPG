@@ -327,6 +327,7 @@ function minimalCastRequest(command: Extract<Command, { readonly kind: "cast-spe
     targetContext: command.payload.targetContext,
     componentContext: command.payload.componentContext,
     choices: command.payload.choices,
+    diceResultIds: command.payload.diceResultIds,
   };
 }
 
@@ -367,6 +368,10 @@ function buildSpellCapabilities(
         continue;
       }
       const commandId = idGenerator.commandId();
+      const effectRollPlans: RollPlanRequest[] = [
+        ...spell.damage.map((part) => ({ id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "damage" as const })),
+        ...spell.healing.map((part) => ({ id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "healing" as const })),
+      ];
       const command: Command = {
         commandId,
         characterId: character.id,
@@ -379,7 +384,7 @@ function buildSpellCapabilities(
           targetContext: { targetIds: [] },
           componentContext: { materialProvided: false, focusUsed: false },
           choices: [],
-          diceResultIds: [],
+          diceResultIds: effectRollPlans.map((planned) => planned.id),
         },
       };
       const castCommand = command as Extract<Command, { readonly kind: "cast-spell" }>;
@@ -403,8 +408,8 @@ function buildSpellCapabilities(
         id,
         {
           command,
-          rollPlan: [],
-          resolve: ({ character: liveCharacter }) => castSpell(liveCharacter, spell, minimalCastRequest(castCommand), {}),
+          rollPlan: effectRollPlans,
+          resolve: ({ character: liveCharacter, rolls }) => castSpell(liveCharacter, spell, minimalCastRequest(castCommand), { diceResults: rolls }),
         },
       ]);
     }
@@ -559,7 +564,7 @@ function buildResourceCapabilities(
         command,
         rollPlan: [],
         resolve: ({ character: liveCharacter }) =>
-          spendResource(liveCharacter, { ...command.payload, capacity: capacity.capacity.value, sourceRef: definition.sourceRefs[0] }),
+          spendResource(liveCharacter, { ...command.payload, capacity: capacity.capacity.value, sourceRef: definition.sourceRefs[0], ownerInstanceId: resourceState.ownerInstanceId }),
       },
     ]);
   }

@@ -11,29 +11,29 @@
  */
 
 export const colorHex = {
-  background: "#16140f",
-  surface: "#221d16",
-  surfaceElevated: "#2d271c",
-  primary: "#c9974a",
-  secondary: "#5c9468",
-  hp: "#b3453d",
-  xp: "#8fae57",
-  magic: "#4a70b0",
-  warning: "#dba63f",
-  danger: "#cc4735",
-  text: "#f1ead9",
-  textMuted: "#b6ab97",
-  border: "#726a56",
-  focus: "#f4c751",
-  controlDisabled: "#4d4838",
-  onPrimary: "#1c1206",
-  onSecondary: "#0c1710",
-  onHp: "#fdeeec",
-  onXp: "#16210a",
-  onMagic: "#ffffff",
-  onWarning: "#1c1206",
-  onDanger: "#ffffff",
-  backdrop: "rgba(6, 5, 3, 0.6)",
+  background: "#000000",
+  surface: "#140507",
+  surfaceElevated: "#24090d",
+  primary: "#e95562",
+  secondary: "#bd7680",
+  hp: "#f05a67",
+  xp: "#a6c77b",
+  magic: "#8eb5e8",
+  warning: "#f0b35e",
+  danger: "#ff7a82",
+  text: "#fff4f2",
+  textMuted: "#d4b8bb",
+  border: "#9b5a64",
+  focus: "#ffb3b8",
+  controlDisabled: "#76515a",
+  onPrimary: "#000000",
+  onSecondary: "#000000",
+  onHp: "#000000",
+  onXp: "#000000",
+  onMagic: "#000000",
+  onWarning: "#000000",
+  onDanger: "#000000",
+  backdrop: "rgba(0, 0, 0, 0.78)",
 } as const;
 
 export type ColorToken = keyof typeof colorHex;
@@ -57,7 +57,7 @@ export const radius = {
 
 export const shadow = {
   none: "none",
-  overlay: "0 20px 40px rgba(6, 5, 3, 0.55)",
+  overlay: "0 20px 40px rgba(0, 0, 0, 0.8)",
 } as const;
 
 export const typography = {

@@ -13,5 +13,10 @@
 .history li { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--size-touch-target); }
 .history li > span { display: grid; min-width: 0; }
 .history small { color: var(--color-text-muted); }
+.content { color: var(--color-text); }
+.content :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
+.content :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
+.face { background: color-mix(in srgb, var(--color-primary) 12%, var(--color-background)); }
+.face:hover { background: color-mix(in srgb, var(--color-primary) 22%, var(--color-background)); }
 @media (prefers-reduced-motion: reduce) { .content * { transition: none !important; animation: none !important; } }
 @media (max-width: 520px) { .selectorGrid { grid-template-columns: 1fr; } }

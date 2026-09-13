@@ -51,6 +51,14 @@ function isMapEnvelope(value: unknown): value is MapRecord {
   return typeof record.campaignId === "string" && Array.isArray(record.pins);
 }
 
+/** Forma mínima de `Character` suficiente para desvincular `campaignId` no delete em
+ * cascata; a validação completa do contrato é responsabilidade de `IndexedDbCharacterRepository`. */
+function isCharacterEnvelope(value: unknown): value is { readonly id: string; readonly revision: number; readonly campaignId?: string } {
+  if (!hasSchemaEnvelope(value)) return false;
+  const record = value as Record<string, unknown>;
+  return record.campaignId === undefined || typeof record.campaignId === "string";
+}
+
 function isJournalEntryShape(value: unknown): value is JournalEntry {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -78,19 +86,30 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
   // Campaign
   // -------------------------------------------------------------------------
 
-  async get(id: Uuid): Promise<Result<Campaign, AppError>> {
-    const validated = await readValidated(
-      this.db,
-      STORE_NAMES.campaigns,
-      id,
-      this.clock.now(),
-      isCampaignEnvelope,
-      "campaign",
-    );
-    if (!validated.ok) return validated;
-    const schemaError = checkCampaignSchemaVersion(validated.value);
-    if (schemaError) return err(schemaError);
-    return ok(validated.value);
+  async get(id: Uuid, context?: TransactionContext): Promise<Result<Campaign, AppError>> {
+    if (!context) {
+      const validated = await readValidated(
+        this.db,
+        STORE_NAMES.campaigns,
+        id,
+        this.clock.now(),
+        isCampaignEnvelope,
+        "campaign",
+      );
+      if (!validated.ok) return validated;
+      const schemaError = checkCampaignSchemaVersion(validated.value);
+      if (schemaError) return err(schemaError);
+      return ok(validated.value);
+    }
+
+    return runTransactionOrContext(this.db, [STORE_NAMES.campaigns], "readonly", context, async (tx) => {
+      const raw = await requestToPromise(tx.objectStore(STORE_NAMES.campaigns).get(id));
+      if (raw === undefined) return err(appError.notFound("campaign", id));
+      if (!isCampaignEnvelope(raw)) return err(appError.corruptRecord(id));
+      const schemaError = checkCampaignSchemaVersion(raw);
+      if (schemaError) return err(schemaError);
+      return ok(raw);
+    });
   }
 
   async list(_filter?: CampaignFilter): Promise<Result<readonly Campaign[], AppError>> {
@@ -113,9 +132,9 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     return ok(campaigns);
   }
 
-  async save(campaign: Campaign, expectedRevision: Revision): Promise<Result<Revision, AppError>> {
+  async save(campaign: Campaign, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
     const now = this.clock.now();
-    return runTransaction(this.db, [STORE_NAMES.campaigns], "readwrite", async (tx) => {
+    return runTransactionOrContext(this.db, [STORE_NAMES.campaigns], "readwrite", context, async (tx) => {
       const store = tx.objectStore(STORE_NAMES.campaigns);
       const raw = await requestToPromise(store.get(campaign.id));
 
@@ -141,8 +160,8 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     });
   }
 
-  async delete(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>> {
-    return runTransaction(this.db, [STORE_NAMES.campaigns], "readwrite", async (tx) => {
+  async delete(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>> {
+    return runTransactionOrContext(this.db, [STORE_NAMES.campaigns], "readwrite", context, async (tx) => {
       const store = tx.objectStore(STORE_NAMES.campaigns);
       const raw = await requestToPromise(store.get(id));
       if (raw === undefined) return err(appError.notFound("campaign", id));
@@ -165,11 +184,13 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
    * transação. Todas as leituras e validações acontecem antes do primeiro delete para que
    * um registro inválido também deixe o agregado inteiro intacto.
    */
-  async deleteCampaignAndContent(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>> {
-    return runTransaction(
+  async deleteCampaignAndContent(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>> {
+    const now = this.clock.now();
+    return runTransactionOrContext(
       this.db,
-      [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.assets],
+      [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.assets, STORE_NAMES.characters],
       "readwrite",
+      context,
       async (tx) => {
         const campaigns = tx.objectStore(STORE_NAMES.campaigns);
         const rawCampaign = await requestToPromise(campaigns.get(id));
@@ -195,6 +216,15 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
           }
         }
 
+        // Personagens vinculados a esta campanha não podem sobreviver com `campaignId`
+        // apontando para um agregado apagado; a exclusão da campanha desvincula-os em vez
+        // de apagá-los (identidade do personagem é independente da campanha).
+        const charactersStore = tx.objectStore(STORE_NAMES.characters);
+        const rawCharacters = await requestToPromise(charactersStore.index("campaignId").getAll(id));
+        for (const raw of rawCharacters) {
+          if (!isCharacterEnvelope(raw)) return err(appError.corruptRecord(id));
+        }
+
         const allRawMaps = await requestToPromise(mapsStore.getAll());
         const deletedMapIds = new Set(rawMaps.map((raw) => (raw as MapRecord).id));
         const deletedAssetIds = new Set(rawMaps.map((raw) => (raw as MapRecord).assetId));
@@ -204,6 +234,15 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
             return err(appError.corruptRecord(id));
           }
           if (!deletedMapIds.has((raw as MapRecord).id)) retainedAssetIds.add((raw as MapRecord).assetId);
+        }
+        // Personagens vinculados permanecem vivos após `campaign-and-content`; um retrato
+        // compartilhado com um mapa removido continua sendo referenciado pelo personagem.
+        // Considere também personagens de outras campanhas para não apagar assets compartilhados.
+        const allRawCharacters = await requestToPromise(charactersStore.getAll());
+        for (const raw of allRawCharacters) {
+          if (typeof raw !== "object" || raw === null) continue;
+          const portraitAssetId = (raw as Record<string, unknown>).portraitAssetId;
+          if (typeof portraitAssetId === "string") retainedAssetIds.add(portraitAssetId);
         }
 
         // Só assets pertencentes exclusivamente aos mapas removidos são órfãos; um asset
@@ -215,6 +254,12 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
             await requestToPromise(tx.objectStore(STORE_NAMES.assets).delete(assetId));
           }
         }
+        for (const raw of rawCharacters) {
+          const { campaignId: _campaignId, ...rest } = raw as Record<string, unknown> & { campaignId?: string };
+          await requestToPromise(
+            charactersStore.put({ ...rest, revision: (raw as { revision: number }).revision + 1, updatedAt: now }),
+          );
+        }
         await requestToPromise(campaigns.delete(id));
         return ok(undefined);
       },
@@ -225,8 +270,8 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
   // Journal (sem CAS)
   // -------------------------------------------------------------------------
 
-  async getJournalEntry(id: Uuid): Promise<Result<JournalEntry, AppError>> {
-    return runTransaction(this.db, [STORE_NAMES.journalEntries], "readonly", async (tx) => {
+  async getJournalEntry(id: Uuid, context?: TransactionContext): Promise<Result<JournalEntry, AppError>> {
+    return runTransactionOrContext(this.db, [STORE_NAMES.journalEntries], "readonly", context, async (tx) => {
       const raw = await requestToPromise(tx.objectStore(STORE_NAMES.journalEntries).get(id));
       if (raw === undefined) return err(appError.notFound("journal-entry", id));
       if (!isJournalEntryShape(raw)) return err(appError.corruptRecord(id));
@@ -234,8 +279,8 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     });
   }
 
-  async listJournalEntries(campaignId: Uuid): Promise<Result<readonly JournalEntry[], AppError>> {
-    const result = await runTransaction(this.db, [STORE_NAMES.journalEntries], "readonly", async (tx) => {
+  async listJournalEntries(campaignId: Uuid, context?: TransactionContext): Promise<Result<readonly JournalEntry[], AppError>> {
+    const result = await runTransactionOrContext(this.db, [STORE_NAMES.journalEntries], "readonly", context, async (tx) => {
       const raws = await requestToPromise(tx.objectStore(STORE_NAMES.journalEntries).getAll());
       return ok(raws as unknown[]);
     });
@@ -253,17 +298,17 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     return ok(entries);
   }
 
-  async saveJournalEntry(entry: JournalEntry): Promise<Result<JournalEntry, AppError>> {
+  async saveJournalEntry(entry: JournalEntry, context?: TransactionContext): Promise<Result<JournalEntry, AppError>> {
     const now = this.clock.now();
-    return runTransaction(this.db, [STORE_NAMES.journalEntries], "readwrite", async (tx) => {
+    return runTransactionOrContext(this.db, [STORE_NAMES.journalEntries], "readwrite", context, async (tx) => {
       const updated: JournalEntry = { ...entry, updatedAt: now };
       await requestToPromise(tx.objectStore(STORE_NAMES.journalEntries).put(updated));
       return ok(updated);
     });
   }
 
-  async deleteJournalEntry(id: Uuid): Promise<Result<void, AppError>> {
-    return runTransaction(this.db, [STORE_NAMES.journalEntries], "readwrite", async (tx) => {
+  async deleteJournalEntry(id: Uuid, context?: TransactionContext): Promise<Result<void, AppError>> {
+    return runTransactionOrContext(this.db, [STORE_NAMES.journalEntries], "readwrite", context, async (tx) => {
       const raw = await requestToPromise(tx.objectStore(STORE_NAMES.journalEntries).get(id));
       if (raw === undefined) return err(appError.notFound("journal-entry", id));
       if (!isJournalEntryShape(raw)) return err(appError.corruptRecord(id));
@@ -276,17 +321,26 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
   // Maps (CAS)
   // -------------------------------------------------------------------------
 
-  async getMap(id: Uuid): Promise<Result<MapRecord, AppError>> {
-    const validated = await readValidated(this.db, STORE_NAMES.maps, id, this.clock.now(), isMapEnvelope, "map");
-    return validated;
+  async getMap(id: Uuid, context?: TransactionContext): Promise<Result<MapRecord, AppError>> {
+    if (!context) {
+      const validated = await readValidated(this.db, STORE_NAMES.maps, id, this.clock.now(), isMapEnvelope, "map");
+      return validated;
+    }
+    return runTransactionOrContext(this.db, [STORE_NAMES.maps], "readonly", context, async (tx) => {
+      const raw = await requestToPromise(tx.objectStore(STORE_NAMES.maps).get(id));
+      if (raw === undefined) return err(appError.notFound("map", id));
+      if (!isMapEnvelope(raw)) return err(appError.corruptRecord(id));
+      return ok(raw);
+    });
   }
 
-  async listMaps(campaignId: Uuid): Promise<Result<readonly MapRecord[], AppError>> {
-    const result = await runTransaction(this.db, [STORE_NAMES.maps], "readonly", async (tx) => {
+  async listMaps(campaignId: Uuid, context?: TransactionContext): Promise<Result<readonly MapRecord[], AppError>> {
+    const result = await runTransactionOrContext(this.db, [STORE_NAMES.maps], "readonly", context, async (tx) => {
       const raws = await requestToPromise(tx.objectStore(STORE_NAMES.maps).getAll());
       return ok(raws as unknown[]);
     });
     if (!result.ok) return result;
+    const maps: MapRecord[] = [];
     for (const [index, raw] of result.value.entries()) {
       if (!isMapEnvelope(raw)) {
         const id = recordId(raw, `maps:unknown:${index}`);
@@ -294,12 +348,13 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
         return err(appError.corruptRecord(id, undefined, id));
       }
       if (raw.campaignId !== campaignId) continue;
+      maps.push(raw);
     }
-    return ok(result.value as MapRecord[]);
+    return ok(maps);
   }
 
-  async saveMap(map: MapRecord, expectedRevision: Revision): Promise<Result<Revision, AppError>> {
-    return runTransaction(this.db, [STORE_NAMES.maps], "readwrite", async (tx) => {
+  async saveMap(map: MapRecord, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
+    return runTransactionOrContext(this.db, [STORE_NAMES.maps, STORE_NAMES.campaigns, STORE_NAMES.assets], "readwrite", context, async (tx) => {
       const store = tx.objectStore(STORE_NAMES.maps);
       const raw = await requestToPromise(store.get(map.id));
 
@@ -316,6 +371,11 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
         return err(appError.conflict(expectedRevision, actualRevision));
       }
 
+      const rawCampaign = await requestToPromise(tx.objectStore(STORE_NAMES.campaigns).get(map.campaignId));
+      if (rawCampaign === undefined) return err(appError.validation("campaignId", "Campanha do mapa não existe."));
+      const rawAsset = await requestToPromise(tx.objectStore(STORE_NAMES.assets).get(map.assetId));
+      if (rawAsset === undefined) return err(appError.validation("assetId", "Asset do mapa não existe."));
+
       const nextRevision = asRevision(expectedRevision + 1);
       const toStore: MapRecord = { ...map, revision: nextRevision };
       await requestToPromise(store.put(toStore));
@@ -323,8 +383,8 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     });
   }
 
-  async deleteMap(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>> {
-    return runTransaction(this.db, [STORE_NAMES.maps], "readwrite", async (tx) => {
+  async deleteMap(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>> {
+    return runTransactionOrContext(this.db, [STORE_NAMES.maps], "readwrite", context, async (tx) => {
       const store = tx.objectStore(STORE_NAMES.maps);
       const raw = await requestToPromise(store.get(id));
       if (raw === undefined) return err(appError.notFound("map", id));
@@ -344,8 +404,9 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     mapId: Uuid,
     expectedRevision: Revision,
     mutate: (pins: readonly MapPin[]) => Result<readonly MapPin[], AppError>,
+    context?: TransactionContext,
   ): Promise<Result<Revision, AppError>> {
-    return runTransaction(this.db, [STORE_NAMES.maps], "readwrite", async (tx) => {
+    return runTransactionOrContext(this.db, [STORE_NAMES.maps], "readwrite", context, async (tx) => {
       const store = tx.objectStore(STORE_NAMES.maps);
       const raw = await requestToPromise(store.get(mapId));
       if (raw === undefined) return err(appError.notFound("map", mapId));
@@ -366,25 +427,25 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     });
   }
 
-  async addMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision): Promise<Result<Revision, AppError>> {
-    return this.mutateMapPins(mapId, expectedRevision, (pins) => ok([...pins, pin]));
+  async addMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
+    return this.mutateMapPins(mapId, expectedRevision, (pins) => ok([...pins, pin]), context);
   }
 
-  async updateMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision): Promise<Result<Revision, AppError>> {
+  async updateMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
     return this.mutateMapPins(mapId, expectedRevision, (pins) => {
       const index = pins.findIndex((p) => p.id === pin.id);
       if (index < 0) return err(appError.notFound("map-pin", pin.id));
       const next = pins.slice();
       next[index] = pin;
       return ok(next);
-    });
+    }, context);
   }
 
-  async removeMapPin(mapId: Uuid, pinId: Uuid, expectedRevision: Revision): Promise<Result<Revision, AppError>> {
+  async removeMapPin(mapId: Uuid, pinId: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
     return this.mutateMapPins(mapId, expectedRevision, (pins) => {
       if (!pins.some((p) => p.id === pinId)) return err(appError.notFound("map-pin", pinId));
       return ok(pins.filter((p) => p.id !== pinId));
-    });
+    }, context);
   }
 
   // -------------------------------------------------------------------------
@@ -462,15 +523,20 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
   async importAtomic(input: {
     readonly map: MapRecord;
     readonly asset: Asset;
-  }): Promise<Result<{ readonly map: MapRecord; readonly asset: Asset }, AppError>> {
+  }, context?: TransactionContext): Promise<Result<{ readonly map: MapRecord; readonly asset: Asset }, AppError>> {
     if (!isValidAssetShape(input.asset)) {
       return err(appError.validation("asset", "Asset inválido para importação atômica."));
     }
     if (!isValidMapForImport(input.map)) {
       return err(appError.validation("map", "Mapa inválido para importação atômica."));
     }
+    if (input.map.assetId !== input.asset.id) {
+      return err(appError.validation("assetId", "Mapa e asset importados não se referenciam."));
+    }
 
-    return runTransaction(this.db, [STORE_NAMES.assets, STORE_NAMES.maps], "readwrite", async (tx) => {
+    return runTransactionOrContext(this.db, [STORE_NAMES.assets, STORE_NAMES.maps, STORE_NAMES.campaigns], "readwrite", context, async (tx) => {
+      const rawCampaign = await requestToPromise(tx.objectStore(STORE_NAMES.campaigns).get(input.map.campaignId));
+      if (rawCampaign === undefined) return err(appError.validation("campaignId", "Campanha do mapa importado não existe."));
       await requestToPromise(tx.objectStore(STORE_NAMES.assets).put(input.asset));
       await requestToPromise(tx.objectStore(STORE_NAMES.maps).put(input.map));
       return ok({ map: input.map, asset: input.asset });

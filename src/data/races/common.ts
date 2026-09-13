@@ -74,7 +74,7 @@ export function customTraitModifier(
   description: string,
   predicate: RuleModifier["predicate"] = { kind: "always" },
 ): RuleModifier {
-  return modifier(id, sourceRef, { kind: "custom", description }, "add", { kind: "number", amount: 1 }, predicate);
+  return modifier(id, sourceRef, { kind: "custom", description }, "annotate", { kind: "flag" }, predicate);
 }
 
 export function contextualAdvantageModifier(id: string, sourceRef: SourceRef, description: string): RuleModifier {

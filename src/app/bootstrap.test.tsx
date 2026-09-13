@@ -7,11 +7,49 @@ import { Bootstrap, createApplicationRuntime, hasPendingApplicationWork } from "
 import { mount } from "@components/ui/testUtils";
 import type { ApplicationServices } from "@application/state";
 import { createCampaign } from "@domain/campaign/journal";
-import { fixtureRulesetRef } from "@domain/contracts/fixtures";
+import { diceRollAdvantageSample, fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
 import { asIsoTimestamp, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
-import { IndexedDbCampaignRepository, openDatabase } from "@infrastructure/persistence/indexeddb";
+import {
+  IndexedDbAssetRepository,
+  IndexedDbCampaignRepository,
+  IndexedDbCharacterRepository,
+  IndexedDbDiceHistoryRepository,
+  STORE_NAMES,
+  openDatabase,
+} from "@infrastructure/persistence/indexeddb";
+import type { Campaign } from "@domain/contracts/campaign";
 import type { JournalDraftState } from "@domain/campaign/journal";
+
+const fixedClock = { now: () => asIsoTimestamp("2026-09-12T12:00:00.000Z") };
+
+function emptyCampaign(id: ReturnType<typeof asUuid>, characterIds: readonly ReturnType<typeof asUuid>[] = []): Campaign {
+  return {
+    id,
+    schemaVersion: 1,
+    revision: asRevision(0),
+    name: "Campanha DATA-007",
+    description: "",
+    rulesetRef: fixtureRulesetRef,
+    characterIds,
+    sessionCounter: 0,
+    npcs: [],
+    quests: [],
+    objectives: [],
+    settings: { optionalRules: [], abilityGenerationMethod: "standard-array", advancementMethod: "xp" },
+    createdAt: fixedClock.now(),
+    updatedAt: fixedClock.now(),
+  };
+}
+
+async function readRaw(db: IDBDatabase, storeName: string, id: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], "readonly");
+    const request = tx.objectStore(storeName).get(id);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
 
 async function mountRoute(node: Parameters<typeof mount>[0]) {
   const mounted = await mount(node);
@@ -43,6 +81,19 @@ describe("Bootstrap", () => {
       await mounted.unmount();
       runtime.services.character.dispose();
       runtime.services.settings.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("compõe sessões locais independentemente da disponibilidade do Firebase", async () => {
+    const runtime = await createApplicationRuntime();
+    try {
+      expect(runtime.session).toBeDefined();
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
       runtime.database.close();
     }
   });
@@ -193,5 +244,172 @@ describe("Bootstrap", () => {
     journalState = { status: "dirty" } as JournalDraftState;
     journalState = undefined;
     expect(hasPendingApplicationWork(services, () => journalState)).toBe(false);
+  });
+
+  it("DATA-007: reset de personagens desvincula characterIds das campanhas remanescentes", async () => {
+    const name = "bootstrap-data-007-reset-characters";
+    const seeded = await openDatabase({ name });
+    if (!seeded.ok) throw new Error(seeded.error.message);
+    const campaignId = asUuid("00000000-0000-4000-8000-000000000301");
+    const campaign = emptyCampaign(campaignId, [minimalCharacter.id]);
+    const campaigns = new IndexedDbCampaignRepository(seeded.value, fixedClock);
+    const characters = new IndexedDbCharacterRepository(seeded.value, fixedClock);
+    expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+    expect((await characters.save({ ...minimalCharacter, campaignId }, asRevision(0))).ok).toBe(true);
+    seeded.value.close();
+
+    const runtime = await createApplicationRuntime({ database: { name } });
+    try {
+      const reset = await runtime.registry.dataManagement?.service.reset({ scope: "characters", confirmation: "explicit" });
+      expect(reset).toMatchObject({ ok: true });
+
+      const storedCharacters = new IndexedDbCharacterRepository(runtime.database, fixedClock);
+      expect((await storedCharacters.get(minimalCharacter.id)).ok).toBe(false);
+      const storedCampaigns = new IndexedDbCampaignRepository(runtime.database, fixedClock);
+      const stored = await storedCampaigns.get(campaignId);
+      if (!stored.ok) throw new Error(stored.error.message);
+      expect(stored.value.characterIds).toEqual([]);
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.settings.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("DATA-007: reset de campanhas desvincula campaignId dos personagens remanescentes", async () => {
+    const name = "bootstrap-data-007-reset-campaigns";
+    const seeded = await openDatabase({ name });
+    if (!seeded.ok) throw new Error(seeded.error.message);
+    const campaignId = asUuid("00000000-0000-4000-8000-000000000302");
+    const campaign = emptyCampaign(campaignId, [minimalCharacter.id]);
+    const campaigns = new IndexedDbCampaignRepository(seeded.value, fixedClock);
+    const characters = new IndexedDbCharacterRepository(seeded.value, fixedClock);
+    expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+    expect((await characters.save({ ...minimalCharacter, campaignId }, asRevision(0))).ok).toBe(true);
+    seeded.value.close();
+
+    const runtime = await createApplicationRuntime({ database: { name } });
+    try {
+      const reset = await runtime.registry.dataManagement?.service.reset({ scope: "campaigns", confirmation: "explicit" });
+      expect(reset).toMatchObject({ ok: true });
+
+      const storedCampaigns = new IndexedDbCampaignRepository(runtime.database, fixedClock);
+      expect((await storedCampaigns.get(campaignId)).ok).toBe(false);
+      const storedCharacters = new IndexedDbCharacterRepository(runtime.database, fixedClock);
+      const stored = await storedCharacters.get(minimalCharacter.id);
+      if (!stored.ok) throw new Error(stored.error.message);
+      expect(stored.value.campaignId).toBeUndefined();
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.settings.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("DATA-007: reset de assets desvincula portraitAssetId e remove mapas órfãos", async () => {
+    const name = "bootstrap-data-007-reset-assets";
+    const seeded = await openDatabase({ name });
+    if (!seeded.ok) throw new Error(seeded.error.message);
+    const campaignId = asUuid("00000000-0000-4000-8000-000000000303");
+    const assetId = asUuid("00000000-0000-4000-8000-000000000304");
+    const mapId = asUuid("00000000-0000-4000-8000-000000000305");
+    const campaign = emptyCampaign(campaignId);
+    const campaigns = new IndexedDbCampaignRepository(seeded.value, fixedClock);
+    const characters = new IndexedDbCharacterRepository(seeded.value, fixedClock);
+    const assets = new IndexedDbAssetRepository(seeded.value, fixedClock);
+    expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+    expect((await assets.put({ id: assetId, mediaType: "image/png", bytes: new Uint8Array([1]), hash: "hash", originalName: "portrait.png" })).ok).toBe(true);
+    expect((await characters.save({ ...minimalCharacter, portraitAssetId: assetId }, asRevision(0))).ok).toBe(true);
+    expect((await campaigns.saveMap({ id: mapId, campaignId, name: "Mapa", assetId, pins: [], revision: asRevision(0) }, asRevision(0))).ok).toBe(true);
+    seeded.value.close();
+
+    const runtime = await createApplicationRuntime({ database: { name } });
+    try {
+      const reset = await runtime.registry.dataManagement?.service.reset({ scope: "assets", confirmation: "explicit" });
+      expect(reset).toMatchObject({ ok: true });
+
+      const storedAssets = new IndexedDbAssetRepository(runtime.database, fixedClock);
+      expect((await storedAssets.get(assetId)).ok).toBe(false);
+      const storedCharacters = new IndexedDbCharacterRepository(runtime.database, fixedClock);
+      const character = await storedCharacters.get(minimalCharacter.id);
+      if (!character.ok) throw new Error(character.error.message);
+      expect(character.value.portraitAssetId).toBeUndefined();
+      const storedCampaigns = new IndexedDbCampaignRepository(runtime.database, fixedClock);
+      expect((await storedCampaigns.getMap(mapId)).ok).toBe(false);
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.settings.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("DATA-007: import replace sobrescreve por id preservando o registro anterior em recovery, copy gera ids novos", async () => {
+    const name = "bootstrap-data-007-import-modes";
+    const runtime = await createApplicationRuntime({ database: { name } });
+    try {
+      const campaignId = asUuid("00000000-0000-4000-8000-000000000306");
+      const campaign = emptyCampaign(campaignId);
+      const campaigns = new IndexedDbCampaignRepository(runtime.database, fixedClock);
+      expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+
+      const dataManagement = runtime.registry.dataManagement;
+      if (!dataManagement) throw new Error("dataManagement não registrado");
+      const exported = await dataManagement.service.exportCampaign(campaignId);
+      if (!exported.ok) throw new Error(exported.error.message);
+      const envelope = exported.value;
+
+      const mutated = { ...campaign, revision: asRevision(1), name: "Campanha mutada" };
+      expect((await campaigns.save(mutated, asRevision(1))).ok).toBe(true);
+
+      const replaced = await dataManagement.service.import(envelope, "replace");
+      expect(replaced).toMatchObject({ ok: true, value: { rootId: campaignId } });
+      const afterReplace = await campaigns.get(campaignId);
+      if (!afterReplace.ok) throw new Error(afterReplace.error.message);
+      expect(afterReplace.value.name).toBe("Campanha DATA-007");
+
+      const recovered = await readRaw(runtime.database, STORE_NAMES.recovery, campaignId);
+      expect(recovered).toMatchObject({ sourceStore: STORE_NAMES.campaigns, raw: { name: "Campanha mutada" } });
+
+      const copied = await dataManagement.service.import(envelope, "copy");
+      if (!copied.ok) throw new Error(copied.error.message);
+      expect(copied.value.rootId).not.toBe(campaignId);
+      const original = await campaigns.get(campaignId);
+      if (!original.ok) throw new Error(original.error.message);
+      expect(original.value.name).toBe("Campanha DATA-007");
+      const copy = await campaigns.get(copied.value.rootId);
+      expect(copy.ok).toBe(true);
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.settings.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("DATA-007: importação restaura rolagens no formato do histórico local", async () => {
+    const name = "bootstrap-data-007-import-rolls";
+    const runtime = await createApplicationRuntime({ database: { name } });
+    try {
+      const characters = new IndexedDbCharacterRepository(runtime.database, fixedClock);
+      expect((await characters.save(minimalCharacter, asRevision(0))).ok).toBe(true);
+      const dataManagement = runtime.registry.dataManagement;
+      if (!dataManagement) throw new Error("dataManagement não registrado");
+      const exported = await dataManagement.service.exportCharacter(minimalCharacter.id);
+      if (!exported.ok) throw new Error(exported.error.message);
+      const envelope = {
+        ...exported.value,
+        records: { ...exported.value.records, rolls: [{ ...diceRollAdvantageSample, characterId: minimalCharacter.id }] },
+      };
+
+      expect(await dataManagement.service.import(envelope, "replace")).toMatchObject({ ok: true });
+
+      const history = new IndexedDbDiceHistoryRepository(runtime.database, fixedClock);
+      const restored = await history.list({ characterId: minimalCharacter.id });
+      if (!restored.ok) throw new Error(restored.error.message);
+      expect(restored.value.entries).toHaveLength(1);
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.settings.dispose();
+      runtime.database.close();
+    }
   });
 });

@@ -22,6 +22,13 @@ import { hasSchemaEnvelope, persistToRecovery, readValidated } from "./record-gu
 import { STORE_NAMES } from "./schema";
 import { requestToPromise, runTransaction, runTransactionOrContext } from "./transaction";
 
+/** Forma mínima de `Campaign` suficiente para desvincular `characterIds` no delete de
+ * personagem; a validação completa do contrato é responsabilidade de `IndexedDbCampaignRepository`. */
+function isCampaignEnvelopeForUnlink(value: unknown): value is { readonly id: string; readonly revision: number; readonly characterIds: readonly string[] } {
+  if (!hasSchemaEnvelope(value)) return false;
+  return Array.isArray((value as Record<string, unknown>).characterIds);
+}
+
 const SUPPORTED_RANGE = { min: 1, max: CHARACTER_SCHEMA_VERSION };
 
 function isCharacterEnvelope(value: unknown): value is Character {
@@ -86,8 +93,8 @@ export class IndexedDbCharacterRepository implements CharacterRepository {
     return ok(validated.value);
   }
 
-  async list(filter?: CharacterFilter): Promise<Result<readonly CharacterSummary[], AppError>> {
-    const result = await runTransaction(this.db, [STORE_NAMES.characters], "readonly", async (tx) => {
+  async list(filter?: CharacterFilter, context?: TransactionContext): Promise<Result<readonly CharacterSummary[], AppError>> {
+    const result = await runTransactionOrContext(this.db, [STORE_NAMES.characters], "readonly", context, async (tx) => {
       const store = tx.objectStore(STORE_NAMES.characters);
       // Lemos a store inteira antes de aplicar o filtro para que registros corrompidos ou
       // de schema futuro nunca desapareçam por não possuírem a chave do índice.
@@ -176,22 +183,101 @@ export class IndexedDbCharacterRepository implements CharacterRepository {
   }
 
   async delete(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>> {
-    return runTransactionOrContext(this.db, [STORE_NAMES.characters], "readwrite", context, async (tx) => {
-      const store = tx.objectStore(STORE_NAMES.characters);
-      const raw = await requestToPromise(store.get(id));
-      if (raw === undefined) return err(appError.notFound("character", id));
-      if (!isCharacterEnvelope(raw)) return err(appError.corruptRecord(id));
-      const schemaError = checkSchemaVersion(raw);
-      if (schemaError) return err(schemaError);
+    const now = this.clock.now();
+    return runTransactionOrContext(
+      this.db,
+      [
+        STORE_NAMES.characters,
+        STORE_NAMES.campaigns,
+        STORE_NAMES.drafts,
+        STORE_NAMES.rolls,
+        STORE_NAMES.commandReceipts,
+        STORE_NAMES.assets,
+        STORE_NAMES.maps,
+      ],
+      "readwrite",
+      context,
+      async (tx) => {
+        const store = tx.objectStore(STORE_NAMES.characters);
+        const raw = await requestToPromise(store.get(id));
+        if (raw === undefined) return err(appError.notFound("character", id));
+        if (!isCharacterEnvelope(raw)) return err(appError.corruptRecord(id));
+        const schemaError = checkSchemaVersion(raw);
+        if (schemaError) return err(schemaError);
 
-      const actualRevision = asRevision(raw.revision);
-      if (actualRevision !== expectedRevision) {
-        return err(appError.conflict(expectedRevision, actualRevision));
-      }
+        const actualRevision = asRevision(raw.revision);
+        if (actualRevision !== expectedRevision) {
+          return err(appError.conflict(expectedRevision, actualRevision));
+        }
 
-      await requestToPromise(store.delete(id));
-      return ok(undefined);
-    });
+        // A relação é redundante (Character.campaignId e Campaign.characterIds). Varremos
+        // as campanhas para também reparar uma inconsistência pré-existente em que o
+        // personagem não carregava campaignId, mas ainda estava no elenco.
+        const campaignsStore = tx.objectStore(STORE_NAMES.campaigns);
+        const linkedCampaignId = raw.campaignId;
+        const linkedCampaign = linkedCampaignId === undefined ? undefined : await requestToPromise(campaignsStore.get(linkedCampaignId));
+        if (linkedCampaignId !== undefined && linkedCampaign !== undefined && !isCampaignEnvelopeForUnlink(linkedCampaign)) {
+          return err(appError.corruptRecord(linkedCampaignId));
+        }
+        const rawCampaigns = await requestToPromise(campaignsStore.getAll());
+        const campaignsToUpdate: { readonly raw: Record<string, unknown>; readonly characterIds: readonly string[] }[] = [];
+        for (const candidate of rawCampaigns) {
+          if (!isCampaignEnvelopeForUnlink(candidate)) continue;
+          const campaign = candidate as Record<string, unknown> & { readonly characterIds: readonly string[] };
+          if (campaign.characterIds.includes(id)) campaignsToUpdate.push({ raw: campaign, characterIds: campaign.characterIds });
+        }
+        for (const { raw: campaign, characterIds } of campaignsToUpdate) {
+          await requestToPromise(
+            campaignsStore.put({
+              ...campaign,
+              characterIds: characterIds.filter((characterId) => characterId !== id),
+              revision: Number(campaign.revision) + 1,
+              updatedAt: now,
+            }),
+          );
+        }
+
+        // Excluir o personagem também elimina seus registros derivados. Cada operação usa
+        // o mesmo commit para não deixar histórico/recibo/rascunho apontando para um ID
+        // que já não existe.
+        await requestToPromise(tx.objectStore(STORE_NAMES.drafts).delete(id));
+        const rolls = await requestToPromise(tx.objectStore(STORE_NAMES.rolls).index("characterId").getAll(id));
+        for (const roll of rolls) {
+          if (typeof roll === "object" && roll !== null && typeof (roll as { id?: unknown }).id === "string") {
+            await requestToPromise(tx.objectStore(STORE_NAMES.rolls).delete((roll as { id: string }).id));
+          }
+        }
+        const receipts = await requestToPromise(tx.objectStore(STORE_NAMES.commandReceipts).index("characterId").getAll(id));
+        for (const receipt of receipts) {
+          if (typeof receipt === "object" && receipt !== null && typeof (receipt as { commandId?: unknown }).commandId === "string") {
+            await requestToPromise(tx.objectStore(STORE_NAMES.commandReceipts).delete((receipt as { commandId: string }).commandId));
+          }
+        }
+
+        // Retrato é um asset próprio enquanto não houver outro personagem ou mapa usando-o.
+        // Assets compartilhados permanecem para não quebrar os agregados restantes.
+        const portraitAssetId = raw.portraitAssetId;
+        if (portraitAssetId !== undefined) {
+          const otherCharacters = await requestToPromise(store.getAll());
+          const usedByOtherCharacter = otherCharacters.some((candidate) => {
+            if (typeof candidate !== "object" || candidate === null) return false;
+            const record = candidate as Record<string, unknown>;
+            return record.id !== id && record.portraitAssetId === portraitAssetId;
+          });
+          const mapRecords = await requestToPromise(tx.objectStore(STORE_NAMES.maps).getAll());
+          const usedByMap = mapRecords.some((candidate) => {
+            if (typeof candidate !== "object" || candidate === null) return false;
+            return (candidate as Record<string, unknown>).assetId === portraitAssetId;
+          });
+          if (!usedByOtherCharacter && !usedByMap) {
+            await requestToPromise(tx.objectStore(STORE_NAMES.assets).delete(portraitAssetId));
+          }
+        }
+
+        await requestToPromise(store.delete(id));
+        return ok(undefined);
+      },
+    );
   }
 
   async getDraft(id: Uuid): Promise<Result<CharacterDraft, AppError>> {

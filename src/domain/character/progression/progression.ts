@@ -18,6 +18,11 @@ function totalLevel(character: Character): number {
   return character.classes.reduce((sum, entry) => sum + entry.level, 0);
 }
 
+/** Resource identity is the complete definition reference, never entityId alone. */
+function sameResourceRef(left: { readonly rulesetId: unknown; readonly entityId: unknown }, right: { readonly rulesetId: unknown; readonly entityId: unknown }): boolean {
+  return left.rulesetId === right.rulesetId && left.entityId === right.entityId;
+}
+
 function progressionTable(pack: RulePack): ProgressionStatus | ProgressionIssue[] {
   const table = pack.progression?.table;
   if (!table || table.length !== 20 || table.some((entry, index) => entry.totalLevel !== index + 1 || (index > 0 && entry.xpThreshold < table[index - 1].xpThreshold))) {
@@ -156,12 +161,12 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
   for (const change of progression?.resourceChanges ?? []) {
     const definition = pack.resources.get(change.resourceRef.entityId);
     if (!definition) errors.push(issue("unresolved-source", `resources.${String(change.resourceRef.entityId)}`, `Recurso "${String(change.resourceRef.entityId)}" não está publicado.`, classDefinition.sourceRefs));
-    resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => resource.definitionRef.entityId === change.resourceRef.entityId)?.spent ?? 0 });
+    resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => sameResourceRef(resource.definitionRef, change.resourceRef))?.spent ?? 0 });
   }
   if (subclass) for (const change of subclass.resourceChanges.filter((entry) => entry.resourceRef)) {
     const definition = pack.resources.get(change.resourceRef.entityId);
     if (!definition) errors.push(issue("unresolved-source", `resources.${String(change.resourceRef.entityId)}`, `Recurso "${String(change.resourceRef.entityId)}" não está publicado.`, subclass.sourceRefs));
-    resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => resource.definitionRef.entityId === change.resourceRef.entityId)?.spent ?? 0 });
+    resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => sameResourceRef(resource.definitionRef, change.resourceRef))?.spent ?? 0 });
   }
   const xpRequired = pack.progression.table[currentTotal]?.xpThreshold ?? Number.POSITIVE_INFINITY;
   return ok({ classId: input.classId, targetClassLevel, totalLevel: currentTotal + 1, proficiencyBonus: pack.progression.table[currentTotal]?.proficiencyBonus ?? 0, xpRequired, hitPointGain: input.hitPointGain, featureRefs: gathered.featureRefs, resources, choices: gathered.choices, pending: errors, valid: errors.length === 0 });
@@ -186,7 +191,7 @@ export function applyLevelUp(character: Character, input: LevelUpRequest, catalo
   const progressEntry = { id: options.idGenerator?.("progression", character.progressionHistory.length) ?? fallbackId(character, `progression:${input.classId}:${preview.value.targetClassLevel}`, character.progressionHistory.length), classId: input.classId, level: preview.value.targetClassLevel, hitPointGain: input.hitPointGain, choices: input.choices, recordedAt: options.now ?? character.updatedAt };
   const resources = [...character.resources];
   for (const resource of preview.value.resources) {
-    const existing = resources.findIndex((entry) => entry.definitionRef.entityId === resource.definitionRef.entityId);
+    const existing = resources.findIndex((entry) => sameResourceRef(entry.definitionRef, resource.definitionRef));
     if (existing >= 0) continue;
     resources.push({ id: options.idGenerator?.("resource", resources.length) ?? fallbackId(character, `resource:${resource.definitionRef.entityId}`, resources.length), definitionRef: resource.definitionRef, ownerInstanceId: character.id, spent: 0 });
   }

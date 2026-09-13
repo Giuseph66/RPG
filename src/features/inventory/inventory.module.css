@@ -40,6 +40,12 @@ tbody th { min-width: 13rem; font-weight: 400; }
 .state { display: grid; justify-items: start; gap: var(--spacing-md); padding: var(--spacing-section) var(--spacing-lg); }
 .state p { max-width: 55ch; margin: 0; color: var(--color-text-muted); }
 .stateMark { display: grid; place-items: center; width: 3rem; height: 3rem; border: 1px solid var(--color-primary); border-radius: 50%; color: var(--color-primary); font-size: 1.5rem; }
+.inventory :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
+.inventory :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
+tbody tr { transition: background-color var(--motion-feedback) var(--motion-easing); }
+tbody tr:hover { background: color-mix(in srgb, var(--color-primary) 7%, transparent); }
+.itemsPanel, .currencyPanel, .impactPanel { transition: border-color var(--motion-transition) var(--motion-easing); }
+.itemsPanel:hover, .currencyPanel:hover, .impactPanel:hover { border-color: color-mix(in srgb, var(--color-primary) 75%, var(--color-border)); }
 @media (max-width: 760px) {
   .inventory { padding-inline: var(--spacing-sm); }
   .hero { align-items: stretch; flex-direction: column; }

@@ -1,4 +1,4 @@
-export type PrimaryRouteId = "character" | "actions" | "journey" | "compendium";
+export type PrimaryRouteId = "character" | "actions" | "journey" | "compendium" | "account" | "collaboration";
 
 export interface PrimaryRoute {
   readonly id: PrimaryRouteId;
@@ -13,9 +13,11 @@ export const PRIMARY_ROUTES: readonly PrimaryRoute[] = [
   { id: "actions", label: "Ações", shortLabel: "Ações", path: "/actions", question: "O que posso usar agora?" },
   { id: "journey", label: "Jornada", shortLabel: "Jornada", path: "/journey", question: "Onde estamos e o que aconteceu?" },
   { id: "compendium", label: "Compêndio", shortLabel: "Regras", path: "/compendium", question: "Como funciona?" },
+  { id: "account", label: "Conta", shortLabel: "Conta", path: "/account", question: "Quem está na mesa?" },
+  { id: "collaboration", label: "Mesa", shortLabel: "Mesa", path: "/collaboration", question: "Quem joga conosco?" },
 ];
 
-export type AppRouteKind = PrimaryRouteId | "settings" | "data" | "onboarding" | "not-found";
+export type AppRouteKind = PrimaryRouteId | "session" | "settings" | "account" | "data" | "onboarding" | "not-found";
 
 export interface RouteMatch {
   readonly kind: AppRouteKind;
@@ -40,6 +42,9 @@ export function matchRoute(pathname: string): RouteMatch {
 
   if (!first) return { kind: "onboarding", path, params: {} };
   if (first === "settings" && segments.length === 1) return { kind: "settings", path, params: {} };
+  if (first === "account" && segments.length === 1) return { kind: "account", path, params: {} };
+  if (first === "collaboration" && segments.length === 1) return { kind: "collaboration", primary: "collaboration", path, params: {} };
+  if (first === "session" && second && segments.length === 2) return { kind: "session", path, params: { campaignId: second } };
   if ((first === "data" || (first === "settings" && second === "data")) && (segments.length === 1 || segments.length === 2)) {
     return { kind: "data", path, params: {} };
   }
@@ -62,7 +67,7 @@ export function matchRoute(pathname: string): RouteMatch {
 }
 
 export function primaryRouteFor(kind: AppRouteKind): PrimaryRouteId | undefined {
-  return kind === "character" || kind === "actions" || kind === "journey" || kind === "compendium"
+  return kind === "character" || kind === "actions" || kind === "journey" || kind === "compendium" || kind === "account" || kind === "collaboration"
     ? kind
     : undefined;
 }

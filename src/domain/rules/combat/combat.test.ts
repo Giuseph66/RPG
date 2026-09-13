@@ -60,6 +60,24 @@ describe("combat rules", () => {
     }
   });
 
+  it("reconhece morte maciça iniciada em 0 PV e preserva pedido de concentração ao cair", () => {
+    const dying = { ...minimalCharacter, hp: { current: 0, temp: 0 }, deathSaves: { successes: 0, failures: 0, stable: false } };
+    const massive = applyDamage(dying, { amount: 10, damageType: "fire", maximumHitPoints: 10 });
+    expect(massive.status).toBe("success");
+    if (massive.status === "success") expect(massive.nextState.deathSaves.failures).toBe(3);
+
+    const concentrating = { ...minimalCharacter, hp: { current: 3, temp: 0 }, concentration: { effectId: id("44000000-0000-4000-8000-000000000000"), sourceRef: ref("detect-magic"), duration: { kind: "minutes" as const, value: 10 }, pendingSaveIds: [] } };
+    const dropped = applyDamage(concentrating, { amount: 3, damageType: "fire", maximumHitPoints: 10 });
+    expect(dropped.status).toBe("success");
+    if (dropped.status === "success") expect(dropped.nextState.pendingResolutions).toHaveLength(1);
+  });
+
+  it("não usa total modificado como dado natural no teste contra a morte", () => {
+    const dying = { ...minimalCharacter, hp: { current: 0, temp: 0 }, deathSaves: { successes: 0, failures: 0, stable: false } };
+    const result = resolveDeathSave(dying, { rollId: roll(1).id, total: 20 });
+    expect(result.status).toBe("rejected");
+  });
+
   it("dispatcher aceita comando repetido sem reaplicar efeitos", () => {
     const command = { commandId: "damage-1" as never, characterId: minimalCharacter.id, expectedRevision: minimalCharacter.revision, kind: "apply-damage" as const, payload: { amount: 2, damageType: "fire" as const, diceResultIds: [] } };
     const result = resolveCombatCommand(minimalCharacter, command, { processedCommandIds: new Set([command.commandId]) });

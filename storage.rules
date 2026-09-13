@@ -1,0 +1,86 @@
+// Cloud Storage Security Rules — CLOUD-001 / ADR-0007.
+// Bytes só são acessíveis no namespace do proprietário ou da campanha.
+// O último segmento é o assetId estável; `assets/{assetId}` no Firestore
+// autoriza o vínculo e o metadata.sha256 verifica o conteúdo.
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function campaignExists(id) {
+      return firestore.exists(/databases/(default)/documents/campaigns/$(id));
+    }
+    function campaignOwner(id) {
+      return signedIn() && campaignExists(id) &&
+        firestore.get(/databases/(default)/documents/campaigns/$(id)).data.ownerUid == request.auth.uid;
+    }
+    function activeMember(id) {
+      return signedIn() && campaignExists(id) &&
+        firestore.get(/databases/(default)/documents/campaigns/$(id)/members/$(request.auth.uid)).data.status == 'active';
+    }
+    function campaignReader(id) { return campaignOwner(id) || activeMember(id); }
+    function allowedImage() {
+      return request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(png|jpeg|webp)');
+    }
+    function assetExists(assetId) {
+      return firestore.exists(/databases/(default)/documents/assets/$(assetId));
+    }
+    function assetData(assetId) {
+      return firestore.get(/databases/(default)/documents/assets/$(assetId)).data;
+    }
+    function metadataMatches(assetId) {
+      return assetExists(assetId) &&
+        assetData(assetId).id == assetId &&
+        request.resource.metadata.sha256 is string &&
+        request.resource.metadata.ownerUid is string &&
+        assetData(assetId).hash == request.resource.metadata.sha256 &&
+        assetData(assetId).ownerUid == request.resource.metadata.ownerUid &&
+        (('campaignId' in assetData(assetId)) == ('campaignId' in request.resource.metadata)) &&
+        (!('campaignId' in assetData(assetId)) ||
+          request.resource.metadata.campaignId == assetData(assetId).campaignId);
+    }
+    function privateMetadataOwner(uid, assetId) {
+      return assetExists(assetId) && assetData(assetId).id == assetId &&
+        assetData(assetId).ownerUid == uid && !('campaignId' in assetData(assetId)) &&
+        assetData(assetId).storagePath == 'users/' + uid + '/assets/' + assetId;
+    }
+    function campaignMetadataOwner(campaignId, assetId) {
+      return assetExists(assetId) && campaignExists(campaignId) &&
+        assetData(assetId).id == assetId && assetData(assetId).campaignId == campaignId &&
+        assetData(assetId).storagePath == 'campaigns/' + campaignId + '/assets/' + assetId &&
+        assetData(assetId).ownerUid == firestore.get(/databases/(default)/documents/campaigns/$(campaignId)).data.ownerUid;
+    }
+    function metadataUnchanged() {
+      return resource.metadata.sha256 == request.resource.metadata.sha256 &&
+        resource.metadata.ownerUid == request.resource.metadata.ownerUid &&
+        (('campaignId' in resource.metadata) == ('campaignId' in request.resource.metadata)) &&
+        (!('campaignId' in resource.metadata) ||
+          resource.metadata.campaignId == request.resource.metadata.campaignId) &&
+        resource.contentType == request.resource.contentType;
+    }
+
+    match /users/{uid}/assets/{assetId} {
+      allow read: if self(uid) && privateMetadataOwner(uid, assetId);
+      allow create: if self(uid) && allowedImage() && privateMetadataOwner(uid, assetId) && metadataMatches(assetId);
+      allow update: if self(uid) && allowedImage() && privateMetadataOwner(uid, assetId) &&
+        metadataMatches(assetId) && metadataUnchanged();
+      allow delete: if self(uid) && privateMetadataOwner(uid, assetId);
+    }
+
+    match /campaigns/{campaignId}/assets/{assetId} {
+      allow read: if campaignReader(campaignId) && campaignMetadataOwner(campaignId, assetId);
+      // Jogadores leem; somente o mestre mantém bytes compartilhados.
+      allow create: if campaignOwner(campaignId) && allowedImage() &&
+        campaignMetadataOwner(campaignId, assetId) && request.resource.metadata.campaignId == campaignId &&
+        metadataMatches(assetId);
+      allow update: if campaignOwner(campaignId) && allowedImage() &&
+        campaignMetadataOwner(campaignId, assetId) && request.resource.metadata.campaignId == campaignId &&
+        metadataMatches(assetId) && metadataUnchanged();
+      allow delete: if campaignOwner(campaignId) && campaignMetadataOwner(campaignId, assetId);
+    }
+
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

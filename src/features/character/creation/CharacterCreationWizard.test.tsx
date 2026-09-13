@@ -46,6 +46,26 @@ function catalog(): CreationCatalog {
 }
 
 describe("CharacterCreationWizard", () => {
+  it("expõe opções para uma escolha dinâmica de idioma", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), rulesetRef, createdAt: now,
+      partial: {
+        name: "Artemis", raceRef: ref("human"), backgroundRef: ref("soldier"),
+        classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }],
+        abilityGeneration: { method: "standard-array", baseScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 } },
+      },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={catalog()} />);
+    try {
+      const language = [...mounted.container.querySelectorAll("select")].find((select) => [...select.options].some((option) => option.value === "elvish")) as HTMLSelectElement | undefined;
+      expect(language).toBeDefined();
+      expect([...language?.options ?? []].map((option) => option.value)).toContain("elvish");
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
   it("começa pela identidade, bloqueia avanço inválido e preserva escolhas ao voltar", async () => {
     const mounted = await mount(<CharacterCreationWizard draft={draft()} catalog={catalog()} />);
     expect(mounted.container.textContent).toContain("Identidade");

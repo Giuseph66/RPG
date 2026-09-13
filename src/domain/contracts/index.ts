@@ -1,6 +1,7 @@
 export const CONTRACTS_VERSION = "1.0.0";
 
 export * from "./ids";
+export * from "./cloud-sync";
 export * from "./primitives";
 export * from "./versioning";
 export * from "./errors";

@@ -6,6 +6,7 @@ import { appError, err, ok, type AppError, type Result } from "@domain/contracts
 import { type DefinitionRef } from "@domain/contracts/ids";
 import { asCentimeters, type Ability, type Centimeters, type Skill, type SourceRef } from "@domain/contracts/primitives";
 import { type RuleContext } from "@domain/contracts/rules";
+import { deriveEquipmentImpact } from "@domain/inventory/impact";
 import {
   ABILITIES,
   SKILL_ABILITY,
@@ -196,32 +197,6 @@ function deriveSaves(
     result.push({ ability, modifier: save.value, proficient });
   }
   return ok(result);
-}
-
-function deriveArmorClass(
-  character: Character,
-  pack: RulePack,
-  dexterity: Explanation<number>,
-  armor: { readonly armor?: EquipmentDefinition; readonly shield?: EquipmentDefinition },
-  modifiers: readonly AppliedModifier[],
-): Result<Explanation<number>, AppError> {
-  const baseSource = sourceRef(pack);
-  let base = 10 + dexterity.value;
-  const contributions: Contribution[] = [contribution(baseSource, 10, "CA sem armadura"), ...dexterity.contributions];
-  if (armor.armor?.armor) {
-    const details = armor.armor.armor;
-    const dexContribution = details.dexModifierCap === undefined ? dexterity.value : Math.min(dexterity.value, details.dexModifierCap);
-    base = details.baseArmorClass + dexContribution;
-    contributions.splice(0, contributions.length,
-      contribution({ rulesetId: pack.manifest.id, entityId: armor.armor.id }, details.baseArmorClass, "fórmula da armadura equipada"),
-      contribution({ rulesetId: pack.manifest.id, entityId: armor.armor.id }, dexContribution, "modificador de Destreza permitido pela armadura"),
-    );
-  }
-  if (armor.shield?.armor) {
-    base += armor.shield.armor.baseArmorClass;
-    contributions.push(contribution({ rulesetId: pack.manifest.id, entityId: armor.shield.id }, armor.shield.armor.baseArmorClass, "escudo empunhado"));
-  }
-  return numeric(base, matchingModifiers(modifiers, { kind: "armor-class" }), contributions);
 }
 
 function deriveHp(
@@ -447,7 +422,19 @@ export function deriveCharacter(
   if (!savesResult.ok) return savesResult;
   const initiative = numeric(modifierByAbility(abilitiesResult.value, "dex").value, matchingModifiers(effectiveRules.modifiers, { kind: "initiative" }), modifierByAbility(abilitiesResult.value, "dex").contributions);
   if (!initiative.ok) return initiative;
-  const armorClass = deriveArmorClass(character, rulePack, modifierByAbility(abilitiesResult.value, "dex"), armorResult.value, effectiveRules.modifiers);
+  const dexterity = modifierByAbility(abilitiesResult.value, "dex");
+  const strengthScore = abilitiesResult.value.find((entry) => entry.ability === "str")?.score.value;
+  if (strengthScore === undefined) return err(appError.unresolvedRule("Habilidade Força não foi derivada."));
+  // Inventory impact is the single source for equipped armor/shield math. Its
+  // proficiency output receives only explicit refs collected from the sheet;
+  // it never assumes proficiency from merely equipping an item.
+  const equipmentImpact = deriveEquipmentImpact(character, rulePack, {
+    dexterityModifier: dexterity.value,
+    strengthScore,
+    proficiencyRefs: effectiveRules.proficiencyRefs,
+  });
+  if (!equipmentImpact.ok) return equipmentImpact;
+  const armorClass = numeric(equipmentImpact.value.armorClass.value, matchingModifiers(effectiveRules.modifiers, { kind: "armor-class" }), equipmentImpact.value.armorClass.contributions);
   if (!armorClass.ok) return armorClass;
   const hitPoints = deriveHp(character, abilitiesResult.value, rulePack, total, effectiveRules.modifiers);
   if (!hitPoints.ok) return hitPoints;

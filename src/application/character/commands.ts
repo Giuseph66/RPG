@@ -5,11 +5,17 @@ import { type Clock } from "@application/ports/clock";
 import { type CharacterRepository } from "@application/ports/character-repository";
 import { type DiceHistoryRepository } from "@application/ports/dice-history-repository";
 import { type UnitOfWork } from "@application/ports/unit-of-work";
+import { toJsonSnapshot, type SyncOutboxService } from "@application/sync";
+import { type IdGenerator } from "@application/ports/id-generator";
 
 export interface CharacterCommandServiceDependencies {
   readonly characterRepository: CharacterRepository;
   readonly diceHistoryRepository?: DiceHistoryRepository;
   readonly unitOfWork?: UnitOfWork;
+  /** Outbox opcional: ausência preserva a composição local-only. */
+  readonly syncOutbox?: SyncOutboxService;
+  /** Necessário para mutações diretas do store publicarem operações próprias. */
+  readonly idGenerator?: IdGenerator;
   readonly clock: Clock;
 }
 
@@ -53,6 +59,19 @@ export class CharacterCommandService {
           );
           if (!appended.ok) return appended;
         }
+      }
+      if (this.dependencies.syncOutbox) {
+        const createdAt = this.dependencies.clock.now();
+        const queued = await this.dependencies.syncOutbox.enqueue({
+          operationId: command.commandId,
+          aggregateType: "character",
+          aggregateId: command.characterId,
+          mutation: "upsert",
+          baseRevision: command.expectedRevision,
+          payload: toJsonSnapshot({ ...result.nextState, revision: saved.value, updatedAt: createdAt }),
+          createdAt,
+        }, context);
+        if (!queued.ok) return err(queued.error);
       }
       return saved;
     };

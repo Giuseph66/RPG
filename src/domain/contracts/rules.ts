@@ -149,6 +149,15 @@ export interface ConsumeItemPayload {
   readonly equipmentRef: DefinitionRef;
 }
 
+export interface ApplyConditionPayload {
+  readonly conditionInstance: ConditionInstance;
+}
+
+export interface RemoveConditionPayload {
+  readonly conditionInstanceId: Uuid;
+  readonly sourceRef?: DefinitionRef;
+}
+
 export interface UpdateChoicesPayload {
   readonly selections: readonly ChoiceSelection[];
 }
@@ -173,6 +182,8 @@ export type Command =
   | CommandEnvelope<"rest", RestPayload>
   | CommandEnvelope<"equip-item", EquipItemPayload>
   | CommandEnvelope<"consume-item", ConsumeItemPayload>
+  | CommandEnvelope<"apply-condition", ApplyConditionPayload>
+  | CommandEnvelope<"remove-condition", RemoveConditionPayload>
   | CommandEnvelope<"update-choices", UpdateChoicesPayload>
   | CommandEnvelope<"level-up", LevelUpPayload>;
 

@@ -1,6 +1,6 @@
 import { Input, Select } from "@components/ui";
 import type { DiceExpression } from "@domain/contracts/dice";
-import type { DiceFaces } from "@domain/contracts/primitives";
+import { DICE_FACES, type DiceFaces } from "@domain/contracts/primitives";
 import styles from "./dice.module.css";
 
 export interface DiceSelectorProps {
@@ -22,7 +22,7 @@ export function DiceSelector({ expression, onQuantityChange, onFacesChange, onMo
   return (
     <div className={styles.selectorGrid}>
       <DiceQuantitySelector value={expression.quantity} onChange={onQuantityChange} />
-      <Select label="Faces" value={String(expression.faces)} onChange={(event) => onFacesChange(Number(event.target.value) as DiceFaces)} options={[4, 6, 8, 10, 12, 20, 100].map((faces) => ({ value: String(faces), label: `d${faces}` }))} />
+      <Select label="Faces" value={String(expression.faces)} onChange={(event) => onFacesChange(Number(event.target.value) as DiceFaces)} options={DICE_FACES.map((faces) => ({ value: String(faces), label: `d${faces}` }))} />
       <DiceModifierSelector value={expression.modifier} onChange={onModifierChange} />
     </div>
   );

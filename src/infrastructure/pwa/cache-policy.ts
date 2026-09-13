@@ -4,7 +4,7 @@
  * O worker usa estes nomes para nunca tocar em caches de domínio ou em
  * IndexedDB. A versão precisa mudar quando o shell/worker publicado mudar.
  */
-export const PWA_VERSION = "2026.09.11";
+export const PWA_VERSION = "2026.09.12";
 export const PWA_WORKER_URL = "/pwa-worker.js";
 export const PWA_MANIFEST_URL = "/manifest.webmanifest";
 

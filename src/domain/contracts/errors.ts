@@ -69,6 +69,22 @@ export interface UnresolvedRuleError {
   readonly sourceRef?: SourceRef;
 }
 
+/** Erros explícitos dos casos de uso de conta e participação em campanha. */
+export type MembershipErrorCode =
+  | "membership-unauthenticated"
+  | "membership-forbidden"
+  | "membership-not-found"
+  | "membership-invalid-state"
+  | "membership-validation"
+  | "membership-unavailable";
+
+export interface MembershipError {
+  readonly code: MembershipErrorCode;
+  readonly message: string;
+  readonly campaignId?: string;
+  readonly accountId?: string;
+}
+
 /** União fechada de erros de aplicação/infraestrutura. Distinta de RuleError (rules.ts), que
  * cobre rejeições de domínio dentro de um RuleResult. */
 export type AppError =
@@ -80,7 +96,8 @@ export type AppError =
   | UnsupportedSchemaError
   | MissingRulesetError
   | CorruptRecordError
-  | UnresolvedRuleError;
+  | UnresolvedRuleError
+  | MembershipError;
 
 export type Result<T, E = AppError> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: E };
 

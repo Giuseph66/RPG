@@ -4,6 +4,6 @@ coverage/
 .vite/
 node_modules/.tmp/
 *.tsbuildinfo
-.playwright-cli
+*playwright*
 .env
 *.log

@@ -8,6 +8,7 @@ ADRs descrevem decisões adotadas para este plano; não provam implementação. 
 - [ADR-0004 — regras e contratos](ADR-0004-rules-engine.md).
 - [ADR-0005 — identidade da fonte](ADR-0005-fonte-local.md).
 - [ADR-0006 — orquestração de agentes](ADR-0006-orquestracao-agentes.md).
+- [ADR-0007 — PWA offline-first com Firebase opcional (CLOUD-001)](ADR-0007-cloud-sync.md).
 - [Pendências](PENDENCIAS.md).
 
 Registro mínimo: ID, contexto, decisão, alternativas, consequências, evidência, impacto nos consumidores. Não resolver divergência alterando apenas uma tela. [Decisões de swarm](../swarm/DECISIONS.md) registram integração e apontam estes ADRs.

@@ -8,7 +8,7 @@ import type { CharacterSummary } from "@domain/contracts/character";
 import type { Campaign } from "@domain/contracts/campaign";
 import type { JournalDraft, JournalDraftState } from "@domain/campaign/journal";
 import { createJournalDraft, draftFromJournalEntry } from "@domain/campaign/journal";
-import { asUuid, isUuid } from "@domain/contracts/ids";
+import { asAccountId, asUuid, isUuid } from "@domain/contracts/ids";
 import { parseBackupJson, serializeBackup } from "@application/transfer";
 import type { RecoveryRecordView } from "@application/transfer/types";
 import type { DataManagementIntent } from "@features/data-management";
@@ -31,6 +31,9 @@ const LazyJournalWorkspace = lazy(() => import("@features/journey/journal").then
 const LazyCompendium = lazy(() => import("@features/compendium").then((module) => ({ default: module.Compendium })));
 const LazyDataManagementPanel = lazy(() => import("@features/data-management").then((module) => ({ default: module.DataManagementPanel })));
 const LazySettingsPanel = lazy(() => import("@features/settings").then((module) => ({ default: module.SettingsPanel })));
+const LazyAccountPanel = lazy(() => import("@features/account").then((module) => ({ default: module.AccountPanel })));
+const LazyCollaborationPanel = lazy(() => import("@features/collaboration").then((module) => ({ default: module.CollaborationPanel })));
+const LazySessionPanel = lazy(() => import("@features/session").then((module) => ({ default: module.SessionPanel })));
 
 function RouteLoadingFallback() {
   return <section aria-live="polite" aria-busy="true"><h1>Carregando destino</h1><InlineStatus tone="info">Preparando a tela local…</InlineStatus></section>;
@@ -283,6 +286,64 @@ function DataManagementRoute({ registry, character, campaign }: { readonly regis
   return <Suspense fallback={<section aria-live="polite"><h1>Backup e recuperação</h1><InlineStatus tone="info">Carregando ferramentas de dados locais…</InlineStatus></section>}><LazyDataManagementPanel characterId={character?.value?.id} campaignId={campaign?.value?.id} status={status} error={error} preview={preview} pendingEnvelope={pendingEnvelope} recovery={recovery} onIntent={onIntent} /></Suspense>;
 }
 
+function AccountRoute({ registry, navigate }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void }) {
+  const Account = LazyAccountPanel;
+  return <Account {...registry.account.bindProps({ onBackToLocal: () => navigate("/character") })} />;
+}
+
+function CollaborationRoute({ registry, campaign, navigate }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void }) {
+  const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
+  const [characters, setCharacters] = useState<readonly CharacterSummary[]>([]);
+  useEffect(() => {
+    let active = true;
+    void registry.journey.service.list().then((result) => { if (active && result.ok) setCampaigns(result.value); });
+    return () => { active = false; };
+  }, [registry.journey.service]);
+  useEffect(() => {
+    let active = true;
+    if (!registry.character.list) { setCharacters([]); return () => { active = false; }; }
+    void registry.character.list().then((result) => { if (active && result.ok) setCharacters(result.value); });
+    return () => { active = false; };
+  }, [registry.character.list]);
+  const Component = LazyCollaborationPanel;
+  const session = registry.account.auth?.currentSession() ?? null;
+  return <Component
+    membership={registry.membership}
+    session={session}
+    campaigns={campaigns.map((item) => ({ id: item.id, name: item.name }))}
+    characters={characters}
+    activeCampaignId={campaign?.value?.id}
+    onOpenSession={(id) => navigate(`/session/${id}`)}
+    onLinkCharacter={(characterId, campaignId, expectedRevision) => registry.character.service.linkToCampaign(characterId, campaignId, expectedRevision)}
+    onUnlinkCharacter={(characterId, campaignId, expectedRevision) => registry.character.service.unlinkFromCampaign(characterId, campaignId, expectedRevision)}
+  />;
+}
+
+function SessionRoute({ registry, match }: { readonly registry: FeatureRegistry; readonly match: RouteMatch }) {
+  const campaignId = match.params.campaignId;
+  const session = registry.account.auth?.currentSession() ?? null;
+  const activeCampaignId = campaignId && isUuid(campaignId) ? asUuid(campaignId) : undefined;
+  const [characters, setCharacters] = useState<readonly import("@features/session").SessionCharacterOption[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (!activeCampaignId || !registry.character.list) {
+      setCharacters([]);
+      return () => { active = false; };
+    }
+    void registry.character.list().then((result) => {
+      if (!active || !result.ok) return;
+      const playerId = session ? asAccountId(session.uid) : registry.session?.localActor()?.accountId;
+      if (!playerId) { setCharacters([]); return; }
+      setCharacters(result.value
+        .filter((character) => character.campaignId === activeCampaignId)
+        .map((character) => ({ id: character.id, name: character.name, playerId })));
+    });
+    return () => { active = false; };
+  }, [activeCampaignId, registry.character.list, registry.session, session]);
+  const Component = LazySessionPanel;
+  return <Component session={registry.session} authSession={session} campaignId={activeCampaignId} characters={characters} />;
+}
+
 function campaignStatus(status: StoreStatus | undefined): "idle" | "loading" | "error" | "saving" {
   if (status === "hydrating") return "loading";
   if (status === "saving" || status === "dirty") return "saving";
@@ -406,7 +467,10 @@ function renderRegistryRoute(
   if (match.kind === "compendium") {
     return <CompendiumRoute registry={registry} />;
   }
+  if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} />;
+  if (match.kind === "session") return <SessionRoute registry={registry} match={match} />;
   if (match.kind === "data") return <DataManagementRoute registry={registry} character={character} campaign={campaign} />;
+  if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} />;
   return undefined;
 }
 
@@ -435,7 +499,7 @@ export function useAppNavigation(initialPath?: string): AppNavigation {
 /** Small History API router: keeps the shell usable without adding a package. */
 export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, navigation.navigate) : undefined) ?? (navigation.match.kind === "settings" ? <><LazySettingsPanel store={shellProps.settingsStore} /> {registry ? <DataManagementRoute registry={registry} character={character} campaign={campaign} /> : null}</> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, navigation.navigate) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <><LazySettingsPanel store={shellProps.settingsStore} /> {registry ? <DataManagementRoute registry={registry} character={character} campaign={campaign} /> : null}</> : undefined);
 
   return (
     <AppShell

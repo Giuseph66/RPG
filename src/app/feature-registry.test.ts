@@ -48,5 +48,6 @@ describe("feature registry", () => {
     expect(registry.actions.pendingDependencies).toContain("ActionDispatcher (dispatcher de comandos CORE-002 pendente)");
     expect(registry.inventory.pendingDependencies).toContain("InventoryDispatcher (comandos de inventário pendentes)");
     expect(registry.dice.pendingDependencies).toContain("DiceOverlayController (overlay global pendente)");
+    expect(registry.journey.pendingDependencies).not.toContain("Map/asset read model e callbacks de mapa devem ser fornecidos pela composição da Jornada");
   });
 });

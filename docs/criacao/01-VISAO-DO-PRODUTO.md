@@ -30,4 +30,4 @@ Direção visual: dark fantasy natural, com carvão, pedra, madeira, metal envel
 
 ## Fontes e limites
 
-Requisitos de produto: briefing fornecido. Mecânicas: [Livro do Jogador](../Livro%20do%20Jogador.pdf), edição vinculada ao arquivo, não ao nome comercial presumido. Organização da ficha: [PDF de três páginas](../Ficha%20de%20Personagem%20em%20branco.pdf). Dados da campanha são locais, sem autenticação, sincronização, servidor de aplicação ou APIs obrigatórias.
+Requisitos de produto: briefing fornecido. Mecânicas: [Livro do Jogador](../Livro%20do%20Jogador.pdf), edição vinculada ao arquivo, não ao nome comercial presumido. Organização da ficha: [PDF de três páginas](../Ficha%20de%20Personagem%20em%20branco.pdf). Dados da campanha funcionam localmente sem rede. Quando o usuário optar por uma conta, Firebase Authentication, Firestore e Cloud Storage fornecem sincronização assíncrona e relações entre mestre e jogadores; IndexedDB continua sendo a escrita imediata e o caminho operacional offline. A capacidade remota é opcional e só será anunciada após configuração e validação de segurança.

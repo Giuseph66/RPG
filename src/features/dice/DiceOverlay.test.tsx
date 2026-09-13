@@ -54,9 +54,14 @@ describe("DiceOverlay", () => {
     const { container, unmount } = await mount(<DiceOverlay controller={dice} />);
     await act(async () => {
       dice.open({ source: "fab" });
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      await new Promise((resolve) => setTimeout(resolve, 250));
     });
+
+    const limite = Date.now() + 2_000;
+    while (!container.querySelector("canvas") && Date.now() < limite) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      });
+    }
     expect(container.querySelector("canvas")).not.toBeNull();
     await unmount();
   });

@@ -1,0 +1,205 @@
+// Firestore Security Rules — CLOUD-001 / ADR-0007.
+// O cliente só acessa dados da própria conta e campanhas de que é membro.
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function campaignExists(id) {
+      return exists(/databases/$(database)/documents/campaigns/$(id));
+    }
+    function campaignOwner(id) {
+      return signedIn() && campaignExists(id) &&
+        get(/databases/$(database)/documents/campaigns/$(id)).data.ownerUid == request.auth.uid;
+    }
+    function memberExists(id, uid) {
+      return exists(/databases/$(database)/documents/campaigns/$(id)/members/$(uid));
+    }
+    function activeMember(id, uid) {
+      return memberExists(id, uid) &&
+        get(/databases/$(database)/documents/campaigns/$(id)/members/$(uid)).data.status == 'active';
+    }
+    function campaignMember(id) {
+      return signedIn() && (campaignOwner(id) || activeMember(id, request.auth.uid));
+    }
+    function protectedFieldsUnchanged(before, after) {
+      return before.ownerUid == after.ownerUid && before.createdAt == after.createdAt;
+    }
+    function revisionAdvances(before, after) {
+      return ('revision' in before) && ('revision' in after) && after.revision > before.revision;
+    }
+    function hasIdentity(data) {
+      return data.ownerUid is string && data.createdAt is timestamp &&
+        data.revision is int && data.schemaVersion is int;
+    }
+    function hasRecordIdentity(data, id) {
+      return hasIdentity(data) && data.id is string && data.id == id;
+    }
+    function hasCampaignRecordIdentity(data, campaignId, id) {
+      return hasRecordIdentity(data, id) && data.campaignId is string &&
+        data.campaignId == campaignId;
+    }
+    function assetPathMatches(data, assetId) {
+      return data.storagePath is string &&
+        (('campaignId' in data) && data.campaignId is string
+          ? data.storagePath == 'campaigns/' + data.campaignId + '/assets/' + assetId
+          : !('campaignId' in data) && data.storagePath == 'users/' + data.ownerUid + '/assets/' + assetId);
+    }
+    function assetImmutableFieldsUnchanged(before, after) {
+      return before.id == after.id && before.ownerUid == after.ownerUid &&
+        before.createdAt == after.createdAt && before.hash == after.hash &&
+        before.storagePath == after.storagePath &&
+        (('campaignId' in before) == ('campaignId' in after)) &&
+        (!('campaignId' in before) || before.campaignId == after.campaignId);
+    }
+
+    match /users/{uid} {
+      allow read: if self(uid);
+      allow create: if self(uid) && request.resource.data.uid == uid;
+      allow update: if self(uid) && resource.data.uid == uid &&
+        request.resource.data.uid == uid && request.resource.data.uid == resource.data.uid &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+
+      match /characters/{characterId} {
+        allow read: if self(uid) && resource.data.ownerUid == uid &&
+          hasRecordIdentity(resource.data, characterId);
+        allow create: if self(uid) && hasRecordIdentity(request.resource.data, characterId) &&
+          request.resource.data.ownerUid == uid;
+        allow update: if self(uid) && hasRecordIdentity(resource.data, characterId) &&
+          hasRecordIdentity(request.resource.data, characterId) && resource.data.ownerUid == uid &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if self(uid) && resource.data.ownerUid == uid &&
+          hasRecordIdentity(resource.data, characterId);
+      }
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if campaignMember(campaignId) && resource.data.id == campaignId;
+      allow create: if signedIn() && hasRecordIdentity(request.resource.data, campaignId) &&
+        request.resource.data.ownerUid == request.auth.uid;
+      allow update: if campaignOwner(campaignId) && resource.data.id == campaignId &&
+        request.resource.data.id == campaignId && protectedFieldsUnchanged(resource.data, request.resource.data) &&
+        revisionAdvances(resource.data, request.resource.data);
+      allow delete: if campaignOwner(campaignId) && resource.data.id == campaignId;
+
+      match /members/{memberUid} {
+        allow read: if campaignOwner(campaignId) || self(memberUid);
+        // O proprietário também materializa seu vínculo de mestre. Nenhuma outra
+        // conta pode criar um segundo mestre ou alterar a identidade do vínculo.
+        allow create: if campaignOwner(campaignId) &&
+          request.resource.data.campaignId == campaignId &&
+          request.resource.data.accountId == memberUid &&
+          request.resource.data.ownerUid == request.auth.uid &&
+           ((request.resource.data.role == 'master' && memberUid == request.auth.uid &&
+            request.resource.data.status == 'active' && request.resource.data.invitedBy == request.auth.uid) ||
+           (request.resource.data.role == 'player' && request.resource.data.status == 'invited' &&
+            request.resource.data.invitedBy == request.auth.uid &&
+            request.resource.data.inviteExpiresAt is timestamp &&
+            request.resource.data.inviteExpiresAt > request.time));
+        // O mestre pode revogar/manter um jogador. O convidado só aceita o próprio convite.
+        allow update: if (campaignOwner(campaignId) && request.resource.data.role == 'player' &&
+          resource.data.campaignId == campaignId && resource.data.accountId == memberUid &&
+          request.resource.data.campaignId == campaignId &&
+          request.resource.data.accountId == memberUid &&
+          request.resource.data.ownerUid == resource.data.ownerUid &&
+          request.resource.data.invitedBy == resource.data.invitedBy &&
+          request.resource.data.status in ['invited', 'active', 'revoked'] &&
+          (request.resource.data.status != 'invited' ||
+            (request.resource.data.inviteExpiresAt is timestamp && request.resource.data.inviteExpiresAt > request.time)) &&
+          revisionAdvances(resource.data, request.resource.data)) ||
+          (self(memberUid) && resource.data.status == 'invited' && resource.data.role == 'player' &&
+            request.resource.data.status == 'active' && request.resource.data.role == 'player' &&
+            resource.data.campaignId == campaignId && resource.data.accountId == memberUid &&
+            request.resource.data.campaignId == campaignId &&
+            request.resource.data.accountId == memberUid &&
+            request.resource.data.ownerUid == resource.data.ownerUid &&
+            request.resource.data.invitedBy == resource.data.invitedBy &&
+            resource.data.inviteExpiresAt is timestamp &&
+            resource.data.inviteExpiresAt > request.time &&
+            request.resource.data.inviteExpiresAt == resource.data.inviteExpiresAt &&
+            revisionAdvances(resource.data, request.resource.data));
+        allow delete: if campaignOwner(campaignId) && resource.data.campaignId == campaignId &&
+          resource.data.accountId == memberUid && resource.data.role == 'player';
+      }
+
+      match /characters/{characterId} {
+        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, characterId);
+        allow create: if activeMember(campaignId, request.auth.uid) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, characterId) &&
+          request.resource.data.ownerUid == request.auth.uid;
+        allow update: if campaignMember(campaignId) &&
+          hasCampaignRecordIdentity(resource.data, campaignId, characterId) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, characterId) &&
+          resource.data.ownerUid == request.auth.uid &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignMember(campaignId) &&
+          hasCampaignRecordIdentity(resource.data, campaignId, characterId) &&
+          resource.data.ownerUid == request.auth.uid;
+      }
+
+      match /journals/{journalId} {
+        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, journalId);
+        allow create: if activeMember(campaignId, request.auth.uid) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, journalId) &&
+          request.resource.data.ownerUid == request.auth.uid;
+        allow update: if campaignMember(campaignId) &&
+          hasCampaignRecordIdentity(resource.data, campaignId, journalId) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, journalId) &&
+          resource.data.ownerUid == request.auth.uid &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignMember(campaignId) &&
+          hasCampaignRecordIdentity(resource.data, campaignId, journalId) &&
+          resource.data.ownerUid == request.auth.uid;
+      }
+
+      match /maps/{mapId} {
+        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, mapId);
+        allow create: if campaignOwner(campaignId) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, mapId) &&
+          request.resource.data.ownerUid == request.auth.uid;
+        allow update: if campaignOwner(campaignId) &&
+          hasCampaignRecordIdentity(resource.data, campaignId, mapId) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, mapId) &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) &&
+          revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, mapId);
+      }
+
+      match /sessions/{sessionId} {
+        // Session notes and attendance are campaign data. Active members can
+        // read them; only the campaign master can mutate them.
+        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, sessionId);
+        allow create: if campaignOwner(campaignId) && hasIdentity(request.resource.data) &&
+          request.resource.data.ownerUid == request.auth.uid &&
+          request.resource.data.campaignId == campaignId && request.resource.data.id == sessionId;
+        allow update: if campaignOwner(campaignId) && resource.data.ownerUid == request.auth.uid &&
+          request.resource.data.campaignId == resource.data.campaignId &&
+          request.resource.data.id == resource.data.id &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignOwner(campaignId) && resource.data.ownerUid == request.auth.uid &&
+          hasCampaignRecordIdentity(resource.data, campaignId, sessionId);
+      }
+    }
+
+    match /assets/{assetId} {
+      allow read: if signedIn() && resource.data.id == assetId && assetPathMatches(resource.data, assetId) &&
+        (resource.data.ownerUid == request.auth.uid ||
+          (resource.data.campaignId is string && campaignMember(resource.data.campaignId)));
+      allow create: if signedIn() && hasIdentity(request.resource.data) &&
+        request.resource.data.id == assetId && request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.hash is string && assetPathMatches(request.resource.data, assetId) &&
+        (!('campaignId' in request.resource.data) || campaignMember(request.resource.data.campaignId));
+      allow update: if signedIn() && hasIdentity(resource.data) && hasIdentity(request.resource.data) &&
+        resource.data.id == assetId && request.resource.data.id == assetId &&
+        resource.data.ownerUid == request.auth.uid && assetPathMatches(resource.data, assetId) &&
+        assetPathMatches(request.resource.data, assetId) && assetImmutableFieldsUnchanged(resource.data, request.resource.data) &&
+        protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data) &&
+        (!('campaignId' in request.resource.data) || campaignMember(request.resource.data.campaignId));
+      allow delete: if signedIn() && resource.data.id == assetId && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

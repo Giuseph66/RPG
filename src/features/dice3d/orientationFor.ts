@@ -69,6 +69,38 @@ function yawQuat(rad: number): Quat {
 }
 
 /**
+ * Direção, **no referencial do próprio dado**, que precisa apontar para o céu
+ * (+Y do mundo) para o dado exibir `value`.
+ *
+ * É a inversa exata da regra de `lerDado`:
+ * - `top`   → a normal da face vale como "pra cima";
+ * - `bottom`→ a face fica apoiada, então quem aponta pra cima é a normal
+ *             invertida;
+ * - `apex`  → não é face nenhuma, é o vértice numerado.
+ *
+ * Serve de alvo tanto para `orientationForValue` quanto para o alinhamento
+ * iterativo da mesa física (`DiceTable`), que compara esta direção com a que
+ * de fato ficou pra cima ao fim da simulação.
+ */
+export function upDirectionForValue(meta: DieMeta, value: number): Vec3 {
+  if (meta.readout === "apex") {
+    const points = meta.vertexPoints;
+    const values = meta.vertexValues;
+    if (!points || !values) {
+      throw new Error(`Dado "${meta.id}" é apex mas não tem vertexPoints/vertexValues`);
+    }
+    const i = values.indexOf(value);
+    if (i < 0) throw new Error(`Dado "${meta.id}" não tem o valor ${value}`);
+    return normalize(points[i]);
+  }
+
+  const i = meta.values.indexOf(value);
+  if (i < 0) throw new Error(`Dado "${meta.id}" não tem o valor ${value}`);
+  const n = normalize(meta.faceNormals[i]);
+  return meta.readout === "bottom" ? [-n[0], -n[1], -n[2]] : n;
+}
+
+/**
  * Orientação que faz o dado assentar mostrando `value`, respeitando a
  * convenção de leitura do dado (topo / base / ápice — ver `readout.ts`).
  *
@@ -83,20 +115,5 @@ export function orientationForValue(
   random: () => number = Math.random,
 ): Quat {
   const yaw = yawQuat(random() * Math.PI * 2);
-
-  if (meta.readout === "apex") {
-    const points = meta.vertexPoints;
-    const values = meta.vertexValues;
-    if (!points || !values) {
-      throw new Error(`Dado "${meta.id}" é apex mas não tem vertexPoints/vertexValues`);
-    }
-    const i = values.indexOf(value);
-    if (i < 0) throw new Error(`Dado "${meta.id}" não tem o valor ${value}`);
-    return multiplyQuat(yaw, quatBetween(points[i], [0, 1, 0]));
-  }
-
-  const i = meta.values.indexOf(value);
-  if (i < 0) throw new Error(`Dado "${meta.id}" não tem o valor ${value}`);
-  const alvo: Vec3 = meta.readout === "bottom" ? [0, -1, 0] : [0, 1, 0];
-  return multiplyQuat(yaw, quatBetween(meta.faceNormals[i], alvo));
+  return multiplyQuat(yaw, quatBetween(upDirectionForValue(meta, value), [0, 1, 0]));
 }

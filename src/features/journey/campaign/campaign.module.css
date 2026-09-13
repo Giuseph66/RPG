@@ -28,4 +28,9 @@
 .recordList p { margin: var(--spacing-xs) 0; color: var(--color-text-muted); font-size: .82rem; }
 .recordMeta, .muted { color: var(--color-text-muted); font-size: .78rem; }
 .muted { margin: 0; }
+.workspace :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
+.workspace :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
+.campaignCard, .activeCampaign { transition: background-color var(--motion-transition) var(--motion-easing), border-color var(--motion-transition) var(--motion-easing); }
+.campaignCard:hover { background: var(--color-surface-elevated); border-color: var(--color-primary); }
+.activeCampaign { background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); }
 @media (max-width: 700px) { .records { grid-template-columns: 1fr; } .panel, .records { padding: var(--spacing-md); } .campaignCard, .activeCampaign { align-items: stretch; flex-direction: column; } }

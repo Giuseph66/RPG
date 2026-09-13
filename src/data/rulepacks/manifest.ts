@@ -110,8 +110,8 @@ export const PHB_PTBR_LOCAL_2017_MANIFEST: RulePackManifest = {
   contentPolicy: CONTENT_POLICY,
   entityCounts: PHB_ENTITY_COUNTS,
   checksums: {
-    race: "62ea6f52",
-    subrace: "f173996e",
+    race: "ac43b3c6",
+    subrace: "5c9dc84a",
     class: "2b9d5b91",
     subclass: "193917db",
     background: "80d1be8a",

@@ -54,6 +54,11 @@ export interface SpendResourceInput extends SpendResourcePayload {
   /** Máximo atual do recurso já derivado (`CharacterDerived.resourceCapacities`); nunca recalculado aqui. */
   readonly capacity: number;
   readonly sourceRef?: DefinitionRef | SourceRef;
+  /**
+   * Vínculo já validado pelo adaptador de composição (classe/feature). O
+   * caminho direto mantém o padrão legado: o dono esperado é o personagem.
+   */
+  readonly ownerInstanceId?: ResourceState["ownerInstanceId"];
 }
 
 /**
@@ -73,7 +78,17 @@ export function spendResource(character: Character, input: SpendResourceInput): 
   }
 
   const resource = character.resources[resourceIndex];
+  const expectedOwner = input.ownerInstanceId ?? character.id;
+  if (resource.ownerInstanceId !== expectedOwner) {
+    return reject("O recurso não pertence ao personagem/instância concedente informada.", "invalid-context", source);
+  }
+  if (!Number.isFinite(resource.spent) || !Number.isInteger(resource.spent) || resource.spent < 0) {
+    return reject("Estado de gasto do recurso é inválido; esperado inteiro não negativo.", "invalid-context", source);
+  }
   const remaining = input.capacity - resource.spent;
+  if (remaining < 0) {
+    return reject("Estado de gasto do recurso excede a capacidade derivada.", "invalid-context", source);
+  }
   if (input.amount > remaining) return reject(`Saldo insuficiente: restam ${remaining} de ${input.capacity}, pedido foi ${input.amount}.`, "insufficient-resource", source);
 
   const newSpent = resource.spent + input.amount;

@@ -106,7 +106,9 @@ function defenseAmount(amount: number, damageType: DamageType, defense: DamageDe
 }
 
 function addConcentrationPending(character: Character, nextHp: number, damage: number, enabled: boolean): Character {
-  if (!enabled || !character.concentration || damage <= 0 || nextHp <= 0) return character;
+  // Dropping to 0 PV is still a damage event. Keep the concentration save
+  // request so the caller can resolve both domain consequences explicitly.
+  if (!enabled || !character.concentration || damage <= 0 || nextHp < 0) return character;
   const description = `Teste de resistência de Constituição para concentração: CD ${Math.max(10, Math.floor(damage / 2))}, por dano recebido ${damage}.`;
   if (character.pendingResolutions.some((pending) => pending.kind === "unresolved-rule" && pending.description === description)) return character;
   return { ...character, pendingResolutions: [...character.pendingResolutions, { kind: "unresolved-rule", description, sourceRef: SOURCE }] };
@@ -135,7 +137,13 @@ export function applyDamage(character: Character, input: ApplyDamageInput): Rule
   if (input.maximumHitPoints !== undefined && (!validAmount(input.maximumHitPoints) || input.maximumHitPoints <= 0)) {
     return reject(character, "Máximo de PV inválido para resolver dano e morte.", "invalid-command", source);
   }
-  const instantDeath = input.maximumHitPoints !== undefined && enteredZero && remaining - before.current >= input.maximumHitPoints;
+  // Massive damage also applies when the character was already at 0 PV.  The
+  // damage event itself is what kills in that state; temporary PV do not turn
+  // damage at 0 PV into a non-lethal hit.
+  const instantDeath = input.maximumHitPoints !== undefined && (
+    (enteredZero && remaining - before.current >= input.maximumHitPoints)
+    || (before.current === 0 && resolved.amount >= input.maximumHitPoints)
+  );
   if (instantDeath) deathSaves = { successes: 0, failures: 3, stable: false };
   const hp: HitPointsState = { current: newCurrent, temp: before.temp - absorbed };
   let nextState: Character = { ...character, hp, deathSaves };
@@ -203,8 +211,10 @@ export function resolveAttack(character: Character, input: ResolveAttackInput): 
 export function resolveDeathSave(character: Character, input: ResolveDeathSavePayload & { readonly natural?: number; readonly total?: number }): RuleResult {
   if (character.hp.current !== 0 || character.deathSaves.stable) return reject(character, "Teste contra a morte só ocorre com 0 PV e estado morrendo.", "invalid-context");
   if (character.deathSaves.failures >= 3) return reject(character, "Personagem já atingiu três falhas e está morto.", "invalid-context");
-  const natural = input.natural ?? input.total;
-  if (typeof natural !== "number" || !Number.isInteger(natural) || natural < 1 || natural > 20) return reject(character, "Resultado natural do teste contra a morte deve estar entre 1 e 20.", "invalid-command");
+  // A total modified by bonuses is not the natural d20.  Callers must pass
+  // the selected die face (the dispatcher extracts it from rawDice).
+  const natural = input.natural;
+  if (typeof natural !== "number" || !Number.isInteger(natural) || natural < 1 || natural > 20) return reject(character, "Resultado natural do teste contra a morte deve vir do dado bruto (rawDice), entre 1 e 20.", "invalid-command");
   const naturalValue = natural as number;
   if (naturalValue === 20) {
     const nextState = { ...character, hp: { ...character.hp, current: 1 }, deathSaves: { successes: 0, failures: 0, stable: false } };

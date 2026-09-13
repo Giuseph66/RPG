@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { asEntityId } from "@domain/contracts/ids";
+import { asEntityId, asUuid } from "@domain/contracts/ids";
 import { minimalCharacter } from "@domain/contracts/fixtures";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { applyLevelUp, buildLevelUpPreview, getProgressionStatus, grantExperience } from ".";
@@ -62,5 +62,24 @@ describe("progressão de personagem", () => {
     expect(grantExperience(minimalCharacter, -1).ok).toBe(false);
     const unavailable = buildLevelUpPreview({ ...minimalCharacter, xp: 300 }, { ...baseRequest, choices: [{ choiceId: "fighter.missing", selectedIds: [], grantedAtLevel: 2, grantingRef: { rulesetId: catalog.manifest.id, entityId: fighter } }] }, catalog);
     expect(unavailable.ok && unavailable.value.pending.some((entry) => entry.code === "invalid-choice")).toBe(true);
+  });
+
+  it("preserva gasto somente da referência de recurso do mesmo ruleset", () => {
+    const classDefinition = catalog.classes.get(fighter)!;
+    const resourceRef = { rulesetId: catalog.manifest.id, entityId: asEntityId("fighter.second-wind") };
+    const customClass = {
+      ...classDefinition,
+      progression: classDefinition.progression.map((entry) => entry.level === 2
+        ? { ...entry, resourceChanges: [{ resourceRef, capacityRule: { kind: "fixed" as const, amount: 1 } }] }
+        : entry),
+    };
+    const custom = { ...catalog, classes: new Map([...catalog.classes, [fighter, customClass]]) };
+    const foreign = { ...minimalCharacter, xp: 300, resources: [{ id: asUuid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"), definitionRef: { rulesetId: "foreign-pack" as never, entityId: resourceRef.entityId }, ownerInstanceId: minimalCharacter.id, spent: 1 }] };
+    const result = applyLevelUp(foreign, { ...baseRequest, mode: "milestone", targetClassLevel: 2 }, custom);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.resources).toHaveLength(2);
+      expect(result.value.resources.some((entry) => entry.definitionRef.rulesetId === catalog.manifest.id && entry.definitionRef.entityId === resourceRef.entityId && entry.spent === 0)).toBe(true);
+    }
   });
 });

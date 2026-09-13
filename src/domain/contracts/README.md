@@ -9,7 +9,7 @@ exige corrigir contrato e consumidores juntos, nunca só o código.
 
 | Arquivo | Conteúdo |
 | --- | --- |
-| `ids.ts` | Brands (`EntityId`, `Uuid`, `RulesetId`, `PackVersion`, `CommandId`, `IsoTimestamp`), helpers `asX`/`isX`, `RulesetRef`, `DefinitionRef`, `TypedDefinitionRef`, `EntityType` |
+| `ids.ts` | Brands (`EntityId`, `Uuid`, `AccountId`, `RulesetId`, `PackVersion`, `CommandId`, `IsoTimestamp`), helpers `asX`/`isX`, `RulesetRef`, `DefinitionRef`, `TypedDefinitionRef`, `EntityType` |
 | `primitives.ts` | `SourceRef`, `DefinitionBase`, `Choice*`, `RuleModifier` (target/operator/value/predicate fechados), `Duration`, `Ability`, `Skill`, `DamageType`, `Size`, `ArmorCategory`, `Currency`, `GameTime`, unidades (`Centimeters`, `Grams`, `CopperPieces`, `DiceFaces`, `DiceFormula`) |
 | `versioning.ts` | `SchemaVersion`, `Revision` (branded, CAS), `AppVersion`; comentário das 4 versões distintas |
 | `errors.ts` | `AppError` (união fechada), `Result`, `ok`/`err`/`isOk`/`isErr`, construtores `appError.*` |
@@ -18,6 +18,7 @@ exige corrigir contrato e consumidores juntos, nunca só o código.
 | `campaign.ts` | `Campaign`, `JournalEntry`, `MapRecord`, `MapPin`, `Asset`, `Quest`, `NpcRecord` |
 | `dice.ts` | `DiceExpression`, `DiceRoll`, `RandomSource`, `RollPlan`, `AbilityScoreRollResult`, `DiceHistoryEntry` |
 | `rules.ts` | `Command` (união por `kind`), `CampaignCommand`, `RuleContext`, `RuleResult` (`success`/`needsInput`/`rejected`), `Effect`, `InputRequest`, `RuleError`, `CommandReceipt` |
+| `cloud-sync.ts` | `Account`, `Membership`, `CampaignRole`, JSON cloneable e `SyncOperation`/estados do outbox |
 | `backup.ts` | `BackupEnvelope`, `ExportedAsset`, `ImportPreview`, `ImportMode` |
 | `definitions/*` | Definitions imutáveis do pack: raça, classe, antecedente, talento, feature, recurso, condição, equipamento, magia, progressão, template, rule pack |
 | `fixtures.ts` | Fixtures de FRONTEIRA de tipo para os testes deste pacote (não são conteúdo canônico do PDF) |

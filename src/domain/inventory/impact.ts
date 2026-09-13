@@ -60,7 +60,9 @@ function armorClassExplanation(
   let value = 10 + dexterityModifier;
   if (armor?.armor) {
     const details = armor.armor;
-    const dex = details.dexModifierCap === undefined ? dexterityModifier : Math.min(dexterityModifier, details.dexModifierCap);
+    const dex = details.armorCategory === "heavy"
+      ? 0
+      : details.dexModifierCap === undefined ? dexterityModifier : Math.min(dexterityModifier, details.dexModifierCap);
     value = details.baseArmorClass + dex;
     contributions.push(
       { sourceRef: { rulesetId, entityId: armor.id }, amount: details.baseArmorClass, description: "fórmula da armadura equipada" },

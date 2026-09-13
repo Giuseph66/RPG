@@ -198,13 +198,28 @@ function idsIn(envelope: BackupEnvelope): string[] {
 }
 function envelopeIds(envelope: BackupEnvelope): string[] {
   const ids = [...envelope.records.characters, ...envelope.records.campaigns, ...envelope.records.journalEntries, ...envelope.records.maps, ...envelope.records.rolls, ...envelope.assets].map((record) => record.id);
+  for (const campaign of envelope.records.campaigns) {
+    for (const quest of campaign.quests) ids.push(quest.id);
+    for (const npc of campaign.npcs) ids.push(npc.id);
+  }
   return ids;
 }
 function brokenReferences(envelope: BackupEnvelope): ImportConflict[] {
   const ids = new Set(idsIn(envelope)); const conflicts: ImportConflict[] = [];
-  for (const character of envelope.records.characters) if (character.campaignId && !ids.has(character.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: character.id, targetId: character.campaignId });
-  for (const campaign of envelope.records.campaigns) for (const id of campaign.characterIds) if (!ids.has(id)) conflicts.push({ kind: "broken-reference", referrerId: campaign.id, targetId: id });
-  for (const map of envelope.records.maps) if (!ids.has(map.assetId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: map.assetId });
+  for (const character of envelope.records.characters) {
+    if (character.campaignId && !ids.has(character.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: character.id, targetId: character.campaignId });
+    if (character.portraitAssetId && !ids.has(character.portraitAssetId)) conflicts.push({ kind: "broken-reference", referrerId: character.id, targetId: character.portraitAssetId });
+  }
+  for (const campaign of envelope.records.campaigns) {
+    for (const id of campaign.characterIds) if (!ids.has(id)) conflicts.push({ kind: "broken-reference", referrerId: campaign.id, targetId: id });
+    for (const npc of campaign.npcs) if (npc.characterRef && !ids.has(npc.characterRef)) conflicts.push({ kind: "broken-reference", referrerId: npc.id, targetId: npc.characterRef });
+  }
+  for (const journalEntry of envelope.records.journalEntries) if (!ids.has(journalEntry.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: journalEntry.id, targetId: journalEntry.campaignId });
+  for (const map of envelope.records.maps) {
+    if (!ids.has(map.assetId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: map.assetId });
+    if (!ids.has(map.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: map.campaignId });
+    for (const pin of map.pins) if (pin.locationId && !ids.has(pin.locationId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: pin.locationId });
+  }
   return conflicts;
 }
 

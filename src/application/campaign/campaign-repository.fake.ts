@@ -21,6 +21,7 @@ import {
   type Quest,
 } from "@domain/contracts/campaign";
 import { type CampaignFilter, type CampaignRepository } from "@application/ports/campaign-repository";
+import { type TransactionContext } from "@application/ports/unit-of-work";
 
 export interface FakeCampaignRepositoryHandle {
   readonly repository: CampaignRepository;
@@ -37,12 +38,12 @@ export function createFakeCampaignRepository(seed: readonly Campaign[] = []): Fa
   let saveCount = 0;
 
   const repository: CampaignRepository = {
-    get: async (id) => {
+    get: async (id, _context?: TransactionContext) => {
       const found = campaigns.get(id);
       return found ? ok(found) : err(appError.notFound("campaign", id));
     },
     list: async (_filter?: CampaignFilter) => ok([...campaigns.values()]),
-    save: async (campaign, expectedRevision): Promise<Result<Revision, AppError>> => {
+    save: async (campaign, expectedRevision, _context?: TransactionContext): Promise<Result<Revision, AppError>> => {
       const existing = campaigns.get(campaign.id);
       if (existing === undefined) {
         if (expectedRevision !== 0) return err(appError.conflict(expectedRevision, asRevision(0)));
@@ -58,14 +59,14 @@ export function createFakeCampaignRepository(seed: readonly Campaign[] = []): Fa
       campaigns.set(campaign.id, { ...campaign, revision: nextRevision });
       return ok(nextRevision);
     },
-    delete: async (id, expectedRevision) => {
+    delete: async (id, expectedRevision, _context?: TransactionContext) => {
       const existing = campaigns.get(id);
       if (!existing) return err(appError.notFound("campaign", id));
       if (existing.revision !== expectedRevision) return err(appError.conflict(expectedRevision, existing.revision));
       campaigns.delete(id);
       return ok(undefined);
     },
-    deleteCampaignAndContent: async (id, expectedRevision) => {
+    deleteCampaignAndContent: async (id, expectedRevision, _context?: TransactionContext) => {
       const existing = campaigns.get(id);
       if (!existing) return err(appError.notFound("campaign", id));
       if (existing.revision !== expectedRevision) return err(appError.conflict(expectedRevision, existing.revision));
@@ -77,33 +78,33 @@ export function createFakeCampaignRepository(seed: readonly Campaign[] = []): Fa
       return ok(undefined);
     },
 
-    getJournalEntry: async (id) => {
+    getJournalEntry: async (id, _context?: TransactionContext) => {
       const found = journalEntries.get(id);
       return found ? ok(found) : err(appError.notFound("journal-entry", id));
     },
-    listJournalEntries: async (campaignId) => ok([...journalEntries.values()].filter((entry) => entry.campaignId === campaignId)),
-    saveJournalEntry: async (entry) => {
+    listJournalEntries: async (campaignId, _context?: TransactionContext) => ok([...journalEntries.values()].filter((entry) => entry.campaignId === campaignId)),
+    saveJournalEntry: async (entry, _context?: TransactionContext) => {
       journalEntries.set(entry.id, entry);
       return ok(entry);
     },
-    deleteJournalEntry: async (id) => {
+    deleteJournalEntry: async (id, _context?: TransactionContext) => {
       journalEntries.delete(id);
       return ok(undefined);
     },
 
-    getMap: async (id) => {
+    getMap: async (id, _context?: TransactionContext) => {
       const found = maps.get(id);
       return found ? ok(found) : err(appError.notFound("map", id));
     },
-    listMaps: async (campaignId) => ok([...maps.values()].filter((map) => map.campaignId === campaignId)),
-    saveMap: async (map, expectedRevision) => {
+    listMaps: async (campaignId, _context?: TransactionContext) => ok([...maps.values()].filter((map) => map.campaignId === campaignId)),
+    saveMap: async (map, expectedRevision, _context?: TransactionContext) => {
       const existing = maps.get(map.id);
       if (existing !== undefined && existing.revision !== expectedRevision) return err(appError.conflict(expectedRevision, existing.revision));
       const nextRevision = existing === undefined ? expectedRevision : asRevision(existing.revision + 1);
       maps.set(map.id, { ...map, revision: nextRevision });
       return ok(nextRevision);
     },
-    deleteMap: async (id, expectedRevision) => {
+    deleteMap: async (id, expectedRevision, _context?: TransactionContext) => {
       const existing = maps.get(id);
       if (!existing) return err(appError.notFound("map", id));
       if (existing.revision !== expectedRevision) return err(appError.conflict(expectedRevision, existing.revision));
@@ -111,44 +112,54 @@ export function createFakeCampaignRepository(seed: readonly Campaign[] = []): Fa
       return ok(undefined);
     },
 
-    addMapPin: async (mapId: Uuid, _pin: MapPin, expectedRevision: Revision) => {
+    addMapPin: async (mapId: Uuid, _pin: MapPin, expectedRevision: Revision, _context?: TransactionContext) => {
       const existing = maps.get(mapId);
       if (!existing) return err(appError.notFound("map", mapId));
       return ok(expectedRevision);
     },
-    updateMapPin: async (mapId: Uuid, _pin: MapPin, expectedRevision: Revision) => {
+    updateMapPin: async (mapId: Uuid, _pin: MapPin, expectedRevision: Revision, _context?: TransactionContext) => {
       const existing = maps.get(mapId);
       if (!existing) return err(appError.notFound("map", mapId));
       return ok(expectedRevision);
     },
-    removeMapPin: async (mapId: Uuid, _pinId: Uuid, expectedRevision: Revision) => {
+    removeMapPin: async (mapId: Uuid, _pinId: Uuid, expectedRevision: Revision, _context?: TransactionContext) => {
       const existing = maps.get(mapId);
       if (!existing) return err(appError.notFound("map", mapId));
       return ok(expectedRevision);
     },
 
-    saveQuest: async (campaignId: Uuid, quest: Quest) => {
+    saveQuest: async (campaignId: Uuid, quest: Quest, expectedRevision: Revision, _context?: TransactionContext) => {
       const campaign = campaigns.get(campaignId);
       if (!campaign) return err(appError.notFound("campaign", campaignId));
+      if (campaign.revision !== expectedRevision) return err(appError.conflict(expectedRevision, campaign.revision));
+      campaigns.set(campaignId, { ...campaign, quests: campaign.quests.some((item) => item.id === quest.id) ? campaign.quests.map((item) => item.id === quest.id ? quest : item) : [...campaign.quests, quest], revision: asRevision(expectedRevision + 1) });
       return ok(quest);
     },
-    deleteQuest: async (campaignId: Uuid) => {
+    deleteQuest: async (campaignId: Uuid, questId: Uuid, expectedRevision: Revision, _context?: TransactionContext) => {
       const campaign = campaigns.get(campaignId);
       if (!campaign) return err(appError.notFound("campaign", campaignId));
+      if (campaign.revision !== expectedRevision) return err(appError.conflict(expectedRevision, campaign.revision));
+      if (!campaign.quests.some((item) => item.id === questId)) return err(appError.notFound("quest", questId));
+      campaigns.set(campaignId, { ...campaign, quests: campaign.quests.filter((item) => item.id !== questId), revision: asRevision(expectedRevision + 1) });
       return ok(undefined);
     },
-    saveNpc: async (campaignId: Uuid, npc: NpcRecord) => {
+    saveNpc: async (campaignId: Uuid, npc: NpcRecord, expectedRevision: Revision, _context?: TransactionContext) => {
       const campaign = campaigns.get(campaignId);
       if (!campaign) return err(appError.notFound("campaign", campaignId));
+      if (campaign.revision !== expectedRevision) return err(appError.conflict(expectedRevision, campaign.revision));
+      campaigns.set(campaignId, { ...campaign, npcs: campaign.npcs.some((item) => item.id === npc.id) ? campaign.npcs.map((item) => item.id === npc.id ? npc : item) : [...campaign.npcs, npc], revision: asRevision(expectedRevision + 1) });
       return ok(npc);
     },
-    deleteNpc: async (campaignId: Uuid) => {
+    deleteNpc: async (campaignId: Uuid, npcId: Uuid, expectedRevision: Revision, _context?: TransactionContext) => {
       const campaign = campaigns.get(campaignId);
       if (!campaign) return err(appError.notFound("campaign", campaignId));
+      if (campaign.revision !== expectedRevision) return err(appError.conflict(expectedRevision, campaign.revision));
+      if (!campaign.npcs.some((item) => item.id === npcId)) return err(appError.notFound("npc", npcId));
+      campaigns.set(campaignId, { ...campaign, npcs: campaign.npcs.filter((item) => item.id !== npcId), revision: asRevision(expectedRevision + 1) });
       return ok(undefined);
     },
 
-    importAtomic: async (input: { readonly map: MapRecord; readonly asset: Asset }) => {
+    importAtomic: async (input: { readonly map: MapRecord; readonly asset: Asset }, _context?: TransactionContext) => {
       maps.set(input.map.id, input.map);
       return ok(input);
     },

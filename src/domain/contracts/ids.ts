@@ -35,6 +35,9 @@ export type PackVersion = Brand<string, "PackVersion">;
 /** Identificador de comando emitido pela aplicação (idempotência). */
 export type CommandId = Brand<string, "CommandId">;
 
+/** Identificador estável de conta remota; não confundir com UUID de agregado local. */
+export type AccountId = Brand<string, "AccountId">;
+
 /** Timestamp ISO-8601 gerado pela aplicação (nunca pelo domínio). */
 export type IsoTimestamp = Brand<string, "IsoTimestamp">;
 
@@ -92,6 +95,18 @@ export function asCommandId(value: string): CommandId {
     throw new Error("CommandId não pode ser vazio.");
   }
   return value as CommandId;
+}
+
+/** Marca um identificador de conta (Firebase UID ou equivalente), sem acoplar o contrato ao SDK. */
+export function asAccountId(value: string): AccountId {
+  if (value.trim().length === 0 || value !== value.trim()) {
+    throw new Error("AccountId deve ser uma string não vazia sem espaços nas extremidades.");
+  }
+  return value as AccountId;
+}
+
+export function isAccountId(value: unknown): value is AccountId {
+  return typeof value === "string" && value.trim().length > 0 && value === value.trim();
 }
 
 export function asIsoTimestamp(value: string): IsoTimestamp {

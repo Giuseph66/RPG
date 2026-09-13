@@ -7,8 +7,11 @@ import { type SettingsRepository } from "@application/ports/settings-repository"
 import { type UnitOfWork } from "@application/ports/unit-of-work";
 import { type Clock } from "@application/ports/clock";
 import { type IdGenerator } from "@application/ports/id-generator";
+import { type OutboxRepository } from "@application/ports/outbox-repository";
+import { createSyncOutboxService } from "@application/sync";
 
 import { createCampaignApplicationService, type CampaignApplicationService } from "@application/campaign";
+import { type CampaignCleanupManifestReader } from "@application/sync";
 import { createCharacterApplicationService, type CharacterApplicationService } from "@application/character";
 import { createDiceApplicationService, type DiceApplicationService } from "@application/dice";
 import { createSettingsApplicationService, type SettingsApplicationService } from "@application/settings";
@@ -22,6 +25,9 @@ export interface ApplicationDependencies {
   readonly unitOfWork?: UnitOfWork;
   readonly clock?: Clock;
   readonly idGenerator?: IdGenerator;
+  /** Outbox opcional: não muda o comportamento da composição local-only. */
+  readonly outboxRepository?: OutboxRepository;
+  readonly cleanupManifestReader?: CampaignCleanupManifestReader;
 }
 
 export interface ApplicationServices {
@@ -40,6 +46,7 @@ export function createApplicationServices(
   dependencies: ApplicationDependencies,
   options: ApplicationServicesOptions = {},
 ): ApplicationServices {
+  const syncOutbox = dependencies.outboxRepository ? createSyncOutboxService(dependencies.outboxRepository) : undefined;
   return Object.freeze({
     character: createCharacterApplicationService({
       repository: dependencies.characterRepository,
@@ -50,6 +57,7 @@ export function createApplicationServices(
               clock: dependencies.clock,
               diceHistoryRepository: dependencies.diceHistoryRepository,
               unitOfWork: dependencies.unitOfWork,
+              syncOutbox,
             },
           }
         : {}),
@@ -57,6 +65,11 @@ export function createApplicationServices(
     campaign: createCampaignApplicationService({
       repository: dependencies.campaignRepository,
       debounceMs: options.campaignDebounceMs,
+      syncOutbox,
+      unitOfWork: dependencies.unitOfWork,
+      clock: dependencies.clock,
+      idGenerator: dependencies.idGenerator,
+      cleanupManifestReader: dependencies.cleanupManifestReader,
     }),
     settings: createSettingsApplicationService(dependencies.settingsRepository),
     dice: createDiceApplicationService(dependencies.diceHistoryRepository),

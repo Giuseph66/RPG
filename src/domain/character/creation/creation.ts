@@ -6,6 +6,14 @@ function nextStep(completed: readonly CharacterDraftStep[]): CharacterDraftStep 
   return CREATION_STEPS.find((step) => !completed.includes(step)) ?? "review";
 }
 
+function withoutOwnedChoices(
+  choices: CharacterDraftPartial["choices"],
+  owners: readonly (string | undefined)[],
+): CharacterDraftPartial["choices"] {
+  const prefixes = owners.filter((owner): owner is string => Boolean(owner)).map((owner) => `${owner}.`);
+  return choices?.filter((choice) => !prefixes.some((prefix) => choice.choiceId.startsWith(prefix)));
+}
+
 export function createCharacterDraft(input: CreateCharacterDraftInput): Result<CharacterDraft, ReturnType<typeof appError.validation>> {
   if (!input.id || !input.rulesetRef?.id || !input.rulesetRef.version) {
     return err(appError.validation("draft", "id e rulesetRef são obrigatórios."));
@@ -47,9 +55,9 @@ export function applyCreationDecision(draft: CharacterDraft, decision: CreationD
   let completedStep: CharacterDraftStep | undefined;
   switch (decision.kind) {
     case "identity": partial = { ...partial, name: decision.name, ...(decision.playerName === undefined ? {} : { playerName: decision.playerName }) }; break;
-    case "race": partial = { ...partial, raceRef: decision.raceRef, choices: [], ...(decision.subraceRef === undefined ? { subraceRef: undefined } : { subraceRef: decision.subraceRef }) }; completedStep = "race"; break;
-    case "class": partial = { ...partial, classRef: decision.classRef, classes: [{ classId: decision.classRef.entityId, level: 1, ...(decision.subclassRef ? { subclassId: decision.subclassRef.entityId } : {}), choices: [] }], choices: [] } as CharacterDraftPartial; completedStep = "class"; break;
-    case "background": partial = { ...partial, backgroundRef: decision.backgroundRef, choices: [], ...(decision.variantId === undefined ? {} : { backgroundVariantId: decision.variantId }) } as CharacterDraftPartial; completedStep = "background"; break;
+    case "race": partial = { ...partial, raceRef: decision.raceRef, choices: withoutOwnedChoices(partial.choices, [partial.raceRef?.entityId, partial.subraceRef?.entityId]), ...(decision.subraceRef === undefined ? { subraceRef: undefined } : { subraceRef: decision.subraceRef }) }; completedStep = "race"; break;
+    case "class": partial = { ...partial, classRef: decision.classRef, classes: [{ classId: decision.classRef.entityId, level: 1, ...(decision.subclassRef ? { subclassId: decision.subclassRef.entityId } : {}), choices: [] }], choices: withoutOwnedChoices(partial.choices, [partial.classes?.[0]?.classId]) } as CharacterDraftPartial; completedStep = "class"; break;
+    case "background": partial = { ...partial, backgroundRef: decision.backgroundRef, choices: withoutOwnedChoices(partial.choices, [partial.backgroundRef?.entityId]), ...(decision.variantId === undefined ? {} : { backgroundVariantId: decision.variantId }) } as CharacterDraftPartial; completedStep = "background"; break;
     case "ability-scores": partial = { ...partial, abilityGeneration: decision.method }; completedStep = "ability-scores"; break;
     case "choices":
       partial = { ...partial, choices: mergeSelections(partial.choices, decision.selections) };

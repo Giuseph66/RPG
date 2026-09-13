@@ -1,9 +1,13 @@
-import { type Character, type CastingSourceState, type InventoryItem } from "@domain/contracts/character";
+import { type Character, type CastingSourceState, type ConditionInstance, type InventoryItem } from "@domain/contracts/character";
 import { type ClassDefinition } from "@domain/contracts/definitions/class";
+import { type ConditionDefinition } from "@domain/contracts/definitions/condition";
 import { type SpellDefinition, type CastRequest, type CastPreview, type SpellDuration, type SpellComponentContext } from "@domain/contracts/definitions/spell";
 import { type CommandId, type DefinitionRef, type EntityId, type Uuid } from "@domain/contracts/ids";
 import { type AvailableAction, type Effect, type InputRequest, type RuleResult } from "@domain/contracts/rules";
-import { type SourceRef } from "@domain/contracts/primitives";
+import { type DiceRoll } from "@domain/contracts/dice";
+import { type Duration, type DurationExpiryTrigger, type SourceRef } from "@domain/contracts/primitives";
+import { applyDamage, applyHealing, type DamageDefense } from "@domain/rules/combat";
+import { applyCondition } from "@domain/rules/conditions";
 
 export interface SpellResolutionContext {
   readonly classId?: EntityId;
@@ -15,6 +19,23 @@ export interface SpellResolutionContext {
   readonly concentrationEffectId?: Uuid;
   readonly consumedInventoryItemId?: Uuid;
   readonly processedCommandIds?: ReadonlySet<CommandId>;
+  /** Resultados já rolados e vinculados ao comando; ausência preserva o adaptador legado. */
+  readonly diceResults?: ReadonlyMap<Uuid, DiceRoll>;
+  /** Máximo efetivo de PV, necessário quando a magia cura. */
+  readonly maximumHitPoints?: number;
+  /** Catálogo necessário para efeitos `apply-condition`. */
+  readonly conditionDefinitions?: ReadonlyMap<EntityId, ConditionDefinition>;
+  /** ID explícito para cada instância de condição criada por este comando. */
+  readonly conditionInstanceIds?: ReadonlyMap<string, Uuid>;
+  /** Distância já medida pelo chamador; o domínio não inventa posições. */
+  readonly targetDistanceCm?: number;
+  /** Necessário para alvos cuja definição exige visibilidade. */
+  readonly lineOfSight?: boolean;
+  /** Acerto já resolvido para ataques mágicos. */
+  readonly spellAttackHit?: boolean;
+  /** Resultado já resolvido de uma resistência mágica. */
+  readonly spellSaveSucceeded?: boolean;
+  readonly defense?: DamageDefense;
 }
 
 const SOURCE: SourceRef = {
@@ -29,7 +50,7 @@ function sourceRefs(spell: SpellDefinition): readonly SourceRef[] {
   return spell.sourceRefs.length > 0 ? spell.sourceRefs : [SOURCE];
 }
 
-function reject(spell: SpellDefinition, message: string, code: "invalid-context" | "invalid-command" | "insufficient-resource" | "unresolved-rule" = "invalid-context"): RuleResult {
+function reject(spell: SpellDefinition, message: string, code: "invalid-context" | "invalid-command" | "insufficient-resource" | "unresolved-rule" | "unsupported-ruleset" = "invalid-context"): RuleResult {
   return { status: "rejected", errors: [{ code, message, sourceRef: spell.sourceRefs[0] ?? SOURCE }], sourceRefs: sourceRefs(spell) };
 }
 
@@ -78,6 +99,130 @@ function validateTargets(request: CastRequest, spell: SpellDefinition): string |
   if (spell.targetType.type === "point" && !request.targetContext.pointCm) return "Informe o ponto de origem da área; o motor não escolhe posição.";
   if (spell.targetType.count !== undefined && targets.length !== spell.targetType.count) return `A magia exige exatamente ${spell.targetType.count} alvo(s), mas recebeu ${targets.length}.`;
   return undefined;
+}
+
+function conditionKey(ref: DefinitionRef): string {
+  return `${String(ref.rulesetId)}:${String(ref.entityId)}`;
+}
+
+function conditionDuration(duration: SpellDuration): Duration {
+  const trigger = duration.endTriggers[0];
+  const expiryTrigger: DurationExpiryTrigger | undefined = trigger?.kind === "end-of-turn" || trigger?.kind === "start-of-turn"
+    ? trigger
+    : trigger?.kind === "concentration-ends" || trigger?.kind === "short-rest" || trigger?.kind === "long-rest" || trigger?.kind === "damage-taken" || trigger?.kind === "table-decision"
+      ? trigger
+      : undefined;
+  const withTrigger = (base: Duration): Duration => expiryTrigger ? { ...base, expiryTrigger } : base;
+  switch (duration.kind) {
+    case "instantaneous": return withTrigger({ kind: "instant" });
+    case "rounds": return withTrigger({ kind: "rounds", value: duration.amount });
+    case "minutes": return withTrigger({ kind: "minutes", value: duration.amount });
+    case "hours": return withTrigger({ kind: "hours", value: duration.amount });
+    case "until-dispelled": return withTrigger({ kind: "untilRemoved" });
+    case "special": return withTrigger({ kind: "special" });
+  }
+}
+
+function spellHasStatefulEffects(spell: SpellDefinition): boolean {
+  return spell.damage.length > 0 || spell.healing.length > 0 || spell.effects.some((effect) => effect.kind === "apply-condition");
+}
+
+function validateEffectContext(character: Character, spell: SpellDefinition, request: CastRequest, context: SpellResolutionContext): RuleResult | undefined {
+  if (!context.diceResults || !spellHasStatefulEffects(spell)) return undefined;
+
+  const targets = request.targetContext.targetIds;
+  if (targets.length === 0) return ask(spell, request.commandId as unknown as Uuid, "Selecione explicitamente os alvos dos efeitos; o motor não escolhe criaturas da área.");
+  if (targets.some((targetId) => targetId !== character.id)) {
+    return ask(spell, request.commandId as unknown as Uuid, "O estado do alvo informado não está carregado; forneça um agregado de personagem por alvo antes de aplicar o efeito.");
+  }
+  if (spell.range.kind === "distance") {
+    if (context.targetDistanceCm === undefined) return ask(spell, request.commandId as unknown as Uuid, "Informe a distância medida até o alvo ou ponto da magia para validar o alcance.");
+    if (!Number.isInteger(context.targetDistanceCm) || context.targetDistanceCm < 0) return reject(spell, "A distância do alvo deve ser um inteiro não negativo.");
+    if (spell.range.distanceCm !== undefined && context.targetDistanceCm > spell.range.distanceCm) return reject(spell, "O alvo ou ponto está fora do alcance da magia.");
+  }
+  if (spell.targetType.visibilityRequired && context.lineOfSight !== true) return ask(spell, request.commandId as unknown as Uuid, "Confirme linha de visão para o alvo visível exigido pela magia.");
+  if (spell.attackType !== "none" && context.spellAttackHit === undefined) return ask(spell, request.commandId as unknown as Uuid, "Resolva o ataque mágico antes de aplicar o dano.");
+  if (spell.savingThrow && context.spellSaveSucceeded === undefined) return ask(spell, request.commandId as unknown as Uuid, "Resolva o teste de resistência do alvo antes de aplicar o efeito da magia.");
+
+  const diceResultIds = request.diceResultIds ?? [];
+  const expectedRolls = spell.damage.length + spell.healing.length;
+  if (diceResultIds.length < expectedRolls) return ask(spell, request.commandId as unknown as Uuid, "Forneça todas as rolagens vinculadas aos efeitos da magia.");
+  for (const rollId of diceResultIds.slice(0, expectedRolls)) {
+    const roll = context.diceResults.get(rollId);
+    if (!roll || !Number.isFinite(roll.total) || !Number.isInteger(roll.total)) return ask(spell, rollId, "A rolagem do efeito não foi encontrada no histórico do comando.");
+    if (roll.commandId !== undefined && roll.commandId !== request.commandId) return reject(spell, "A rolagem vinculada pertence a outro comando.", "invalid-command");
+  }
+  for (const effect of spell.effects) {
+    if (effect.kind !== "apply-condition") continue;
+    if (!context.conditionDefinitions?.has(effect.conditionRef.entityId)) return reject(spell, `Definição da condição ${effect.conditionRef.entityId} ausente no rule pack.`, "unsupported-ruleset");
+    if (!context.conditionInstanceIds?.has(conditionKey(effect.conditionRef))) return ask(spell, request.commandId as unknown as Uuid, `Forneça o ID da instância para aplicar ${effect.conditionRef.entityId}.`);
+  }
+  if (spell.healing.length > 0 && (!Number.isInteger(context.maximumHitPoints) || (context.maximumHitPoints ?? 0) <= 0)) return ask(spell, request.commandId as unknown as Uuid, "Informe o máximo efetivo de PV para aplicar a cura da magia.");
+  return undefined;
+}
+
+interface AppliedSpellEffects {
+  readonly nextState: Character;
+  readonly effects: readonly Effect[];
+  readonly descriptions: readonly string[];
+}
+
+function abilityModifier(score: number): number {
+  return Math.floor((score - 10) / 2);
+}
+
+function applySpellEffects(character: Character, spell: SpellDefinition, request: CastRequest, context: SpellResolutionContext): RuleResult | AppliedSpellEffects {
+  if (!context.diceResults || !spellHasStatefulEffects(spell)) return { nextState: character, effects: [], descriptions: [] };
+  let nextState = character;
+  const effects: Effect[] = [];
+  const descriptions: string[] = [];
+  let rollIndex = 0;
+
+  for (const part of spell.damage) {
+    const rollId = request.diceResultIds?.[rollIndex++];
+    const roll = rollId ? context.diceResults.get(rollId) : undefined;
+    if (!roll) return ask(spell, rollId ?? (request.commandId as unknown as Uuid), "A rolagem de dano vinculada não está disponível.");
+    if (spell.attackType !== "none" && context.spellAttackHit === false) {
+      descriptions.push("O ataque mágico não atingiu o alvo; nenhum dano foi aplicado.");
+      continue;
+    }
+    const saveMultiplier = spell.savingThrow && context.spellSaveSucceeded === true ? 0.5 : 1;
+    const amount = Math.floor(roll.total * saveMultiplier);
+    const applied = applyDamage(nextState, { amount, damageType: part.damageType, defense: context.defense, sourceRef: request.spellRef });
+    if (applied.status !== "success") return applied;
+    nextState = applied.nextState;
+    effects.push(...applied.effects);
+    descriptions.push(`${spell.name}: ${amount} de ${part.damageType} aplicado ao alvo explicitamente informado.`);
+  }
+
+  const source = sourceFor(character, request);
+  for (const part of spell.healing) {
+    const rollId = request.diceResultIds?.[rollIndex++];
+    const roll = rollId ? context.diceResults.get(rollId) : undefined;
+    if (!roll) return ask(spell, rollId ?? (request.commandId as unknown as Uuid), "Uma rolagem de cura vinculada não está disponível.");
+    const score = source ? character.abilityGeneration.baseScores[source.ability] : undefined;
+    if (typeof score !== "number" || !Number.isFinite(score)) return reject(spell, `A habilidade ${source?.ability ?? "da fonte"} não está disponível para calcular a cura.`, "unresolved-rule");
+    const amount = roll.total + (part.bonusPerCasterAbility ? abilityModifier(score) : 0);
+    const applied = applyHealing(nextState, { amount, maximumHitPoints: context.maximumHitPoints as number, sourceRef: request.spellRef });
+    if (applied.status !== "success") return applied;
+    nextState = applied.nextState;
+    effects.push(...applied.effects);
+    descriptions.push(`${spell.name}: ${amount} de cura aplicado ao alvo explicitamente informado.`);
+  }
+
+  for (const descriptor of spell.effects) {
+    if (descriptor.kind !== "apply-condition") continue;
+    const definition = context.conditionDefinitions?.get(descriptor.conditionRef.entityId);
+    const instanceId = context.conditionInstanceIds?.get(conditionKey(descriptor.conditionRef));
+    if (!definition || !instanceId) return reject(spell, `A condição ${descriptor.conditionRef.entityId} não está completamente modelada para aplicação.`, "unsupported-ruleset");
+    const instance: ConditionInstance = { id: instanceId, definitionRef: descriptor.conditionRef, origin: { kind: "spell", spellRef: request.spellRef }, duration: conditionDuration(descriptor.duration) };
+    const applied = applyCondition(nextState, instance, definition);
+    if (applied.status !== "success") return applied;
+    nextState = applied.nextState;
+    effects.push(...applied.effects);
+    descriptions.push(`${definition.name} aplicada pela magia como instância explícita ${instance.id}.`);
+  }
+  return { nextState, effects, descriptions };
 }
 
 function validateComponents(character: Character, request: CastRequest, spell: SpellDefinition, context: SpellResolutionContext): { readonly item?: InventoryItem; readonly error?: RuleResult } {
@@ -162,6 +307,8 @@ export function castSpell(character: Character, spell: SpellDefinition, request:
   }
   const targetError = validateTargets(request, spell);
   if (targetError) return reject(spell, targetError);
+  const effectContextError = validateEffectContext(character, spell, request, context);
+  if (effectContextError) return effectContextError;
   const actionError = actionAvailable(request, context, spell);
   if (actionError) return actionError;
   const components = validateComponents(character, request, spell, context);
@@ -197,6 +344,11 @@ export function castSpell(character: Character, spell: SpellDefinition, request:
     nextState = { ...nextState, concentration };
     effects.push({ kind: "concentration-started", targetCharacterId: character.id, sourceRef: spellRef, payload: { concentration } });
   }
+  const appliedSpellEffects = applySpellEffects(nextState, spell, request, context);
+  if ("status" in appliedSpellEffects) return appliedSpellEffects;
+  nextState = appliedSpellEffects.nextState;
+  effects.push(...appliedSpellEffects.effects);
+  descriptions.push(...appliedSpellEffects.descriptions);
   if (spell.effects.some((effect) => effect.kind === "narrative" || effect.kind === "summon" || effect.kind === "interrupt")) descriptions.push("A magia possui efeito assistido/narrativo; sua resolução específica permanece vinculada à fonte.");
   return success(character, nextState, effects, spell, descriptions);
 }

@@ -19,3 +19,7 @@ Antes de migração semântica, criar snapshot recuperável e oferecer exportaç
 Detectar formato inválido, referência quebrada e hash de asset divergente. Não confundir erro de banco indisponível com registro ausente. Preservar material original para exportação; oferecer restaurar snapshot, importar backup ou reset seletivo. Não executar reset automático ao capturar exceção.
 
 Aceite: migração de fixture antiga conserva todos campos especificados; erro no meio não produz estado misto; execução sobre versão já migrada é no-op; dois upgrades concorrentes não silenciam bloqueio; pack indisponível não corrompe save.
+
+## Migração para a conta remota
+
+A vinculação de dados locais a Firebase é uma migração opt-in, distinta de upgrade do IndexedDB, schema ou ruleset. Ela cria snapshot/exportação local, mostra registros, relações e bytes, e só então enfileira cópias com IDs estáveis e `baseRevision`. É retomável e idempotente por `operationId`; falhas mantêm a fonte local utilizável e não marcam sincronização como concluída. Dados que não passarem nas regras ou limites ficam em recuperação para decisão explícita.

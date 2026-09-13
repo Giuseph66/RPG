@@ -25,11 +25,11 @@ function diceController() {
 }
 
 describe("AppShell", () => {
-  it("renders the four destinations, global dice action, and empty-character state", async () => {
+  it("renders the primary destinations, global dice action, and empty-character state", async () => {
     const onOpenDice = vi.fn();
     const mounted = await mount(<AppShell route={matchRoute("/")} navigate={vi.fn()} onOpenDice={onOpenDice} />);
     const navigation = mounted.container.querySelector('[aria-label="Destinos principais"]')!;
-    expect(navigation.firstElementChild?.querySelectorAll("button")).toHaveLength(4);
+    expect(navigation.firstElementChild?.querySelectorAll("button")).toHaveLength(6);
     expect(mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')).toBeTruthy();
     expect(mounted.container.textContent).toContain("Nenhum personagem ativo");
     expect(mounted.container.textContent).toContain("Criar personagem");

@@ -382,7 +382,9 @@ export function collectRules(
 
   for (const applied of modifiers) {
     const { modifier } = applied;
-    if (modifier.target.kind === "custom") return err(appError.unresolvedRule(`Modificador customizado "${modifier.id}" não tem operador executável.`));
+    // Traits/contextual effects are retained as explainable metadata. Their
+    // custom target is deliberately outside derived numeric formulas.
+    if (modifier.target.kind === "custom") continue;
     if (modifier.operator === "grant-proficiency" && modifier.target.kind === "skill") skills.add(modifier.target.skill);
     if (modifier.operator === "grant-expertise" && modifier.target.kind === "skill") {
       skills.add(modifier.target.skill);
@@ -441,6 +443,8 @@ export function applyNumericModifiers(
   modifiers: readonly AppliedModifier[],
   baseContributions: readonly { readonly sourceRef: SourceRef | DefinitionRef; readonly amount?: number; readonly description: string }[],
 ): Result<{ readonly value: number; readonly contributions: readonly { readonly sourceRef: SourceRef | DefinitionRef; readonly amount?: number; readonly description: string }[] }, AppError> {
+  const custom = modifiers.find(({ modifier }) => modifier.target.kind === "custom");
+  if (custom) return err(appError.unresolvedRule(`Modificador customizado "${custom.modifier.id}" não tem operador executável.`));
   let value = initial;
   const contributions = [...baseContributions];
   const setBases = modifiers.filter(({ modifier }) => modifier.operator === "set-base");

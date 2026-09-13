@@ -31,4 +31,12 @@ describe("catálogo DATA-004", () => {
     expect(levels).toEqual(expect.arrayContaining([{ kind: "min-total-level", level: 1 }, { kind: "min-total-level", level: 3 }, { kind: "min-total-level", level: 5 }]));
     expect(RACE_PENDING_DECISIONS["variant-human"]).toEqual(["PEND-009"]);
   });
+
+  it("mantém traços customizados como anotações, sem bônus numérico implícito", () => {
+    const dwarf = races.find((entry) => entry.id === "dwarf");
+    const resilience = dwarf?.traits.find((trait) => trait.id === "dwarf.dwarven-resilience");
+    const custom = dwarf?.traits.find((trait) => trait.id === "dwarf.stonecunning")?.modifiers[0];
+    expect(resilience?.modifiers[0]).toMatchObject({ target: { kind: "custom" }, operator: "grant-advantage", value: { kind: "flag" } });
+    expect(custom).toMatchObject({ target: { kind: "custom" }, operator: "annotate", value: { kind: "flag" } });
+  });
 });

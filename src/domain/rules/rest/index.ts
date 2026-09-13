@@ -52,7 +52,12 @@ function applyResourceRecovery(character: Character, input: RestInput): { readon
     let amount = resource.spent;
     if (definition.recoveryAmountRule.kind === "full") amount = 0;
     else if (definition.recoveryAmountRule.kind === "fixed-amount") amount = Math.max(0, resource.spent - definition.recoveryAmountRule.amount);
-    else amount = Math.max(0, resource.spent - Math.floor(resource.spent / 2));
+    else {
+      const recovered = definition.recoveryAmountRule.rounding === "up"
+        ? Math.ceil(resource.spent / 2)
+        : Math.floor(resource.spent / 2);
+      amount = Math.max(0, resource.spent - recovered);
+    }
     return { ...resource, spent: amount, resetMarker: input.restId ?? resource.resetMarker };
   });
   return { resources, descriptions: resources.some((resource, index) => resource.spent !== character.resources[index]?.spent) ? [`Recursos marcados para ${trigger} foram recuperados conforme suas definições.`] : [] };

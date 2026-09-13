@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { minimalCharacter } from "@domain/contracts/fixtures";
 import { asEntityId, asUuid } from "@domain/contracts/ids";
 import { type DiceRoll } from "@domain/contracts/dice";
+import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
 
 import { resolveRest } from "./index";
 
@@ -27,5 +28,17 @@ describe("rest rules", () => {
       expect(result.nextState.hp).toEqual({ current: 10, temp: 0 });
       expect(result.nextState.hitDiceSpent[0].spent).toBe(2);
     }
+  });
+
+  it("respeita arredondamento declarado na recuperação de metade", () => {
+    const definition: ResourceDefinition = {
+      id: asEntityId("test-resource"), name: "Recurso", tags: [], sourceRefs: [], ownerRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("fighter") },
+      unit: "uses", capacityRule: { kind: "fixed", amount: 5 }, recoveryTriggers: [{ kind: "long-rest" }],
+      recoveryAmountRule: { kind: "half-rounded", rounding: "up" }, spendRules: [{ kind: "per-use", amount: 1 }],
+    };
+    const resource = { id: asUuid("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: definition.id }, ownerInstanceId: minimalCharacter.id, spent: 3 };
+    const result = resolveRest({ ...minimalCharacter, resources: [resource] }, { restKind: "long", maximumHitPoints: 10, ateAndDrank: true, resourceDefinitions: new Map([[String(definition.id), definition]]) });
+    expect(result.status).toBe("success");
+    if (result.status === "success") expect(result.nextState.resources[0].spent).toBe(1);
   });
 });

@@ -38,8 +38,23 @@ export function asCopperPieces(value: number): CopperPieces {
   return value as CopperPieces;
 }
 
-/** Faces de dado suportadas pelo Dice Engine (11-DICE-ENGINE.md). Fechado. */
-export type DiceFaces = 4 | 6 | 8 | 10 | 12 | 20 | 100;
+/**
+ * Faces com semântica explícita no catálogo físico publicado.
+ *
+ * A lista é fechada de propósito: um valor só entra no contrato quando o
+ * catálogo fornece um mapa completo de faces (ou vértices, no d4). Assim o
+ * seletor, o parser e o estágio 3D não conseguem anunciar um dado que o
+ * engine não saiba resolver.
+ */
+export const DICE_FACES = [
+  1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 30, 48, 50, 60, 100, 120,
+] as const;
+
+export type DiceFaces = (typeof DICE_FACES)[number];
+
+export function isDiceFaces(value: unknown): value is DiceFaces {
+  return typeof value === "number" && Number.isInteger(value) && DICE_FACES.includes(value as DiceFaces);
+}
 
 /** Fórmula estática de dados usada em definitions (ex.: dano de arma, dado de vida). */
 export interface DiceFormula {
@@ -235,7 +250,9 @@ export type RuleModifierOperator =
   | "grant-immunity"
   | "grant-vulnerability"
   | "grant-proficiency"
-  | "grant-expertise";
+  | "grant-expertise"
+  /** Efeito descritivo/contextual; nunca entra em uma fórmula numérica. */
+  | "annotate";
 
 /** Valor associado ao operador; "flag" cobre operadores booleanos (advantage/proficiency/...). */
 export type RuleModifierValue =

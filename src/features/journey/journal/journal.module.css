@@ -20,5 +20,9 @@
 .entryList li button { display: grid; gap: 2px; width: 100%; min-height: var(--size-touch-target); padding: var(--spacing-sm); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
 .entryList li button:hover, .entryList li button:focus-visible, .entryList li button[aria-current="true"] { border-color: var(--color-primary); background: var(--color-surface-elevated); outline: none; }
 .entryList li span { color: var(--color-text-muted); font-size: .78rem; }
+.workspace :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
+.workspace :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
+.editor, .entryList { transition: border-color var(--motion-transition) var(--motion-easing), background-color var(--motion-transition) var(--motion-easing); }
+.editor:hover, .entryList:hover { border-color: color-mix(in srgb, var(--color-primary) 75%, var(--color-border)); }
 @media (max-width: 760px) { .workspace { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .twoColumns { grid-template-columns: 1fr; } .editor, .entryList { padding: var(--spacing-md); } }

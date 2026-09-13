@@ -10,7 +10,8 @@ import { type BackgroundDefinition } from "@domain/contracts/definitions/backgro
 import { type FeatureDefinition } from "@domain/contracts/definitions/feature";
 import { type ConditionDefinition } from "@domain/contracts/definitions/condition";
 import { deriveCharacter } from "./derive-character";
-import { abilityModifier, proficiencyBonusForLevel } from "../core/modifiers";
+import { abilityModifier, applyNumericModifiers, proficiencyBonusForLevel } from "../core/modifiers";
+import { races as publishedRaces } from "@data/races/races";
 
 const source: SourceRef = { sourceId: minimalCharacter.rulesetRef.id, chapter: "Teste", printedPage: 1, pdfPage: 1 };
 const ref = (entityId: string): DefinitionRef => ({ rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId(entityId) });
@@ -32,6 +33,7 @@ const classDefinition: ClassDefinition = {
 };
 
 function pack(overrides: {
+  readonly race?: RaceDefinition;
   readonly features?: readonly FeatureDefinition[];
   readonly conditions?: readonly ConditionDefinition[];
   readonly equipment?: readonly import("@domain/contracts/definitions/equipment").EquipmentDefinition[];
@@ -45,7 +47,7 @@ function pack(overrides: {
     ? [{ ...classDefinition, progression: [{ ...classDefinition.progression[0], featureRefs: overrides.features?.map((entry) => ref(String(entry.id))) ?? [] }] }]
     : [classDefinition];
   return {
-    manifest, races: new Map([[race.id, race]]), subraces: new Map(), classes: new Map(classes.map((entry) => [entry.id, entry])), subclasses: new Map(),
+    manifest, races: new Map([[(overrides.race ?? race).id, overrides.race ?? race]]), subraces: new Map(), classes: new Map(classes.map((entry) => [entry.id, entry])), subclasses: new Map(),
     backgrounds: new Map([[background.id, background]]), feats: new Map(), features: new Map((overrides.features ?? []).map((entry) => [entry.id, entry])),
     resources: new Map(), conditions: new Map((overrides.conditions ?? []).map((entry) => [entry.id, entry])), equipment: new Map((overrides.equipment ?? []).map((entry) => [entry.id, entry])),
     spells: new Map(), progression: { id: asEntityId("progression"), name: "", tags: [], sourceRefs: [source], table: Array.from({ length: 20 }, (_, index) => ({ totalLevel: index + 1, xpThreshold: 0, proficiencyBonus: 2 + Math.floor(index / 4) })) },
@@ -93,6 +95,15 @@ describe("deriveCharacter", () => {
     if (!concurrent.ok) expect(concurrent.error.code).toBe("unresolved-rule");
   });
 
+  it("ignora Destreza positiva e negativa em armadura pesada", () => {
+    const armor = { id: asEntityId("plate-armor"), name: "Placas", tags: [], sourceRefs: [source], category: "armor" as const, weightGrams: 0 as never, valueCp: 0 as never, stackable: false, properties: [], armor: { armorCategory: "heavy" as const, baseArmorClass: 18, stealthDisadvantage: true } };
+    for (const dex of [8, 18]) {
+      const result = deriveCharacter(character({ abilityGeneration: { ...minimalCharacter.abilityGeneration, baseScores: { ...minimalCharacter.abilityGeneration.baseScores, dex } }, inventory: [{ id: "44444444-4444-4444-8444-444444444444" as never, equipmentRef: ref("plate-armor"), quantity: 1, equippedState: "equipped", notes: "" }] }), pack({ equipment: [armor] }), context);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.armorClass.value).toBe(18);
+    }
+  });
+
   it("aplica expertise sem duplicar bônus de proficiência e condição ativa", () => {
     const condition: ConditionDefinition = { id: asEntityId("blessed"), name: "", tags: [], sourceRefs: [source], stackingPolicy: "no-stack", removalTriggers: [], mechanicalEffects: [{ id: "bonus", sourceRef: source, target: { kind: "skill", skill: "athletics" }, operator: "add", value: { kind: "number", amount: 1 }, predicate: { kind: "while-condition-active", conditionRef: ref("blessed") } }] };
     const skilled = character({
@@ -102,5 +113,30 @@ describe("deriveCharacter", () => {
     const result = deriveCharacter(skilled, pack({ conditions: [condition] }), context);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.skills.find((entry) => entry.skill === "athletics")?.modifier.value).toBe(7);
+  });
+
+  it("preserva anotações customizadas sem aplicá-las como bônus numérico", () => {
+    const custom = {
+      id: "dwarf.dwarven-resilience.save",
+      sourceRef: source,
+      target: { kind: "custom" as const, description: "Vantagem contra veneno" },
+      operator: "grant-advantage" as const,
+      value: { kind: "flag" as const },
+      predicate: { kind: "always" as const },
+    };
+    const result = deriveCharacter(character(), pack({}), context);
+    expect(result.ok).toBe(true);
+    expect(applyNumericModifiers(10, [{ modifier: custom, scope: "trait" }], []).ok).toBe(false);
+  });
+
+  it("permite derivar um anão com efeitos raciais contextuais", () => {
+    const dwarf = publishedRaces.find((entry) => entry.id === "dwarf");
+    expect(dwarf).toBeDefined();
+    if (!dwarf) return;
+    const result = deriveCharacter(character({ raceRef: ref("dwarf") }), pack({ race: dwarf }), context);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.abilityScores.find((entry) => entry.ability === "con")?.score.value).toBe(16);
+    }
   });
 });

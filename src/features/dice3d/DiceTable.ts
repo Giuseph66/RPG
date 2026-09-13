@@ -20,8 +20,15 @@ import {
   type DieAppearance,
 } from "./appearance";
 import { CAMINHO_PADRAO, carregarDado } from "./assets";
-import { orientationForValue } from "./orientationFor";
+import {
+  PASSO,
+  aplicarInerciaIsotropica,
+  simularAlinhado,
+  type Gravacao,
+  type PoseInicial,
+} from "./rollSimulation";
 import { lerDado, type LeituraDado } from "./readout";
+import { limitesVisiveis } from "./viewportBounds";
 import type { DieMeta, Quat } from "./types";
 
 export interface DiceTableOptions {
@@ -41,6 +48,10 @@ export interface DiceTableOptions {
   random?: () => number;
   /** Segundos de simulação antes de desistir de esperar o dado parar. */
   maxRollSeconds?: number;
+  /** Ajustes baratos para telas pequenas; não altera a matemática do dado. */
+  mobile?: boolean;
+  /** Subpassos máximos do mundo por frame (o padrão é 4). */
+  maxPhysicsSubsteps?: number;
 }
 
 export interface RollOutcome extends LeituraDado {
@@ -63,11 +74,12 @@ export interface RollOptions {
    * ordem de inserção quando `ids` for omitido).
    *
    * O número NUNCA vem da física: vem do motor de dados do domínio
-   * (`RandomSource` auditado, usado no histórico/reroll/rngVersion). A queda,
-   * o quique e o giro inicial são livres e caóticos; só na reta final, quando
-   * o dado já está naturalmente desacelerando, um leve torque de correção o
-   * guia pra assentar exatamente nesse valor — não existe um "pulo" visível
-   * depois de parado, porque a correção acontece ENQUANTO ele ainda gira.
+   * (`RandomSource` auditado, usado no histórico/reroll/rngVersion).
+   *
+   * A queda não é encenada nem corrigida no meio do caminho: a física roda
+   * solta e, depois, a gravação inteira é girada por uma simetria do casco do
+   * dado — mesma silhueta e mesmos contatos em todos os quadros, só a
+   * numeração gira junto até a face pedida ficar em cima. Ver `simularAlinhado`.
    */
   results?: readonly number[];
 }
@@ -80,28 +92,7 @@ interface Instancia {
   corpo: CANNON.Body;
   materialCorpo: THREE.MeshPhysicalMaterial;
   materialNumeros: THREE.MeshStandardMaterial;
-  /** Orientação-alvo desta rolagem (`RollOptions.results`), se houver. */
-  resultAlvo?: Quat;
-  /** `true` assim que o torque de correção começa a agir nesta instância. */
-  ajustando: boolean;
 }
-
-const PASSO = 1 / 60;
-
-/**
- * Abaixo dessas velocidades o dado já está "morrendo" naturalmente (ainda
- * girando, mas perdendo força) — é o momento de começar a guiá-lo pro valor
- * certo. Começar antes disso faria o torque brigar com um dado ainda em
- * queda livre / quicando com força, o que pareceria artificial.
- */
-const LIMIAR_VEL_ANG_AJUSTE = 2.4; // rad/s
-const LIMIAR_VEL_LIN_AJUSTE = 8; // cm/s
-/** Ganho do controle proporcional: rad/s de correção por radiano de erro. */
-const GANHO_AJUSTE = 7;
-/** Teto de velocidade angular que o torque de correção pode impor. */
-const VEL_ANG_MAX_AJUSTE = 6; // rad/s
-/** Erro angular abaixo do qual a correção é considerada concluída. */
-const ERRO_ANGULO_OK = 0.02; // rad (~1,1°)
 
 export class DiceTable {
   readonly scene = new THREE.Scene();
@@ -114,15 +105,23 @@ export class DiceTable {
   private readonly bounds: number;
   private readonly random: () => number;
   private readonly maxRollSeconds: number;
+  private readonly pixelRatioCap: number;
+  private maxPhysicsSubsteps: number;
   private readonly instancias: Instancia[] = [];
   private readonly materialFisico = new CANNON.Material("dado");
 
-  private relogio = new THREE.Clock();
+  private relogio = new THREE.Timer();
   private frame = 0;
   private descartado = false;
-  private rolando: {
+  private animationRunning = false;
+  /** Paredes de colisão; reposicionadas a cada `resize` (ver `atualizarLimites`). */
+  private paredes: CANNON.Body[] = [];
+  private limiteX = 26;
+  private limiteZ = 26;
+  private reproduzindo: {
     alvos: Instancia[];
-    decorrido: number;
+    gravacao: Gravacao;
+    tempo: number;
     resolve: (r: RollOutcome[]) => void;
   } | null = null;
 
@@ -132,17 +131,21 @@ export class DiceTable {
     this.bounds = opts.bounds ?? 26;
     this.random = opts.random ?? Math.random;
     this.maxRollSeconds = opts.maxRollSeconds ?? 8;
+    const mobile = opts.mobile === true;
+    this.pixelRatioCap = mobile ? 1.25 : 2;
+    this.maxPhysicsSubsteps = Math.max(1, Math.trunc(opts.maxPhysicsSubsteps ?? (mobile ? 3 : 4)));
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: opts.canvas,
-      antialias: true,
+      antialias: !mobile,
       alpha: opts.background === null,
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    if (typeof document !== "undefined") this.relogio.connect(document);
 
     if (opts.background !== null) {
       this.scene.background = new THREE.Color(opts.background ?? "#12141b");
@@ -155,8 +158,40 @@ export class DiceTable {
     this.montarLuzes();
     this.montarMundo(opts.gravity ?? -981);
     this.resize();
+    this.renderFrame();
+  }
+
+  /** Inicia a renderização somente durante uma simulação física. */
+  start(): void {
+    if (this.descartado || this.animationRunning) return;
+    this.animationRunning = true;
+    this.relogio.reset();
     this.renderer.setAnimationLoop(() => this.tick());
   }
+
+  /** Pausa o loop quando os dados assentaram; a última pose permanece visível. */
+  stop(): void {
+    if (!this.animationRunning) return;
+    this.animationRunning = false;
+    this.renderer.setAnimationLoop(null);
+  }
+
+  /**
+   * Orçamento de física do dispositivo.
+   *
+   * Desde que a queda passou a ser simulada antes e só reproduzida na tela,
+   * não existe mais subpasso por quadro — a animação não roda solver nenhum e
+   * o custo em aparelho fraco caiu junto. Mantido por compatibilidade de API.
+   */
+  setMaxPhysicsSubsteps(value: number): void {
+    this.maxPhysicsSubsteps = Math.max(1, Math.trunc(value));
+  }
+
+  /** Passos de simulação da queda, derivados de `maxRollSeconds`. */
+  private get maxPassosSim(): number {
+    return Math.max(60, Math.round(this.maxRollSeconds / PASSO));
+  }
+
 
   // ------------------------------------------------------------------ cena
 
@@ -166,7 +201,8 @@ export class DiceTable {
     const key = new THREE.DirectionalLight(0xfff4e6, 2.4);
     key.position.set(-22, 40, 18);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    const shadowMapSize = this.isMobileViewport() ? 1024 : 2048;
+    key.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     const c = key.shadow.camera;
     c.near = 5;
     c.far = 120;
@@ -211,32 +247,63 @@ export class DiceTable {
     chao.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     this.world.addBody(chao);
 
-    // paredes invisíveis: sem elas o dado sai rolando para fora da mesa
-    const b = this.bounds;
-    const paredes: Array<[CANNON.Vec3, [number, number, number]]> = [
-      [new CANNON.Vec3(-b, 0, 0), [0, Math.PI / 2, 0]],
-      [new CANNON.Vec3(b, 0, 0), [0, -Math.PI / 2, 0]],
-      [new CANNON.Vec3(0, 0, -b), [0, 0, 0]],
-      [new CANNON.Vec3(0, 0, b), [0, Math.PI, 0]],
+    // Paredes invisíveis. As posições reais saem de `atualizarLimites()`, que
+    // as encaixa no retângulo de chão que a câmera realmente enxerga — caixa
+    // fixa em cm deixava o dado "sumir" da tela em telas estreitas, onde o
+    // campo de visão horizontal é muito menor que o vertical.
+    const rotacoes: Array<[number, number, number]> = [
+      [0, Math.PI / 2, 0], // -X
+      [0, -Math.PI / 2, 0], // +X
+      [0, 0, 0], // -Z
+      [0, Math.PI, 0], // +Z
     ];
-    for (const [pos, rot] of paredes) {
+    for (const rot of rotacoes) {
       const p = new CANNON.Body({
         mass: 0,
         shape: new CANNON.Plane(),
         material: materialMesa,
       });
-      p.position.copy(pos);
       p.quaternion.setFromEuler(rot[0], rot[1], rot[2]);
       this.world.addBody(p);
+      this.paredes.push(p);
     }
+    this.posicionarParedes();
 
     const sombra = new THREE.Mesh(
-      new THREE.PlaneGeometry(b * 2.4, b * 2.4),
+      new THREE.PlaneGeometry(this.bounds * 4, this.bounds * 4),
       new THREE.ShadowMaterial({ opacity: 0.38 }),
     );
     sombra.rotation.x = -Math.PI / 2;
     sombra.receiveShadow = true;
     this.scene.add(sombra);
+  }
+
+  private posicionarParedes(): void {
+    const [mx, mz] = [this.limiteX, this.limiteZ];
+    const destinos: Array<[number, number, number]> = [
+      [-mx, 0, 0],
+      [mx, 0, 0],
+      [0, 0, -mz],
+      [0, 0, mz],
+    ];
+    this.paredes.forEach((p, i) => {
+      const [x, y, z] = destinos[i];
+      p.position.set(x, y, z);
+    });
+  }
+
+  /**
+   * Encaixa a área jogável no retângulo de chão efetivamente visível.
+   *
+   * Lança um raio pelos quatro cantos da tela até o plano y=0 e usa a caixa
+   * INSCRITA (mínimo de |x| e |z| entre os cantos) — assim toda a área de jogo
+   * está garantidamente dentro do enquadramento, em qualquer proporção de tela.
+   */
+  private atualizarLimites(): void {
+    const { x, z } = limitesVisiveis(this.camera, this.bounds);
+    this.limiteX = x;
+    this.limiteZ = z;
+    this.posicionarParedes();
   }
 
   // ----------------------------------------------------------------- dados
@@ -276,6 +343,7 @@ export class DiceTable {
     });
     corpo.sleepSpeedLimit = 0.9;
     corpo.sleepTimeLimit = 0.35;
+    aplicarInerciaIsotropica(corpo, meta);
     corpo.sleep();
     this.world.addBody(corpo);
 
@@ -288,7 +356,6 @@ export class DiceTable {
       corpo,
       materialCorpo,
       materialNumeros,
-      ajustando: false,
     });
     return slot;
   }
@@ -330,8 +397,10 @@ export class DiceTable {
 
   /** Remove todos os dados da mesa (corpo físico, malha e materiais). */
   clear(): void {
-    this.rolando?.resolve([]);
-    this.rolando = null;
+    const estavaRolando = this.reproduzindo !== null;
+    this.reproduzindo?.resolve([]);
+    this.reproduzindo = null;
+    if (estavaRolando) this.stop();
     for (const inst of this.instancias) {
       this.world.removeBody(inst.corpo);
       this.scene.remove(inst.grupo);
@@ -363,48 +432,60 @@ export class DiceTable {
     return (this.random() * 2 - 1) * m;
   }
 
-  /** Lança os dados indicados e resolve quando todos pararem. */
+  /**
+   * Lança os dados e resolve quando a animação termina.
+   *
+   * A física roda ANTES de aparecer qualquer coisa: a queda é simulada
+   * inteira, sem renderizar, e só a trajetória gravada é reproduzida. Isso
+   * resolve de uma vez os dois problemas de empurrar o dado durante o
+   * contato com a mesa — o tremor (solver brigando com a correção a cada
+   * quadro) e o resultado divergente (o dado assentava numa face e a
+   * correção não conseguia mais virá-lo). Aqui a gravação exibida já foi
+   * conferida: a face de cima é o valor pedido.
+   */
   roll(ids?: string[], opts: RollOptions = {}): Promise<RollOutcome[]> {
     const alvos = ids
       ? this.instancias.filter((i) => ids.includes(i.id))
       : [...this.instancias];
     if (alvos.length === 0) return Promise.resolve([]);
 
-    const altura = opts.height ?? 24;
-    const espalhar = opts.spread ?? Math.min(this.bounds * 0.45, 10);
-    const impulso = opts.impulse ?? 70;
+    const poses = this.sortearPoses(alvos, opts);
+    const { gravacao } = simularAlinhado(this.world, alvos, poses, opts.results, {
+      maxPassos: this.maxPassosSim,
+    });
+
+    this.reproduzindo?.resolve([]);
+    this.start();
+    return new Promise<RollOutcome[]>((resolve) => {
+      this.reproduzindo = { alvos, gravacao, tempo: 0, resolve };
+    });
+  }
+
+  /** Sorteia posição, orientação e impulso iniciais de cada dado. */
+  private sortearPoses(alvos: Instancia[], opts: RollOptions): PoseInicial[] {
+    const limite = Math.min(this.limiteX, this.limiteZ);
+    const altura = opts.height ?? Math.max(16, limite * 1.1);
+    const espalhar = opts.spread ?? limite * 0.45;
+    const impulso = opts.impulse ?? limite * 2.4;
     const giro = opts.spin ?? 22;
 
-    alvos.forEach((inst, k) => {
+    return alvos.map((_, k) => {
       const ang = (k / alvos.length) * Math.PI * 2 + this.random();
       const raio = espalhar * (0.35 + 0.65 * this.random());
       const [qx, qy, qz, qw] = this.quatUniforme();
-
-      inst.corpo.type = CANNON.Body.DYNAMIC;
-      inst.corpo.wakeUp();
-      inst.corpo.position.set(
-        Math.cos(ang) * raio,
-        altura + this.random() * 8,
-        Math.sin(ang) * raio,
-      );
-      inst.corpo.quaternion.set(qx, qy, qz, qw);
-      inst.corpo.velocity.set(this.faixa(impulso), -impulso * 0.3, this.faixa(impulso));
-      inst.corpo.angularVelocity.set(this.faixa(giro), this.faixa(giro), this.faixa(giro));
-      inst.corpo.force.setZero();
-      inst.corpo.torque.setZero();
-
-      inst.ajustando = false;
-      inst.resultAlvo =
-        opts.results?.[k] !== undefined
-          ? orientationForValue(inst.meta, opts.results[k], this.random)
-          : undefined;
-    });
-
-    return new Promise<RollOutcome[]>((resolve) => {
-      this.rolando?.resolve([]);
-      this.rolando = { alvos, decorrido: 0, resolve };
+      return {
+        pos: new CANNON.Vec3(
+          Math.cos(ang) * raio,
+          altura + this.random() * 6,
+          Math.sin(ang) * raio,
+        ),
+        quat: new CANNON.Quaternion(qx, qy, qz, qw),
+        vel: new CANNON.Vec3(this.faixa(impulso), -impulso * 0.25, this.faixa(impulso)),
+        angVel: new CANNON.Vec3(this.faixa(giro), this.faixa(giro), this.faixa(giro)),
+      };
     });
   }
+
 
   /** Lê o resultado atual sem lançar de novo. */
   read(id: string, slot = 0): RollOutcome | null {
@@ -419,107 +500,99 @@ export class DiceTable {
     return { id: inst.id, slot: inst.slot, ...leitura };
   }
 
-  /**
-   * Guia suavemente um dado até `resultAlvo`, sem tirá-lo da simulação física.
-   *
-   * Só entra em ação quando o dado já está desacelerando naturalmente (abaixo
-   * de `LIMIAR_VEL_*_AJUSTE`) — antes disso, deixa a queda/quique/giro
-   * totalmente livres. A partir daí, aplica um controle proporcional: quanto
-   * maior o erro de orientação, mais rápido ele gira na direção certa,
-   * exatamente como se o próprio giro estivesse "morrendo" ali. O corpo
-   * continua `DYNAMIC` o tempo todo — gravidade e colisão seguem valendo —
-   * então não existe nenhum instante em que o dado pareça teletransportar ou
-   * girar sozinho depois de já ter parado.
-   */
-  private guiarParaAlvo(inst: Instancia): void {
-    const alvo = inst.resultAlvo;
-    if (!alvo) return;
-    const corpo = inst.corpo;
-
-    if (!inst.ajustando) {
-      const dentroDoLimiar =
-        corpo.angularVelocity.length() < LIMIAR_VEL_ANG_AJUSTE &&
-        corpo.velocity.length() < LIMIAR_VEL_LIN_AJUSTE;
-      if (!dentroDoLimiar) return;
-      inst.ajustando = true;
-    }
-
-    const atualInv = corpo.quaternion.inverse();
-    const alvoQuat = new CANNON.Quaternion(alvo[0], alvo[1], alvo[2], alvo[3]);
-    const delta = alvoQuat.mult(atualInv);
-    const [eixo, anguloBruto] = delta.toAxisAngle();
-    // toAxisAngle devolve [0, 2π): acima de π o caminho mais curto é o
-    // suplementar negativo em torno do MESMO eixo
-    const erro = anguloBruto > Math.PI ? anguloBruto - 2 * Math.PI : anguloBruto;
-
-    if (Math.abs(erro) < ERRO_ANGULO_OK && corpo.angularVelocity.length() < 0.3) {
-      corpo.angularVelocity.setZero();
-      corpo.velocity.scale(0.4, corpo.velocity);
-      inst.resultAlvo = undefined; // corrigido: solta o controle, deixa dormir em paz
-      return;
-    }
-
-    const modulo = Math.max(-VEL_ANG_MAX_AJUSTE, Math.min(VEL_ANG_MAX_AJUSTE, erro * GANHO_AJUSTE));
-    const desejada = eixo.scale(modulo);
-    // mistura em vez de substituir: preserva a sensação de giro ja existente
-    corpo.angularVelocity.set(
-      corpo.angularVelocity.x * 0.55 + desejada.x * 0.45,
-      corpo.angularVelocity.y * 0.55 + desejada.y * 0.45,
-      corpo.angularVelocity.z * 0.55 + desejada.z * 0.45,
-    );
-    // freia a translação residual: sem isso o dado "andaria" enquanto gira
-    // para o lugar certo, em vez de so girar no proprio eixo ate assentar
-    corpo.velocity.scale(0.9, corpo.velocity);
-  }
-
   // ------------------------------------------------------------------ loop
 
+  /**
+   * Reproduz a trajetória gravada. Nada de física aqui: o corpo rígido só
+   * recebe a pose já calculada, interpolada entre os dois passos vizinhos
+   * para ficar fluido em qualquer taxa de atualização de tela (inclusive
+   * 120 Hz) sem depender do custo do solver — o que também deixa o celular
+   * bem mais leve durante a animação.
+   */
   private tick(): void {
     if (this.descartado) return;
+    this.relogio.update();
     const dt = Math.min(this.relogio.getDelta(), 0.1);
 
-    if (this.rolando) {
-      for (const inst of this.rolando.alvos) this.guiarParaAlvo(inst);
+    const cena = this.reproduzindo;
+    if (cena) {
+      cena.tempo += dt;
+      const { passos, trilhas } = cena.gravacao;
+      const exato = cena.tempo / PASSO;
+      const ultimo = passos - 1;
+      const i0 = Math.min(Math.floor(exato), ultimo);
+      const i1 = Math.min(i0 + 1, ultimo);
+      const f = i1 > i0 ? exato - i0 : 0;
+
+      cena.alvos.forEach((inst, k) => {
+        const t = trilhas[k];
+        const a = i0 * 7;
+        const b = i1 * 7;
+        inst.corpo.position.set(
+          t[a] + (t[b] - t[a]) * f,
+          t[a + 1] + (t[b + 1] - t[a + 1]) * f,
+          t[a + 2] + (t[b + 2] - t[a + 2]) * f,
+        );
+        const qa = new CANNON.Quaternion(t[a + 3], t[a + 4], t[a + 5], t[a + 6]);
+        const qb = new CANNON.Quaternion(t[b + 3], t[b + 4], t[b + 5], t[b + 6]);
+        qa.slerp(qb, f, inst.corpo.quaternion);
+        inst.corpo.quaternion.normalize();
+      });
+
+      if (exato >= ultimo) {
+        const { alvos, resolve } = cena;
+        this.reproduzindo = null;
+        // congela os corpos na pose final: sem isso a gravidade voltaria a
+        // agir no próximo `start()` e mexeria no dado já lido
+        for (const inst of alvos) {
+          inst.corpo.velocity.setZero();
+          inst.corpo.angularVelocity.setZero();
+          inst.corpo.sleep();
+        }
+        const resultados = alvos.map((i) => this.ler(i));
+        this.renderFrame();
+        this.stop();
+        resolve(resultados);
+        return;
+      }
     }
 
-    this.world.step(PASSO, dt, 4);
+    this.frame += 1;
+    this.renderFrame();
+  }
 
+  private renderFrame(): void {
     for (const inst of this.instancias) {
       const p = inst.corpo.position;
       const q = inst.corpo.quaternion;
       inst.grupo.position.set(p.x, p.y, p.z);
       inst.grupo.quaternion.set(q.x, q.y, q.z, q.w);
     }
-
-    if (this.rolando) {
-      this.rolando.decorrido += dt;
-      const parados = this.rolando.alvos.every(
-        (i) => i.corpo.sleepState === CANNON.Body.SLEEPING,
-      );
-      if (parados || this.rolando.decorrido >= this.maxRollSeconds) {
-        const { alvos, resolve } = this.rolando;
-        this.rolando = null;
-        resolve(alvos.map((i) => this.ler(i)));
-      }
-    }
-
-    this.frame += 1;
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private isMobileViewport(): boolean {
+    return typeof window !== "undefined" &&
+      (window.matchMedia?.("(max-width: 680px)").matches ?? window.innerWidth <= 680);
   }
 
   /** Reajusta a câmera e o buffer ao tamanho atual do canvas. */
   resize(): void {
     const l = this.canvas.clientWidth || 1;
     const a = this.canvas.clientHeight || 1;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const devicePixelRatio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.pixelRatioCap));
     this.renderer.setSize(l, a, false);
     this.camera.aspect = l / a;
     this.camera.updateProjectionMatrix();
+    this.atualizarLimites();
   }
 
   dispose(): void {
     this.descartado = true;
-    this.renderer.setAnimationLoop(null);
+    this.stop();
+    this.reproduzindo?.resolve([]);
+    this.reproduzindo = null;
     for (const inst of this.instancias) {
       this.world.removeBody(inst.corpo);
       this.scene.remove(inst.grupo);
@@ -528,5 +601,6 @@ export class DiceTable {
     }
     this.instancias.length = 0;
     this.renderer.dispose();
+    this.relogio.dispose();
   }
 }

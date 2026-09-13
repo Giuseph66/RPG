@@ -12,7 +12,7 @@ function resource(overrides: Partial<ResourceState> = {}): ResourceState {
   return {
     id: RESOURCE_ID,
     definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("second-wind") },
-    ownerInstanceId: asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+    ownerInstanceId: minimalCharacter.id,
     spent: 0,
     ...overrides,
   };
@@ -43,6 +43,23 @@ describe("spendResource", () => {
     expect(result.status).toBe("rejected");
     if (result.status === "rejected") expect(result.errors[0].code).toBe("invalid-context");
     expect(char.resources[0].spent).toBe(0);
+  });
+
+  it("rejeita recurso de outro personagem sem alterar o estado", () => {
+    const char = character({ resources: [resource({ ownerInstanceId: asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb") })] });
+    const result = spendResource(char, { resourceStateId: RESOURCE_ID, amount: 1, capacity: 2 });
+    expect(result.status).toBe("rejected");
+    if (result.status === "rejected") expect(result.errors[0].code).toBe("invalid-context");
+    expect(char.resources[0].spent).toBe(0);
+  });
+
+  it("rejeita gasto corrompido ou acima da capacidade", () => {
+    for (const spent of [-1, 1.5, 3]) {
+      const char = character({ resources: [resource({ spent })] });
+      const result = spendResource(char, { resourceStateId: RESOURCE_ID, amount: 1, capacity: 2 });
+      expect(result.status).toBe("rejected");
+      if (result.status === "rejected") expect(result.errors[0].code).toBe("invalid-context");
+    }
   });
 
   it("rejeita saldo insuficiente sem descontar nada", () => {

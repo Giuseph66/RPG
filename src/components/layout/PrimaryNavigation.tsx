@@ -21,7 +21,7 @@ export function PrimaryNavigation({ route, navigate }: PrimaryNavigationProps) {
               aria-current={selected ? "page" : undefined}
               onClick={() => navigate(pathForRoute(item.id))}
             >
-              <span className={styles.navGlyph} aria-hidden="true">{item.id === "character" ? "◈" : item.id === "actions" ? "✦" : item.id === "journey" ? "⌁" : "♜"}</span>
+              <span className={styles.navGlyph} aria-hidden="true">{item.id === "character" ? "◈" : item.id === "actions" ? "✦" : item.id === "journey" ? "⌁" : item.id === "collaboration" ? "♟" : "♜"}</span>
               <span className={styles.navLabel}>{item.label}</span>
               <span className={styles.navShortLabel}>{item.shortLabel}</span>
             </button>

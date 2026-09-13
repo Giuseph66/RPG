@@ -2,7 +2,7 @@
 
 IMPLEMENTAÇÃO DO SOFTWARE INICIADA. `CORE-001`, `DATA-001`, `DATA-002`, `DATA-003`, `DATA-004`, `DATA-005`, `DICE-001`, `DICE-002`, `ITEM-001`, `RULE-001`, `UI-001`, `UI-002` e `STATE-001` estão `DONE`; `SPELL-001`, `ITEM-002` e `CHAR-002` estão em execução com Luna.
 
-36 tarefas, IDs estáveis. O campo “bloqueia” é o inverso exato de “dependências”; [DEPENDENCIES](DEPENDENCIES.md) deriva deste registro. Contratos comuns estão em 09/10/11 e dados/schemas; DATA-001 os materializa antes dos consumidores. Pendências semânticas de fonte continuam registradas em decisoes/PENDENCIAS, nunca resolvidas por default silencioso.
+42 tarefas, IDs estáveis. O campo “bloqueia” é o inverso exato de “dependências”; [DEPENDENCIES](DEPENDENCIES.md) deriva deste registro. Contratos comuns estão em 09/10/11 e dados/schemas; DATA-001 os materializa antes dos consumidores. Pendências semânticas de fonte continuam registradas em decisoes/PENDENCIAS, nunca resolvidas por default silencioso.
 
 Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui apenas descendentes da área nomeada. Testes unitários locais `*.test.ts(x)` podem ser colocados pelo owner dentro da própria área; suítes transversais possuem owners QA exclusivos. Alterar configuração compartilhada exige handoff a CORE-001, inclusive durante PWA.
 
@@ -744,3 +744,83 @@ Arquivos abaixo são caminhos PROPOSTOS, não criados nesta etapa. `**` inclui a
 - Critério de aceite: Entrega descreve versão/pack, limites, backup manual e prova; nenhum item planejado é anunciado como implementado; correção tardia reabre validação afetada.
 - Testes: Checklist editorial de comportamento demonstrado, caminhos de recuperação e correspondência entre release notes e evidências.
 - Handoff: entregar exports públicos/contratos usados, arquivos tocados, casos provados com comandos/resultados, limitações e pendências ao coordenador; consumidores destravados somente após revisão e `DONE`: entrega final. Passo principal: 19.
+
+## Expansão offline-first e acabamento visual
+
+Esta fase substitui o limite de escopo local-only por solicitação explícita do usuário. A escrita local continua imediata; serviços remotos entram como sincronização assíncrona e nunca como pré-condição para uso offline.
+
+## DATA-007 — Integridade referencial local
+
+- ID: `DATA-007`
+- Status: `DONE` — integridade local aceita antes de qualquer replicação remota.
+- Responsável: Claude Sonnet e `/root/validate_local_relationships`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
+- Dependências: DATA-003, DATA-006.
+- Bloqueia: CLOUD-001, RULE-003.
+- Escopo: Tornar consistentes personagem↔campanha, mapas↔campanha/assets, reset seletivo e backup/importação; preservar CAS e atomicidade.
+- Arquivos próprios: `src/infrastructure/persistence/indexeddb/**`; `src/application/transfer/**`; testes focais correspondentes.
+- Critério de aceite: nenhuma relação pendente após delete/reset/import; filtros de campanha não vazam mapas; copy/replace são distintos e recuperáveis.
+- Evidência: 32 testes focais, typecheck e diff check passaram; delete/reset agora preservam personagens, campanhas, maps, assets, drafts, recibos, histórico e recovery de modo transacional.
+
+## CLOUD-001 — Contas, Firebase e sincronização offline-first
+
+- ID: `CLOUD-001`
+- Status: `BLOCKED` — implementação e QA local aceitas; ativação/publicação do projeto Firebase ainda é externa.
+- Responsável: coordenador; Console Firebase pelo usuário.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high; override atual mantém Claude Code indisponível.
+- Dependências: DATA-007.
+- Bloqueia: QA-005.
+- Escopo: Auth, vínculo mestre/jogadores, Firestore/Storage, outbox local, CAS remoto, conflitos explícitos e migração opt-in sem retirar IndexedDB como escrita imediata.
+- Critério de aceite: operação offline local, reconexão assíncrona idempotente, membership protegido por regra e nenhum overwrite silencioso.
+- Evidência: Auth/local identity, outbox transacional, push/pull com hidratação idempotente, memberships, sessões, assets com hash, cleanup remoto retomável e regras Firestore/Storage validados por testes/emulador. Aceite local: 122 arquivos e 760 testes, typecheck, build e diff check; browser validou criação, vínculo, presença persistida, 1440/320 e PWA com cache aquecido.
+- Bloqueio externo: habilitar Authentication (Email/Senha), Firestore e Storage; autorizar domínio; publicar `firestore.rules`, `storage.rules` e índices; então validar duas contas reais e sincronização entre dispositivos.
+
+## THEME-001 — Identidade preto e carmim
+
+- ID: `THEME-001`
+- Status: `DONE` — tokens e superfícies de todas as rotas revalidados em desktop/mobile.
+- Responsável: `/root/refactor_crimson_theme`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
+- Dependências: UI-001, UI-002.
+- Bloqueia: QA-005.
+- Escopo: Fundo `#000`, superfícies vinho, carmim e contraste/foco AA em desktop e mobile, sem reduzir acessibilidade ou navegação.
+- Arquivos próprios: `src/styles/**`; `src/components/ui/**`; `src/components/layout/**`; estilos de feature coordenados por handoff.
+- Critério de aceite: tokens sem cinza-carvão como fundo, contraste testado, estados de controle consistentes e telas responsivas.
+- Evidência: 159 testes de UI/styles, 80 de contraste e smoke em 320/390 px passaram; `scrollWidth === innerWidth` nas rotas auditadas.
+
+## DICE-003 — Catálogo 3D e orçamento de renderização
+
+- ID: `DICE-003`
+- Status: `DONE` — catálogo, contrato e orçamento físico aceitos.
+- Responsável: `/root/optimize_physical_dice`.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
+- Dependências: DICE-001, DICE-002.
+- Bloqueia: QA-005.
+- Escopo: Usar de forma consistente os modelos de `public/dice`, suportar apenas faces com semântica explícita e reduzir custo de d100/mobile sem alterar resultado textual.
+- Arquivos próprios: `src/domain/dice/**`; `src/domain/contracts/primitives.ts`; `src/features/dice/**`; testes focais.
+- Critério de aceite: selector e engine concordam; cena pausa quando ociosa, respeita reduced motion e mantém foco/acessibilidade.
+- Evidência: 108 testes focais, build, diff check e smoke d100/d120 desktop/mobile passaram; lista fechada cobre os 20 modelos de `public/dice`.
+
+## RULE-003 — Correção de regras e relacionamentos derivados
+
+- ID: `RULE-003`
+- Status: `DONE` — correções de domínio, dispatcher e persistência aceitas.
+- Responsável: `/root/repair_core_rules`, `/root/complete_rule_commands` e coordenador.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
+- Dependências: DATA-007, RULE-002, SPELL-002, ITEM-002.
+- Bloqueia: QA-005.
+- Escopo: Corrigir efeitos de magia, dano/morte/concentração, descanso, CA/inventário, ownership de recurso e dispatcher persistível de condições.
+- Critério de aceite: resultados de domínio seguem fonte/contrato, preservam recibos e não automatizam decisões ainda pendentes.
+- Evidência: 56 testes focais de comandos/regras, mais cobertura de combate, descanso, recursos, efeitos de magia, condições e criação Anão; suíte final, typecheck e build verdes.
+
+## QA-005 — Aceite offline-first, visual e 3D
+
+- ID: `QA-005`
+- Status: `BLOCKED` — aceite local concluído; depende da ativação Firebase externa de CLOUD-001.
+- Responsável: coordenador; Console Firebase pelo usuário.
+- Lane/modelo/esforço: Codex `gpt-5.6-luna` / high.
+- Dependências: CLOUD-001, THEME-001, DICE-003, RULE-003.
+- Bloqueia: nenhuma.
+- Escopo: testes de fluxo sessão→personagem→recurso→dado, reconexão, conflito, desktop/mobile e orçamento 3D em porta auxiliar.
+- Evidência local: 122 arquivos/760 testes, typecheck, build e diff check; browser em portas auxiliares confirmou criação, Journey, vínculo personagem↔campanha, sessão/presença persistida, desktop 1440, mobile 320/390, d100/d120 e PWA cacheado offline.
+- Bloqueio externo: confirmação com Firebase publicado e duas contas reais; matriz de dispositivos físicos permanece externa.

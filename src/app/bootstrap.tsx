@@ -11,7 +11,12 @@ import {
   IndexedDbCharacterRepository,
   IndexedDbDiceHistoryRepository,
   IndexedDbAssetRepository,
+  IndexedDbRecoveryRepository,
   IndexedDbUnitOfWork,
+  IndexedDbOutboxRepository,
+  IndexedDbMembershipRepository,
+  IndexedDbSessionRepository,
+  IndexedDbRemoteHydrationRepository,
   CryptoIdGenerator,
   SystemClock,
   openDatabase,
@@ -31,10 +36,12 @@ import { deriveActionCapabilities, type DeriveActionCapabilitiesResult } from "@
 import { createActionDispatcher } from "@application/character/action-dispatcher";
 import { createInventoryDispatcher } from "@application/character/inventory-dispatcher";
 import { createCampaignDispatcher } from "@application/campaign/campaign-dispatcher";
+import { createLocalCampaignCleanupManifestReader } from "@application/campaign/cleanup-manifest-reader";
 import { createCampaignRecordDispatcher } from "@application/campaign/campaign-record-dispatcher";
 import { createJournalDispatcher } from "@application/campaign/journal-dispatcher";
 import { chooseCampaignForRestore } from "@application/campaign";
 import { createBackupService, DataManagementService } from "@application/transfer";
+import { createAssetSyncService, type AssetSyncService } from "@application/assets/service";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import type { BackupEnvelope, ImportMode } from "@domain/contracts/backup";
 import type { Asset } from "@domain/contracts/campaign";
@@ -45,6 +52,16 @@ import type { ActionCapability } from "@features/actions";
 import { createCharacterDraft } from "@domain/character/creation";
 import type { CreationWizardService } from "@features/character/creation";
 import type { JournalDraftState } from "@domain/campaign/journal";
+import type { AuthPort } from "@application/ports/auth-port";
+import type { AccountAvailability } from "@features/account";
+import { FirebaseAuthAdapter, createFirebaseAssetStorageAdapter, getFirebaseApp, getFirebaseConfigDiagnostic } from "@infrastructure/cloud/firebase";
+import type { AssetTransferPort } from "@application/ports/asset-transfer";
+import { getFirestoreClient, createFirebaseFirestoreSyncAdapter } from "@infrastructure/cloud/firebase";
+import { createSessionGatedOutboxRepository, createSyncOutboxService, createSyncRuntime, type SyncRuntime } from "@application/sync";
+import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityStorage, type MembershipService } from "@application/membership";
+import { createSessionService, type SessionService } from "@application/session";
+import { type SessionAuthorizationPort } from "@application/session/authorization";
+import { type AccountId, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
 import { AppRouter } from "./router";
 
@@ -64,6 +81,12 @@ const STATIC_RULE_CONTEXT: RuleContext = {
 export interface ApplicationRuntime {
   readonly database: IDBDatabase;
   readonly services: ApplicationServices;
+  /** Offline-first account and campaign membership use cases. */
+  readonly membership: MembershipService;
+  /** Offline-first campaign session use cases; authorization comes from local memberships. */
+  readonly session: SessionService;
+  /** Local asset repository with an authenticated Cloud Storage adapter when available. */
+  readonly assets: AssetSyncService;
   readonly diceOverlayController: DiceOverlayController;
   /** Recalcula `ActionCapability[]` para o personagem informado; atualiza o dispatcher acoplado. */
   readonly computeActionCapabilities: (character: Character | undefined) => readonly ActionCapability[];
@@ -73,6 +96,11 @@ export interface ApplicationRuntime {
   /** Gera um `CharacterDraft` novo (novo ID/timestamp) a cada chamada; UI decide quando chamar. */
   readonly createDraft: () => CharacterDraft;
   readonly onCharacterCreated: (character: Character) => void;
+  /** Optional remote identity; local data never depends on this capability. */
+  readonly auth?: AuthPort;
+  readonly authAvailability: AccountAvailability;
+  /** Runtime sync is optional and remains local-only without Firebase config/session. */
+  readonly sync?: SyncRuntime;
 }
 
 export interface BootstrapProps {
@@ -88,6 +116,13 @@ export interface ApplicationRuntimeOptions {
   /** Permite isolar uma instância de runtime sem alterar a composição de produção. */
   readonly database?: OpenDatabaseOptions;
   readonly settingsStorage?: Storage;
+  /** AuthPort fake for tests/hosts; production resolves Firebase lazily from build config. */
+  readonly auth?: AuthPort;
+  readonly authAvailability?: AccountAvailability;
+  /** Optional transfer adapter for hosts/tests; production resolves Firebase lazily. */
+  readonly assetTransfer?: AssetTransferPort;
+  /** Storage simples e injetável para a identidade local persistente. */
+  readonly localIdentityStorage?: LocalIdentityStorage;
 }
 
 function decodeImportedAsset(asset: BackupEnvelope["assets"][number]): Asset {
@@ -97,33 +132,189 @@ function decodeImportedAsset(asset: BackupEnvelope["assets"][number]): Asset {
   return { id: asset.id, mediaType: asset.mediaType, bytes, hash: asset.hash, width: asset.width, height: asset.height, originalName: `imported-${asset.id}` };
 }
 
-/** O callback do backup usa uma transação única do banco para todos os registros do envelope. */
-function commitBackupEnvelope(database: IDBDatabase, input: { readonly envelope: BackupEnvelope; readonly mode: ImportMode }): Promise<Result<{ readonly rootId: BackupEnvelope["rootId"] }, AppError>> {
-  void input.mode;
-  const stores = [STORE_NAMES.characters, STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.rolls, STORE_NAMES.favorites, STORE_NAMES.assets];
+/**
+ * O callback do backup usa uma transação única do banco para todos os registros do envelope.
+ *
+ * `copy` (IDs remapeados por `DefaultBackupService.remap` antes de chegar aqui) e `replace`
+ * (IDs originais, sobrescrevendo o agregado existente) têm semântica distinta: `replace`
+ * preserva o valor anterior de cada registro sobrescrito em `recovery` antes do `put`, para que
+ * a substituição nunca seja silenciosa e permaneça recuperável; `copy` nunca colide com um
+ * registro existente (IDs são sempre novos), então não há nada para preservar.
+ */
+function commitBackupEnvelope(database: IDBDatabase, clock: { readonly now: () => string }, input: { readonly envelope: BackupEnvelope; readonly mode: ImportMode }): Promise<Result<{ readonly rootId: BackupEnvelope["rootId"] }, AppError>> {
+  const stores = [STORE_NAMES.characters, STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.rolls, STORE_NAMES.favorites, STORE_NAMES.assets, STORE_NAMES.recovery];
   return runTransaction(database, stores, "readwrite", async (tx) => {
-    const { envelope } = input;
-    for (const record of envelope.records.characters) await requestToPromise(tx.objectStore(STORE_NAMES.characters).put(record));
-    for (const record of envelope.records.campaigns) await requestToPromise(tx.objectStore(STORE_NAMES.campaigns).put(record));
-    for (const record of envelope.records.journalEntries) await requestToPromise(tx.objectStore(STORE_NAMES.journalEntries).put(record));
-    for (const record of envelope.records.maps) await requestToPromise(tx.objectStore(STORE_NAMES.maps).put(record));
-    for (const record of envelope.records.rolls) await requestToPromise(tx.objectStore(STORE_NAMES.rolls).put(record));
-    for (const id of envelope.records.favorites) await requestToPromise(tx.objectStore(STORE_NAMES.favorites).put({ id }));
-    for (const asset of envelope.assets) await requestToPromise(tx.objectStore(STORE_NAMES.assets).put(decodeImportedAsset(asset)));
+    const { envelope, mode } = input;
+    const now = clock.now();
+
+    async function put<T extends { readonly id: string }>(storeName: string, record: T): Promise<void> {
+      const store = tx.objectStore(storeName);
+      if (mode === "replace") {
+        const existing = await requestToPromise(store.get(record.id));
+        if (existing !== undefined) {
+          await requestToPromise(
+            tx.objectStore(STORE_NAMES.recovery).put({ id: record.id, sourceStore: storeName, raw: existing, recordedAt: now }),
+          );
+        }
+      }
+      await requestToPromise(store.put(record));
+    }
+
+    for (const record of envelope.records.characters) await put(STORE_NAMES.characters, record);
+    for (const record of envelope.records.campaigns) await put(STORE_NAMES.campaigns, record);
+    for (const record of envelope.records.journalEntries) await put(STORE_NAMES.journalEntries, record);
+    for (const record of envelope.records.maps) await put(STORE_NAMES.maps, record);
+    // O envelope expõe DiceRoll diretamente, mas o store local mantém o wrapper
+    // `StoredRoll` usado pelo DiceHistoryRepository. Gravar o DiceRoll cru faria a
+    // importação parecer bem-sucedida e corromperia o histórico na próxima leitura.
+    for (const record of envelope.records.rolls) {
+      await put(STORE_NAMES.rolls, { id: record.id, roll: record, ...(record.characterId === undefined ? {} : { characterId: record.characterId }) });
+    }
+    for (const id of envelope.records.favorites) await put(STORE_NAMES.favorites, { id });
+    for (const asset of envelope.assets) await put(STORE_NAMES.assets, decodeImportedAsset(asset));
     return ok({ rootId: envelope.rootId });
   });
 }
 
-function resetLocalData(database: IDBDatabase, request: { readonly scope: "characters" | "campaigns" | "assets" | "dice-history" | "all" }): Promise<Result<void, AppError>> {
-  const byScope: Record<typeof request.scope, readonly string[]> = {
+type ResetScope = "characters" | "campaigns" | "assets" | "dice-history" | "all";
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+}
+
+/**
+ * Reset seletivo apaga uma fatia dos dados locais mas nunca pode deixar as fatias
+ * remanescentes referenciando algo que sumiu (08-PERSISTENCIA-LOCAL.md, DATA-007): apagar
+ * `characters` desvincula `campaign.characterIds`; apagar `campaigns` desvincula
+ * `character.campaignId`; apagar `assets` desvincula `character.portraitAssetId` e remove
+ * mapas cujo `assetId` (campo obrigatório) deixaria de existir.
+ */
+function resetLocalData(database: IDBDatabase, clock: { readonly now: () => string }, request: { readonly scope: ResetScope }): Promise<Result<void, AppError>> {
+  const byScope: Record<ResetScope, readonly string[]> = {
     characters: [STORE_NAMES.characters, STORE_NAMES.drafts],
     campaigns: [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps],
     assets: [STORE_NAMES.assets],
     "dice-history": [STORE_NAMES.rolls],
     all: Object.values(STORE_NAMES),
   };
-  return runTransaction(database, byScope[request.scope], "readwrite", async (tx) => {
-    for (const name of byScope[request.scope]) await requestToPromise(tx.objectStore(name).clear());
+  const extraStores: Record<ResetScope, readonly string[]> = {
+    characters: [STORE_NAMES.campaigns, STORE_NAMES.assets, STORE_NAMES.maps, STORE_NAMES.rolls, STORE_NAMES.commandReceipts],
+    campaigns: [STORE_NAMES.characters, STORE_NAMES.assets],
+    assets: [STORE_NAMES.characters, STORE_NAMES.maps],
+    "dice-history": [],
+    all: [],
+  };
+  const scope = request.scope;
+  const stores = [...new Set([...byScope[scope], ...extraStores[scope]])];
+
+  return runTransaction(database, stores, "readwrite", async (tx) => {
+    const now = clock.now();
+    const charactersStore = tx.objectStore(STORE_NAMES.characters);
+    const mapsStore = tx.objectStore(STORE_NAMES.maps);
+    const rawCharacters = scope === "characters" || scope === "campaigns"
+      ? await requestToPromise(charactersStore.getAll())
+      : [];
+    const rawMaps = scope === "characters" || scope === "campaigns"
+      ? await requestToPromise(mapsStore.getAll())
+      : [];
+    const removedCharacterIds = new Set(
+      scope === "characters"
+        ? rawCharacters.flatMap((raw) => {
+            const record = asRecord(raw);
+            return typeof record?.id === "string" ? [record.id] : [];
+          })
+        : [],
+    );
+    const portraitAssetIds = new Set(
+      scope === "characters"
+        ? rawCharacters.flatMap((raw) => {
+            const record = asRecord(raw);
+            return typeof record?.portraitAssetId === "string" ? [record.portraitAssetId] : [];
+          })
+        : [],
+    );
+    const campaignMapAssetIds = new Set(
+      scope === "campaigns"
+        ? rawMaps.flatMap((raw) => {
+            const record = asRecord(raw);
+            return typeof record?.assetId === "string" ? [record.assetId] : [];
+          })
+        : [],
+    );
+    for (const name of byScope[scope]) await requestToPromise(tx.objectStore(name).clear());
+
+    if (scope === "characters") {
+      const campaignsStore = tx.objectStore(STORE_NAMES.campaigns);
+      const raws = await requestToPromise(campaignsStore.getAll());
+      for (const raw of raws) {
+        const record = asRecord(raw);
+        const characterIds = record?.characterIds;
+        if (!record || !Array.isArray(characterIds) || characterIds.length === 0) continue;
+        await requestToPromise(campaignsStore.put({ ...record, characterIds: [], revision: Number(record.revision) + 1, updatedAt: now }));
+      }
+
+      const assetsStore = tx.objectStore(STORE_NAMES.assets);
+      for (const raw of rawMaps) {
+        const record = asRecord(raw);
+        if (typeof record?.assetId === "string") portraitAssetIds.delete(record.assetId);
+      }
+      for (const assetId of portraitAssetIds) await requestToPromise(assetsStore.delete(assetId));
+
+      const rollsStore = tx.objectStore(STORE_NAMES.rolls);
+      const rollRaws = await requestToPromise(rollsStore.getAll());
+      for (const raw of rollRaws) {
+        const record = asRecord(raw);
+        if (typeof record?.id === "string" && typeof record.characterId === "string" && removedCharacterIds.has(record.characterId)) {
+          await requestToPromise(rollsStore.delete(record.id));
+        }
+      }
+      const receiptsStore = tx.objectStore(STORE_NAMES.commandReceipts);
+      const receiptRaws = await requestToPromise(receiptsStore.getAll());
+      for (const raw of receiptRaws) {
+        const record = asRecord(raw);
+        if (typeof record?.commandId === "string" && typeof record.characterId === "string" && removedCharacterIds.has(record.characterId)) {
+          await requestToPromise(receiptsStore.delete(record.commandId));
+        }
+      }
+    }
+
+    if (scope === "campaigns") {
+      for (const raw of rawCharacters) {
+        const record = asRecord(raw);
+        if (!record || record.campaignId === undefined) continue;
+        const { campaignId: _campaignId, ...rest } = record;
+        await requestToPromise(charactersStore.put({ ...rest, revision: Number(record.revision) + 1, updatedAt: now }));
+      }
+
+      const retainedPortraits = new Set(
+        rawCharacters.flatMap((raw) => {
+          const record = asRecord(raw);
+          return typeof record?.portraitAssetId === "string" ? [record.portraitAssetId] : [];
+        }),
+      );
+      const assetsStore = tx.objectStore(STORE_NAMES.assets);
+      for (const assetId of campaignMapAssetIds) {
+        if (!retainedPortraits.has(assetId)) await requestToPromise(assetsStore.delete(assetId));
+      }
+    }
+
+    if (scope === "assets") {
+      const characterRaws = await requestToPromise(charactersStore.getAll());
+      for (const raw of characterRaws) {
+        const record = asRecord(raw);
+        if (!record || record.portraitAssetId === undefined) continue;
+        const { portraitAssetId: _portraitAssetId, ...rest } = record;
+        await requestToPromise(charactersStore.put({ ...rest, revision: Number(record.revision) + 1, updatedAt: now }));
+      }
+
+      const mapRaws = await requestToPromise(mapsStore.getAll());
+      for (const raw of mapRaws) {
+        const record = asRecord(raw);
+        if (!record) continue;
+        await requestToPromise(mapsStore.delete(record.id as IDBValidKey));
+      }
+    }
+
     return ok(undefined);
   });
 }
@@ -134,11 +325,41 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   if (!opened.ok) throw new Error(opened.error.message);
 
   const database = opened.value;
+  const firebaseDiagnostic = getFirebaseConfigDiagnostic();
+  const firebaseApp = options.auth ? null : getFirebaseApp();
+  const auth = options.auth ?? (firebaseApp ? new FirebaseAuthAdapter(firebaseApp) : undefined);
+  const authAvailability: AccountAvailability = options.authAvailability ?? (firebaseDiagnostic.available
+    ? { available: Boolean(auth) }
+    : { available: false, missingKeys: firebaseDiagnostic.missingKeys });
   const clock = new SystemClock();
   const idGenerator = new CryptoIdGenerator();
+  let localIdentityStorage = options.localIdentityStorage;
+  if (!localIdentityStorage && typeof window !== "undefined") {
+    try { localIdentityStorage = window.localStorage; } catch { /* storage bloqueado: identidade desta execução será efêmera */ }
+  }
+  const localIdentity = loadOrCreateLocalIdentity({ storage: localIdentityStorage, idGenerator });
   const characterRepository = new IndexedDbCharacterRepository(database, clock);
   const campaignRepository = new IndexedDbCampaignRepository(database, clock);
   const assetRepository = new IndexedDbAssetRepository(database, clock);
+  const recoveryRepository = new IndexedDbRecoveryRepository(database);
+  const outboxRepository = new IndexedDbOutboxRepository(database, clock);
+  const membershipRepository = new IndexedDbMembershipRepository(database);
+  const sessionRepository = new IndexedDbSessionRepository(database, clock);
+  const remoteHydration = new IndexedDbRemoteHydrationRepository(database);
+  const cleanupManifestReader = createLocalCampaignCleanupManifestReader({
+    campaigns: campaignRepository,
+    characters: characterRepository,
+    memberships: membershipRepository,
+    sessions: sessionRepository,
+    assets: assetRepository,
+    ownerUid: () => auth?.currentSession()?.uid ?? localIdentity.accountId,
+  });
+  let syncRuntime: SyncRuntime | undefined;
+  const gatedOutboxRepository = createSessionGatedOutboxRepository(
+    outboxRepository,
+    { currentSession: () => auth?.currentSession() ?? null },
+    { onEnqueued: () => syncRuntime?.notifyPending() },
+  );
   const services = createApplicationServices({
     characterRepository,
     campaignRepository,
@@ -147,7 +368,44 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     unitOfWork: new IndexedDbUnitOfWork(database),
     clock,
     idGenerator,
+    outboxRepository: gatedOutboxRepository,
+    cleanupManifestReader,
   });
+  // The membership service is always local-capable. Reuse the session-gated outbox
+  // after it is created so an authenticated offline session queues for replay while a
+  // signed-out local session never emits cloud operations.
+  const membershipWithSync = createMembershipService({
+    repository: membershipRepository,
+    clock,
+    idGenerator,
+    unitOfWork: new IndexedDbUnitOfWork(database),
+    syncOutbox: createSyncOutboxService(gatedOutboxRepository),
+    localIdentity,
+  });
+  const sessionAuthorization: SessionAuthorizationPort = {
+    async getCampaignRole(campaignId, accountId: AccountId) {
+      const membership = await membershipRepository.getMembership(campaignId, accountId);
+      if (!membership.ok) return err(membership.error);
+      return ok(membership.value.status === "active" ? membership.value.role : "player");
+    },
+  };
+  const session = createSessionService({
+    repository: sessionRepository,
+    authorization: sessionAuthorization,
+    clock,
+    idGenerator,
+    unitOfWork: new IndexedDbUnitOfWork(database),
+    syncOutbox: createSyncOutboxService(gatedOutboxRepository),
+    localIdentity,
+    ensureLocalOwner: (campaignId: Uuid, accountId: AccountId) => membershipWithSync.ensureCampaignOwner({ actorId: accountId, campaignId }),
+  });
+  const assetTransfer = options.assetTransfer ?? (firebaseApp && auth
+    ? createFirebaseAssetStorageAdapter({
+        app: firebaseApp,
+        isAuthenticated: () => auth.currentSession() !== null,
+      })
+    : undefined);
+  const assets = createAssetSyncService(assetRepository, assetTransfer);
 
   try {
     const settings = await services.settings.hydrate();
@@ -165,6 +423,12 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
 
     const campaigns = await services.campaign.list();
     if (!campaigns.ok) throw new Error(campaigns.error.message);
+    // Every local campaign gets a device owner. This enables collaboration and
+    // session records offline without pretending the device is a Firebase user.
+    await membershipWithSync.ensureAccount({ actorId: localIdentity.accountId, email: null, displayName: localIdentity.displayName });
+    for (const campaign of campaigns.value) {
+      await membershipWithSync.ensureCampaignOwner({ actorId: localIdentity.accountId, campaignId: campaign.id });
+    }
     const campaignToRestore = chooseCampaignForRestore(campaigns.value);
     if (campaignToRestore) {
       const campaign = await services.campaign.hydrate(campaignToRestore.id);
@@ -203,7 +467,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const creationService: CreationWizardService = {
       saveDraft: (draft) => services.character.saveDraft(draft),
       deleteDraft: (id) => services.character.deleteDraft(id),
-      saveCharacter: (character, expectedRevision) => characterRepository.save(character, expectedRevision),
+      saveCharacter: (character, expectedRevision) => services.character.saveCharacter(character, expectedRevision),
     };
 
     function createDraft(): CharacterDraft {
@@ -243,11 +507,12 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       now: () => clock.now(),
       idGenerator,
       availableRulesets: [rulesetRef],
-      commitImport: (input) => commitBackupEnvelope(database, input),
+      commitImport: (input) => commitBackupEnvelope(database, clock, input),
     });
     const dataManagement = new DataManagementService({
       backup,
-      reset: (request) => resetLocalData(database, request),
+      reset: (request) => resetLocalData(database, clock, request),
+      recovery: recoveryRepository,
     });
 
     const registry = createFeatureRegistry({
@@ -264,14 +529,37 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       listJournalEntries: (campaignId) => campaignRepository.listJournalEntries(campaignId),
       journalDraftState: () => journalDispatcher.getDraftState(),
       dataManagement: { service: dataManagement, previewImport: (envelope) => backup.previewImport(envelope) },
+      auth,
+      authAvailability,
+      membership: membershipWithSync,
+      session,
     });
 
-    return { database, services, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
+    syncRuntime = auth
+      ? createSyncRuntime({
+          auth,
+          outbox: outboxRepository,
+          clock,
+          hydration: remoteHydration,
+          createAdapter: (uid) => {
+            if (!firebaseApp) return undefined;
+            try {
+              const firestore = getFirestoreClient(firebaseApp).firestore;
+              return createFirebaseFirestoreSyncAdapter({ firestore, ownerUid: uid });
+            } catch {
+              return undefined;
+            }
+          },
+        })
+      : undefined;
+
+    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, auth, authAvailability, sync: syncRuntime, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
   } catch (cause) {
     services.character.dispose();
     services.campaign.dispose();
     services.settings.dispose();
     services.dice.dispose();
+    syncRuntime?.dispose();
     database.close();
     throw cause;
   }
@@ -368,6 +656,7 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
       (nextRuntime) => {
         openedRuntime = nextRuntime;
         if (!active) {
+          nextRuntime.sync?.dispose();
           nextRuntime.services.character.dispose();
           nextRuntime.services.campaign.dispose();
           nextRuntime.services.settings.dispose();
@@ -388,6 +677,7 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
     return () => {
       active = false;
       if (openedRuntime) {
+        openedRuntime.sync?.dispose();
         openedRuntime.services.character.dispose();
         openedRuntime.services.campaign.dispose();
         openedRuntime.services.settings.dispose();

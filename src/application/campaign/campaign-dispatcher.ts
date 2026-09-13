@@ -93,7 +93,7 @@ export function createCampaignDispatcher(options: CampaignDispatcherOptions): (i
     }
 
     const campaign = created.value;
-    const saved = await repository.save(campaign, asRevision(0));
+    const saved = await campaignService.saveCampaign(campaign, asRevision(0));
     if (!saved.ok) {
       fail(saved.error, intent);
       return;
@@ -137,8 +137,8 @@ export function createCampaignDispatcher(options: CampaignDispatcherOptions): (i
     }
 
     const deleted = plan.value.scope === "campaign-and-content"
-      ? await repository.deleteCampaignAndContent(id.value, current.value.revision)
-      : await repository.delete(id.value, current.value.revision);
+      ? await campaignService.deleteCampaignAndContent(id.value, current.value.revision)
+      : await campaignService.deleteCampaign(id.value, current.value.revision);
     if (!deleted.ok) {
       fail(deleted.error, intent);
       return;

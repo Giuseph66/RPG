@@ -23,26 +23,26 @@ export interface CampaignFilter {
 }
 
 export interface CampaignRepository {
-  get(id: Uuid): Promise<Result<Campaign, AppError>>;
+  get(id: Uuid, context?: TransactionContext): Promise<Result<Campaign, AppError>>;
   list(filter?: CampaignFilter): Promise<Result<readonly Campaign[], AppError>>;
-  save(campaign: Campaign, expectedRevision: Revision): Promise<Result<Revision, AppError>>;
-  delete(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>>;
+  save(campaign: Campaign, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>>;
+  delete(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>>;
   /** Remove campanha e todo conteúdo vinculado em uma única transação. */
-  deleteCampaignAndContent(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>>;
+  deleteCampaignAndContent(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>>;
 
-  getJournalEntry(id: Uuid): Promise<Result<JournalEntry, AppError>>;
-  listJournalEntries(campaignId: Uuid): Promise<Result<readonly JournalEntry[], AppError>>;
-  saveJournalEntry(entry: JournalEntry): Promise<Result<JournalEntry, AppError>>;
-  deleteJournalEntry(id: Uuid): Promise<Result<void, AppError>>;
+  getJournalEntry(id: Uuid, context?: TransactionContext): Promise<Result<JournalEntry, AppError>>;
+  listJournalEntries(campaignId: Uuid, context?: TransactionContext): Promise<Result<readonly JournalEntry[], AppError>>;
+  saveJournalEntry(entry: JournalEntry, context?: TransactionContext): Promise<Result<JournalEntry, AppError>>;
+  deleteJournalEntry(id: Uuid, context?: TransactionContext): Promise<Result<void, AppError>>;
 
-  getMap(id: Uuid): Promise<Result<MapRecord, AppError>>;
-  listMaps(campaignId: Uuid): Promise<Result<readonly MapRecord[], AppError>>;
-  saveMap(map: MapRecord, expectedRevision: Revision): Promise<Result<Revision, AppError>>;
-  deleteMap(id: Uuid, expectedRevision: Revision): Promise<Result<void, AppError>>;
+  getMap(id: Uuid, context?: TransactionContext): Promise<Result<MapRecord, AppError>>;
+  listMaps(campaignId: Uuid, context?: TransactionContext): Promise<Result<readonly MapRecord[], AppError>>;
+  saveMap(map: MapRecord, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>>;
+  deleteMap(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>>;
 
-  addMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision): Promise<Result<Revision, AppError>>;
-  updateMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision): Promise<Result<Revision, AppError>>;
-  removeMapPin(mapId: Uuid, pinId: Uuid, expectedRevision: Revision): Promise<Result<Revision, AppError>>;
+  addMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>>;
+  updateMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>>;
+  removeMapPin(mapId: Uuid, pinId: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>>;
 
   /** A revisão esperada é da campanha, que é o agregado dono da missão. */
   saveQuest(campaignId: Uuid, quest: Quest, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Quest, AppError>>;
@@ -55,5 +55,5 @@ export interface CampaignRepository {
   importAtomic(input: {
     readonly map: MapRecord;
     readonly asset: Asset;
-  }): Promise<Result<{ readonly map: MapRecord; readonly asset: Asset }, AppError>>;
+  }, context?: TransactionContext): Promise<Result<{ readonly map: MapRecord; readonly asset: Asset }, AppError>>;
 }

@@ -162,7 +162,7 @@ export function createJournalDispatcher(options: JournalDispatcherOptions): Jour
         fail(mapJournalError(patched.error), intent);
         return;
       }
-      const saved = await repository.saveJournalEntry(patched.value);
+      const saved = await campaignService.saveJournalEntry(patched.value);
       if (!saved.ok) {
         state = markDraftError(before, saved.error.message);
         fail(saved.error, intent);
@@ -188,7 +188,7 @@ export function createJournalDispatcher(options: JournalDispatcherOptions): Jour
       fail(mapJournalError(created.error), intent);
       return;
     }
-    const saved = await repository.saveJournalEntry(created.value);
+    const saved = await campaignService.saveJournalEntry(created.value);
     if (!saved.ok) {
       state = markDraftError(before, saved.error.message);
       fail(saved.error, intent);

@@ -37,6 +37,19 @@
 .state { display: grid; justify-items: start; gap: var(--spacing-md); max-width: 42rem; padding: var(--spacing-section) var(--spacing-lg); }
 .state p { max-width: 55ch; margin: 0; color: var(--color-text-muted); }
 .stateMark { display: grid; place-items: center; width: 3rem; height: 3rem; border: 1px solid var(--color-primary); border-radius: 50%; color: var(--color-primary); font-size: 1.5rem; }
+.capability,
+.listPanel,
+.review,
+.emptyReview {
+  transition:
+    background-color var(--motion-transition) var(--motion-easing),
+    border-color var(--motion-transition) var(--motion-easing),
+    box-shadow var(--motion-transition) var(--motion-easing);
+}
+.capability:hover { border-color: var(--color-primary); background: var(--color-surface-elevated); }
+.capability.selected { background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface)); }
+.inputSection :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); }
+.inputSection :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
 @media (max-width: 760px) {
   .actions { padding-inline: var(--spacing-sm); }
   .hero { align-items: stretch; flex-direction: column; }

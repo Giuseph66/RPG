@@ -129,6 +129,22 @@ flowchart TD
   QA_004 --> REL_001
 ```
 
+## Expansão offline-first
+
+```mermaid
+flowchart LR
+  DATA_007["DATA-007: Integridade referencial local"] --> CLOUD_001["CLOUD-001: Firebase offline-first"]
+  DATA_007 --> RULE_003["RULE-003: Regras e relacionamentos"]
+  THEME_001["THEME-001: Identidade preto/carmim"] --> QA_005["QA-005: Aceite expandido"]
+  DICE_003["DICE-003: Dados 3D"] --> QA_005
+  CLOUD_001 --> QA_005
+  RULE_003 --> QA_005
+```
+
+`DATA-007` depende de DATA-003/DATA-006; `THEME-001` depende de UI-001/UI-002; `DICE-003` depende de DICE-001/DICE-002; `RULE-003` também depende de RULE-002/SPELL-002/ITEM-002. Todos esses predecessores já estão `DONE` no DAG original.
+
+Estado atual: `DATA-007`, `THEME-001`, `DICE-003` e `RULE-003` estão `DONE`. `CLOUD-001` e, por dependência, `QA-005` estão `BLOCKED` somente pela ativação/publicação Firebase e pela prova com contas reais; as provas locais foram aceitas (122 arquivos/760 testes, typecheck, build, browser responsivo e PWA cacheado).
+
 ## Ondas de prontidão
 
 A tabela assume que a onda anterior inteira terminou, apenas para planejamento. Na execução, liberar cada tarefa assim que seus próprios predecessores tiverem aceite, sem esperar barreira artificial. O cenário ativo é coordenador + até três subagentes Codex; coordenador não implementa produto. Colunas 4/6/8/12 são históricas/inativas até reavaliação e não autorizam reservas. A lane Claude é separada, sempre subordinada a ownership/DAG; este documento não lhe atribui limite de simultaneidade.

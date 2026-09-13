@@ -12,3 +12,4 @@ export * from "./roll";
 export * from "./roll-plan";
 export * from "./ability-scores";
 export * from "./reroll";
+export * from "./performance";

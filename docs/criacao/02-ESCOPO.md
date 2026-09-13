@@ -18,7 +18,7 @@ O wizard inicial cria nível 1; progressão permite alcançar 20. Criação em n
 
 ## Fora do escopo inicial
 
-Backend, contas, Supabase, Firebase, sincronização, colaboração em tempo real, VTT multiplayer, fog of war, automação de mestre, combate de todos os adversários, marketplace, pagamento, integração obrigatória com APIs, suplementos externos e edição 2024.
+Colaboração em tempo real, VTT multiplayer, fog of war, automação de mestre, combate de todos os adversários, marketplace, pagamento, integração obrigatória com APIs, suplementos externos e edição 2024. Contas, Firebase e sincronização eventual entram em uma etapa CLOUD-001 opt-in; não são requisito para a sessão offline nem podem ser anunciados como produção antes dos critérios do [ADR-0007](decisoes/ADR-0007-cloud-sync.md).
 
 ## Automação e decisão da mesa
 

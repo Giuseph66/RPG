@@ -13,7 +13,7 @@ describe("contrastRatio", () => {
   });
 
   it("is 1:1 for identical colors", () => {
-    expect(contrastRatio("#221d16", "#221d16")).toBeCloseTo(1, 5);
+    expect(contrastRatio("#140507", "#140507")).toBeCloseTo(1, 5);
   });
 
   it("is order-independent", () => {

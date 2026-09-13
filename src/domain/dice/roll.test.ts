@@ -122,9 +122,9 @@ describe("rollExpression — tabela de casos determinísticos (11-DICE-ENGINE.md
       expect(rng.calls).toBe(0);
     });
 
-    it("faces=3 (não suportada) rejeita e calls===0", () => {
+    it("faces=9 (sem modelo publicado) rejeita e calls===0", () => {
       const rng = createSequenceRandomSource([1, 2, 3]);
-      const result = rollExpression({ quantity: 1, faces: 3 as never, modifier: 0, mode: "normal" }, rng, META);
+      const result = rollExpression({ quantity: 1, faces: 9 as never, modifier: 0, mode: "normal" }, rng, META);
       expect(isErr(result)).toBe(true);
       expect(rng.calls).toBe(0);
     });

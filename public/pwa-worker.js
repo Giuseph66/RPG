@@ -1,5 +1,5 @@
 /* RPG Companion PWA worker. Version bump is deliberate and reviewed with the shell. */
-const VERSION = "2026.09.11";
+const VERSION = "2026.09.12";
 const PREFIX = "rpg-companion-pwa";
 const SHELL_CACHE = `${PREFIX}-shell-${VERSION}`;
 const CORPUS_CACHE = `${PREFIX}-corpus-${VERSION}`;
@@ -15,7 +15,7 @@ function isNavigation(request) {
 
 function isStaticAsset(request) {
   const path = new URL(request.url).pathname;
-  return path.startsWith("/assets/") || path.startsWith("/corpus/");
+  return path.startsWith("/assets/") || path.startsWith("/corpus/") || path.startsWith("/icons/");
 }
 
 async function networkNavigation(request) {

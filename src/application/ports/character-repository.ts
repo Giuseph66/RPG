@@ -17,7 +17,7 @@ export interface CharacterFilter {
 
 export interface CharacterRepository {
   get(id: Uuid): Promise<Result<Character, AppError>>;
-  list(filter?: CharacterFilter): Promise<Result<readonly CharacterSummary[], AppError>>;
+  list(filter?: CharacterFilter, context?: TransactionContext): Promise<Result<readonly CharacterSummary[], AppError>>;
   /** `commandReceipt` grava idempotência do comando na mesma transação (08-PERSISTENCIA-LOCAL.md). */
   /** `context` permite juntar personagem, rolagens e recibo no mesmo commit. */
   save(

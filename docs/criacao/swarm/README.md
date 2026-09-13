@@ -1,14 +1,14 @@
 # Swarm — painel de implementação
 
-**COMPLETUDE LOCAL ACEITA.** As superfícies, comandos, transação, divisão de bundle e proteção de atualização PWA foram corrigidos, revalidados e documentados. `CORE-002`, `QA-004` e `REL-001` estão `DONE`.
+**FASE OFFLINE-FIRST EM EXECUÇÃO.** A fase local anterior permanece aceita. A expansão atual introduz integridade referencial, Firebase assíncrono, identidade preto/carmim, catálogo 3D e correções de regras sem tornar a rede obrigatória.
 
 ## Leitura e coordenação
 
 Todo agente começa por [00-START-HERE](../00-START-HERE.md) e [AGENT-PROTOCOL](AGENT-PROTOCOL.md). [TASKS](TASKS.md) é o registro canônico; [OWNERSHIP](OWNERSHIP.md) define limites; [DEPENDENCIES](DEPENDENCIES.md) mostra DAG e capacidade real; [CHECKPOINTS](CHECKPOINTS.md) define provas; [HANDOFF](HANDOFF.md) padroniza entrega; [DECISIONS](DECISIONS.md) controla contratos; [RISKS](RISKS.md) rastreia riscos e [QA](QA.md) define aceite.
 
-Usuário → coordenador `gpt-5.6-sol`/`high` → até 3 subagentes Codex `gpt-5.6-luna` e Claude Code `claude-sonnet` via MCP. Coordenador só orquestra; produto é sempre delegado ao owner. Profundidade é 1: subagentes não delegam. Para descoberta estrutural, Codebase Memory é primeira fonte; busca textual é fallback. Sol/Astra nunca são modelos de subagente.
+Usuário → coordenador `gpt-5.6-sol`/`high` → até 3 subagentes Codex `gpt-5.6-luna`. Coordenador só orquestra; produto é sempre delegado ao owner. Profundidade é 1: subagentes não delegam. Para descoberta estrutural, Codebase Memory é primeira fonte; busca textual é fallback. Sol/Astra nunca são modelos de subagente.
 
-Claude Code via MCP está disponível na lane `claude-sonnet`; por orientação atual do usuário, as delegações nativas usam exclusivamente Luna. Ownership, DAG, handoff e limite de três agentes continuam obrigatórios.
+O override ativo mantém Claude Code indisponível e restringe toda delegação nova ao Luna. Ownership, DAG, handoff e limite de três agentes continuam obrigatórios.
 
 Este painel responde o que existe/falta/pode começar. Somente o coordenador atualiza TASKS e este painel juntos após revisão, preservando IDs; suas edições limitam-se aos metadados de coordenação/integração, nunca ao produto do owner. Checkbox marcado significa implementação aceita. Espera normal por dependência aparece TODO; impedimento externo concreto vira BLOCKED com motivo/owner.
 
@@ -68,4 +68,13 @@ Este painel responde o que existe/falta/pode começar. Somente o coordenador atu
 
 ## Próximo movimento
 
-Os passos locais estão concluídos. Conteúdo parcial da fonte, decisões de mesa pendentes e provas que requerem dispositivos físicos permanecem explicitamente rastreados; não serão simulados como concluídos.
+Ativar e publicar o projeto Firebase, depois validar duas contas reais e sincronização entre dispositivos. A implementação local, regras, PWA, visual e QA já foram aceitos; conteúdo parcial da fonte e decisões de mesa pendentes continuam explicitamente rastreados.
+
+## Expansão offline-first
+
+- [x] **DATA-007** — Integridade referencial local · `DONE` · relações, reset e backup consistentes.
+- [ ] **CLOUD-001** — Contas, Firebase e sincronização · `BLOCKED` · implementação local aceita; Console Firebase pendente.
+- [x] **THEME-001** — Identidade preto e carmim · `DONE` · tokens, primitives e telas revalidados.
+- [x] **DICE-003** — Catálogo 3D e orçamento de renderização · `DONE` · modelos e performance alinhados.
+- [x] **RULE-003** — Correção de regras e relacionamentos · `DONE` · domínio, dispatcher e efeitos aceitos.
+- [ ] **QA-005** — Aceite offline-first, visual e 3D · `BLOCKED` · gates locais aceitos; Firebase real/dispositivos pendentes.

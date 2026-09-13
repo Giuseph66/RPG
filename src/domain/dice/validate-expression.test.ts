@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isErr, isOk } from "@domain/contracts/errors";
+import { DICE_FACES } from "@domain/contracts/primitives";
 
 import { validateDiceExpression } from "./validate-expression";
 
@@ -13,8 +14,8 @@ describe("validateDiceExpression", () => {
     }
   });
 
-  it("aceita todas as faces suportadas", () => {
-    for (const faces of [4, 6, 8, 10, 12, 20, 100] as const) {
+  it("aceita todas as faces com semântica publicada", () => {
+    for (const faces of DICE_FACES) {
       const result = validateDiceExpression({ quantity: 1, faces, modifier: 0, mode: "normal" });
       expect(isOk(result)).toBe(true);
     }
@@ -50,8 +51,8 @@ describe("validateDiceExpression", () => {
     if (isErr(result)) expect(result.error.field).toBe("quantity");
   });
 
-  it("rejeita faces=3 (não suportada) identificando o campo", () => {
-    const result = validateDiceExpression({ quantity: 1, faces: 3, modifier: 0, mode: "normal" });
+  it("rejeita faces=9 (sem modelo publicado) identificando o campo", () => {
+    const result = validateDiceExpression({ quantity: 1, faces: 9, modifier: 0, mode: "normal" });
     expect(isErr(result)).toBe(true);
     if (isErr(result)) expect(result.error.field).toBe("faces");
   });

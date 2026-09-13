@@ -1,6 +1,6 @@
 /**
- * Design tokens — dark fantasy natural direction (charcoal/stone surfaces,
- * aged bronze interaction, moss green progression, deep blue magic).
+ * Design tokens — a dark fantasy direction built on absolute black,
+ * blood-wine surfaces, carmine actions and warm rose text.
  *
  * Values here MUST match `src/styles/tokens.ts` exactly; `tokens.test.ts`
  * asserts the two files agree. This file is the only place selectors read
@@ -16,29 +16,29 @@
   color-scheme: dark;
 
   /* Color */
-  --color-background: #16140f;
-  --color-surface: #221d16;
-  --color-surface-elevated: #2d271c;
-  --color-primary: #c9974a;
-  --color-secondary: #5c9468;
-  --color-hp: #b3453d;
-  --color-xp: #8fae57;
-  --color-magic: #4a70b0;
-  --color-warning: #dba63f;
-  --color-danger: #cc4735;
-  --color-text: #f1ead9;
-  --color-text-muted: #b6ab97;
-  --color-border: #726a56;
-  --color-focus: #f4c751;
-  --color-control-disabled: #4d4838;
-  --color-on-primary: #1c1206;
-  --color-on-secondary: #0c1710;
-  --color-on-hp: #fdeeec;
-  --color-on-xp: #16210a;
-  --color-on-magic: #ffffff;
-  --color-on-warning: #1c1206;
-  --color-on-danger: #ffffff;
-  --color-backdrop: rgba(6, 5, 3, 0.6);
+  --color-background: #000000;
+  --color-surface: #140507;
+  --color-surface-elevated: #24090d;
+  --color-primary: #e95562;
+  --color-secondary: #bd7680;
+  --color-hp: #f05a67;
+  --color-xp: #a6c77b;
+  --color-magic: #8eb5e8;
+  --color-warning: #f0b35e;
+  --color-danger: #ff7a82;
+  --color-text: #fff4f2;
+  --color-text-muted: #d4b8bb;
+  --color-border: #9b5a64;
+  --color-focus: #ffb3b8;
+  --color-control-disabled: #76515a;
+  --color-on-primary: #000000;
+  --color-on-secondary: #000000;
+  --color-on-hp: #000000;
+  --color-on-xp: #000000;
+  --color-on-magic: #000000;
+  --color-on-warning: #000000;
+  --color-on-danger: #000000;
+  --color-backdrop: rgba(0, 0, 0, 0.78);
 
   /* Spacing */
   --spacing-none: 0px;
@@ -57,7 +57,7 @@
 
   /* Shadow */
   --shadow-none: none;
-  --shadow-overlay: 0 20px 40px rgba(6, 5, 3, 0.55);
+  --shadow-overlay: 0 20px 40px rgba(0, 0, 0, 0.8);
 
   /* Typography */
   --typography-display-font-family: Georgia, "Iowan Old Style",

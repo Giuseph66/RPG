@@ -21,6 +21,10 @@ import type { Uuid } from "@domain/contracts/ids";
 import type { Result, AppError } from "@domain/contracts/errors";
 import type { DataManagementService } from "@application/transfer";
 import type { BackupEnvelope, ImportPreview } from "@domain/contracts/backup";
+import type { AuthPort } from "@application/ports/auth-port";
+import type { AccountAvailability, AccountPanelProps } from "@features/account";
+import type { MembershipService } from "@application/membership";
+import type { SessionService } from "@application/session";
 
 export const FEATURE_DESTINATIONS = ["character", "actions", "journey", "compendium"] as const;
 export type FeatureDestinationId = (typeof FEATURE_DESTINATIONS)[number];
@@ -52,6 +56,11 @@ export interface FeatureRegistryDependencies {
     readonly service: DataManagementService;
     readonly previewImport: (envelope: BackupEnvelope) => Promise<Result<ImportPreview, AppError>>;
   };
+  /** Optional remote identity; absence keeps the full local-first path available. */
+  readonly auth?: AuthPort;
+  readonly authAvailability?: AccountAvailability;
+  readonly membership?: MembershipService;
+  readonly session?: SessionService;
 }
 
 export interface FeatureRegistry {
@@ -100,6 +109,13 @@ export interface FeatureRegistry {
     readonly service: DataManagementService;
     readonly previewImport: (envelope: BackupEnvelope) => Promise<Result<ImportPreview, AppError>>;
   };
+  readonly account: {
+    readonly auth?: AuthPort;
+    readonly availability: AccountAvailability;
+    readonly bindProps: (props?: Omit<AccountPanelProps, "auth" | "availability">) => AccountPanelProps;
+  };
+  readonly membership?: MembershipService;
+  readonly session?: SessionService;
 }
 
 export type CompendiumRegistryProps = Omit<CompendiumProps, "entries" | "categories"> & Partial<Pick<CompendiumProps, "entries" | "categories">>;
@@ -140,7 +156,6 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     ...(dependencies.campaignDispatcher ? [] : ["CampaignDispatcher (comandos de campanha pendentes)"]),
     ...(dependencies.campaignRecordDispatcher ? [] : ["CampaignRecordDispatcher (missões/NPCs pendente)"]),
     ...(dependencies.journalDispatcher ? [] : ["JournalDispatcher (rascunho/diário pendente)"]),
-    "Map/asset read model e callbacks de mapa devem ser fornecidos pela composição da Jornada",
   ];
   const journey = {
     service: services.campaign,
@@ -172,5 +187,16 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     bindHistoryProps: (props: DiceHistoryProps): DiceHistoryProps => props,
   };
 
-  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
+  const account = {
+    auth: dependencies.auth,
+    availability: dependencies.authAvailability ?? { available: Boolean(dependencies.auth) },
+    bindProps: (props: Omit<AccountPanelProps, "auth" | "availability" | "membership"> = {}): AccountPanelProps => ({
+      ...props,
+      ...(dependencies.auth ? { auth: dependencies.auth } : {}),
+      ...(dependencies.membership ? { membership: dependencies.membership } : {}),
+      availability: dependencies.authAvailability ?? { available: Boolean(dependencies.auth) },
+    }),
+  };
+
+  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
 }

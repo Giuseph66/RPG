@@ -5,9 +5,8 @@
 
 import { type DiceExpression, type DiceMode } from "@domain/contracts/dice";
 import { appError, err, ok, type Result, type ValidationError } from "@domain/contracts/errors";
-import { type DiceFaces } from "@domain/contracts/primitives";
+import { DICE_FACES, isDiceFaces, type DiceFaces } from "@domain/contracts/primitives";
 
-const ALLOWED_FACES: readonly DiceFaces[] = [4, 6, 8, 10, 12, 20, 100];
 const ALLOWED_MODES: readonly DiceMode[] = ["normal", "advantage", "disadvantage"];
 
 function isFiniteInteger(value: unknown): value is number {
@@ -16,7 +15,7 @@ function isFiniteInteger(value: unknown): value is number {
 
 /**
  * Valida entrada não confiável (`unknown`) contra o contrato de `DiceExpression`: quantity
- * inteiro 1-100, faces em {4,6,8,10,12,20,100}, modifier inteiro -1000..1000, mode em
+ * inteiro 1-100, faces presentes no catálogo físico, modifier inteiro -1000..1000, mode em
  * normal|advantage|disadvantage, com advantage/disadvantage restritos a exatamente 1d20. Cada
  * rejeição identifica o `field` responsável.
  */
@@ -32,8 +31,8 @@ export function validateDiceExpression(input: unknown): Result<DiceExpression, V
     return err(appError.validation("quantity", "Quantidade de dados deve ser um número inteiro entre 1 e 100."));
   }
 
-  if (typeof faces !== "number" || !ALLOWED_FACES.includes(faces as DiceFaces)) {
-    return err(appError.validation("faces", "Faces deve ser um dos valores suportados: 4, 6, 8, 10, 12, 20 ou 100."));
+  if (!isDiceFaces(faces)) {
+    return err(appError.validation("faces", `Faces deve ser um dos valores suportados: ${DICE_FACES.join(", ")}.`));
   }
 
   if (!isFiniteInteger(modifier) || modifier < -1000 || modifier > 1000) {

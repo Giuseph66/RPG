@@ -233,7 +233,7 @@ describe("createActionDispatcher", () => {
     function characterWithResource(spent: number): Character {
       return {
         ...minimalCharacter,
-        resources: [{ id: resourceId, definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("second-wind") }, ownerInstanceId: asUuid("33333333-3333-4333-8333-000000000002"), spent }],
+        resources: [{ id: resourceId, definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("second-wind") }, ownerInstanceId: minimalCharacter.id, spent }],
       };
     }
     function buildExecution(character: Character): ActionCapabilityExecution {
