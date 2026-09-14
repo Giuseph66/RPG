@@ -168,12 +168,20 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   const [reviewIssues, setReviewIssues] = useState<readonly CreationIssue[]>([]);
   const [savedDraft, setSavedDraft] = useState(false);
   const confirming = useRef(false);
+  const draftSaveQueue = useRef<Promise<void>>(Promise.resolve());
 
   const pack = asCreationCatalog(catalog).rulePack;
   const report = useMemo(() => validateCharacterCreation(catalog, draft), [catalog, draft]);
   const index = STEPS.indexOf(step);
   const stepIssues = report.issues.filter((issue) => issueForStep(issue, step));
   const isStepValid = step === "review" ? report.valid : stepIssues.length === 0;
+
+  const queueDraftSave = (nextDraft: CharacterDraft) => {
+    if (!service) return undefined;
+    const pending = draftSaveQueue.current.then(() => service.saveDraft(nextDraft));
+    draftSaveQueue.current = pending.then(() => undefined, () => undefined);
+    return pending;
+  };
 
   const commitDraft = (decision: CreationDecision) => {
     const result = applyCreationDecision(draft, decision);
@@ -183,9 +191,21 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
       return;
     }
     setDraft(result.value);
+    setSavedDraft(false);
     setMessage(undefined);
     setStatus("idle");
     onDraftChange?.(result.value);
+    const saved = queueDraftSave(result.value);
+    if (saved) {
+      void saved.then((persisted) => {
+        if (!persisted.ok) {
+          setStatus("error");
+          setMessage(persisted.error.message);
+          return;
+        }
+        onDraftSaved?.(persisted.value);
+      });
+    }
   };
 
   const goTo = (next: PresentationStep) => {
@@ -204,9 +224,10 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   };
 
   const saveDraft = async () => {
-    if (!service || savedDraft) return;
+    if (!service || savedDraft || status === "saving-draft") return;
     setStatus("saving-draft");
-    const result = await service.saveDraft(draft);
+    const result = await queueDraftSave(draft);
+    if (!result) return;
     if (!result.ok) {
       setStatus("error");
       setMessage(result.error.message);
@@ -257,6 +278,8 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   const choices = [...raceChoices.map((choice) => ({ choice, owner: draft.partial.raceRef })), ...classChoices.map((choice) => ({ choice, owner: draft.partial.classes?.[0] ? refFor(draft, draft.partial.classes[0].classId) : undefined })), ...backgroundChoices.map((choice) => ({ choice, owner: draft.partial.backgroundRef }))].filter((entry): entry is { choice: ChoiceDefinition; owner: DefinitionRef } => entry.owner !== undefined);
   const equipmentChoices = choices.filter(({ choice }) => !/spell|cantrip/i.test(choice.id));
   const spellChoices = choices.filter(({ choice }) => /spell|cantrip/i.test(choice.id));
+  const heroArtwork = classArtwork(String(classDefinition?.id ?? ""));
+  const characterName = draft.partial.name?.trim() || "Aventureiro sem nome";
 
   const renderStep = (): ReactNode => {
     switch (step) {
@@ -272,5 +295,5 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
     }
   };
 
-  return <section className={styles.wizard} aria-labelledby="creation-title"><header className={styles.header}><div><p className={styles.eyebrow}>NOVA FICHA</p><h1 id="creation-title">Criação de personagem</h1><p className={styles.subtitle}>Etapa {index + 1} de {STEPS.length}: {STEP_LABELS[step]}</p></div><Button variant="ghost" onClick={onCancel}>Cancelar</Button></header><ProgressBar value={index + 1} max={STEPS.length} label={`Progresso: etapa ${index + 1} de ${STEPS.length}`} /><StepNavigation current={step} onStep={goTo} />{message ? <InlineStatus tone={status === "error" ? "error" : status === "confirmed" ? "success" : "info"} assertive={status === "error"}>{message}</InlineStatus> : null}<div className={styles.content}>{renderStep()}</div><footer className={styles.footer}><div className={styles.footerLeft}>{service ? <Button variant="ghost" busy={status === "saving-draft"} disabled={savedDraft || status === "confirming" || status === "confirmed"} onClick={() => void saveDraft()}>{savedDraft ? "Rascunho salvo" : "Salvar rascunho"}</Button> : null}</div><div className={styles.footerActions}>{index > 0 ? <Button variant="ghost" onClick={() => setStep(STEPS[index - 1])}>Voltar</Button> : null}{index < STEPS.length - 1 ? <Button disabled={!isStepValid} disabledReason={stepIssues[0]?.message} onClick={() => setStep(STEPS[index + 1])}>Continuar</Button> : <Button busy={status === "confirming"} disabled={!service || !report.valid || status === "confirmed"} disabledReason={!service ? "Serviço de persistência indisponível." : !report.valid ? "Resolva as pendências da revisão." : undefined} onClick={() => void confirm()}>{status === "confirmed" ? "Personagem criado" : "Confirmar personagem"}</Button>}</div></footer></section>;
+  return <section className={styles.wizard} aria-labelledby="creation-title"><header className={styles.header}><div><p className={styles.eyebrow}>NOVA FICHA</p><h1 id="creation-title">Criação de personagem</h1><p className={styles.subtitle}>Etapa {index + 1} de {STEPS.length}: {STEP_LABELS[step]}</p></div><Button variant="ghost" onClick={onCancel}>Cancelar</Button></header><aside className={styles.dossier} aria-label="Resumo da ficha em criação"><div className={styles.portrait}><img src={heroArtwork.src} alt={heroArtwork.alt} /></div><div className={styles.dossierCopy}><p>Crônica em construção</p><h2>{characterName}</h2><span>{race?.name ?? "Origem pendente"} · {classDefinition?.name ?? "Vocação pendente"}</span></div><dl className={styles.dossierStats}><div><dt>Etapa</dt><dd>{index + 1}/{STEPS.length}</dd></div><div><dt>Origem</dt><dd>{race?.name ?? "—"}</dd></div><div><dt>Vocação</dt><dd>{classDefinition?.name ?? "—"}</dd></div></dl></aside><div className={styles.progress}><ProgressBar value={index + 1} max={STEPS.length} label={`Progresso: etapa ${index + 1} de ${STEPS.length}`} /></div><StepNavigation current={step} onStep={goTo} />{message ? <InlineStatus tone={status === "error" ? "error" : status === "confirmed" ? "success" : "info"} assertive={status === "error"}>{message}</InlineStatus> : null}<div className={styles.content}>{renderStep()}</div><footer className={styles.footer}><div className={styles.footerLeft}>{service ? <Button variant="ghost" busy={status === "saving-draft"} disabled={savedDraft || status === "confirming" || status === "confirmed"} onClick={() => void saveDraft()}>{savedDraft ? "Rascunho salvo" : "Salvar rascunho"}</Button> : null}</div><div className={styles.footerActions}>{index > 0 ? <Button variant="ghost" onClick={() => setStep(STEPS[index - 1])}>Voltar</Button> : null}{index < STEPS.length - 1 ? <Button disabled={!isStepValid} disabledReason={stepIssues[0]?.message} onClick={() => setStep(STEPS[index + 1])}>Continuar</Button> : <Button busy={status === "confirming"} disabled={!service || !report.valid || status === "confirmed"} disabledReason={!service ? "Serviço de persistência indisponível." : !report.valid ? "Resolva as pendências da revisão." : undefined} onClick={() => void confirm()}>{status === "confirmed" ? "Personagem criado" : "Confirmar personagem"}</Button>}</div></footer></section>;
 }

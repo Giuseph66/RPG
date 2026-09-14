@@ -105,7 +105,7 @@ describe("SyncWorker", () => {
 
     const result = await createSyncWorker({ outbox: store.outbox, adapter, clock }).run();
 
-    expect(result).toEqual({ ok: true, value: { attempted: 2, acked: 1, conflicts: 1, failed: 0, skipped: 0, unavailable: false } });
+    expect(result).toEqual({ ok: true, value: { attempted: 2, acked: 1, conflicts: 1, failed: 0, skipped: 0, unavailable: false, lastErrorMessage: "divergência" } });
     expect(calls).toBe(2);
     expect(store.records.get(first.operationId)?.status).toBe("conflict");
     expect(store.records.get(second.operationId)?.status).toBe("pending");
@@ -126,7 +126,7 @@ describe("SyncWorker", () => {
 
     const result = await createSyncWorker({ outbox: store.outbox, adapter, clock, retryBaseMs: 500 }).run();
 
-    expect(result).toEqual({ ok: true, value: { attempted: 2, acked: 1, conflicts: 0, failed: 1, skipped: 0, unavailable: false } });
+    expect(result).toEqual({ ok: true, value: { attempted: 2, acked: 1, conflicts: 0, failed: 1, skipped: 0, unavailable: false, lastErrorMessage: "offline" } });
     expect(store.records.get(first.operationId)?.status).toBe("failed");
     expect(store.records.get(first.operationId)?.nextRetryAt).toBe("2026-09-12T10:00:00.500Z");
     expect(store.records.get(second.operationId)?.status).toBe("pending");

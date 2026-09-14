@@ -142,4 +142,44 @@ describe("SyncRuntime", () => {
     expect(stopRemote).toHaveBeenCalledTimes(1);
     runtime.dispose();
   });
+
+  it("envia a fila mesmo quando a leitura remota falha", async () => {
+    const auth = new FakeAuth();
+    const outbox = emptyOutbox();
+    const operation = {
+      operationId: "character-backfill",
+      ownerUid: "player",
+      aggregateType: "character",
+      aggregateId: "character-1",
+      mutation: "upsert",
+      baseRevision: 0,
+      payload: { id: "character-1" },
+      status: "pending",
+      attempts: 0,
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    } as never;
+    outbox.listPending = vi.fn(async () => ({ ok: true as const, value: [operation] }));
+    outbox.markSyncing = vi.fn(async () => ({ ok: true as const, value: operation }));
+    outbox.markAcked = vi.fn(async () => ({ ok: true as const, value: operation }));
+    const apply = vi.fn(async () => ({ ok: true as const, value: { kind: "acked" as const, remoteRevision: 1 as never } }));
+    const adapter: RemoteSyncAdapter = {
+      isAvailable: () => true,
+      apply,
+      pull: vi.fn(async () => ({ ok: false as const, error: { code: "remote-error", message: "Índice ausente", retryable: false } as never })),
+    };
+    const hydration = { hydrate: vi.fn() };
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const runtime = createSyncRuntime({ auth, outbox, clock, createAdapter: () => adapter, hydration, isOnline: () => true });
+
+    auth.setSession(session("player"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ operationId: "character-backfill" }));
+    expect(runtime.snapshot.state).toBe("error");
+    expect(runtime.snapshot.lastError?.message).toBe("Índice ausente");
+    expect(errorLog).toHaveBeenCalledWith("[sync] Leitura remota falhou", expect.objectContaining({ message: "Índice ausente" }));
+    errorLog.mockRestore();
+    runtime.dispose();
+  });
 });

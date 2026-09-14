@@ -26,6 +26,10 @@ export interface BottomSheetProps {
   hideFooterCloseButton?: boolean;
   /** Extra class on the sheet surface, for feature-specific skins. */
   className?: string;
+  /** Optional actions rendered immediately before the close control (mirrors `AppModalProps`). */
+  headerActions?: ReactNode;
+  /** Optional action rendered before the title, at the leading (left) edge of the header. */
+  leadingAction?: ReactNode;
 }
 
 /**
@@ -46,6 +50,8 @@ export function BottomSheet({
   footer,
   hideFooterCloseButton = false,
   className,
+  headerActions,
+  leadingAction,
 }: BottomSheetProps) {
   const titleId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -73,10 +79,14 @@ export function BottomSheet({
       >
         <div className={styles.grabber} aria-hidden="true" />
         <div className={styles.header}>
+          {leadingAction ? <div className={styles.leadingAction}>{leadingAction}</div> : null}
           <h2 id={titleId} className={styles.title}>
             {title}
           </h2>
-          <IconButton label="Fechar" icon={<X size={20} weight="bold" />} onClick={onClose} />
+          <div className={styles.headerActions}>
+            {headerActions}
+            <IconButton label="Fechar" icon={<X size={20} weight="bold" />} onClick={onClose} />
+          </div>
         </div>
         <div className={styles.body}>{children}</div>
         {footer || !hideFooterCloseButton ? (

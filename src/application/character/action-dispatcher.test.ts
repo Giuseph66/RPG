@@ -36,6 +36,7 @@ function fakeRepository(character: Character, saveResult: Result<Revision, AppEr
     },
     delete: async () => ok(undefined),
     getDraft: async () => err({ code: "not-found", entity: "draft", id: "n/a", message: "sem rascunho" } as AppError),
+    listDrafts: async () => ok([]),
     saveDraft: async (draft: CharacterDraft) => ok(draft),
     deleteDraft: async () => ok(undefined),
   };

@@ -1,2 +1,2 @@
 export { CharacterSelection } from "./CharacterSelection";
-export type { CharacterSelectionProps, CharacterSelectionStatus } from "./types";
+export type { CharacterSelectionProps, CharacterSelectionStatus, DraftSummary } from "./types";

@@ -15,6 +15,15 @@ export const MODIFICADOR_MAXIMO = 1000;
 /** Dados de uso diário; o resto do catálogo entra ao expandir. */
 const FACES_RAPIDAS: readonly DiceFaces[] = [4, 6, 8, 20, 100];
 
+/**
+ * Fora do seletor: d1/d3/d5 têm o colisor mais pesado do catálogo (611–687
+ * vértices, mais que o d100) e não são esféricos o bastante para o atalho de
+ * esfera do `colliderShape.ts` — ficam presos a 1 exemplar na mesa física.
+ * Continuam válidos no domínio (fórmula manual, ex. "2d3" no campo de texto);
+ * só saem do catálogo de toque rápido.
+ */
+const FACES_OCULTAS: ReadonlySet<DiceFaces> = new Set([1, 3, 5]);
+
 const GLIFOS: Partial<Record<DiceFaces, ReactNode>> = {
   4: <GiD4 aria-hidden="true" />,
   6: <GiDiceSixFacesSix aria-hidden="true" />,
@@ -183,9 +192,8 @@ export interface DiceQuickPickerProps {
  * realmente se usam.
  */
 export function DiceQuickPicker({ faces, onFacesChange, expanded, onToggleExpanded }: DiceQuickPickerProps) {
-  const visiveis = expanded
-    ? DICE_FACES
-    : DICE_FACES.filter((valor) => FACES_RAPIDAS.includes(valor) || valor === faces);
+  const visiveis = (expanded ? DICE_FACES : DICE_FACES.filter((valor) => FACES_RAPIDAS.includes(valor) || valor === faces))
+    .filter((valor) => !FACES_OCULTAS.has(valor) || valor === faces);
 
   return (
     <div className={styles.quickRow} role="group" aria-label="Tipo de dado">

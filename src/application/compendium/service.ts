@@ -16,8 +16,9 @@ export class CompendiumService {
   private readonly loadedCategories = new Set<CompendiumCategoryId>();
 
   constructor(options: CompendiumServiceOptions = {}) {
+    const excluded = new Set(options.excludePackEntityTypes ?? []);
     const items: readonly CompendiumCatalogItem[] = [
-      ...(options.packs ? catalogItemsFromPacks(options.packs) : []),
+      ...(options.packs ? catalogItemsFromPacks(options.packs).filter((item) => !item.entityType || !excluded.has(item.entityType)) : []),
       ...(options.items ?? []),
     ];
     this.index = buildCompendiumIndex(items);

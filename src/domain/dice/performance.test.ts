@@ -5,9 +5,14 @@ import { DICE_FACES, type DiceFaces } from "@domain/contracts/primitives";
 import { dicePerformancePolicy } from "./performance";
 
 describe("dicePerformancePolicy", () => {
-  it("mantém o resultado textual completo e limita a física do d100", () => {
+  it("o orçamento nunca corta o resultado textual, só a cena", () => {
     const policy = dicePerformancePolicy({ faces: 100, quantity: 100 });
-    expect(policy.maxPhysicalInstances).toBe(1);
+    // O d100 já foi preso em 1 exemplar pelo casco de 196 vértices; com o
+    // colisor de esfera, dez custam 38ms e o teto deixou de ser o gargalo.
+    expect(policy.maxPhysicalInstances).toBeGreaterThan(1);
+    // Mas o teto continua existindo: cena limitada, nunca o número de dados
+    // que o Dice Engine resolve.
+    expect(policy.maxPhysicalInstances).toBeLessThan(100);
     expect(policy.complexity).toBe("very-high");
     expect(policy.shadowMapSize).toBe(1024);
   });
@@ -30,12 +35,17 @@ describe("dicePerformancePolicy", () => {
     // (196). Já tiveram teto 4, e quatro deles travavam a aba por minutos.
     expect(teto(3)).toBe(1);
     expect(teto(5)).toBe(1);
-    expect(teto(1)).toBe(1);
+    // O d1 tem o colisor mais pesado de todos (642 vértices), mas é uma bola
+    // (esfericidade 0,996): vira esfera e deixa de custar caro.
+    expect(teto(1)).toBeGreaterThanOrEqual(20);
     // Poliedros baratos aguentam uma mão cheia de dados.
     expect(teto(6)).toBeGreaterThanOrEqual(20);
     expect(teto(20)).toBeGreaterThanOrEqual(20);
-    // O Zocchiedro do d100 continua sozinho: três exemplares custam 4,2 s.
-    expect(teto(100)).toBe(1);
+    // O d100 é quase esférico (0,963) e usa colisor de esfera: sai da conta do
+    // O(V²) e acompanha os baratos. O d120 (0,905) é facetado demais para isso
+    // e segue preso ao casco de 62 vértices.
+    expect(teto(100)).toBeGreaterThanOrEqual(20);
+    expect(teto(120)).toBeLessThanOrEqual(10);
   });
 
   it("desliga a animação quando reduced motion está ativo", () => {

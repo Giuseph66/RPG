@@ -3,6 +3,7 @@
 import { ABILITIES, findAbility } from "@data/abilities/abilities";
 import { SKILLS } from "@data/skills/skills";
 import { PHB_PTBR_LOCAL_2017_MANIFEST } from "@data/rulepacks/manifest";
+import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
 import type { CompendiumCatalogItem, StaticCompendiumCategory } from "@application/compendium";
 
 const ruleset = {
@@ -17,6 +18,38 @@ function sourceRef(chapter: string, printedPage: number, pdfPage: number, sectio
 function staticEntry(category: StaticCompendiumCategory, id: string, name: string, summary: string, tags: readonly string[], sourceRefs: readonly ReturnType<typeof sourceRef>[], aliases: readonly string[] = []): CompendiumCatalogItem {
   return { kind: "static", category, ruleset, aliases, summary, definition: { id, name, tags, sourceRefs } };
 }
+
+function normalizeBookText(value: string): string {
+  return value.replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+}
+
+const BOOK_SPELL_CLASS_NAMES: Readonly<Record<string, string>> = { bard: "Bardo", warlock: "Bruxo", cleric: "Clérigo", druid: "Druida", sorcerer: "Feiticeiro", wizard: "Mago", paladin: "Paladino", ranger: "Patrulheiro" };
+
+const BOOK_SPELL_ITEMS: readonly CompendiumCatalogItem[] = EXTRACTED_PHB_SPELLS.map((spell) => ({
+  kind: "static" as const,
+  category: "spell" as const,
+  ruleset,
+  aliases: [spell.sourceName],
+  summary: `Círculo ${spell.level} · ${spell.schoolPtBr} · ${spell.classes.map((classId) => BOOK_SPELL_CLASS_NAMES[classId] ?? classId).join(", ")}`,
+  definition: {
+    kind: "book-spell" as const,
+    id: spell.id,
+    name: spell.name,
+    tags: ["magia", spell.schoolPtBr, ...spell.classes, ...(spell.ritual ? ["ritual"] : [])],
+    sourceRefs: [sourceRef(spell.source.chapter, spell.source.printedPage, spell.source.pdfPage, spell.sourceName)],
+    level: spell.level,
+    school: spell.schoolPtBr,
+    castingTime: normalizeBookText(spell.castingTime),
+    range: normalizeBookText(spell.range),
+    components: normalizeBookText(spell.components),
+    duration: normalizeBookText(spell.duration),
+    concentration: /concentra/i.test(spell.duration),
+    ritual: spell.ritual,
+    classes: spell.classes,
+    description: normalizeBookText(spell.description),
+    ...(spell.higherLevels ? { higherLevels: normalizeBookText(spell.higherLevels) } : {}),
+  },
+}));
 
 const RULES_D20 = sourceRef("Introdução", 7, 6, "O d20");
 const RULES_ABILITY = sourceRef("Capítulo 7", 175, 174, "Valores e Modificadores de Habilidade");
@@ -57,6 +90,7 @@ const ADVENTURE_SOCIAL = sourceRef("Capítulo 8", 186, 185, "Interação Social"
 const ADVENTURE_DOWNTIME = sourceRef("Capítulo 8", 189, 188, "Entre Aventuras");
 
 export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
+  ...BOOK_SPELL_ITEMS,
   ...ABILITIES.map((ability) => ({
     kind: "static" as const,
     category: "attributes" as const,
@@ -123,6 +157,7 @@ export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
 ];
 
 export const STATIC_COMPENDIUM_COUNTS = {
+  spell: BOOK_SPELL_ITEMS.length,
   attributes: ABILITIES.length,
   skills: SKILLS.length,
   rules: STATIC_COMPENDIUM_ITEMS.filter((item) => item.category === "rules").length,

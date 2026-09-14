@@ -94,6 +94,39 @@ describe("CharacterCreationWizard", () => {
     await mounted.unmount();
   });
 
+  it("permite salvar novamente após editar o rascunho", async () => {
+    const saveDraft = vi.fn(async (value) => ({ ok: true as const, value }));
+    const service = { saveDraft, deleteDraft: vi.fn(), saveCharacter: vi.fn() } as never;
+    const mounted = await mount(<CharacterCreationWizard draft={draft()} catalog={catalog()} service={service} />);
+    try {
+      const save = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Salvar rascunho") as HTMLElement;
+      await click(save);
+      const name = mounted.container.querySelector("input") as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(name, "Artemis");
+      await fireEvent(name, new Event("input", { bubbles: true }));
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Salvar rascunho") as HTMLElement);
+      expect(saveDraft).toHaveBeenCalledTimes(3);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("salva localmente cada decisão de criação", async () => {
+    const saveDraft = vi.fn(async (value) => ({ ok: true as const, value }));
+    const service = { saveDraft, deleteDraft: vi.fn(), saveCharacter: vi.fn() } as never;
+    const mounted = await mount(<CharacterCreationWizard draft={draft()} catalog={catalog()} service={service} />);
+    try {
+      const name = mounted.container.querySelector("input") as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(name, "Artemis");
+      await fireEvent(name, new Event("input", { bubbles: true }));
+      await vi.waitFor(() => expect(saveDraft).toHaveBeenCalledWith(expect.objectContaining({ partial: expect.objectContaining({ name: "Artemis" }) })));
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
   it("confirma uma única vez depois da revisão válida", async () => {
     const saveCharacter = vi.fn(async () => ({ ok: true as const, value: asRevision(1) }));
     const service = { saveDraft: vi.fn(), deleteDraft: vi.fn(), saveCharacter } as never;

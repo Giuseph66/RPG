@@ -29,6 +29,7 @@ export interface CharacterRepository {
   delete(id: Uuid, expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>>;
 
   getDraft(id: Uuid): Promise<Result<CharacterDraft, AppError>>;
+  listDrafts(): Promise<Result<readonly CharacterDraft[], AppError>>;
   saveDraft(draft: CharacterDraft): Promise<Result<CharacterDraft, AppError>>;
   deleteDraft(id: Uuid): Promise<Result<void, AppError>>;
 }

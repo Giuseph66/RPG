@@ -2,7 +2,7 @@ import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { click, mount } from "@components/ui/testUtils";
+import { click, fireEvent, mount } from "@components/ui/testUtils";
 import { createApplicationRuntime } from "./bootstrap";
 import { AppRouter } from "./router";
 import { fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
@@ -10,6 +10,7 @@ import { asEntityId, asUuid } from "@domain/contracts/ids";
 import { IndexedDbCharacterRepository, openDatabase } from "@infrastructure/persistence/indexeddb";
 import { asIsoTimestamp } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
+import { applyCreationDecision } from "@domain/character/creation";
 
 async function mountRoute(node: Parameters<typeof mount>[0]) {
   const mounted = await mount(node);
@@ -50,6 +51,85 @@ describe("AppRouter", () => {
       await reloadMount.unmount();
     } finally {
       window.history.replaceState({}, "", originalUrl);
+    }
+  });
+
+  it("cancels character creation back to the character selection", async () => {
+    const runtime = await createApplicationRuntime();
+    const originalUrl = window.location.href;
+    const mounted = await mountRoute(<AppRouter initialPath="/character/create" navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} createDraft={runtime.createDraft} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      const cancel = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Cancelar");
+      expect(cancel).toBeTruthy();
+      await click(cancel!);
+      expect(window.location.pathname).toBe("/character");
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
+      await mounted.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("lists and resumes a saved character draft", async () => {
+    const runtime = await createApplicationRuntime();
+    const named = applyCreationDecision(runtime.createDraft(), { kind: "identity", name: "Artemis" });
+    if (!named.ok) throw new Error(named.error.message);
+    expect((await runtime.services.character.saveDraft(named.value)).ok).toBe(true);
+    const originalUrl = window.location.href;
+    const mounted = await mountRoute(<AppRouter initialPath="/character" navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} createDraft={runtime.createDraft} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Rascunhos"));
+      const resume = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Retomar rascunho");
+      expect(resume).toBeTruthy();
+      await click(resume!);
+      await act(async () => { await vi.dynamicImportSettled(); });
+      expect(window.location.pathname).toBe(`/character/create/${named.value.id}`);
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Criação de personagem"));
+      expect(mounted.container.textContent).toContain("Artemis");
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
+      await mounted.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("persists creation progress automatically across a reload", async () => {
+    const runtime = await createApplicationRuntime();
+    const originalUrl = window.location.href;
+    const creation = await mountRoute(<AppRouter initialPath="/character/create" navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} createDraft={runtime.createDraft} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      const name = creation.container.querySelector("input") as HTMLInputElement;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(name, "Artemis");
+      await fireEvent(name, new Event("input", { bubbles: true }));
+      await vi.waitFor(async () => {
+        const drafts = await runtime.services.character.listDrafts();
+        expect(drafts.ok && drafts.value[0]?.partial.name).toBe("Artemis");
+      });
+      await vi.waitFor(() => expect(window.location.pathname).toMatch(/^\/character\/create\/[\w-]+$/));
+    } finally {
+      await creation.unmount();
+    }
+    const reloaded = await mountRoute(<AppRouter initialPath={window.location.pathname} navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} createDraft={runtime.createDraft} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      await vi.waitFor(() => expect(reloaded.container.textContent).toContain("Criação de personagem"));
+      expect(reloaded.container.textContent).toContain("Artemis");
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
+      await reloaded.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
     }
   });
 

@@ -52,7 +52,7 @@ export function matchRoute(pathname: string): RouteMatch {
     return { kind: "data", path, params: {} };
   }
   if (first === "character") {
-    if (second === "create") return { kind: "character", primary: "character", path, params: { mode: "create" } };
+    if (second === "create" && segments.length <= 3) return { kind: "character", primary: "character", path, params: { mode: "create", ...(third ? { draftId: third } : {}) } };
     if (second) return { kind: "character", primary: "character", path, params: { id: second } };
     return { kind: "character", primary: "character", path, params: {} };
   }

@@ -40,3 +40,105 @@
 .classTileSelected { border-color: var(--color-secondary); box-shadow: 0 0 0 1px var(--color-secondary); color: var(--color-secondary); }
 .wizard :where(input, select, textarea) { border-color: var(--color-border-soft); }
 @media (max-width: 680px) { .classGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .classTile img { height: 7rem; } }
+
+/* Ficha de grimório: superfícies de tinta, bronze envelhecido e dados do aventureiro. */
+.wizard {
+  position: relative;
+  max-width: 60rem;
+  padding: var(--spacing-md);
+  border: 1px solid color-mix(in srgb, var(--color-border-soft) 74%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-background) 30%, transparent), var(--color-background) 28rem),
+    url("../../../assets/art/textures/header-stone.webp") center / cover;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-background) 62%, transparent), var(--shadow-surface);
+}
+.wizard::before,
+.wizard::after {
+  position: absolute;
+  z-index: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  content: "";
+  pointer-events: none;
+}
+.wizard::before { top: .35rem; left: .35rem; border-top: 1px solid var(--color-secondary); border-left: 1px solid var(--color-secondary); }
+.wizard::after { right: .35rem; bottom: .35rem; border-right: 1px solid var(--color-secondary); border-bottom: 1px solid var(--color-secondary); }
+.wizard > * { position: relative; z-index: 1; }
+.header {
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border-soft) 80%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-background) 40%, transparent), color-mix(in srgb, var(--color-surface-elevated) 68%, transparent));
+}
+.header h1 { color: var(--color-secondary); font-size: clamp(1.55rem, 4vw, 2.4rem); letter-spacing: .025em; }
+.eyebrow { margin-bottom: .15rem; color: var(--color-gold-muted); font-size: .68rem; letter-spacing: .2em; }
+.subtitle { margin-top: .15rem; font-size: .92rem; }
+.dossier {
+  display: grid;
+  grid-template-columns: minmax(8rem, .68fr) minmax(15rem, 1.25fr) minmax(11rem, .82fr);
+  min-height: 9.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-background) 12%, transparent), color-mix(in srgb, var(--color-surface) 94%, transparent)),
+    url("../../../assets/art/textures/character-vigil.webp") center / cover;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-background) 78%, transparent), 0 0 0 1px color-mix(in srgb, var(--color-secondary) 22%, transparent);
+}
+.portrait { position: relative; min-height: 100%; border-right: 1px solid var(--color-border-soft); background: var(--color-background); }
+.portrait::after { position: absolute; inset: 0; content: ""; background: linear-gradient(90deg, transparent 48%, color-mix(in srgb, var(--color-background) 78%, transparent)); pointer-events: none; }
+.portrait img { display: block; width: 100%; height: 100%; min-height: 9.5rem; object-fit: cover; object-position: center 20%; filter: saturate(.76) contrast(1.08); }
+.dossierCopy { display: grid; align-content: center; gap: .16rem; padding: var(--spacing-lg); }
+.dossierCopy p { margin: 0; color: var(--color-gold-muted); font-family: var(--typography-label-font-family); font-size: .75rem; font-style: italic; }
+.dossierCopy h2 { margin: 0; color: var(--color-secondary); font-family: var(--typography-display-font-family); font-size: clamp(1.2rem, 3vw, 1.8rem); line-height: 1.1; }
+.dossierCopy span { color: var(--color-text-muted); font-size: .9rem; }
+.dossierStats { display: grid; grid-template-columns: 1fr; align-content: center; gap: var(--spacing-xs); margin: var(--spacing-md); padding: 0; border-left: 1px solid var(--color-border-soft); }
+.dossierStats div { padding-left: var(--spacing-md); }
+.dossierStats dt { color: var(--color-gold-muted); font-family: var(--typography-label-font-family); font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; }
+.dossierStats dd { margin: .05rem 0 0; color: var(--color-text); font-family: var(--typography-numeric-font-family); font-size: .95rem; font-variant-numeric: tabular-nums; }
+.progress { padding: var(--spacing-sm) var(--spacing-md); border: 1px solid color-mix(in srgb, var(--color-border-soft) 82%, transparent); background: color-mix(in srgb, var(--color-background) 72%, transparent); }
+.progress :where([role="progressbar"]) { height: .32rem; border-radius: 0; }
+.progress :where([role="progressbar"]) > * { background: linear-gradient(90deg, var(--color-gold-muted), var(--color-secondary)); }
+.stepNav { padding: var(--spacing-xs); border: 1px solid color-mix(in srgb, var(--color-border-soft) 82%, transparent); background: color-mix(in srgb, var(--color-background) 76%, transparent); scrollbar-width: none; }
+.stepNav::-webkit-scrollbar { display: none; }
+.stepNav ol { gap: 0; }
+.stepNav li { border-right: 1px solid color-mix(in srgb, var(--color-border-soft) 52%, transparent); }
+.stepNav li:last-child { border-right: 0; }
+.stepNav button { min-height: 2.25rem; border: 0; border-radius: 0; background: transparent; font-family: var(--typography-label-font-family); font-size: .78rem; }
+.stepNav .activeStep { color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 18%, transparent); box-shadow: inset 0 -2px 0 var(--color-secondary); }
+.content > section {
+  position: relative;
+  overflow: hidden;
+  padding: var(--spacing-xl);
+  border-color: color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: var(--radius-control);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-surface-elevated) 92%, var(--color-background)), color-mix(in srgb, var(--color-background) 78%, var(--color-surface-warm)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-background) 75%, transparent), var(--shadow-surface);
+}
+.content > section > :first-child { padding-bottom: var(--spacing-sm); border-bottom: 1px solid color-mix(in srgb, var(--color-border-soft) 65%, transparent); }
+.content > section h2 { color: var(--color-secondary); font-family: var(--typography-display-font-family); font-size: clamp(1.2rem, 3vw, 1.55rem); letter-spacing: .025em; }
+.wizard :where(input, select, textarea) { border-radius: 0; background: color-mix(in srgb, var(--color-background) 86%, var(--color-surface-warm)); }
+.wizard :where(input, select, textarea):hover { border-color: var(--color-secondary); }
+.wizard :where(label) { color: var(--color-text-muted); font-family: var(--typography-label-font-family); letter-spacing: .04em; }
+.classTile { border-radius: 0; background: color-mix(in srgb, var(--color-background) 80%, var(--color-surface-warm)); }
+.classTile img { filter: saturate(.7) contrast(1.06); transition: filter var(--motion-transition) var(--motion-easing), transform var(--motion-transition) var(--motion-easing); }
+.classTile:hover img, .classTileSelected img { filter: saturate(1) contrast(1.08); transform: scale(1.035); }
+.classTileSelected { box-shadow: inset 0 0 0 1px var(--color-secondary), 0 0 14px color-mix(in srgb, var(--color-primary) 20%, transparent); }
+.footer { align-items: center; padding: var(--spacing-md); border: 1px solid color-mix(in srgb, var(--color-border-soft) 82%, transparent); background: color-mix(in srgb, var(--color-background) 74%, transparent); }
+.footerActions > :last-child { border-radius: 0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-secondary) 42%, transparent); }
+
+@media (max-width: 680px) {
+  .wizard { gap: var(--spacing-md); margin-inline: calc(var(--spacing-sm) * -1); padding: var(--spacing-sm); }
+  .header { align-items: flex-start; flex-direction: row; padding: var(--spacing-sm) var(--spacing-md); }
+  .header > button { flex: 0 0 auto; margin-top: var(--spacing-xs); }
+  .dossier { grid-template-columns: 6.5rem minmax(0, 1fr); min-height: 8.25rem; }
+  .portrait img { min-height: 8.25rem; }
+  .dossierCopy { padding: var(--spacing-md); }
+  .dossierCopy h2 { font-size: 1.3rem; }
+  .dossierStats { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: var(--spacing-sm); border-top: 1px solid var(--color-border-soft); border-left: 0; }
+  .dossierStats div { min-width: 0; padding-left: var(--spacing-sm); border-left: 1px solid color-mix(in srgb, var(--color-border-soft) 58%, transparent); }
+  .dossierStats div:first-child { border-left: 0; padding-left: 0; }
+  .dossierStats dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85rem; }
+  .stepNav button { padding-inline: var(--spacing-sm); font-size: .72rem; }
+  .content > section { padding: var(--spacing-lg); }
+}

@@ -19,6 +19,14 @@ export interface AppModalProps {
   describedById?: string;
   /** Extra class on the dialog surface, for feature-specific skins. */
   className?: string;
+  /** Optional actions rendered immediately before the close control. */
+  headerActions?: ReactNode;
+  /** Optional action rendered before the title, at the leading (left) edge of the header. */
+  leadingAction?: ReactNode;
+  /** Optional class for feature-specific close-control styling. */
+  closeClassName?: string;
+  /** Optional class for feature-specific title styling. */
+  titleClassName?: string;
 }
 
 /**
@@ -39,6 +47,10 @@ export function AppModal({
   footer,
   describedById,
   className,
+  headerActions,
+  leadingAction,
+  closeClassName,
+  titleClassName,
 }: AppModalProps) {
   const titleId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,10 +78,14 @@ export function AppModal({
         className={[styles.dialog, className].filter(Boolean).join(" ")}
       >
         <div className={styles.header}>
-          <h2 id={titleId} className={styles.title}>
+          {leadingAction ? <div className={styles.leadingAction}>{leadingAction}</div> : null}
+          <h2 id={titleId} className={[styles.title, titleClassName ?? ""].filter(Boolean).join(" ")}>
             {title}
           </h2>
-          <IconButton label="Fechar" icon={<X size={20} weight="bold" />} onClick={onClose} />
+          <div className={styles.headerActions}>
+            {headerActions}
+            <IconButton className={closeClassName} label="Fechar" icon={<X size={20} weight="bold" />} onClick={onClose} />
+          </div>
         </div>
         <div className={styles.body}>{children}</div>
         {footer ? <div className={styles.footer}>{footer}</div> : null}

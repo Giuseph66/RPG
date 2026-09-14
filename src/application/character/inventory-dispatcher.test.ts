@@ -54,6 +54,7 @@ function createFakeRepository(initial: Character, saveError?: AppError) {
     },
     delete: async () => ok(undefined),
     getDraft: async (id) => err(appError.notFound("draft", id)),
+    listDrafts: async () => ok([]),
     saveDraft: async (draft) => ok(draft),
     deleteDraft: async () => ok(undefined),
   };

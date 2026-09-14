@@ -103,9 +103,12 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     publish({ state: "syncing", uid: session.uid, lastReport: current.lastReport, lastHydration: current.lastHydration });
     running = (async () => {
       const pulled = await activePullWorker?.run();
-      if (pulled && !pulled.ok) return { ok: false, error: pulled.error } as Result<SyncWorkerReport, AppError>;
       const pushed = await activeWorker!.run();
       if (pulled?.ok) current = { ...current, lastHydration: pulled.value };
+      // A falha na leitura (por exemplo, um índice ausente) não pode impedir
+      // que alterações locais já autenticadas sejam enviadas ao Firebase.
+      if (!pushed.ok) return pushed;
+      if (pulled && !pulled.ok) return { ok: false, error: pulled.error } as Result<SyncWorkerReport, AppError>;
       return pushed;
     })().then((result) => {
       if (!active || !session) return result;
@@ -114,8 +117,24 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
         return result;
       }
       if (result.ok) {
-        publish({ state: result.value.unavailable ? "local-only" : "ready", uid: session.uid, lastReport: result.value, lastHydration: current.lastHydration });
+        const hasFailures = result.value.failed > 0 || result.value.conflicts > 0;
+        publish(hasFailures
+          ? {
+              state: "error",
+              uid: session.uid,
+              lastReport: result.value,
+              lastHydration: current.lastHydration,
+              lastError: {
+                code: "storage-unavailable",
+                message: result.value.lastErrorMessage ?? "O Firebase não confirmou uma alteração local.",
+              },
+            }
+          : { state: result.value.unavailable ? "local-only" : "ready", uid: session.uid, lastReport: result.value, lastHydration: current.lastHydration });
       } else {
+        console.error("[sync] Leitura remota falhou", {
+          code: result.error.code,
+          message: result.error.message,
+        });
         publish({ state: "error", uid: session.uid, lastReport: current.lastReport, lastError: result.error });
       }
       return result;

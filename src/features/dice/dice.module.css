@@ -429,3 +429,14 @@
   .stepperValue { min-width: 1.9rem; font-size: .92rem; }
   .modeButton { font-size: .74rem; }
 }
+
+/* Aviso discreto de mesa cheia: não é erro, é só o custo de pedir muitos dados. */
+.avisoPesado {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: .74rem;
+  text-align: center;
+}
+
+/* Some visualmente, sem desmontar: a física da mesa continua rodando por trás. */
+.dadosOcultos { opacity: 0; }

@@ -38,6 +38,9 @@ export interface DicePerformancePolicy {
  * | 196      | 9.188ms  | —        | —        |
  * | 611–687  | *2 dados não terminaram em 170s* |
  *
+ * Os quase esféricos escapam dessa conta trocando o casco por uma esfera
+ * (`colliderShape.ts`): o d100 passou a 38ms com dez exemplares.
+ *
  * Orçamento adotado: ~300ms de pré-simulação, que é a pausa antes de a
  * animação começar.
  *
@@ -49,14 +52,18 @@ export interface DicePerformancePolicy {
  * travariam a aba por minutos.
  */
 const MAX_INSTANCES: Readonly<Record<DiceFaces, number>> = {
-  // Colisores de 611–687 vértices (formas irregulares de pouca face): nem dois
-  // exemplares terminam em tempo utilizável. Um só, sem par para colidir.
-  1: 1,
+  // Colisores de 611–687 vértices em formas IRREGULARES (esfericidade 0,80 e
+  // 0,90): nem dois exemplares terminam em tempo utilizável, e são facetados
+  // demais para a esfera substituí-los sem falsear a queda.
   3: 1,
   5: 1,
-  // 128 e 196 vértices: o d100 já gasta 4,2 s com três exemplares.
+  // Quase esferas (esfericidade ≥ 0,95): trocam o casco por um colisor de
+  // esfera, que custa O(1) por par. O d100 caiu de 9.188ms para 38ms com dez
+  // exemplares, e de 4.200ms para 13ms com três. Ver `colliderShape.ts`.
+  1: 30,
+  100: 30,
+  // 128 vértices, mas esfericidade 0,15 — é uma moeda, não uma esfera.
   2: 2,
-  100: 1,
   // 62 vértices: 10 cabem em 273ms, 20 estouram para 2,3 s.
   50: 4,
   60: 8,

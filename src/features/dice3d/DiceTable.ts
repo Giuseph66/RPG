@@ -22,6 +22,7 @@ import {
   type DieAppearance,
 } from "./appearance";
 import { CAMINHO_PADRAO, carregarDado } from "./assets";
+import { formaColisao } from "./colliderShape";
 import {
   PASSO,
   aplicarInerciaIsotropica,
@@ -30,7 +31,7 @@ import {
   type PoseInicial,
 } from "./rollSimulation";
 import { lerDado, type LeituraDado } from "./readout";
-import { LIMITE_MINIMO, alvoParaDados, distanciaQueComporta, limitesVisiveis } from "./viewportBounds";
+import { LIMITE_MINIMO, limitesVisiveis } from "./viewportBounds";
 import type { DieMeta, Quat } from "./types";
 
 export interface DiceTableOptions {
@@ -80,13 +81,13 @@ export interface DiceTableOptions {
    */
   forceScale?: number;
   /**
-   * Faixa de distância de câmera para o enquadramento automático, `[perto,
-   * longe]`. Com ela, a mesa reenquadra a cada lançamento: um dado só chega
-   * perto e aparece grande; muitos dados (ou dados largos, como o d100)
-   * afastam a câmera só o necessário para caberem.
+   * Limites `[perto, longe]` do enquadramento por tamanho de dado. Com eles, a
+   * mesa reenquadra a cada lançamento para o dado ocupar sempre a mesma fatia
+   * da tela, qualquer que seja o tipo (ver `FRACAO_ALTURA_DADO`). A quantidade
+   * de dados não entra na conta: o tamanho é fixo, e a arena é o que sobra.
    *
-   * Sem isso a distância é fixa e cai na escolha ruim de sempre — perto demais
-   * e o dado não tem onde correr, longe demais e ele vira um grão na tela.
+   * Sem isso a distância fica no valor de `cameraDistance`, e o tamanho do dado
+   * passa a variar de um tipo para o outro.
    */
   cameraDistanceRange?: readonly [number, number];
 }
@@ -122,21 +123,26 @@ export interface RollOptions {
 }
 
 /**
- * Larguras de dado que cada dado ganha de célula no enquadramento automático.
+ * Fração da ALTURA da tela que um dado ocupa, sempre.
  *
- * Calibrado em 2,6 medindo os casos reais: um d20 sozinho fica com 11,1 cm de
- * arena (o dado ocupa 26% do quadro e tem 3,8 larguras para correr) e dez d100
- * abrem para 39 cm. Valores maiores espalham demais — a 5, os mesmos dez d100
- * iam para 52 cm e o dado caía para 8,8% do quadro, menor do que antes de
- * existir enquadramento automático.
+ * O dado tem tamanho fixo na tela: não encolhe quando são muitos nem muda de
+ * um tipo para o outro. A câmera se afasta na medida do diâmetro do dado, e só
+ * dele — um d100 (4,56 cm) e um d6 (2,82 cm) terminam do mesmo tamanho no
+ * quadro, porque a distância compensa a diferença.
  *
- * Também é o que garante que os dados caibam: a 2,6 a lotação do chão fica em
- * ~15%, uma camada folgada. A arena fixa antiga de 9,3 cm pedia 240% para dez
- * d100 — impossível em uma camada, então eles empilhavam no centro.
+ * Calibrado em 0,12 para bater com o tamanho aprovado no palco antigo (~97 px
+ * de dado num celular de 812 px de altura).
+ *
+ * A conta é fechada, sem busca: o FOV **vertical** do three.js não muda com a
+ * proporção da tela, então o tamanho aparente depende só da distância. O que
+ * muda com a tela é a arena — um celular em pé fica com o chão mais estreito
+ * que um monitor, e é isso que se espera.
+ *
+ * Consequência aceita: com a distância presa ao tipo do dado, a arena não
+ * cresce junto com a quantidade. Medido a 12%, cabem ~10 dados num celular e
+ * ~30 num desktop; além disso eles se amontoam em vez de espalhar.
  */
-const FOLGA_POR_DADO = 2.6;
-/** Granularidade da varredura de distância de câmera. */
-const PASSO_ENQUADRAMENTO = 0.05;
+const FRACAO_ALTURA_DADO = 0.12;
 
 interface Instancia {
   id: string;
@@ -377,36 +383,34 @@ export class DiceTable {
   }
 
   /**
-   * Aproxima a câmera até o limite em que os dados ainda cabem com folga para
-   * rolar.
+   * Afasta a câmera na medida exata para o dado ocupar sempre a mesma fatia da
+   * tela — ver `FRACAO_ALTURA_DADO`.
    *
-   * A arena é derivada do que a câmera enxerga, então distância de câmera e
-   * tamanho aparente do dado são a mesma escolha: perto o dado fica grande mas
-   * sem espaço, longe ele tem espaço mas vira um grão. Fixar um valor sempre
-   * erra de um lado — um d6 solitário e dez d100 não querem o mesmo quadro.
-   *
-   * Alvo: cada dado recebe uma célula de `FOLGA_POR_DADO` larguras, então a
-   * área cresce com a contagem e o lado com a raiz dela. Como `limitesVisiveis`
-   * depende da proporção da tela, a distância é encontrada por varredura em
-   * vez de fórmula fechada — funciona em qualquer formato de palco.
+   * Distância de câmera e tamanho aparente do dado são a mesma escolha, porque
+   * a arena é derivada do que a câmera enxerga. Aqui a escolha é o tamanho: o
+   * dado fica fixo e a arena é o que sobrar. A quantidade de dados não entra na
+   * conta, de propósito.
    */
   private enquadrarParaDados(): void {
     if (!this.faixaCamera || this.instancias.length === 0) return;
 
     const largura = Math.max(...this.instancias.map((i) => i.meta.diameterCm));
-    const alvo = alvoParaDados(largura, this.instancias.length, this.bounds, FOLGA_POR_DADO);
-    const escolhida = distanciaQueComporta(
-      (d) => {
-        this.posicionarCamera(d);
-        return limitesVisiveis(this.camera, this.bounds, this.minBounds);
-      },
-      alvo,
-      this.faixaCamera,
-      PASSO_ENQUADRAMENTO,
-    );
+    const [perto, longe] = this.faixaCamera;
+    const ideal = largura / (this.alturaVisivelPorDistancia() * FRACAO_ALTURA_DADO);
 
-    this.posicionarCamera(escolhida);
+    this.posicionarCamera(Math.min(longe, Math.max(perto, ideal)));
     this.atualizarLimites();
+  }
+
+  /**
+   * Quantos centímetros de cena cabem na altura da tela por unidade de
+   * distância de câmera. Só depende do FOV vertical e da plataforma da câmera,
+   * ambos fixos — por isso o tamanho aparente do dado não muda com a proporção
+   * da tela.
+   */
+  private alturaVisivelPorDistancia(): number {
+    const meiaFov = (this.camera.fov * Math.PI) / 360;
+    return 2 * Math.hypot(46, 34) * Math.tan(meiaFov);
   }
 
   // ----------------------------------------------------------------- dados
@@ -473,17 +477,12 @@ export class DiceTable {
   }
 
   /**
-   * Casco convexo a partir do colisor exportado. As faces já vêm como
-   * polígonos em ordem anti-horária vista de fora — usar os polígonos em vez
-   * dos triângulos reduz pela metade o custo de colisão em dados como o d120.
+   * Forma de colisão do dado. Casco convexo para os poliedros; esfera para os
+   * quase esféricos, onde o casco custaria O(V²) por par sem mudar a queda
+   * (ver `colliderShape.ts`).
    */
-  private formaConvexa(meta: DieMeta): CANNON.ConvexPolyhedron {
-    return new CANNON.ConvexPolyhedron({
-      vertices: meta.collider.vertices.map(
-        ([x, y, z]) => new CANNON.Vec3(x, y, z),
-      ),
-      faces: meta.collider.faces,
-    });
+  private formaConvexa(meta: DieMeta): CANNON.Shape {
+    return formaColisao(meta);
   }
 
   /** Troca cor/textura/acabamento de um dado já na mesa. */

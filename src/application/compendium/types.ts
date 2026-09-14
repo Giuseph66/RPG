@@ -4,7 +4,7 @@ import type { EntityType, PackVersion, RulesetId, RulesetRef } from "@domain/con
 import type { SourceRef } from "@domain/contracts/primitives";
 
 export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras";
-export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure";
+export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "spell";
 
 export type CompendiumCategoryStatus = "available" | "pending";
 
@@ -73,12 +73,27 @@ export interface CompendiumStaticDefinition {
   readonly sourceRefs: readonly SourceRef[];
 }
 
+export interface CompendiumBookSpellDefinition extends CompendiumStaticDefinition {
+  readonly kind: "book-spell";
+  readonly level: number;
+  readonly school: string;
+  readonly castingTime: string;
+  readonly range: string;
+  readonly components: string;
+  readonly duration: string;
+  readonly concentration: boolean;
+  readonly ritual: boolean;
+  readonly classes: readonly string[];
+  readonly description: string;
+  readonly higherLevels?: string;
+}
+
 export interface CompendiumCatalogItem {
   /** Present for rule-pack definitions; static entries use `kind: "static"`. */
   readonly kind?: "rulepack" | "static";
   readonly entityType?: EntityType;
   readonly category?: StaticCompendiumCategory;
-  readonly definition: AnyDefinition | CompendiumStaticDefinition;
+  readonly definition: AnyDefinition | CompendiumStaticDefinition | CompendiumBookSpellDefinition;
   readonly ruleset: RulesetRef;
   readonly aliases?: readonly string[];
   readonly summary?: string;
@@ -164,6 +179,7 @@ export interface CompendiumServiceOptions {
   readonly pendingCategories?: readonly CompendiumCategoryId[];
   readonly loadCategory?: CompendiumLoader;
   readonly initialFavorites?: readonly CompendiumFavoriteRef[];
+  readonly excludePackEntityTypes?: readonly EntityType[];
 }
 
 export type CompendiumError =

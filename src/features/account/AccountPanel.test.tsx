@@ -108,6 +108,23 @@ describe("AccountPanel", () => {
     await mounted.unmount();
   });
 
+  it("publica fichas locais quando o perfil autenticado é salvo", async () => {
+    const auth = fakeAuth({ uid: "user-1", email: "mestre@example.com" });
+    const membership = {
+      localActor: () => undefined,
+      ensureAccount: vi.fn(async () => ok({ displayName: "Mestre" })),
+    } as unknown as import("@application/membership").MembershipService;
+    const onPublishLocalCharacters = vi.fn(async () => ok(1));
+    const mounted = await mount(<AccountPanel auth={auth} availability={{ available: true }} membership={membership} onPublishLocalCharacters={onPublishLocalCharacters} />);
+
+    const save = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Salvar perfil"));
+    await fireEvent(save!, new MouseEvent("click", { bubbles: true }));
+
+    expect(onPublishLocalCharacters).toHaveBeenCalledTimes(1);
+    expect(mounted.container.textContent).toContain("1 ficha local entrou na fila de sincronização");
+    await mounted.unmount();
+  });
+
   it("exibe somente mesas fornecidas e abre a colaboração pelo callback real", async () => {
     const onOpenCollaboration = vi.fn();
     const onOpenSession = vi.fn();
@@ -130,5 +147,13 @@ describe("AccountPanel", () => {
     const offline = await mount(<AccountPanel syncState="offline" />);
     expect(offline.container.textContent).toContain("Offline");
     await offline.unmount();
+  });
+
+  it("expõe falha de fila sem vazar o detalhe técnico na tela", async () => {
+    const mounted = await mount(<AccountPanel syncState="error" syncMessage="Firestore recusou a escrita." />);
+    expect(mounted.container.textContent).toContain("Não sincronizado");
+    expect(mounted.container.textContent).toContain("Verifique o console do navegador");
+    expect(mounted.container.textContent).not.toContain("Firestore recusou a escrita.");
+    await mounted.unmount();
   });
 });

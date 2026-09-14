@@ -29,6 +29,8 @@ export interface SyncWorkerReport {
   readonly failed: number;
   readonly skipped: number;
   readonly unavailable: boolean;
+  /** Última falha tratada pela fila, pronta para apresentação sem expor o SDK remoto. */
+  readonly lastErrorMessage?: string;
 }
 
 const emptyReport = (unavailable = false): SyncWorkerReport => ({
@@ -100,9 +102,23 @@ export class SyncWorker {
         const syncing = await outbox.markSyncing(operation.operationId);
         if (!syncing.ok) return err(syncing.error);
         report = mergeReport(report, { attempted: report.attempted + 1 });
+        console.info("[sync] Enviando operação ao Firebase", {
+          aggregateType: syncing.value.aggregateType,
+          aggregateId: String(syncing.value.aggregateId),
+          mutation: syncing.value.mutation,
+          baseRevision: syncing.value.baseRevision,
+        });
 
         const applied = await adapter.apply(syncing.value);
         if (!applied.ok) {
+          console.error("[sync] Firebase recusou a operação", {
+            aggregateType: syncing.value.aggregateType,
+            aggregateId: String(syncing.value.aggregateId),
+            mutation: syncing.value.mutation,
+            code: applied.error.code,
+            message: applied.error.message,
+            retryable: applied.error.retryable,
+          });
           const failure = await outbox.markFailed(syncing.value.operationId, {
             message: applied.error.message,
             nextRetryAt: applied.error.retryable
@@ -110,16 +126,21 @@ export class SyncWorker {
               : undefined,
           });
           if (!failure.ok) return err(failure.error);
-          report = mergeReport(report, { failed: report.failed + 1 });
+          report = mergeReport(report, { failed: report.failed + 1, lastErrorMessage: applied.error.message });
           // Operações posteriores do mesmo agregado dependem desta revisão.
           break;
         }
 
         const result: RemoteSyncApplyResult = applied.value;
         if (result.kind === "conflict") {
+          console.error("[sync] Conflito remoto", {
+            aggregateType: syncing.value.aggregateType,
+            aggregateId: String(syncing.value.aggregateId),
+            message: result.conflict.message,
+          });
           const conflict = await outbox.markConflict(syncing.value.operationId, result.conflict);
           if (!conflict.ok) return err(conflict.error);
-          report = mergeReport(report, { conflicts: report.conflicts + 1 });
+          report = mergeReport(report, { conflicts: report.conflicts + 1, lastErrorMessage: result.conflict.message });
           break;
         }
 
@@ -127,6 +148,11 @@ export class SyncWorker {
         // primeiro ponto em que a confirmação local pode ser persistida.
         const acked = await outbox.markAcked(syncing.value.operationId);
         if (!acked.ok) return err(acked.error);
+        console.info("[sync] Firebase confirmou a operação", {
+          aggregateType: syncing.value.aggregateType,
+          aggregateId: String(syncing.value.aggregateId),
+          revision: result.remoteRevision,
+        });
         report = mergeReport(report, { acked: report.acked + 1 });
       }
     }

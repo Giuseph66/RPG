@@ -12,6 +12,8 @@ export {
   CaretDown,
   Check,
   DotsThree,
+  Eye,
+  EyeSlash,
   Gear,
   List,
   MagnifyingGlass,

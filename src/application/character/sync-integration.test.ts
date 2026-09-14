@@ -46,6 +46,7 @@ function makeHarness(initial: Character = minimalCharacter) {
     },
     delete: async () => ok(undefined),
     getDraft: async () => err(appError.notFound("draft", "missing")),
+    listDrafts: async () => ok([]),
     saveDraft: async (draft) => ok(draft),
     deleteDraft: async () => ok(undefined),
   };
@@ -109,6 +110,21 @@ function successfulCommand(character: Character): { readonly command: Command; r
 }
 
 describe("integração local + outbox", () => {
+  it("enfileira personagem recém-criado para sincronização", async () => {
+    const harness = makeHarness();
+    const service = createCharacterApplicationService({
+      repository: harness.repository,
+      debounceMs: 0,
+      commandDependencies: { clock, idGenerator, unitOfWork: harness.unitOfWork, syncOutbox: harness.outbox },
+    });
+
+    const saved = await service.saveCharacter(minimalCharacter, minimalCharacter.revision);
+
+    expect(saved.ok).toBe(true);
+    expect(harness.operations).toHaveLength(1);
+    expect(harness.operations[0]).toMatchObject({ aggregateType: "character", mutation: "upsert", aggregateId: minimalCharacter.id });
+  });
+
   it("emite delete de personagem com namespace imutável", async () => {
     const character = { ...minimalCharacter, campaignId: asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb") };
     const harness = makeHarness(character);

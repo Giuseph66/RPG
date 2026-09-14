@@ -40,6 +40,27 @@
   justify-content: space-between;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex: 0 0 auto;
+}
+
+/**
+ * `margin-inline-end: auto` em vez de mudar `justify-content` do `.header`:
+ * ver o comentário equivalente em AppModal.module.css — o dice.module.css
+ * sobrescreve `justify-content` para `flex-end` porque o `<h2>` do título é
+ * `position: absolute` (sai do fluxo). Isto empurra o item pro início sem
+ * depender de quantos outros itens sobram no fluxo depois dele.
+ */
+.leadingAction {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-inline-end: auto;
+}
+
 .title {
   margin: 0;
   font-family: var(--typography-heading-font-family);

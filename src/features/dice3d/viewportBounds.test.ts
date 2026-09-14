@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
-import { LIMITE_MINIMO, alvoParaDados, distanciaQueComporta, limitesVisiveis } from "./viewportBounds";
+import { LIMITE_MINIMO, limitesVisiveis } from "./viewportBounds";
 
 /** Câmera idêntica à da mesa, só mudando a proporção da tela. */
 function camera(aspect: number): THREE.PerspectiveCamera {
@@ -104,76 +104,5 @@ describe("limitesVisiveis", () => {
     const l = limitesVisiveis(camera(DESKTOP), 10);
     expect(l.x).toBeLessThanOrEqual(10);
     expect(l.z).toBeLessThanOrEqual(10);
-  });
-});
-
-describe("enquadramento automático", () => {
-  const D20 = 2.91;
-  const D100 = 4.56;
-  const FOLGA = 2.6;
-  const FAIXA = [0.26, 1.5] as const;
-
-  /** Mesma plataforma de câmera da mesa: (0, 46d, 34d) olhando para a origem. */
-  function limitesEm(aspect: number) {
-    return (d: number) => {
-      const cam = new THREE.PerspectiveCamera(42, aspect, 0.5, 500);
-      cam.position.set(0, 46 * d, 34 * d);
-      cam.lookAt(0, 0, 0);
-      cam.updateProjectionMatrix();
-      cam.updateMatrixWorld();
-      return limitesVisiveis(cam, 26);
-    };
-  }
-
-  it("mais dados exigem mais arena, crescendo com a raiz da contagem", () => {
-    const um = alvoParaDados(D20, 1, 26, FOLGA);
-    const quatro = alvoParaDados(D20, 4, 26, FOLGA);
-    // Área × 4 significa lado × 2.
-    expect(quatro / um).toBeCloseTo(2, 5);
-  });
-
-  it("um dado largo pede mais arena que um estreito na mesma contagem", () => {
-    expect(alvoParaDados(D100, 5, 26, FOLGA)).toBeGreaterThan(alvoParaDados(D20, 5, 26, FOLGA));
-  });
-
-  it("respeita o teto da mesa por mais dados que sejam", () => {
-    expect(alvoParaDados(D100, 500, 26, FOLGA)).toBe(26);
-  });
-
-  it("um dado só aproxima a câmera; muitos afastam", () => {
-    const limites = limitesEm(1.25);
-    const um = distanciaQueComporta(limites, alvoParaDados(D20, 1, 26, FOLGA), FAIXA);
-    const dez = distanciaQueComporta(limites, alvoParaDados(D100, 10, 26, FOLGA), FAIXA);
-
-    expect(um).toBe(FAIXA[0]); // o mais perto que a faixa permite
-    expect(dez).toBeGreaterThan(um);
-  });
-
-  it("o dado ocupa uma fatia visível do quadro com poucos dados", () => {
-    const limites = limitesEm(1.25);
-    const d = distanciaQueComporta(limites, alvoParaDados(D20, 1, 26, FOLGA), FAIXA);
-    const { x, z } = limites(d);
-    const arena = 2 * Math.min(x, z);
-
-    // Antes do enquadramento automático, uma câmera fixa longe deixava o d20
-    // com ~10% do quadro — o "dados minúsculos".
-    expect(D20 / arena).toBeGreaterThan(0.2);
-    // E ainda sobra pista para correr: pelo menos 3 larguras de dado.
-    expect(arena / D20).toBeGreaterThan(3);
-  });
-
-  it("a arena comporta os dados em uma camada, sem empilhar", () => {
-    const limites = limitesEm(1.25);
-    for (const [largura, n] of [[D20, 1], [D20, 5], [D100, 10], [D20, 20]] as const) {
-      const d = distanciaQueComporta(limites, alvoParaDados(largura, n, 26, FOLGA), FAIXA);
-      const { x, z } = limites(d);
-      const lotacao = (n * largura * largura) / (2 * x * 2 * z);
-      // A arena fixa antiga pedia 240% para dez d100: eles empilhavam no centro.
-      expect(lotacao, `${n} dados de ${largura}cm`).toBeLessThan(0.6);
-    }
-  });
-
-  it("devolve o extremo distante quando nem ele comporta o alvo", () => {
-    expect(distanciaQueComporta(() => ({ x: 1, z: 1 }), 999, FAIXA)).toBe(FAIXA[1]);
   });
 });

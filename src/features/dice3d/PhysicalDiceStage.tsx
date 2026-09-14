@@ -35,8 +35,13 @@ export interface PhysicalDiceStageProps {
   readonly active: boolean;
   /** Fonte de aleatoriedade só para a pose inicial — a física faz o resto. */
   readonly random?: () => number;
-  /** `overlay` cobre a tela; `inline` preenche o elemento pai. Padrão `overlay`. */
-  readonly variant?: "overlay" | "inline";
+  /**
+   * - `overlay`: cobre a tela por trás do app, translúcido e decorativo.
+   * - `inline`: preenche o elemento pai (palco embutido num modal).
+   * - `fullscreen`: cobre a tela inteira POR CIMA do app, opaco nos dados. A
+   *   arena vira a tela toda do aparelho, que é onde os dados podem cair.
+   */
+  readonly variant?: "overlay" | "inline" | "fullscreen";
   /** Acabamento dos dados. Padrão: obsidiana e bronze da paleta do app. */
   readonly appearance?: DieAppearance;
   /** Peso da mão no arremesso. `1` é o padrão; acima disso o dado sai mais forte. */
@@ -127,11 +132,11 @@ export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, 
         random,
         mobile,
         // A câmera define a arena E o tamanho aparente do dado — é a mesma
-        // escolha. Por isso o palco embutido não fixa distância: reenquadra a
-        // cada lançamento, chegando perto com um dado só (fica grande) e
-        // afastando só o necessário quando são muitos ou largos (d100).
-        cameraDistance: variant === "inline" ? 0.26 : 1,
-        cameraDistanceRange: variant === "inline" ? [0.26, 1.5] : undefined,
+        // escolha. Por isso os palcos não fixam distância: reenquadram a cada
+        // lançamento, chegando perto com um dado só (fica grande) e afastando
+        // só o necessário quando são muitos ou largos (d100).
+        cameraDistance: variant === "overlay" ? 1 : 0.26,
+        cameraDistanceRange: variant === "overlay" ? undefined : [0.26, 1.5],
         forceScale,
       });
     } catch {
@@ -174,11 +179,12 @@ export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, 
       reducedMotion,
     });
 
-    // A física só pode decidir a rolagem se TODOS os dados couberem na mesa.
-    // Com a política cortando instâncias, voltariam menos valores do que a
-    // expressão pede e `buildRollFromValues` recusaria — melhor devolver a
-    // decisão ao RNG antes de animar qualquer coisa.
-    if (!id || quantidade === 0 || policy.maxPhysicalInstances < quantidade) {
+    // TODOS os dados pedidos vão para a mesa, sem teto. O orçamento de
+    // `dicePerformancePolicy` virou só recomendação: quem pede muito dado vê um
+    // aviso de que pode travar (ver `DiceOverlay`) e decide por conta própria.
+    // Cortar aqui não era opção — com a física decidindo o número, menos dados
+    // na mesa significam menos valores do que a expressão pede.
+    if (!id || quantidade === 0) {
       onRecusaRef.current?.();
       return undefined;
     }
@@ -210,5 +216,6 @@ export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, 
   }, [appearance, awaitingPhysics, mobile, physicsExpression, reducedMotion]);
 
   if (!active || reducedMotion) return null;
-  return <canvas ref={canvasRef} className={variant === "inline" ? styles.inline : styles.canvas} aria-hidden="true" />;
+  const classe = variant === "inline" ? styles.inline : variant === "fullscreen" ? styles.fullscreen : styles.canvas;
+  return <canvas ref={canvasRef} className={classe} aria-hidden="true" />;
 }

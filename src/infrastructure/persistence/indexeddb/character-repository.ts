@@ -291,6 +291,27 @@ export class IndexedDbCharacterRepository implements CharacterRepository {
     });
   }
 
+  async listDrafts(): Promise<Result<readonly CharacterDraft[], AppError>> {
+    const result = await runTransaction(this.db, [STORE_NAMES.drafts], "readonly", async (tx) => {
+      const raws: unknown[] = await requestToPromise(tx.objectStore(STORE_NAMES.drafts).getAll());
+      return ok(raws);
+    });
+    if (!result.ok) return result;
+
+    const drafts: CharacterDraft[] = [];
+    for (const [index, raw] of result.value.entries()) {
+      if (!isDraftEnvelope(raw)) {
+        const id = recordId(raw, `drafts:unknown:${index}`);
+        await persistToRecovery(this.db, id, STORE_NAMES.drafts, raw, this.clock.now());
+        return err(appError.corruptRecord(id, undefined, id));
+      }
+      const schemaError = checkDraftSchemaVersion(raw);
+      if (schemaError) return err(schemaError);
+      drafts.push(raw);
+    }
+    return ok(drafts.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+  }
+
   async saveDraft(draft: CharacterDraft): Promise<Result<CharacterDraft, AppError>> {
     const now = this.clock.now();
     return runTransaction(this.db, [STORE_NAMES.drafts], "readwrite", async (tx) => {

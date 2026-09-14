@@ -33,6 +33,7 @@ import { STATIC_COMPENDIUM_ITEMS } from "@data/compendium";
 import { registerPwa, type PwaPlatform, type RegisteredPwa } from "@infrastructure/pwa";
 import { deriveCharacter } from "@domain/rules";
 import { deriveActionCapabilities, type DeriveActionCapabilitiesResult } from "@application/character/action-capabilities";
+import { publishLocalCharacters } from "@application/character";
 import { createActionDispatcher } from "@application/character/action-dispatcher";
 import { createInventoryDispatcher } from "@application/character/inventory-dispatcher";
 import { createCampaignDispatcher } from "@application/campaign/campaign-dispatcher";
@@ -62,7 +63,7 @@ import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityS
 import { createSessionService, type SessionService } from "@application/session";
 import type { SyncRuntimeSnapshot } from "@application/sync";
 import { type SessionAuthorizationPort } from "@application/session/authorization";
-import { type AccountId, type Uuid } from "@domain/contracts/ids";
+import { asAccountId, type AccountId, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
 import { AppRouter } from "./router";
 
@@ -449,7 +450,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const pack = loadPhbPtBrLocal2017();
     if (!pack.ok) throw new Error(pack.error.message);
     const activePack = pack.value;
-    const compendiumService = createCompendiumService({ packs: [activePack], items: STATIC_COMPENDIUM_ITEMS });
+    const compendiumService = createCompendiumService({ packs: [activePack], items: STATIC_COMPENDIUM_ITEMS, excludePackEntityTypes: ["spell"] });
 
     // `executionsHolder` liga a lista reativa de capacidades (recalculada a cada snapshot de
     // personagem por `computeActionCapabilities`, chamado de `ReadyApplication`) ao dispatcher
@@ -530,6 +531,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       campaignRecordDispatcher,
       journalDispatcher,
       listCharacters: () => characterRepository.list(),
+      listCharacterDrafts: () => characterRepository.listDrafts(),
       listJournalEntries: (campaignId) => campaignRepository.listJournalEntries(campaignId),
       journalDraftState: () => journalDispatcher.getDraftState(),
       dataManagement: { service: dataManagement, previewImport: (envelope) => backup.previewImport(envelope) },
@@ -537,6 +539,15 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       authAvailability,
       membership: membershipWithSync,
       session,
+      publishLocalCharacters: async () => {
+        const current = auth?.currentSession();
+        if (!current) return Promise.resolve(err(appError.validation("account", "Entre em uma conta antes de enviar fichas para a nuvem.")));
+        const published = await publishLocalCharacters({ characters: characterRepository, outbox: gatedOutboxRepository, ownerUid: asAccountId(current.uid), clock });
+        // Um clique explícito em "Salvar perfil" também reativa operações pendentes
+        // de uma tentativa anterior, inclusive as já deduplicadas.
+        syncRuntime?.notifyPending();
+        return published;
+      },
     });
 
     syncRuntime = auth
@@ -594,9 +605,9 @@ export function hasPendingApplicationWork(services: ApplicationServices, journal
 function accountSyncState(snapshot: SyncRuntimeSnapshot): AccountSyncState {
   switch (snapshot.state) {
     case "syncing": return "pending";
-    case "offline":
-    case "error": return "offline";
-    case "ready": return "synced";
+    case "offline": return "offline";
+    case "error": return "error";
+    case "ready": return snapshot.lastReport && (snapshot.lastReport.failed > 0 || snapshot.lastReport.conflicts > 0) ? "error" : "synced";
     case "local-only":
     case "signed-out": return "local";
   }
@@ -654,6 +665,7 @@ function ReadyApplication({ services, diceOverlayController, registry, computeAc
         createDraft={createDraft}
         onCharacterCreated={onCharacterCreated}
         syncState={accountSyncState(syncSnapshot)}
+        syncMessage={syncSnapshot.lastError?.message}
         onRetryBoot={onRetryBoot}
       />
     </ApplicationServicesProvider>

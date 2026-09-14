@@ -5,6 +5,7 @@ import { AppShell, type AppShellProps } from "@components/layout/AppShell";
 import { InlineStatus } from "@components/ui";
 import type { Character, CharacterDraft } from "@domain/contracts/character";
 import type { CharacterSummary } from "@domain/contracts/character";
+import type { DraftSummary } from "@features/character/selection";
 import type { Campaign } from "@domain/contracts/campaign";
 import type { JournalDraft, JournalDraftState } from "@domain/campaign/journal";
 import { createJournalDraft, draftFromJournalEntry } from "@domain/campaign/journal";
@@ -58,12 +59,14 @@ export interface AppRouterProps extends Omit<AppShellProps, "children" | "route"
   readonly pack?: RulePack;
   readonly createDraft?: () => CharacterDraft;
   readonly onCharacterCreated?: (character: Character, revision: Revision) => void;
+  readonly syncMessage?: string;
 }
 
 export interface AppNavigation {
   readonly path: string;
   readonly match: RouteMatch;
   readonly navigate: (to: string) => void;
+  readonly replace: (to: string) => void;
 }
 
 function PendingDestination({ title, reasons }: { readonly title: string; readonly reasons: readonly string[] }) {
@@ -77,13 +80,45 @@ function CreateCharacterRoute({
   pack,
   createDraft,
   onCharacterCreated,
+  navigate,
+  replace,
+  draftId,
 }: {
   readonly registry: FeatureRegistry;
   readonly pack: RulePack;
   readonly createDraft: () => CharacterDraft;
   readonly onCharacterCreated?: (character: Character, revision: Revision) => void;
+  readonly navigate: (to: string) => void;
+  readonly replace: (to: string) => void;
+  readonly draftId?: string;
 }) {
-  const [draft, setDraft] = useState<CharacterDraft>(createDraft);
+  const [draft, setDraft] = useState<CharacterDraft | undefined>(() => draftId ? undefined : createDraft());
+  const [loadError, setLoadError] = useState<string>();
+  useEffect(() => {
+    if (!draftId) return;
+    if (!isUuid(draftId)) {
+      setLoadError("O identificador do rascunho é inválido.");
+      return;
+    }
+    const normalizedDraftId = asUuid(draftId);
+    if (draft?.id === normalizedDraftId) return;
+    let active = true;
+    void registry.character.service.loadDraft(normalizedDraftId).then((result) => {
+      if (!active) return;
+      if (!result.ok) {
+        setLoadError(result.error.message);
+        return;
+      }
+      setDraft(result.value);
+    });
+    return () => { active = false; };
+  }, [draft, draftId, registry.character.service]);
+
+  if (!draft) {
+    return loadError
+      ? <section aria-live="assertive"><h1>Não foi possível abrir o rascunho</h1><InlineStatus tone="error">{loadError}</InlineStatus></section>
+      : <section aria-live="polite" aria-busy="true"><h1>Abrindo rascunho</h1><InlineStatus tone="info">Recuperando a ficha salva neste dispositivo.</InlineStatus></section>;
+  }
   const Creation = LazyCharacterCreation;
   return (
     <Creation
@@ -92,6 +127,10 @@ function CreateCharacterRoute({
         catalog: pack,
         onDraftChange: setDraft,
         onCreated: onCharacterCreated,
+        onDraftSaved: (savedDraft) => {
+          if (!draftId) replace(`/character/create/${savedDraft.id}`);
+        },
+        onCancel: () => navigate("/character"),
       })}
     />
   );
@@ -99,6 +138,7 @@ function CreateCharacterRoute({
 
 function CharacterSelectionRoute({ registry, navigate }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void }) {
   const [characters, setCharacters] = useState<readonly CharacterSummary[]>([]);
+  const [drafts, setDrafts] = useState<readonly DraftSummary[]>([]);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("idle");
   const [error, setError] = useState<unknown>();
 
@@ -111,17 +151,21 @@ function CharacterSelectionRoute({ registry, navigate }: { readonly registry: Fe
       return () => { active = false; };
     }
     setStatus("loading");
-    void list().then((result) => {
+    void list().then(async (result) => {
       if (!active) return;
       if (!result.ok) { setError(result.error); setStatus("error"); return; }
+      const draftResult = registry.character.listDrafts ? await registry.character.listDrafts() : { ok: true as const, value: [] };
+      if (!active) return;
+      if (!draftResult.ok) { setError(draftResult.error); setStatus("error"); return; }
       setCharacters(result.value);
+      setDrafts(draftResult.value.map((draft) => ({ id: draft.id, name: draft.partial.name, currentStep: draft.currentStep, updatedAt: draft.updatedAt })));
       setStatus("idle");
     });
     return () => { active = false; };
   }, [registry.character.list]);
 
   const Selection = LazyCharacterSelection;
-  return <Selection {...registry.character.bindSelectionProps({ characters, status, error, onSelect: (id) => navigate(`/character/${id}`), onCreate: () => navigate("/character/create") })} />;
+  return <Selection {...registry.character.bindSelectionProps({ characters, drafts, status, error, onSelect: (id) => navigate(`/character/${id}`), onCreate: () => navigate("/character/create"), onResumeDraft: (id) => navigate(`/character/create/${id}`) })} />;
 }
 
 function CharacterDetailRoute({ registry, character, pack, id }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string }) {
@@ -287,7 +331,7 @@ function DataManagementRoute({ registry, character, campaign }: { readonly regis
   return <Suspense fallback={<section aria-live="polite"><h1>Backup e recuperação</h1><InlineStatus tone="info">Carregando ferramentas de dados locais…</InlineStatus></section>}><LazyDataManagementPanel characterId={character?.value?.id} campaignId={campaign?.value?.id} status={status} error={error} preview={preview} pendingEnvelope={pendingEnvelope} recovery={recovery} onIntent={onIntent} /></Suspense>;
 }
 
-function AccountRoute({ registry, navigate, syncState, campaign }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void; readonly syncState?: AccountSyncState; readonly campaign?: AppRouterProps["campaign"] }) {
+function AccountRoute({ registry, navigate, syncState, syncMessage, campaign }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void; readonly syncState?: AccountSyncState; readonly syncMessage?: string; readonly campaign?: AppRouterProps["campaign"] }) {
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
   useEffect(() => {
     let active = true;
@@ -303,7 +347,7 @@ function AccountRoute({ registry, navigate, syncState, campaign }: { readonly re
     onOpenCollaboration: () => navigate("/collaboration"),
     onOpenSession: (campaignId) => navigate(`/session/${campaignId}`),
     onOpenSettings: () => navigate("/settings"),
-  })} {...(syncState ? { syncState } : {})} />;
+  })} {...(syncState ? { syncState } : {})} {...(syncMessage ? { syncMessage } : {})} />;
 }
 
 function CollaborationRoute({ registry, campaign, navigate }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void }) {
@@ -447,13 +491,15 @@ function renderRegistryRoute(
   createDraft: AppRouterProps["createDraft"],
   onCharacterCreated: AppRouterProps["onCharacterCreated"],
   syncState: AppRouterProps["syncState"],
+  syncMessage: AppRouterProps["syncMessage"],
   navigate: (to: string) => void,
+  replace: (to: string) => void,
 ): ReactNode | undefined {
   const currentCharacter = character?.value ?? undefined;
   if (match.kind === "character") {
     if (match.params.mode === "create") {
       if (registry.character.pendingDependencies.length === 0 && pack && createDraft) {
-        return <CreateCharacterRoute registry={registry} pack={pack} createDraft={createDraft} onCharacterCreated={onCharacterCreated} />;
+        return <CreateCharacterRoute registry={registry} pack={pack} createDraft={createDraft} onCharacterCreated={onCharacterCreated} navigate={navigate} replace={replace} draftId={match.params.draftId} />;
       }
       return <PendingDestination title="Criação de personagem" reasons={registry.character.pendingDependencies.length ? registry.character.pendingDependencies : ["Catálogo e draft de criação não foram fornecidos nesta composição."]} />;
     }
@@ -486,7 +532,7 @@ function renderRegistryRoute(
   if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} />;
   if (match.kind === "session") return <SessionRoute registry={registry} match={match} />;
   if (match.kind === "data") return <DataManagementRoute registry={registry} character={character} campaign={campaign} />;
-  if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} syncState={syncState} campaign={campaign} />;
+  if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} syncState={syncState} syncMessage={syncMessage} campaign={campaign} />;
   return undefined;
 }
 
@@ -509,13 +555,19 @@ export function useAppNavigation(initialPath?: string): AppNavigation {
     setPath(next);
   }, []);
 
-  return useMemo(() => ({ path, match: matchRoute(path), navigate }), [path, navigate]);
+  const replace = useCallback((to: string) => {
+    const next = to || "/";
+    window.history.replaceState({}, "", next);
+    setPath(next);
+  }, []);
+
+  return useMemo(() => ({ path, match: matchRoute(path), navigate, replace }), [path, navigate, replace]);
 }
 
 /** Small History API router: keeps the shell usable without adding a package. */
-export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
+export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, navigation.navigate) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <><LazySettingsPanel store={shellProps.settingsStore} /> {registry ? <DataManagementRoute registry={registry} character={character} campaign={campaign} /> : null}</> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <><LazySettingsPanel store={shellProps.settingsStore} /> {registry ? <DataManagementRoute registry={registry} character={character} campaign={campaign} /> : null}</> : undefined);
 
   return (
     <AppShell

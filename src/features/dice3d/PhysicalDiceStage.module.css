@@ -16,3 +16,24 @@
   height: 100%;
   pointer-events: none;
 }
+
+/**
+ * Palco de tela cheia: a arena é a tela inteira do aparelho.
+ *
+ * Fica POR CIMA do app (`--z-overlay-popover`, acima do modal em
+ * `--z-overlay`), então os dados caem sobre o painel de dados em vez de
+ * ficarem presos num quadrinho dentro dele. `pointer-events: none` mantém os
+ * controles do painel clicáveis por baixo.
+ *
+ * Precisa ficar FORA do backdrop do modal: `backdrop-filter` cria bloco
+ * contentor para `position: fixed`, e o canvas passaria a se medir pelo
+ * backdrop em vez da viewport.
+ */
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: var(--z-overlay-popover);
+  pointer-events: none;
+}

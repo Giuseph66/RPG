@@ -96,6 +96,7 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
     save: (character, expectedRevision, commandReceipt, context) => save(character, expectedRevision, context),
     delete: remove,
     getDraft: (id) => repository.getDraft(id),
+    listDrafts: () => repository.listDrafts(),
     saveDraft: (draft) => repository.saveDraft(draft),
     deleteDraft: (id) => repository.deleteDraft(id),
   };
@@ -174,6 +175,10 @@ export class CharacterApplicationService {
 
   loadDraft(id: Uuid): Promise<Result<CharacterDraft, AppError>> {
     return this.repository.getDraft(id);
+  }
+
+  listDrafts(): Promise<Result<readonly CharacterDraft[], AppError>> {
+    return this.repository.listDrafts();
   }
 
   saveDraft(draft: CharacterDraft): Promise<Result<CharacterDraft, AppError>> {

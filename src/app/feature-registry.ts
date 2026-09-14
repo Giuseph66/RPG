@@ -14,7 +14,7 @@ import type { MapViewerProps } from "@features/journey/map";
 import type { CompendiumProps } from "@features/compendium";
 import type { DiceHistoryProps, DiceOverlayController, DiceOverlayProps, DiceHistoryService } from "@features/dice";
 import type { CompendiumFilters } from "@application/compendium";
-import type { CharacterSummary } from "@domain/contracts/character";
+import type { CharacterDraft, CharacterSummary } from "@domain/contracts/character";
 import type { JournalEntry } from "@domain/contracts/campaign";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { Uuid } from "@domain/contracts/ids";
@@ -50,6 +50,7 @@ export interface FeatureRegistryDependencies {
   readonly creationService?: CreationWizardService;
   /** Read models are supplied by bootstrap; the registry does not own persistence. */
   readonly listCharacters?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
+  readonly listCharacterDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
   readonly listJournalEntries?: (campaignId: Uuid) => Promise<Result<readonly JournalEntry[], AppError>>;
   readonly journalDraftState?: () => JournalDraftState | undefined;
   readonly dataManagement?: {
@@ -61,6 +62,7 @@ export interface FeatureRegistryDependencies {
   readonly authAvailability?: AccountAvailability;
   readonly membership?: MembershipService;
   readonly session?: SessionService;
+  readonly publishLocalCharacters?: () => Promise<Result<number, AppError>>;
 }
 
 export interface FeatureRegistry {
@@ -73,6 +75,7 @@ export interface FeatureRegistry {
     readonly bindCreationProps: (props: Omit<CreationProps, "service">) => CreationProps;
     readonly bindProgressionProps: (props: CharacterProgressionProps) => CharacterProgressionProps;
     readonly list?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
+    readonly listDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
   };
   readonly actions: {
     readonly pendingDependencies: readonly string[];
@@ -138,6 +141,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     bindCreationProps: (props: Omit<CreationProps, "service">): CreationProps => ({ ...props, ...(dependencies.creationService ? { service: dependencies.creationService } : {}) }),
     bindProgressionProps: (props: CharacterProgressionProps): CharacterProgressionProps => props,
     list: dependencies.listCharacters,
+    listDrafts: dependencies.listCharacterDrafts,
   };
 
   const actionsPending = dependencies.actionDispatcher ? [] : ["ActionDispatcher (dispatcher de comandos CORE-002 pendente)"];
@@ -194,6 +198,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
       ...props,
       ...(dependencies.auth ? { auth: dependencies.auth } : {}),
       ...(dependencies.membership ? { membership: dependencies.membership } : {}),
+      ...(dependencies.publishLocalCharacters ? { onPublishLocalCharacters: dependencies.publishLocalCharacters } : {}),
       availability: dependencies.authAvailability ?? { available: Boolean(dependencies.auth) },
     }),
   };

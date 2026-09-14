@@ -5,19 +5,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-lg);
+  box-sizing: border-box;
+  padding: max(var(--spacing-lg), env(safe-area-inset-top)) max(var(--spacing-lg), env(safe-area-inset-right)) max(var(--spacing-lg), env(safe-area-inset-bottom)) max(var(--spacing-lg), env(safe-area-inset-left));
   background-color: var(--color-backdrop);
   backdrop-filter: blur(0.2rem);
 }
 
 .dialog {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
   width: 100%;
   max-width: 32rem;
-  max-height: 100%;
-  overflow-y: auto;
+  max-height: calc(100dvh - max(var(--spacing-lg), env(safe-area-inset-top)) - max(var(--spacing-lg), env(safe-area-inset-bottom)));
+  overflow: hidden;
   padding: var(--spacing-lg);
   background-color: var(--color-surface-warm);
   border: 1px solid var(--color-border-soft);
@@ -27,10 +29,36 @@
 }
 
 .header {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--spacing-sm);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex: 0 0 auto;
+}
+
+/**
+ * `margin-inline-end: auto` em vez de mudar `justify-content` do `.header`:
+ * o dice.module.css sobrescreve `.header` com `justify-content: flex-end`
+ * (especificidade maior, `> div:first-child`) porque o `<h2>` do título é
+ * `position: absolute` — sai do fluxo, então o único item flex real (o X) é
+ * empurrado pro fim. Com `space-between` e só 1 item no fluxo, ele iria pro
+ * INÍCIO, não pro fim — quebraria esse caso. `margin-inline-end: auto` no
+ * primeiro item consome o espaço livre e empurra o resto pro fim, com
+ * qualquer `justify-content`, e sem efeito quando este elemento nem existe
+ * (sem `leadingAction`, o layout original — só o X, `flex-end` — continua).
+ */
+.leadingAction {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-inline-end: auto;
 }
 
 .title {
@@ -44,10 +72,17 @@
 }
 
 .body {
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
   color: var(--color-text);
+}
+
+@media (max-width: 420px) {
+  .backdrop { top: var(--app-bar-height); bottom: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); align-items: flex-start; padding: var(--spacing-sm); }
+  .dialog { max-height: 100%; padding: var(--spacing-md); }
 }
 
 .footer {

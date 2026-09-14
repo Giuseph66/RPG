@@ -48,7 +48,7 @@
 @media (max-width: 767px) {
   .appShell { --app-bar-height: 4.5rem; }
   .headerInner { padding: max(var(--spacing-xs), env(safe-area-inset-top)) var(--spacing-md) var(--spacing-xs); }
-  .shellBody { display: block; min-height: calc(100vh - var(--app-bar-height)); padding-bottom: calc(var(--size-nav-height) + var(--spacing-xl) + env(safe-area-inset-bottom)); }
+  .shellBody { display: block; box-sizing: border-box; min-height: calc(100vh - var(--app-bar-height)); padding-bottom: calc(var(--size-nav-height) + var(--spacing-xl) + env(safe-area-inset-bottom)); }
   .navigation { position: fixed; right: 0; bottom: 0; left: 0; z-index: var(--z-navigation); display: flex; box-sizing: border-box; width: auto; height: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); padding: var(--spacing-xs) var(--spacing-sm) env(safe-area-inset-bottom); background-color: var(--color-surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 55%, transparent), color-mix(in srgb, var(--color-surface) 90%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent); border-right: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .3); }
   .navigationList { display: grid; flex: 1; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; gap: 0; }
   .navItem, .navUtility { flex: 1; min-width: 0; min-height: var(--size-touch-target); padding: .35rem var(--spacing-xs) .3rem; justify-content: center; flex-direction: column; gap: .16rem; border-radius: var(--radius-control); font-size: .72rem; line-height: 1; text-align: center; }
@@ -73,4 +73,8 @@
 }
 @media (max-width: 420px) {
   .identityContext { max-width: 18ch; }
+}
+@media (orientation: portrait) {
+  .shellBody { background-color: var(--color-background); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 12%, transparent), color-mix(in srgb, var(--color-background) 54%, transparent)), url("../../assets/art/textures/stone-vertical.png"); background-position: center top; background-size: auto 100vh; background-repeat: repeat-y; }
+  .main { background: transparent; }
 }

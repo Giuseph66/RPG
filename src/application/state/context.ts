@@ -57,6 +57,7 @@ export function createApplicationServices(
               clock: dependencies.clock,
               diceHistoryRepository: dependencies.diceHistoryRepository,
               unitOfWork: dependencies.unitOfWork,
+              idGenerator: dependencies.idGenerator,
               syncOutbox,
             },
           }
