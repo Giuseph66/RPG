@@ -4,7 +4,7 @@ import type { EntityType, PackVersion, RulesetId, RulesetRef } from "@domain/con
 import type { SourceRef } from "@domain/contracts/primitives";
 
 export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras";
-export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "spell";
+export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "spell" | "condition" | "race" | "class" | "background" | "equipment" | "feat";
 
 export type CompendiumCategoryStatus = "available" | "pending";
 
@@ -88,12 +88,19 @@ export interface CompendiumBookSpellDefinition extends CompendiumStaticDefinitio
   readonly higherLevels?: string;
 }
 
+/** Texto integral extraído do Livro do Jogador, sem inferir automações do motor. */
+export interface CompendiumBookRuleDefinition extends CompendiumStaticDefinition {
+  readonly kind: "book-rule";
+  readonly sourceHeading: string;
+  readonly text: string;
+}
+
 export interface CompendiumCatalogItem {
   /** Present for rule-pack definitions; static entries use `kind: "static"`. */
   readonly kind?: "rulepack" | "static";
   readonly entityType?: EntityType;
   readonly category?: StaticCompendiumCategory;
-  readonly definition: AnyDefinition | CompendiumStaticDefinition | CompendiumBookSpellDefinition;
+  readonly definition: AnyDefinition | CompendiumStaticDefinition | CompendiumBookSpellDefinition | CompendiumBookRuleDefinition;
   readonly ruleset: RulesetRef;
   readonly aliases?: readonly string[];
   readonly summary?: string;

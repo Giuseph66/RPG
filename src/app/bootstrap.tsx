@@ -450,7 +450,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const pack = loadPhbPtBrLocal2017();
     if (!pack.ok) throw new Error(pack.error.message);
     const activePack = pack.value;
-    const compendiumService = createCompendiumService({ packs: [activePack], items: STATIC_COMPENDIUM_ITEMS, excludePackEntityTypes: ["spell"] });
+    const compendiumService = createCompendiumService({ packs: [activePack], items: STATIC_COMPENDIUM_ITEMS, excludePackEntityTypes: ["spell", "condition", "race", "class", "background", "feat"] });
 
     // `executionsHolder` liga a lista reativa de capacidades (recalculada a cada snapshot de
     // personagem por `computeActionCapabilities`, chamado de `ReadyApplication`) ao dispatcher

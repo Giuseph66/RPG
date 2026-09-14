@@ -3,6 +3,22 @@
 import { ABILITIES, findAbility } from "@data/abilities/abilities";
 import { SKILLS } from "@data/skills/skills";
 import { PHB_PTBR_LOCAL_2017_MANIFEST } from "@data/rulepacks/manifest";
+import { PHB_ABILITIES_AND_SKILLS } from "@data/correto/abilities-and-skills";
+import { PHB_ADVENTURING } from "@data/correto/adventuring";
+import { PHB_BACKGROUNDS } from "@data/correto/backgrounds";
+import { PHB_CHARACTER_CREATION } from "@data/correto/character-creation";
+import { PHB_CLASSES } from "@data/correto/classes";
+import { PHB_COMBAT } from "@data/correto/combat";
+import { PHB_CONDITIONS } from "@data/correto/conditions";
+import { PHB_CREATURES } from "@data/correto/creatures";
+import { PHB_DEITIES } from "@data/correto/deities";
+import { PHB_EQUIPMENT } from "@data/correto/equipment";
+import { PHB_FEATS } from "@data/correto/feats";
+import { PHB_MULTICLASS_AND_FEATS } from "@data/correto/multiclass-and-feats";
+import { PHB_PERSONALITY_AND_BACKGROUNDS } from "@data/correto/personality-and-backgrounds";
+import { PHB_PLANES } from "@data/correto/planes";
+import { PHB_RACES } from "@data/correto/races";
+import { PHB_SPELLCASTING_RULES } from "@data/correto/spellcasting-rules";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
 import type { CompendiumCatalogItem, StaticCompendiumCategory } from "@application/compendium";
 
@@ -51,6 +67,61 @@ const BOOK_SPELL_ITEMS: readonly CompendiumCatalogItem[] = EXTRACTED_PHB_SPELLS.
   },
 }));
 
+type ExtractedBookRule = {
+  readonly name: string;
+  readonly sourceHeading: string;
+  readonly pdfPages: readonly [number, number];
+  readonly printedPages: readonly [number, number];
+  readonly text: string;
+};
+
+type ExtractedBookRuleSource = {
+  readonly category: StaticCompendiumCategory;
+  readonly chapter: string;
+  readonly tags: readonly string[];
+  readonly entries: readonly ExtractedBookRule[];
+};
+
+const BOOK_RULE_SOURCES: readonly ExtractedBookRuleSource[] = [
+  { category: "rules", chapter: "Capítulo 7", tags: ["habilidade", "perícia", "regra"], entries: PHB_ABILITIES_AND_SKILLS },
+  { category: "adventure", chapter: "Capítulo 8", tags: ["aventura", "viagem"], entries: PHB_ADVENTURING },
+  { category: "background", chapter: "Capítulo 4", tags: ["antecedente", "personalidade"], entries: PHB_BACKGROUNDS },
+  { category: "rules", chapter: "Capítulo 1", tags: ["personagem", "criação"], entries: PHB_CHARACTER_CREATION },
+  { category: "class", chapter: "Capítulo 3", tags: ["classe", "nível"], entries: PHB_CLASSES },
+  { category: "combat", chapter: "Capítulo 9", tags: ["combate"], entries: PHB_COMBAT },
+  { category: "condition", chapter: "Apêndice A", tags: ["condição"], entries: PHB_CONDITIONS },
+  { category: "adventure", chapter: "Apêndice D", tags: ["criatura", "monstro"], entries: PHB_CREATURES },
+  { category: "adventure", chapter: "Apêndice B", tags: ["divindade", "panteão"], entries: PHB_DEITIES },
+  { category: "equipment", chapter: "Capítulo 5", tags: ["equipamento"], entries: PHB_EQUIPMENT },
+  { category: "feat", chapter: "Capítulo 6", tags: ["talento"], entries: PHB_FEATS },
+  { category: "feat", chapter: "Capítulo 6", tags: ["talento", "multiclasse"], entries: PHB_MULTICLASS_AND_FEATS },
+  { category: "background", chapter: "Capítulo 4", tags: ["antecedente", "personalidade"], entries: PHB_PERSONALITY_AND_BACKGROUNDS },
+  { category: "adventure", chapter: "Apêndice C", tags: ["plano", "cosmologia"], entries: PHB_PLANES },
+  { category: "race", chapter: "Capítulo 2", tags: ["raça"], entries: PHB_RACES },
+  { category: "rules", chapter: "Capítulo 10", tags: ["magia", "conjuração", "regra"], entries: PHB_SPELLCASTING_RULES },
+];
+
+function bookRuleId(chapter: string, sourceIndex: number, name: string, index: number): string {
+  return `book-${chapter.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${sourceIndex}-${name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${index}`;
+}
+
+const BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = BOOK_RULE_SOURCES.flatMap(({ category, chapter, tags, entries }, sourceIndex) => entries.map((entry, index) => ({
+  kind: "static" as const,
+  category,
+  ruleset,
+  aliases: [entry.sourceHeading],
+  summary: `${chapter} · p. ${entry.printedPages[0]}`,
+  definition: {
+    kind: "book-rule" as const,
+    id: bookRuleId(chapter, sourceIndex, entry.name, index),
+    name: entry.name,
+    tags: [...tags, entry.sourceHeading.toLocaleLowerCase("pt-BR")],
+    sourceRefs: [sourceRef(chapter, entry.printedPages[0], entry.pdfPages[0], entry.sourceHeading)],
+    sourceHeading: entry.sourceHeading,
+    text: normalizeBookText(entry.text),
+  },
+})));
+
 const RULES_D20 = sourceRef("Introdução", 7, 6, "O d20");
 const RULES_ABILITY = sourceRef("Capítulo 7", 175, 174, "Valores e Modificadores de Habilidade");
 const RULES_ADVANTAGE = sourceRef("Capítulo 7", 175, 174, "Vantagem e Desvantagem");
@@ -91,6 +162,7 @@ const ADVENTURE_DOWNTIME = sourceRef("Capítulo 8", 189, 188, "Entre Aventuras")
 
 export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
   ...BOOK_SPELL_ITEMS,
+  ...BOOK_RULE_ITEMS,
   ...ABILITIES.map((ability) => ({
     kind: "static" as const,
     category: "attributes" as const,

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { AppModal, Badge, IconButton, InlineStatus, Input } from "@components/ui";
 import { BookOpen, BookmarkSimple, Books, Brain, CaretDown, Crosshair, FirstAidKit, MagnifyingGlass, Shield, Sparkle, Sword, UsersThree } from "@phosphor-icons/react";
-import type { CompendiumBookSpellDefinition, CompendiumDetail } from "@application/compendium";
+import type { CompendiumBookRuleDefinition, CompendiumBookSpellDefinition, CompendiumDetail } from "@application/compendium";
 import type { SpellDefinition } from "@domain/contracts/definitions/spell";
 
 import type { CompendiumDetailProps, CompendiumProps } from "./types";
@@ -13,11 +13,11 @@ const DEFAULT_FILTERS = { query: "" } as const;
 
 function categoryIcon(id: string): ReactNode {
   if (id === "combat") return <Sword size={19} weight="duotone" aria-hidden="true" />;
-  if (id === "conditions") return <Shield size={19} weight="duotone" aria-hidden="true" />;
+  if (id === "condition" || id === "conditions") return <Shield size={19} weight="duotone" aria-hidden="true" />;
   if (id === "attributes") return <Brain size={19} weight="duotone" aria-hidden="true" />;
   if (id === "skills") return <Crosshair size={19} weight="duotone" aria-hidden="true" />;
-  if (id === "races" || id === "classes") return <UsersThree size={19} weight="duotone" aria-hidden="true" />;
-  if (id === "spells" || id === "magia" || id === "magias") return <Sparkle size={19} weight="duotone" aria-hidden="true" />;
+  if (id === "race" || id === "races" || id === "class" || id === "classes") return <UsersThree size={19} weight="duotone" aria-hidden="true" />;
+  if (id === "spell" || id === "spells" || id === "magia" || id === "magias") return <Sparkle size={19} weight="duotone" aria-hidden="true" />;
   if (id === "rest") return <FirstAidKit size={19} weight="duotone" aria-hidden="true" />;
   return <BookOpen size={19} weight="duotone" aria-hidden="true" />;
 }
@@ -28,7 +28,7 @@ function formatSource(source: CompendiumDetail["sourceRefs"][number]): string {
 }
 
 function formatHumanReference(detail: CompendiumDetail): string {
-  const categoryNames: Record<string, string> = { combat: "Combate", condition: "Condições", spell: "Magia", rules: "Regras" };
+  const categoryNames: Record<string, string> = { adventure: "Aventura", background: "Antecedente", class: "Classe", combat: "Combate", condition: "Condições", equipment: "Equipamento", feat: "Talento", race: "Raça", spell: "Magia", rules: "Regras" };
   return `${categoryNames[detail.category] ?? detail.category} · ${detail.title}`;
 }
 
@@ -40,6 +40,10 @@ function isSpellDefinition(definition: CompendiumDetail["definition"]): definiti
 
 function isBookSpellDefinition(definition: CompendiumDetail["definition"]): definition is CompendiumBookSpellDefinition {
   return Boolean(definition && typeof definition === "object" && "kind" in definition && definition.kind === "book-spell");
+}
+
+function isBookRuleDefinition(definition: CompendiumDetail["definition"]): definition is CompendiumBookRuleDefinition {
+  return Boolean(definition && typeof definition === "object" && "kind" in definition && definition.kind === "book-rule");
 }
 
 function formatCastingTime(spell: SpellDefinition): string {
@@ -75,7 +79,8 @@ function BookSpellDetails({ spell }: { spell: CompendiumBookSpellDefinition }) {
 
 export function CompendiumDetailPanel({ detail }: CompendiumDetailProps) {
   const bookSpell = isBookSpellDefinition(detail.definition) ? detail.definition : undefined;
-  return <article className={styles.detail} aria-labelledby="compendium-detail-title"><div className={styles.detailHeading}><h2 id="compendium-detail-title">{detail.title}</h2><span className={styles.technicalId}>{formatHumanReference(detail)}</span></div>{bookSpell ? <p className={styles.summary}>{bookSpell.description}</p> : detail.summary ? <p className={styles.summary}>{detail.summary}</p> : null}{isSpellDefinition(detail.definition) ? <SpellDetails spell={detail.definition} /> : bookSpell ? <BookSpellDetails spell={bookSpell} /> : null}{bookSpell?.higherLevels ? <section className={styles.higherLevels}><h3>Em níveis superiores</h3><p>{bookSpell.higherLevels}</p></section> : null}{detail.sourceRefs.length > 0 ? <div className={styles.detailMeta}><span>Fonte · {detail.sourceRefs.map(formatSource).join(" · ")}</span></div> : null}{detail.tags.length > 0 ? <div className={styles.tagList}>{detail.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}</div> : null}</article>;
+  const bookRule = isBookRuleDefinition(detail.definition) ? detail.definition : undefined;
+  return <article className={styles.detail} aria-labelledby="compendium-detail-title"><div className={styles.detailHeading}><h2 id="compendium-detail-title">{detail.title}</h2><span className={styles.technicalId}>{formatHumanReference(detail)}</span></div>{bookSpell ? <p className={styles.summary}>{bookSpell.description}</p> : !bookRule && detail.summary ? <p className={styles.summary}>{detail.summary}</p> : null}{isSpellDefinition(detail.definition) ? <SpellDetails spell={detail.definition} /> : bookSpell ? <BookSpellDetails spell={bookSpell} /> : null}{bookRule ? <section className={styles.bookRuleText} aria-label="Texto da regra"><h3>{bookRule.sourceHeading}</h3><p>{bookRule.text}</p></section> : null}{bookSpell?.higherLevels ? <section className={styles.higherLevels}><h3>Em níveis superiores</h3><p>{bookSpell.higherLevels}</p></section> : null}{detail.sourceRefs.length > 0 ? <div className={styles.detailMeta}><span>Fonte · {detail.sourceRefs.map(formatSource).join(" · ")}</span></div> : null}{detail.tags.length > 0 ? <div className={styles.tagList}>{detail.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}</div> : null}</article>;
 }
 
 export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className }: CompendiumProps) {

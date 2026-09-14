@@ -1,7 +1,7 @@
 import { asEntityId, asRulesetId, type DefinitionRef, type Uuid } from "@domain/contracts/ids";
 import { type ConditionInstance } from "@domain/contracts/character";
 import { type ConditionDefinition } from "@domain/contracts/definitions/condition";
-import { type RuleModifier } from "@domain/contracts/primitives";
+import { type DamageType, type RuleModifier } from "@domain/contracts/primitives";
 import { type SourceRef } from "@domain/contracts/primitives";
 
 const PACK = asRulesetId("phb-ptbr-local-2017");
@@ -31,24 +31,29 @@ function condition(id: string, name: string, mechanicalEffects: readonly RuleMod
 const attackDisadvantage = (id: string) => modifier(`${id}.attack-disadvantage`, { kind: "attack-roll" }, "grant-disadvantage", "desvantagem em ataques");
 const attackAdvantage = (id: string) => modifier(`${id}.attack-advantage`, { kind: "attack-roll" }, "grant-advantage", "ataques contra a criatura têm vantagem");
 const abilityCheckDisadvantage = (id: string) => modifier(`${id}.ability-check-disadvantage`, { kind: "ability-check" }, "grant-disadvantage", "desvantagem em testes de habilidade");
+const savingThrowFailure = (id: string, ability: "str" | "dex") => modifier(`${id}.${ability}-save-fail`, { kind: "saving-throw", ability }, "set-maximum", `falha em resistência de ${ability === "str" ? "Força" : "Destreza"}`);
+const savingThrowDisadvantage = (id: string, ability: "str" | "dex" | "con" | "int" | "wis" | "cha") => modifier(`${id}.${ability}-save-disadvantage`, { kind: "saving-throw", ability }, "grant-disadvantage", `desvantagem na resistência de ${ability}`);
+const strengthDexteritySaveFailures = (id: string) => [savingThrowFailure(id, "str"), savingThrowFailure(id, "dex")];
+const DAMAGE_TYPES: readonly DamageType[] = ["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing", "poison", "psychic", "radiant", "slashing", "thunder"];
+const allDamageResistances = (id: string): readonly RuleModifier[] => DAMAGE_TYPES.map((damageType) => ({ id: `${id}.${damageType}-resistance`, sourceRef: CONDITIONS_SOURCE_REF, target: { kind: "damage-roll" }, operator: "grant-resistance", value: { kind: "damage-type", damageType }, predicate: { kind: "always" }, stackingGroup: id }));
 
 /** As 14 condições ordinárias da fonte, cada uma com efeitos consultáveis e fonte. */
 export const CONDITION_DEFINITIONS: readonly ConditionDefinition[] = [
   condition("grappled", "Agarrado", [modifier("grappled.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0")]),
-  condition("frightened", "Amedrontado", [abilityCheckDisadvantage("frightened"), attackDisadvantage("frightened")]),
-  condition("stunned", "Atordoado", [modifier("stunned.str-dex-save-fail", { kind: "saving-throw" , ability: "str" }, "set-maximum", "falha em resistência de Força"), modifier("stunned.dex-save-fail", { kind: "saving-throw", ability: "dex" }, "set-maximum", "falha em resistência de Destreza")]),
+  condition("frightened", "Amedrontado", []),
+  condition("stunned", "Atordoado", [modifier("stunned.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0"), ...strengthDexteritySaveFailures("stunned")]),
   condition("prone", "Caído", [attackDisadvantage("prone")]),
-  condition("blinded", "Cego", [abilityCheckDisadvantage("blinded"), attackDisadvantage("blinded")]),
+  condition("blinded", "Cego", [attackDisadvantage("blinded")]),
   condition("charmed", "Enfeitiçado", []),
   condition("poisoned", "Envenenado", [abilityCheckDisadvantage("poisoned"), attackDisadvantage("poisoned")]),
   condition("restrained", "Impedido", [modifier("restrained.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0"), attackDisadvantage("restrained"), modifier("restrained.dex-save-disadvantage", { kind: "saving-throw", ability: "dex" }, "grant-disadvantage", "desvantagem na resistência de Destreza")]),
   condition("incapacitated", "Incapacitado", []),
-  condition("unconscious", "Inconsciente", [modifier("unconscious.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "não move"), attackDisadvantage("unconscious")]),
+  condition("unconscious", "Inconsciente", [modifier("unconscious.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "não move"), ...strengthDexteritySaveFailures("unconscious")]),
   condition("invisible", "Invisível", [attackAdvantage("invisible")]),
-  condition("paralyzed", "Paralisado", []),
-  condition("petrified", "Petrificado", []),
+  condition("paralyzed", "Paralisado", [modifier("paralyzed.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "não move"), ...strengthDexteritySaveFailures("paralyzed")]),
+  condition("petrified", "Petrificado", [modifier("petrified.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "não move"), ...strengthDexteritySaveFailures("petrified"), ...allDamageResistances("petrified")]),
   condition("deafened", "Surdo", []),
-  condition("exhaustion", "Exaustão", [abilityCheckDisadvantage("exhaustion.1"), modifier("exhaustion.2-speed-half", { kind: "speed", speedKind: "walk" }, "multiply", "deslocamento pela metade"), attackDisadvantage("exhaustion.3"), modifier("exhaustion.3.saves", { kind: "saving-throw" , ability: "str" }, "grant-disadvantage", "desvantagem em resistências"), modifier("exhaustion.4.max-hp-half", { kind: "hit-points-max" }, "multiply", "máximo de PV pela metade"), modifier("exhaustion.5.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0")], "stack-severity", { min: 0, max: 6 }),
+  condition("exhaustion", "Exaustão", [abilityCheckDisadvantage("exhaustion.1"), modifier("exhaustion.2-speed-half", { kind: "speed", speedKind: "walk" }, "multiply", "deslocamento pela metade"), attackDisadvantage("exhaustion.3"), ...(["str", "dex", "con", "int", "wis", "cha"] as const).map((ability) => savingThrowDisadvantage("exhaustion.3", ability)), modifier("exhaustion.4.max-hp-half", { kind: "hit-points-max" }, "multiply", "máximo de PV pela metade"), modifier("exhaustion.5.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0")], "stack-severity", { min: 0, max: 6 }),
 ];
 
 export const conditions = CONDITION_DEFINITIONS;
@@ -60,7 +65,7 @@ export const CONDITION_COVERAGE_PENDENCIES = [
   { conditionId: "prone", description: "vantagem/desvantagem recebida depende da distância do atacante" },
   { conditionId: "charmed", description: "causador e efeitos nocivos exigem identidade de origem" },
   { conditionId: "unconscious", description: "crítico de atacante adjacente exige distância explícita" },
-  { conditionId: "petrified", description: "resistência a todo dano e suspensão de efeitos exigem composição de defesas" },
+  { conditionId: "petrified", description: "suspensão de efeitos de veneno/doença exige contexto de efeito ativo" },
   { conditionId: "exhaustion", description: "nível 6 mata e a aplicação de efeitos cumulativos depende da severidade agregada" },
 ] as const;
 
