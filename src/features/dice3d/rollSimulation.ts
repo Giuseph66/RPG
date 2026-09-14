@@ -35,14 +35,23 @@ const PASSOS_PARADO = 20;
 const PASSOS_ASSENTAR = 90;
 const AMORTECIMENTO_ASSENTAR = { linear: 0.9, angular: 0.96 };
 /**
- * Rastejo: devagar demais para ainda ser queda, rápido demais para contar como
- * parado. O Zocchiedro do d100 entra nisso e fica (medido: 0,3 cm/s até o teto
- * de passos). Depois de `PASSOS_RASTEJO` assim, a queda é dada por encerrada e
- * o trecho de assentamento assume — não faz sentido gastar segundos de
- * animação vendo um dado quase esférico passear.
+ * Janela usada para decidir se o dado ainda está indo a algum lugar, e o
+ * caminho mínimo que ele precisa percorrer nela para a queda continuar.
+ *
+ * Substitui um detector de "rastejo" que olhava a velocidade instantânea e
+ * zerava o contador a cada quadro acima do limiar. O Zocchiedro do d100 não
+ * desacelera suavemente: ele vibra, com a velocidade oscilando em volta do
+ * limiar, então o contador reiniciava sem parar e a saída antecipada nunca
+ * disparava — o dado ficava até 4,25 s tremendo na tela (medido: 11 de 12
+ * lançamentos batendo no teto de passos).
+ *
+ * Caminho percorrido não tem esse problema: ele acumula, imune à oscilação.
+ * Medido em 0,5 s de tela, o d100 tremendo percorre ~0,5 cm enquanto um d20
+ * ainda rolando percorre ~9,5 cm — quase vinte vezes mais. O corte em 2 cm cai
+ * no meio dessa distância, longe dos dois.
  */
-const FATOR_RASTEJO = 4;
-const PASSOS_RASTEJO = 45;
+const JANELA_PROGRESSO = 30; // quadros (0,5 s)
+const CAMINHO_MINIMO = 2; // cm percorridos na janela
 /** Passos finais com o corpo travado, garantindo fim de animação imóvel. */
 const PASSOS_CONGELAR = 10;
 const VEL_PARADO = 0.6; // cm/s
@@ -230,12 +239,30 @@ export function simularEGravar(
           d.corpo.angularVelocity.length() < VEL_ANG_PARADO),
     );
 
-  const estaRastejando = () =>
+  // Caminho percorrido por dado dentro da janela deslizante, em buffer
+  // circular: `somaCaminho[k]` é sempre o total dos últimos
+  // `JANELA_PROGRESSO` quadros, atualizado em O(1) por quadro.
+  const caminhoNaJanela = dados.map(() => new Float64Array(JANELA_PROGRESSO));
+  const somaCaminho = dados.map(() => 0);
+  const posAnterior = dados.map((d) => d.corpo.position.clone());
+
+  const registrarCaminho = (s: number) => {
+    dados.forEach((d, k) => {
+      const anterior = posAnterior[k];
+      const avanco = d.corpo.position.distanceTo(anterior);
+      anterior.copy(d.corpo.position);
+      const i = s % JANELA_PROGRESSO;
+      somaCaminho[k] += avanco - caminhoNaJanela[k][i];
+      caminhoNaJanela[k][i] = avanco;
+    });
+  };
+
+  /** Nenhum dado saiu do lugar na última janela: a queda acabou, o resto é tremor. */
+  const semProgresso = (s: number) =>
+    s >= JANELA_PROGRESSO &&
     dados.every(
-      (d) =>
-        d.corpo.sleepState === CANNON.Body.SLEEPING ||
-        (d.corpo.velocity.length() < VEL_PARADO * FATOR_RASTEJO &&
-          d.corpo.angularVelocity.length() < VEL_ANG_PARADO * FATOR_RASTEJO),
+      (d, k) =>
+        d.corpo.sleepState === CANNON.Body.SLEEPING || somaCaminho[k] < CAMINHO_MINIMO,
     );
 
   const gravarPasso = (s: number) => {
@@ -253,18 +280,17 @@ export function simularEGravar(
     });
   };
 
-  let rastejando = 0;
   for (let s = 0; s < maxPassos; s += 1) {
     // passo fixo de um argumento = determinístico, sem subpassos variáveis
     world.step(PASSO);
     gravarPasso(s);
+    registrarCaminho(s);
     passos = s + 1;
 
     quietos = estaParado() ? quietos + 1 : 0;
     if (quietos >= PASSOS_PARADO) break;
 
-    rastejando = estaRastejando() ? rastejando + 1 : 0;
-    if (rastejando >= PASSOS_RASTEJO) break;
+    if (semProgresso(s)) break;
   }
 
   // Quem ainda rolava ganha um trecho final com atrito alto até deitar. A
@@ -283,10 +309,17 @@ export function simularEGravar(
     for (let s = passos; s < limite; s += 1) {
       world.step(PASSO);
       gravarPasso(s);
+      registrarCaminho(s);
       passos = s + 1;
 
       quietos = estaParado() ? quietos + 1 : 0;
       if (quietos >= PASSOS_PARADO) break;
+
+      // Aqui NÃO se corta por falta de progresso, ao contrário do laço da
+      // queda: é justamente quando o dado já não anda que o atrito exagerado
+      // precisa agir, para deitar a face. Cortar cedo devolve uma pose ainda
+      // instável — medido: 16 de 120 d100 mudavam de face ao continuar a
+      // simulação, contra 0 de 120 deixando o trecho correr.
     }
 
     // Ainda rastejando no fim do orçamento: o corpo é travado e ainda leva

@@ -23,27 +23,57 @@ export interface DicePerformancePolicy {
   readonly animate: boolean;
 }
 
+/**
+ * Teto de exemplares na cena física, por tipo de dado.
+ *
+ * O custo que manda aqui é o **colisor**, não o número de faces: a colisão
+ * convexo-convexo do cannon-es compara vértice a vértice, então o par custa
+ * O(V²) e a leva de `n` dados custa O(n²·V²). Medido (pré-simulação de uma
+ * queda de 4 s, um núcleo):
+ *
+ * | vértices | 10 dados | 20 dados | 30 dados |
+ * |----------|----------|----------|----------|
+ * | 8–32     | ~30–70ms | ~50–120ms| ~63–281ms|
+ * | 62       | 273ms    | 2.326ms  | 16.249ms |
+ * | 196      | 9.188ms  | —        | —        |
+ * | 611–687  | *2 dados não terminaram em 170s* |
+ *
+ * Orçamento adotado: ~300ms de pré-simulação, que é a pausa antes de a
+ * animação começar.
+ *
+ * Os tetos antigos vinham de quando a camada 3D era decorativa e o número saía
+ * do RNG — mostrar 6 de 10 dados não tinha custo nenhum. Eram conservadores
+ * demais nos dados baratos (d20 em 6, sendo que 30 d20 custam 118ms) e, pior,
+ * **perigosos nos caros**: d3 e d5 tinham teto 4 apesar de colisores de 611 e
+ * 687 vértices — mais pesados que o do d100, que tinha teto 1. Quatro d5
+ * travariam a aba por minutos.
+ */
 const MAX_INSTANCES: Readonly<Record<DiceFaces, number>> = {
+  // Colisores de 611–687 vértices (formas irregulares de pouca face): nem dois
+  // exemplares terminam em tempo utilizável. Um só, sem par para colidir.
   1: 1,
+  3: 1,
+  5: 1,
+  // 128 e 196 vértices: o d100 já gasta 4,2 s com três exemplares.
   2: 2,
-  3: 4,
-  4: 12,
-  5: 4,
-  6: 18,
-  7: 6,
-  8: 12,
-  10: 12,
-  12: 10,
-  14: 8,
-  16: 8,
-  20: 6,
-  24: 4,
-  30: 3,
-  48: 2,
-  50: 2,
-  60: 2,
   100: 1,
-  120: 1,
+  // 62 vértices: 10 cabem em 273ms, 20 estouram para 2,3 s.
+  50: 4,
+  60: 8,
+  120: 8,
+  // Até 32 vértices: 30 exemplares ficam dentro do orçamento.
+  4: 30,
+  6: 30,
+  7: 30,
+  8: 30,
+  10: 30,
+  12: 24,
+  14: 30,
+  16: 30,
+  20: 30,
+  24: 30,
+  30: 30,
+  48: 30,
 };
 
 function complexityFor(faces: DiceFaces): DiceComplexity {
@@ -81,7 +111,9 @@ export function dicePerformancePolicy(input: DicePerformanceInput): DicePerforma
   if (mobile) {
     return {
       complexity,
-      maxPhysicalInstances,
+      // Os tetos foram medidos num núcleo de desktop; um celular leva bem mais
+      // para a mesma pré-simulação, e ela é a pausa antes da animação começar.
+      maxPhysicalInstances: Math.max(1, Math.ceil(maxPhysicalInstances / 2)),
       maxPhysicsSubsteps: complexity === "very-high" ? 2 : 3,
       pixelRatioCap: 1.25,
       shadowMapSize: complexity === "low" ? 1024 : 512,

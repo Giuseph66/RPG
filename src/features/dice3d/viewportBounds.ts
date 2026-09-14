@@ -76,3 +76,44 @@ function utilizavel(extensao: number, maximo: number, minimo: number): number {
   const margem = Math.min(MARGEM_PAREDE, extensao * FRACAO_MARGEM);
   return Math.min(maximo, extensao, Math.max(minimo, extensao - margem));
 }
+
+/**
+ * Meia-medida de arena necessária para `quantidade` dados de `larguraDado`
+ * caberem com espaço para rolar.
+ *
+ * Cada dado recebe uma célula quadrada de `folga` larguras, então a **área**
+ * cresce com a contagem e o **lado** com a raiz dela. Sem isso a arena teria de
+ * ser escolhida para o pior caso e ficaria vazia demais no caso comum (um dado
+ * só), que é quando o dado precisa parecer grande.
+ */
+export function alvoParaDados(
+  larguraDado: number,
+  quantidade: number,
+  maximo: number,
+  folga: number,
+): number {
+  if (quantidade <= 0 || larguraDado <= 0) return 0;
+  return Math.min(maximo, (larguraDado * folga * Math.sqrt(quantidade)) / 2);
+}
+
+/**
+ * Menor distância de câmera, dentro de `faixa`, cuja área visível comporta
+ * `alvo`. Devolve o extremo distante quando nem ele alcança.
+ *
+ * É varredura e não fórmula fechada porque a área visível depende da proporção
+ * da tela — a mesma distância rende arenas diferentes num palco largo e num
+ * estreito, e `limitesVisiveis` já resolve isso.
+ */
+export function distanciaQueComporta(
+  limitesEm: (distancia: number) => LimitesMesa,
+  alvo: number,
+  faixa: readonly [number, number],
+  passo = 0.05,
+): number {
+  const [perto, longe] = faixa;
+  for (let d = perto; d <= longe + 1e-9; d += passo) {
+    const { x, z } = limitesEm(d);
+    if (Math.min(x, z) >= alvo) return d;
+  }
+  return longe;
+}

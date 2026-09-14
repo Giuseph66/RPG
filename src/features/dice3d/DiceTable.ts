@@ -30,7 +30,7 @@ import {
   type PoseInicial,
 } from "./rollSimulation";
 import { lerDado, type LeituraDado } from "./readout";
-import { LIMITE_MINIMO, limitesVisiveis } from "./viewportBounds";
+import { LIMITE_MINIMO, alvoParaDados, distanciaQueComporta, limitesVisiveis } from "./viewportBounds";
 import type { DieMeta, Quat } from "./types";
 
 export interface DiceTableOptions {
@@ -79,6 +79,16 @@ export interface DiceTableOptions {
    * entregar, e o `maxRollSeconds` segue valendo como teto.
    */
   forceScale?: number;
+  /**
+   * Faixa de distância de câmera para o enquadramento automático, `[perto,
+   * longe]`. Com ela, a mesa reenquadra a cada lançamento: um dado só chega
+   * perto e aparece grande; muitos dados (ou dados largos, como o d100)
+   * afastam a câmera só o necessário para caberem.
+   *
+   * Sem isso a distância é fixa e cai na escolha ruim de sempre — perto demais
+   * e o dado não tem onde correr, longe demais e ele vira um grão na tela.
+   */
+  cameraDistanceRange?: readonly [number, number];
 }
 
 export interface RollOutcome extends LeituraDado {
@@ -111,6 +121,23 @@ export interface RollOptions {
   results?: readonly number[];
 }
 
+/**
+ * Larguras de dado que cada dado ganha de célula no enquadramento automático.
+ *
+ * Calibrado em 2,6 medindo os casos reais: um d20 sozinho fica com 11,1 cm de
+ * arena (o dado ocupa 26% do quadro e tem 3,8 larguras para correr) e dez d100
+ * abrem para 39 cm. Valores maiores espalham demais — a 5, os mesmos dez d100
+ * iam para 52 cm e o dado caía para 8,8% do quadro, menor do que antes de
+ * existir enquadramento automático.
+ *
+ * Também é o que garante que os dados caibam: a 2,6 a lotação do chão fica em
+ * ~15%, uma camada folgada. A arena fixa antiga de 9,3 cm pedia 240% para dez
+ * d100 — impossível em uma camada, então eles empilhavam no centro.
+ */
+const FOLGA_POR_DADO = 2.6;
+/** Granularidade da varredura de distância de câmera. */
+const PASSO_ENQUADRAMENTO = 0.05;
+
 interface Instancia {
   id: string;
   slot: number;
@@ -136,6 +163,7 @@ export class DiceTable {
   private readonly random: () => number;
   private readonly maxRollSeconds: number;
   private readonly forceScale: number;
+  private readonly faixaCamera: [number, number] | null;
   private readonly pixelRatioCap: number;
   private maxPhysicsSubsteps: number;
   private readonly instancias: Instancia[] = [];
@@ -186,8 +214,10 @@ export class DiceTable {
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 500);
     const distancia = Math.max(0.2, opts.cameraDistance ?? 1);
-    this.camera.position.set(0, 46 * distancia, 34 * distancia);
-    this.camera.lookAt(0, 0, 0);
+    this.faixaCamera = opts.cameraDistanceRange
+      ? [Math.max(0.2, opts.cameraDistanceRange[0]), Math.max(0.2, opts.cameraDistanceRange[1])]
+      : null;
+    this.posicionarCamera(distancia);
 
     this.montarLuzes();
     this.montarMundo(opts.gravity ?? -981);
@@ -338,6 +368,45 @@ export class DiceTable {
     this.limiteX = x;
     this.limiteZ = z;
     this.posicionarParedes();
+  }
+
+  private posicionarCamera(distancia: number): void {
+    this.camera.position.set(0, 46 * distancia, 34 * distancia);
+    this.camera.lookAt(0, 0, 0);
+    this.camera.updateMatrixWorld();
+  }
+
+  /**
+   * Aproxima a câmera até o limite em que os dados ainda cabem com folga para
+   * rolar.
+   *
+   * A arena é derivada do que a câmera enxerga, então distância de câmera e
+   * tamanho aparente do dado são a mesma escolha: perto o dado fica grande mas
+   * sem espaço, longe ele tem espaço mas vira um grão. Fixar um valor sempre
+   * erra de um lado — um d6 solitário e dez d100 não querem o mesmo quadro.
+   *
+   * Alvo: cada dado recebe uma célula de `FOLGA_POR_DADO` larguras, então a
+   * área cresce com a contagem e o lado com a raiz dela. Como `limitesVisiveis`
+   * depende da proporção da tela, a distância é encontrada por varredura em
+   * vez de fórmula fechada — funciona em qualquer formato de palco.
+   */
+  private enquadrarParaDados(): void {
+    if (!this.faixaCamera || this.instancias.length === 0) return;
+
+    const largura = Math.max(...this.instancias.map((i) => i.meta.diameterCm));
+    const alvo = alvoParaDados(largura, this.instancias.length, this.bounds, FOLGA_POR_DADO);
+    const escolhida = distanciaQueComporta(
+      (d) => {
+        this.posicionarCamera(d);
+        return limitesVisiveis(this.camera, this.bounds, this.minBounds);
+      },
+      alvo,
+      this.faixaCamera,
+      PASSO_ENQUADRAMENTO,
+    );
+
+    this.posicionarCamera(escolhida);
+    this.atualizarLimites();
   }
 
   // ----------------------------------------------------------------- dados
@@ -500,6 +569,9 @@ export class DiceTable {
       : [...this.instancias];
     if (alvos.length === 0) return Promise.resolve([]);
 
+    // Antes de sortear as poses: a arena (e o impulso, que escala com ela)
+    // dependem do enquadramento escolhido para esta leva de dados.
+    this.enquadrarParaDados();
     const poses = this.sortearPoses(alvos, opts);
     const { gravacao } = simularAlinhado(this.world, alvos, poses, opts.results, {
       maxPassos: this.maxPassosSim,

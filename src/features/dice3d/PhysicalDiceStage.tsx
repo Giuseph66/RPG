@@ -126,11 +126,12 @@ export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, 
         background: null,
         random,
         mobile,
-        // A câmera define a arena: as paredes saem do que ela enxerga (ver
-        // `limitesVisiveis`). A 0.26 sobrava uma meia-largura de 4,5 cm para um
-        // dado de ~2 cm — o dado nascia praticamente encostado nas paredes. A
-        // 0.8 a arena passa de 9 cm para ~28 cm de lado e o dado corre a mesa.
-        cameraDistance: variant === "inline" ? 0.8 : 1,
+        // A câmera define a arena E o tamanho aparente do dado — é a mesma
+        // escolha. Por isso o palco embutido não fixa distância: reenquadra a
+        // cada lançamento, chegando perto com um dado só (fica grande) e
+        // afastando só o necessário quando são muitos ou largos (d100).
+        cameraDistance: variant === "inline" ? 0.26 : 1,
+        cameraDistanceRange: variant === "inline" ? [0.26, 1.5] : undefined,
         forceScale,
       });
     } catch {
