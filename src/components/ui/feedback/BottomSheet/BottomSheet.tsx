@@ -16,6 +16,14 @@ export interface BottomSheetProps {
   initialFocusRef?: RefObject<HTMLElement | null>;
   dismissOnBackdrop?: boolean;
   footer?: ReactNode;
+  /**
+   * Hides the footer's text "Fechar" button. Defaults to visible — the
+   * dragging-isn't-the-only-way-out guarantee below only holds with this at
+   * its default. Only opt out when the header X (always present) reaches an
+   * on-screen close some other way, e.g. a sheet that fills the viewport
+   * where the header is never scrolled out of reach.
+   */
+  hideFooterCloseButton?: boolean;
   /** Extra class on the sheet surface, for feature-specific skins. */
   className?: string;
 }
@@ -23,10 +31,10 @@ export interface BottomSheetProps {
 /**
  * Same modal contract as AppModal (focus trap, Escape, return focus,
  * background inertness), anchored to the bottom of the viewport for
- * mobile use. Always renders a visible text "Fechar" button — dragging is
- * never the only way to dismiss it — plus the same header X as AppModal, so
- * a sheet tall enough to fill the screen can be dismissed without scrolling
- * down to the footer.
+ * mobile use. Renders the same header X as AppModal, plus by default a
+ * visible text "Fechar" button in the footer — dragging is never the only
+ * way to dismiss it. `hideFooterCloseButton` drops the second one for a
+ * sheet where the header X is always reachable (see the prop's doc).
  */
 export function BottomSheet({
   open,
@@ -36,6 +44,7 @@ export function BottomSheet({
   initialFocusRef,
   dismissOnBackdrop = true,
   footer,
+  hideFooterCloseButton = false,
   className,
 }: BottomSheetProps) {
   const titleId = useId();
@@ -70,12 +79,16 @@ export function BottomSheet({
           <IconButton label="Fechar" icon={<X size={20} weight="bold" />} onClick={onClose} />
         </div>
         <div className={styles.body}>{children}</div>
-        <div className={styles.footer}>
-          {footer}
-          <Button variant="secondary" onClick={onClose}>
-            Fechar
-          </Button>
-        </div>
+        {footer || !hideFooterCloseButton ? (
+          <div className={styles.footer}>
+            {footer}
+            {hideFooterCloseButton ? null : (
+              <Button variant="secondary" onClick={onClose}>
+                Fechar
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );

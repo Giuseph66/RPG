@@ -110,10 +110,8 @@ describe("validateDiceExpression", () => {
     if (isErr(result)) expect(result.error.field).toBe("mode");
   });
 
-  it("rejeita 1d6 advantage (faces incompatível com vantagem)", () => {
-    const result = validateDiceExpression({ quantity: 1, faces: 6, modifier: 0, mode: "advantage" });
-    expect(isErr(result)).toBe(true);
-    if (isErr(result)) expect(result.error.field).toBe("mode");
+  it("aceita 1d6 advantage — vantagem/desvantagem vale para qualquer dado único, não só d20", () => {
+    expect(isOk(validateDiceExpression({ quantity: 1, faces: 6, modifier: 0, mode: "advantage" }))).toBe(true);
   });
 
   it("aceita 1d20 advantage e 1d20 disadvantage", () => {

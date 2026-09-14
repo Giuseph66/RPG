@@ -21,7 +21,38 @@
 .cardArt { width: 5rem; height: 5rem; overflow: hidden; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-background); }
 .cardArt img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
 .cardBody { display: grid; align-content: center; gap: .2rem; min-width: 0; }
-.stateArt { width: min(100%, 30rem); max-height: 18rem; object-fit: cover; object-position: center 35%; border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); box-shadow: var(--shadow-surface); }
 .stateMark { color: var(--color-secondary); border-color: var(--color-primary); }
 .card:hover { border-color: var(--color-secondary); background: var(--color-surface-elevated); }
 @media (max-width: 680px) { .card { grid-template-columns: 4rem minmax(0, 1fr); } .cardArt { width: 4rem; height: 4rem; } .card > button { grid-column: 1 / -1; } }
+
+/**
+ * Vigília: arte de fundo da tela inteira.
+ *
+ * O pseudo-elemento é `position: fixed; inset: 0` porque a seção vive dentro do
+ * `.main` (que tem padding lateral) e do `.routeMount` (que centraliza num
+ * `max-width`). Sangrar com margem negativa só cancelaria o padding — a sobra
+ * da centralização continuaria aparecendo como moldura no desktop.
+ *
+ * `isolation: isolate` prende o `z-index: -1` dentro da própria seção; sem
+ * isso ele escaparia para a raiz e o fundo opaco do `.appShell` o cobriria.
+ */
+.selection, .state { position: relative; isolation: isolate; --vigil-scrim-top: 42%; --vigil-scrim-bottom: 90%; }
+/* Com fichas na tela o fundo é só textura: scrim mais pesado para os cards não brigarem com a arte. */
+.selection { --vigil-scrim-top: 76%; --vigil-scrim-bottom: 95%; }
+.selection::before, .state::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-background) var(--vigil-scrim-top), transparent),
+      color-mix(in srgb, var(--color-background) var(--vigil-scrim-bottom), transparent)),
+    url("../../../assets/art/textures/character-vigil.webp");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+}
+/* Estado vazio centra na área livre entre a barra do topo e a navegação. */
+.state { align-content: center; min-height: calc(100dvh - var(--app-bar-height, 4.75rem) - var(--size-nav-height, 64px) - 2 * clamp(var(--spacing-xl), 5vw, 4rem)); }

@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AppModal, BottomSheet, Button, InlineStatus, LiveRegion } from "@components/ui";
-import { GiDiceTwentyFacesTwenty } from "../../assets/icons";
 import diceMedallion from "../../assets/art/icons/d20-medallion.webp";
 import { DiceHistory } from "./DiceHistory";
 import { DiceResult } from "./DiceResult";
@@ -60,15 +59,24 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
         <span className={styles.stageRune} aria-hidden="true" />
         {state.open && !reducedMotion ? (
           <Suspense fallback={<div aria-hidden="true" />}>
-            <PhysicalDiceStage roll={state.result} active={state.open} variant="inline" />
+            <PhysicalDiceStage
+              active={state.open}
+              variant="inline"
+              awaitingPhysics={state.awaitingPhysics}
+              physicsExpression={state.pendingExpression}
+              onResult={(values) => void controller.onPhysicsResult(values)}
+              onPhysicsAvailable={controller.setPhysicsAvailable}
+              onPhysicsDeclined={controller.declinePhysics}
+            />
           </Suspense>
         ) : (
           // Sem física (movimento reduzido): a moeda do d20 segura o palco.
           <img className={styles.stageFallback} src={diceMedallion} alt="" aria-hidden="true" />
         )}
         {/* Antes da primeira rolagem a mesa física está vazia — a moeda ocupa
-            o palco para o círculo não nascer oco, e sai quando os dados caem. */}
-        {!state.result && !reducedMotion ? <img className={styles.stageIdle} src={diceMedallion} alt="" aria-hidden="true" /> : null}
+            o palco para o círculo não nascer oco, e sai assim que os dados
+            entram em queda (`awaitingPhysics`), não só quando o número chega. */}
+        {!state.result && !state.awaitingPhysics && !reducedMotion ? <img className={styles.stageIdle} src={diceMedallion} alt="" aria-hidden="true" /> : null}
       </div>
 
       <DiceResult roll={state.result} />
@@ -94,12 +102,11 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
 
   const footer = (
     <Button className={styles.rollButton} variant="secondary" busy={rolling} onClick={() => void controller.roll()}>
-      <GiDiceTwentyFacesTwenty aria-hidden="true" />
       {state.result ? "Rolar novamente" : "Rolar dados"}
     </Button>
   );
 
   return mobile
-    ? <BottomSheet open={state.open} title="Dados" onClose={controller.close} footer={footer} className={`${styles.surface} ${styles.surfaceSheet}`}>{content}</BottomSheet>
+    ? <BottomSheet open={state.open} title="Dados" onClose={controller.close} footer={footer} hideFooterCloseButton className={`${styles.surface} ${styles.surfaceSheet}`}>{content}</BottomSheet>
     : <AppModal open={state.open} title="Dados" onClose={controller.close} footer={footer} className={`${styles.surface} ${styles.surfaceModal}`}>{content}</AppModal>;
 }

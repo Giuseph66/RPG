@@ -14,6 +14,13 @@ import { type RandomSource } from "@domain/contracts/dice";
 export const RNG_VERSION = "platform-rejection-v1";
 
 /**
+ * Versão gravada em `DiceRoll.rngVersion` quando o resultado veio da física
+ * real do dado 3D — não de um sorteio de RNG. O número foi lido de
+ * `lerDado()` depois que o dado assentou na mesa.
+ */
+export const RNG_VERSION_PHYSICAL = "physical-v1";
+
+/**
  * Erro lançado quando um `RandomSource` (produção ou injetado em teste) devolve um valor fora
  * do contrato (`min <= valor <= max`, inteiro). O engine (roll.ts/ability-scores.ts/reroll.ts)
  * captura este erro no limite da função pública e o converte em `Result` com `AppError`

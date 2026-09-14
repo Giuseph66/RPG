@@ -72,6 +72,13 @@ export interface DiceTableOptions {
    * num palco com um dado só: a arena encolhe junto com o enquadramento.
    */
   minBounds?: number;
+  /**
+   * Multiplica o empurrão e o giro do lançamento. `1` é o arremesso padrão;
+   * acima disso o dado sai mais forte e quica mais pela mesa. Não altera a
+   * distribuição do resultado — a face que sai continua sendo a que a física
+   * entregar, e o `maxRollSeconds` segue valendo como teto.
+   */
+  forceScale?: number;
 }
 
 export interface RollOutcome extends LeituraDado {
@@ -128,6 +135,7 @@ export class DiceTable {
   private readonly minBounds: number;
   private readonly random: () => number;
   private readonly maxRollSeconds: number;
+  private readonly forceScale: number;
   private readonly pixelRatioCap: number;
   private maxPhysicsSubsteps: number;
   private readonly instancias: Instancia[] = [];
@@ -155,6 +163,7 @@ export class DiceTable {
     this.minBounds = Math.max(1, opts.minBounds ?? LIMITE_MINIMO);
     this.random = opts.random ?? Math.random;
     this.maxRollSeconds = opts.maxRollSeconds ?? 4;
+    this.forceScale = Math.max(0.1, opts.forceScale ?? 1);
     const mobile = opts.mobile === true;
     this.pixelRatioCap = mobile ? 1.25 : 2;
     this.maxPhysicsSubsteps = Math.max(1, Math.trunc(opts.maxPhysicsSubsteps ?? (mobile ? 3 : 4)));
@@ -507,9 +516,12 @@ export class DiceTable {
   private sortearPoses(alvos: Instancia[], opts: RollOptions): PoseInicial[] {
     const limite = Math.min(this.limiteX, this.limiteZ);
     const altura = opts.height ?? Math.max(16, limite * 1.1);
-    const espalhar = opts.spread ?? limite * 0.45;
-    const impulso = opts.impulse ?? limite * 2.4;
-    const giro = opts.spin ?? 22;
+    // Nasce mais espalhado e é jogado mais forte: com a arena maior o dado tem
+    // onde correr, e o arremesso antigo (2.4 × limite numa arena de 4,5 cm) mal
+    // tirava o dado do lugar. `forceScale` deixa a mão pesada ser ajustável.
+    const espalhar = opts.spread ?? limite * 0.55;
+    const impulso = opts.impulse ?? limite * 3 * this.forceScale;
+    const giro = opts.spin ?? 34 * this.forceScale;
 
     return alvos.map((_, k) => {
       const ang = (k / alvos.length) * Math.PI * 2 + this.random();

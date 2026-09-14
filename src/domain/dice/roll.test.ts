@@ -169,3 +169,163 @@ describe("rollExpression — tabela de casos determinísticos (11-DICE-ENGINE.md
     }
   });
 });
+
+import { buildRollFromValues } from "./roll";
+
+describe("buildRollFromValues — resultado vem da física do dado, não do RNG", () => {
+  it("3d6+2, valores físicos [4,6,2] → subtotal 12, total 14, rngVersion physical-v1", () => {
+    const result = buildRollFromValues(
+      expr({ quantity: 3, faces: 6, modifier: 2 }),
+      [4, 6, 2],
+      META,
+    );
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.rawDice).toEqual([4, 6, 2]);
+      expect(result.value.subtotal).toBe(12);
+      expect(result.value.total).toBe(14);
+      expect(result.value.selectedIndexes).toEqual([0, 1, 2]);
+      expect(result.value.discardedIndexes).toEqual([]);
+      expect(result.value.rngVersion).toBe("physical-v1");
+    }
+  });
+
+  it("1d20, vantagem, valores físicos [3,17] → seleciona 17, total 17", () => {
+    const result = buildRollFromValues(
+      expr({ quantity: 1, faces: 20, modifier: 0, mode: "advantage" }),
+      [3, 17],
+      META,
+    );
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.rawDice).toEqual([3, 17]);
+      expect(result.value.selectedIndexes).toEqual([1]);
+      expect(result.value.discardedIndexes).toEqual([0]);
+      expect(result.value.subtotal).toBe(17);
+      expect(result.value.total).toBe(17);
+    }
+  });
+
+  it("1d20, desvantagem, valores físicos [3,17] → seleciona 3, total 3", () => {
+    const result = buildRollFromValues(
+      expr({ quantity: 1, faces: 20, modifier: 0, mode: "disadvantage" }),
+      [3, 17],
+      META,
+    );
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.rawDice).toEqual([3, 17]);
+      expect(result.value.selectedIndexes).toEqual([0]);
+      expect(result.value.discardedIndexes).toEqual([1]);
+      expect(result.value.subtotal).toBe(3);
+    }
+  });
+
+  it("empate 12/12 vantagem → seleciona índice 0", () => {
+    const result = buildRollFromValues(
+      expr({ quantity: 1, faces: 20, modifier: 0, mode: "advantage" }),
+      [12, 12],
+      META,
+    );
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.selectedIndexes).toEqual([0]);
+      expect(result.value.discardedIndexes).toEqual([1]);
+    }
+  });
+
+  it("modifier negativo: 2d6-3, [4,5] → total 6", () => {
+    const result = buildRollFromValues(
+      expr({ quantity: 2, faces: 6, modifier: -3 }),
+      [4, 5],
+      META,
+    );
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.subtotal).toBe(9);
+      expect(result.value.total).toBe(6);
+    }
+  });
+
+  it("d100 limites: valor 1 e valor 100 são aceitos", () => {
+    for (const v of [1, 100]) {
+      const result = buildRollFromValues(expr({ quantity: 1, faces: 100 }), [v], META);
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) expect(result.value.rawDice).toEqual([v]);
+    }
+  });
+
+  it("preserva id/timestamp/purpose/characterId do meta", () => {
+    const metaCompleto: RollMeta = {
+      ...META,
+      purpose: "attack",
+      characterId: asUuid("22222222-2222-4222-8222-222222222222"),
+    };
+    const result = buildRollFromValues(expr({ quantity: 1, faces: 20 }), [15], metaCompleto);
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      expect(result.value.purpose).toBe("attack");
+      expect(result.value.characterId).toBe(metaCompleto.characterId);
+      expect(result.value.id).toBe(META.id);
+    }
+  });
+
+  describe("rejeições — expressão inválida", () => {
+    it("quantity=0 rejeita", () => {
+      const result = buildRollFromValues(expr({ quantity: 0 }), [], META);
+      expect(isErr(result)).toBe(true);
+    });
+
+    it("faces inválidas rejeita", () => {
+      const result = buildRollFromValues(
+        { quantity: 1, faces: 9 as never, modifier: 0, mode: "normal" },
+        [5],
+        META,
+      );
+      expect(isErr(result)).toBe(true);
+    });
+
+    it("2d20 advantage rejeita", () => {
+      const result = buildRollFromValues(
+        expr({ quantity: 2, faces: 20, mode: "advantage" }),
+        [10, 15],
+        META,
+      );
+      expect(isErr(result)).toBe(true);
+    });
+  });
+
+  describe("rejeições — valores físicos inválidos", () => {
+    it("quantidade errada de valores rejeita: 2d6 com 1 valor", () => {
+      const result = buildRollFromValues(expr({ quantity: 2, faces: 6 }), [3], META);
+      expect(isErr(result)).toBe(true);
+      if (isErr(result)) expect(result.error.code).toBe("validation-error");
+    });
+
+    it("quantidade errada: vantagem com 1 valor rejeita", () => {
+      const result = buildRollFromValues(
+        expr({ quantity: 1, faces: 20, mode: "advantage" }),
+        [15],
+        META,
+      );
+      expect(isErr(result)).toBe(true);
+    });
+
+    it("valor 0 (abaixo de 1) rejeita", () => {
+      const result = buildRollFromValues(expr({ quantity: 1, faces: 6 }), [0], META);
+      expect(isErr(result)).toBe(true);
+      if (isErr(result)) expect(result.error.code).toBe("validation-error");
+    });
+
+    it("valor acima do máximo de faces rejeita", () => {
+      const result = buildRollFromValues(expr({ quantity: 1, faces: 6 }), [7], META);
+      expect(isErr(result)).toBe(true);
+      if (isErr(result)) expect(result.error.code).toBe("validation-error");
+    });
+
+    it("valor não-inteiro rejeita", () => {
+      const result = buildRollFromValues(expr({ quantity: 1, faces: 6 }), [3.5], META);
+      expect(isErr(result)).toBe(true);
+    });
+  });
+});

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { GiD4, GiD10, GiD12, GiDiceEightFacesEight, GiDiceSixFacesSix, GiDiceTwentyFacesTwenty, Minus, Plus } from "../../assets/icons";
@@ -73,11 +74,14 @@ function Stepper({ label, value, min, max, format, onChange }: StepperProps) {
   );
 }
 
-const MODOS: readonly { readonly value: DiceMode; readonly label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "advantage", label: "Vantagem" },
-  { value: "disadvantage", label: "Desvantagem" },
+const MODOS: readonly { readonly value: DiceMode; readonly letra: string; readonly label: string }[] = [
+  { value: "normal", letra: "N", label: "Normal" },
+  { value: "advantage", letra: "V", label: "Vantagem" },
+  { value: "disadvantage", letra: "D", label: "Desvantagem" },
 ];
+
+/** Segurar antes de revelar o nome do modo (toque rápido só seleciona). */
+const ATRASO_REVELACAO_MS = 380;
 
 export interface DiceControlsProps {
   readonly expression: DiceExpression;
@@ -88,13 +92,34 @@ export interface DiceControlsProps {
 }
 
 /**
- * Quantidade, modificador e modo — os três em controles diretos, sem
- * formulário. Vantagem e desvantagem só existem em exatamente 1d20
- * (`validateDiceExpression`), então fora disso os botões ficam desabilitados
- * com o motivo à vista, em vez de deixar o usuário errar e ler um erro depois.
+ * Quantidade, modo e modificador — os três em controles diretos, sem
+ * formulário, numa linha só, o modo no centro. Vantagem e desvantagem só
+ * existem com um único dado (`validateDiceExpression`), então fora disso os
+ * botões ficam desabilitados com o motivo à vista, em vez de deixar o usuário
+ * errar e ler um erro depois.
+ *
+ * O modo mostra só a inicial (N/V/D) para não competir por espaço com o
+ * dado — segurar o botão (ou passar o mouse) revela o nome completo; um
+ * toque rápido apenas seleciona, sem esperar o rótulo aparecer.
  */
 export function DiceControls({ expression, mode, onQuantityChange, onModifierChange, onModeChange }: DiceControlsProps) {
-  const permiteModo = expression.quantity === 1 && expression.faces === 20;
+  const permiteModo = expression.quantity === 1;
+  const [revelado, setRevelado] = useState<DiceMode | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  function segurar(valor: DiceMode) {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setRevelado(valor), ATRASO_REVELACAO_MS);
+  }
+
+  function soltar() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    setRevelado(null);
+  }
+
   return (
     <div className={styles.controlBar}>
       <Stepper
@@ -103,14 +128,6 @@ export function DiceControls({ expression, mode, onQuantityChange, onModifierCha
         min={QUANTIDADE_MINIMA}
         max={QUANTIDADE_MAXIMA}
         onChange={onQuantityChange}
-      />
-      <Stepper
-        label="Modificador"
-        value={expression.modifier}
-        min={MODIFICADOR_MINIMO}
-        max={MODIFICADOR_MAXIMO}
-        format={formatarModificador}
-        onChange={onModifierChange}
       />
       <div className={styles.modeGroup}>
         <span className={styles.stepperLabel} id="dice-mode-label">Modo</span>
@@ -124,16 +141,31 @@ export function DiceControls({ expression, mode, onQuantityChange, onModifierCha
                 type="button"
                 className={[styles.modeButton, selecionado ? styles.modeButtonActive : ""].filter(Boolean).join(" ")}
                 aria-pressed={selecionado}
+                aria-label={opcao.label}
+                title={opcao.label}
                 disabled={bloqueado}
                 onClick={() => onModeChange(opcao.value)}
+                onPointerDown={() => segurar(opcao.value)}
+                onPointerUp={soltar}
+                onPointerLeave={soltar}
+                onPointerCancel={soltar}
               >
-                {opcao.label}
+                {opcao.letra}
+                {revelado === opcao.value ? <span className={styles.modeReveal} role="tooltip">{opcao.label}</span> : null}
               </button>
             );
           })}
         </div>
-        {permiteModo ? null : <span className={styles.modeHint} id="dice-mode-hint">Só em 1d20</span>}
+        {permiteModo ? null : <span className={styles.modeHint} id="dice-mode-hint">Só com 1 dado</span>}
       </div>
+      <Stepper
+        label="Modificador"
+        value={expression.modifier}
+        min={MODIFICADOR_MINIMO}
+        max={MODIFICADOR_MAXIMO}
+        format={formatarModificador}
+        onChange={onModifierChange}
+      />
     </div>
   );
 }

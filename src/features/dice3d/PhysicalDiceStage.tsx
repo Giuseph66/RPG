@@ -1,8 +1,9 @@
 /**
- * Camada física dos dados: quando um `DiceRoll` novo chega, larga os dados 3D
- * correspondentes (mesmo tipo e quantidade) numa mesa com física real —
- * quicam, colidem entre si e assentam mostrando o resultado que o motor de
- * dados do domínio já decidiu (ver `orientationFor.ts`).
+ * Camada física dos dados: quando o controller entra em `awaitingPhysics`,
+ * larga os dados 3D da expressão pedida numa mesa com física real — quicam,
+ * colidem entre si e assentam. **A face que ficar para cima é o resultado**:
+ * `mesa.roll()` é chamado sem `results`, então nada é encenado, e os valores
+ * lidos por `lerDado()` voltam ao controller por `onResult`.
  *
  * Dois enquadramentos:
  * - `overlay` (padrão): tela cheia por cima do app, translúcido.
@@ -10,32 +11,50 @@
  *   câmera chega mais perto e a área jogável encolhe junto, porque as paredes
  *   saem do que a câmera enxerga (ver `limitesVisiveis`).
  *
- * Puramente decorativo: `DiceResult`/`LiveRegion` continuam sendo a fonte
- * acessível do resultado. Se o WebGL falhar ou os assets não carregarem, o
- * app segue funcionando normalmente sem esta camada.
+ * `DiceResult`/`LiveRegion` continuam sendo a fonte acessível do resultado. Se
+ * o WebGL falhar ou os assets não carregarem, `onPhysicsAvailable(false)` avisa
+ * o controller, que volta a decidir pelo RNG — o app segue funcionando.
  */
 
 import { useEffect, useRef, useState } from "react";
 
 import { dicePerformancePolicy } from "@domain/dice";
 import type { DiceFaces } from "@domain/contracts/primitives";
-import type { DiceRoll } from "@domain/contracts/dice";
+import type { DiceExpression } from "@domain/contracts/dice";
 
 import { APARENCIA_MESA, type DieAppearance } from "./appearance";
 import { DiceTable } from "./DiceTable";
 import styles from "./PhysicalDiceStage.module.css";
 
 export interface PhysicalDiceStageProps {
-  /** Última rolagem do domínio. Uma nova `id` dispara um novo lançamento físico. */
-  readonly roll?: DiceRoll;
+  /** `true` dispara o lançamento: o controller está esperando a física decidir. */
+  readonly awaitingPhysics?: boolean;
+  /** O que lançar. Define o tipo de dado e quantas cópias caem na mesa. */
+  readonly physicsExpression?: DiceExpression;
   /** Monta/desmonta a mesa (a cena WebGL só existe enquanto `true`). */
   readonly active: boolean;
-  /** Fonte de aleatoriedade só para o giro visual (yaw) — nunca decide o valor. */
+  /** Fonte de aleatoriedade só para a pose inicial — a física faz o resto. */
   readonly random?: () => number;
   /** `overlay` cobre a tela; `inline` preenche o elemento pai. Padrão `overlay`. */
   readonly variant?: "overlay" | "inline";
   /** Acabamento dos dados. Padrão: obsidiana e bronze da paleta do app. */
   readonly appearance?: DieAppearance;
+  /** Peso da mão no arremesso. `1` é o padrão; acima disso o dado sai mais forte. */
+  readonly forceScale?: number;
+  /** Faces lidas depois que todos os dados pararam, uma por dado. */
+  readonly onResult?: (values: number[]) => void;
+  /**
+   * Ciclo de vida da mesa: `true` quando a cena WebGL existe, `false` quando
+   * falha ao montar ou é descartada. O controller usa isso para escolher entre
+   * física e RNG **antes** de abrir a rolagem.
+   */
+  readonly onPhysicsAvailable?: (available: boolean) => void;
+  /**
+   * A mesa existe mas não dá conta *desta* rolagem (a política de performance
+   * corta dados demais, o asset não carregou). Vale só para a rolagem
+   * pendente — a próxima volta a tentar a física.
+   */
+  readonly onPhysicsDeclined?: () => void;
 }
 
 const ID_POR_FACES: Record<DiceFaces, string> = {
@@ -61,12 +80,19 @@ const ID_POR_FACES: Record<DiceFaces, string> = {
   120: "d120",
 };
 
-export function PhysicalDiceStage({ roll, active, random, variant = "overlay", appearance = APARENCIA_MESA }: PhysicalDiceStageProps) {
+export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, active, random, variant = "overlay", appearance = APARENCIA_MESA, forceScale = 1, onResult, onPhysicsAvailable, onPhysicsDeclined }: PhysicalDiceStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mesaRef = useRef<DiceTable | null>(null);
-  const ultimaRolagem = useRef<string | undefined>(undefined);
   const [mobile, setMobile] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Guardados em ref para não reiniciar o lançamento quando o pai recria os
+  // callbacks a cada render.
+  const onResultRef = useRef(onResult);
+  const onDisponivelRef = useRef(onPhysicsAvailable);
+  const onRecusaRef = useRef(onPhysicsDeclined);
+  onResultRef.current = onResult;
+  onDisponivelRef.current = onPhysicsAvailable;
+  onRecusaRef.current = onPhysicsDeclined;
 
   useEffect(() => {
     const media = window.matchMedia?.("(max-width: 680px)");
@@ -85,7 +111,11 @@ export function PhysicalDiceStage({ roll, active, random, variant = "overlay", a
   }, []);
 
   useEffect(() => {
-    if (!active || reducedMotion) return undefined;
+    if (!active || reducedMotion) {
+      // Sem mesa não há física para decidir: o controller usa o RNG.
+      onDisponivelRef.current?.(false);
+      return undefined;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
 
@@ -96,18 +126,21 @@ export function PhysicalDiceStage({ roll, active, random, variant = "overlay", a
         background: null,
         random,
         mobile,
-        // Palco pequeno: aproxima a câmera para o dado ocupar o quadro.
-        cameraDistance: variant === "inline" ? 0.26 : 1,
-        // Arena curta para o dado ocupar o quadro; só faz sentido com o
-        // enquadramento fechado do palco embutido.
-        minBounds: variant === "inline" ? 4.5 : undefined,
+        // A câmera define a arena: as paredes saem do que ela enxerga (ver
+        // `limitesVisiveis`). A 0.26 sobrava uma meia-largura de 4,5 cm para um
+        // dado de ~2 cm — o dado nascia praticamente encostado nas paredes. A
+        // 0.8 a arena passa de 9 cm para ~28 cm de lado e o dado corre a mesa.
+        cameraDistance: variant === "inline" ? 0.8 : 1,
+        forceScale,
       });
     } catch {
-      // WebGL indisponível ou contexto perdido: a camada física é so
-      // decorativa, o resto do app (DiceResult, histórico) segue intacto
+      // WebGL indisponível ou contexto perdido: o controller volta ao RNG e o
+      // resto do app (DiceResult, histórico) segue intacto.
+      onDisponivelRef.current?.(false);
       return undefined;
     }
     mesaRef.current = mesa;
+    onDisponivelRef.current?.(true);
 
     const aoRedimensionar = () => mesa.resize();
     window.addEventListener("resize", aoRedimensionar);
@@ -121,50 +154,59 @@ export function PhysicalDiceStage({ roll, active, random, variant = "overlay", a
       observador?.disconnect();
       mesa.dispose();
       mesaRef.current = null;
+      onDisponivelRef.current?.(false);
     };
-  }, [active, mobile, random, reducedMotion, variant]);
+  }, [active, forceScale, mobile, random, reducedMotion, variant]);
 
   useEffect(() => {
     const mesa = mesaRef.current;
-    if (!mesa || !roll || reducedMotion || roll.id === ultimaRolagem.current) return;
-    ultimaRolagem.current = roll.id;
+    if (!mesa || !awaitingPhysics || !physicsExpression || reducedMotion) return undefined;
 
-    const id = ID_POR_FACES[roll.expression.faces];
+    const id = ID_POR_FACES[physicsExpression.faces];
+    // Vantagem/desvantagem sempre caem dois dados, independente da quantidade
+    // escrita na fórmula — é o par que `buildSelection` compara.
+    const quantidade = physicsExpression.mode === "normal" ? physicsExpression.quantity : 2;
     const policy = dicePerformancePolicy({
-      faces: roll.expression.faces,
-      quantity: roll.rawDice.length,
+      faces: physicsExpression.faces,
+      quantity: quantidade,
       mobile,
       reducedMotion,
     });
-    const valores = roll.rawDice.slice(0, policy.maxPhysicalInstances);
-    if (!id || valores.length === 0) return;
+
+    // A física só pode decidir a rolagem se TODOS os dados couberem na mesa.
+    // Com a política cortando instâncias, voltariam menos valores do que a
+    // expressão pede e `buildRollFromValues` recusaria — melhor devolver a
+    // decisão ao RNG antes de animar qualquer coisa.
+    if (!id || quantidade === 0 || policy.maxPhysicalInstances < quantidade) {
+      onRecusaRef.current?.();
+      return undefined;
+    }
 
     let cancelado = false;
     void (async () => {
       mesa.setMaxPhysicsSubsteps(policy.maxPhysicsSubsteps);
       mesa.clear();
       try {
-        for (let i = 0; i < valores.length; i += 1) {
+        for (let i = 0; i < quantidade; i += 1) {
           if (cancelado) return;
           await mesa.add(id, appearance);
         }
       } catch {
-        return; // asset nao carregou: fica so o resultado textual mesmo
+        // Asset não carregou: sem dados na mesa não há o que ler, devolve
+        // esta rolagem ao RNG.
+        if (!cancelado) onRecusaRef.current?.();
+        return;
       }
       if (cancelado) return;
-      await mesa.roll(undefined, { results: valores });
+      // Sem `results`: a física roda solta e a face que ficar para cima é o
+      // resultado. É o ponto inteiro deste fluxo.
+      const outcomes = await mesa.roll(undefined, {});
+      if (cancelado) return;
+      onResultRef.current?.(outcomes.map((outcome) => outcome.value));
     })();
 
-    return () => {
-      cancelado = true;
-      // A marca só vale para um lançamento que chegou ao fim. Se este efeito
-      // for desfeito antes disso — troca de dependência, ou o duplo disparo
-      // do StrictMode em dev, que ainda descarta e recria a mesa — ela volta
-      // atrás, senão a execução seguinte se acha repetida e a mesa fica vazia
-      // (era o palco em branco ao reabrir o modal com uma rolagem na tela).
-      if (ultimaRolagem.current === roll.id) ultimaRolagem.current = undefined;
-    };
-  }, [appearance, mobile, reducedMotion, roll]);
+    return () => { cancelado = true; };
+  }, [appearance, awaitingPhysics, mobile, physicsExpression, reducedMotion]);
 
   if (!active || reducedMotion) return null;
   return <canvas ref={canvasRef} className={variant === "inline" ? styles.inline : styles.canvas} aria-hidden="true" />;

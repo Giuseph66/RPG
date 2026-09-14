@@ -8,8 +8,15 @@
 
 import * as THREE from "three";
 
-/** Folga entre a parede e a borda visível, para o dado nunca raspar a tela. */
+/**
+ * Folga máxima entre a parede e a borda visível, para o dado nunca raspar a
+ * tela. É um **teto**, não um valor fixo: numa área pequena, descontar 3 cm de
+ * cada lado comia quase todo o chão jogável (numa meia-largura visível de
+ * 4,4 cm sobravam 1,4 cm), então a folga vira proporcional abaixo desse ponto.
+ */
 export const MARGEM_PAREDE = 3; // cm
+/** Fração da área visível usada como folga enquanto ela for menor que `MARGEM_PAREDE`. */
+const FRACAO_MARGEM = 0.16;
 /**
  * Piso de segurança padrão: uma área menor que isso não caberia nem um dado
  * grande. Um palco pequeno (um dado só, enquadramento de herói) pode baixar
@@ -54,8 +61,18 @@ export function limitesVisiveis(
   if (!Number.isFinite(minX) || !Number.isFinite(minZ)) {
     return { x: maximo, z: maximo };
   }
-  return {
-    x: Math.max(minimo, Math.min(maximo, minX - MARGEM_PAREDE)),
-    z: Math.max(minimo, Math.min(maximo, minZ - MARGEM_PAREDE)),
-  };
+  return { x: utilizavel(minX, maximo, minimo), z: utilizavel(minZ, maximo, minimo) };
+}
+
+/**
+ * Converte uma extensão visível na meia-medida jogável.
+ *
+ * O piso `minimo` nunca pode ultrapassar o que a câmera enxerga: era assim que
+ * a parede acabava fora do quadro num palco estreito (celular em pé, meia-
+ * largura visível de 3,3 cm contra um piso de 4,5 cm) e o dado sumia da tela
+ * sem ter saído da física.
+ */
+function utilizavel(extensao: number, maximo: number, minimo: number): number {
+  const margem = Math.min(MARGEM_PAREDE, extensao * FRACAO_MARGEM);
+  return Math.min(maximo, extensao, Math.max(minimo, extensao - margem));
 }

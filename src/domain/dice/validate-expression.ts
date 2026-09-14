@@ -16,8 +16,9 @@ function isFiniteInteger(value: unknown): value is number {
 /**
  * Valida entrada não confiável (`unknown`) contra o contrato de `DiceExpression`: quantity
  * inteiro 1-100, faces presentes no catálogo físico, modifier inteiro -1000..1000, mode em
- * normal|advantage|disadvantage, com advantage/disadvantage restritos a exatamente 1d20. Cada
- * rejeição identifica o `field` responsável.
+ * normal|advantage|disadvantage, com advantage/desvantagem restritos a um único dado
+ * (`quantity === 1`, qualquer `faces`) — extensão de produto além do d20 do PHB, ver
+ * 11-DICE-ENGINE.md. Cada rejeição identifica o `field` responsável.
  */
 export function validateDiceExpression(input: unknown): Result<DiceExpression, ValidationError> {
   if (typeof input !== "object" || input === null) {
@@ -43,9 +44,9 @@ export function validateDiceExpression(input: unknown): Result<DiceExpression, V
     return err(appError.validation("mode", "Modo deve ser normal, advantage ou disadvantage."));
   }
 
-  if (mode !== "normal" && !(quantity === 1 && faces === 20)) {
+  if (mode !== "normal" && quantity !== 1) {
     return err(
-      appError.validation("mode", "Vantagem/desvantagem só é válida para exatamente 1d20 (11-DICE-ENGINE.md)."),
+      appError.validation("mode", "Vantagem/desvantagem só é válida para um único dado (quantity=1, qualquer faces)."),
     );
   }
 

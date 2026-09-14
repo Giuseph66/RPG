@@ -49,11 +49,54 @@ describe("limitesVisiveis", () => {
     expect(estreito.x).toBeLessThan(largo.x);
   });
 
+  it("mantém os cantos no quadro mesmo em proporções extremas", () => {
+    // O piso `LIMITE_MINIMO` não pode passar por cima da visibilidade: numa
+    // tela muito estreita a câmera enxerga menos que o piso, e devolvê-lo
+    // colocaria a parede fora do quadro — o próprio bug que este arquivo guarda.
+    for (const aspect of [0.3, 0.5, 1, 2, 3]) {
+      const cam = camera(aspect);
+      const { x, z } = limitesVisiveis(cam, 26);
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const p = paraTela(cam, sx * x, sz * z);
+          expect(Math.abs(p.x), `aspect ${aspect}`).toBeLessThanOrEqual(1);
+          expect(Math.abs(p.y), `aspect ${aspect}`).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+
   it("nunca devolve área degenerada", () => {
     for (const aspect of [0.3, 0.5, 1, 2, 3]) {
       const l = limitesVisiveis(camera(aspect), 26);
-      expect(l.x).toBeGreaterThanOrEqual(LIMITE_MINIMO);
-      expect(l.z).toBeGreaterThanOrEqual(LIMITE_MINIMO);
+      expect(l.x).toBeGreaterThan(0);
+      expect(l.z).toBeGreaterThan(0);
+    }
+  });
+
+  it("aplica o piso quando a câmera enxerga área suficiente", () => {
+    const l = limitesVisiveis(camera(DESKTOP), 26, LIMITE_MINIMO);
+    expect(l.x).toBeGreaterThanOrEqual(LIMITE_MINIMO);
+    expect(l.z).toBeGreaterThanOrEqual(LIMITE_MINIMO);
+  });
+
+  it("a folga da parede não engole o chão de um palco pequeno", () => {
+    // Com folga fixa de 3 cm por lado, uma meia-largura visível de ~4,4 cm
+    // sobrava 1,4 cm de arena — o dado nascia encostado na parede.
+    const perto = new THREE.PerspectiveCamera(42, 1.25, 0.5, 500);
+    perto.position.set(0, 46 * 0.26, 34 * 0.26);
+    perto.lookAt(0, 0, 0);
+    perto.updateProjectionMatrix();
+    perto.updateMatrixWorld();
+
+    const l = limitesVisiveis(perto, 26, 0);
+    expect(l.x).toBeGreaterThan(3);
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const p = paraTela(perto, sx * l.x, sz * l.z);
+        expect(Math.abs(p.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(p.y)).toBeLessThanOrEqual(1);
+      }
     }
   });
 

@@ -4,7 +4,7 @@
 
 `DiceExpression = {quantity, faces, modifier, mode}`. `quantity`: inteiro de 1 a 100; `faces`: 4, 6, 8, 10, 12, 20 ou 100; `modifier`: inteiro entre −1000 e 1000; `mode`: `normal | advantage | disadvantage`. Limites numéricos são proteção de produto, não regra de D&D.
 
-Vantagem/desvantagem aceita somente expressão de um d20. `2d20` normal rola e soma dois dados; vantagem gera dois candidatos para um teste e seleciona um. Entrada incompatível retorna erro de campo; nunca reinterpretar silenciosamente. Fonte: Livro do Jogador, cap. 7, p. 175/PDF 174.
+Vantagem/desvantagem aceita somente expressão de um único dado (`quantity=1`), qualquer `faces` — extensão de produto: o PHB restringe o mecanismo ao d20, aqui vale para qualquer dado único. `2d20` normal rola e soma dois dados; vantagem gera dois candidatos para um teste e seleciona um. Entrada incompatível (quantity≠1) retorna erro de campo; nunca reinterpretar silenciosamente. Conceito fonte: Livro do Jogador, cap. 7, p. 175/PDF 174.
 
 `DiceRoll = {id, expression, purpose, characterId?, commandId?, timestamp, rawDice, selectedIndexes, discardedIndexes, subtotal, modifier, total, rngVersion}`. Timestamp e ID são injetados pela aplicação. Dados brutos sempre permanecem disponíveis. `purpose` distingue rolagem livre, ataque, dano, resistência, perícia, iniciativa, morte e geração de atributos; não muda probabilidades.
 
@@ -12,7 +12,7 @@ Vantagem/desvantagem aceita somente expressão de um d20. `2d20` normal rola e s
 
 Injetar contrato `RandomSource.nextInt(minInclusive,maxInclusive)`. Produção usa gerador da plataforma com amostragem sem viés; testes injetam sequência fixa. Não usar módulo simples de inteiro aleatório quando o intervalo não divide o espaço de amostragem. O engine valida que o RNG devolveu inteiro dentro do intervalo.
 
-Normal: gerar `quantity` resultados, somar e adicionar modificador. Vantagem: dois d20, maior selecionado. Desvantagem: menor. Empate: selecionar primeiro para consistência do histórico. Cancelamento entre causas ocorre no Rules Engine antes da expressão. d100 produz 1–100; apresentação opcional em dezenas/unidades não altera semântica de 100.
+Normal: gerar `quantity` resultados, somar e adicionar modificador. Vantagem: dois dados do mesmo tipo, maior selecionado. Desvantagem: menor. Empate: selecionar primeiro para consistência do histórico. Cancelamento entre causas ocorre no Rules Engine antes da expressão. d100 produz 1–100; apresentação opcional em dezenas/unidades não altera semântica de 100.
 
 Texto livre, se oferecido, aceita gramática fechada `NdF`, `NdF + M`, `NdF - M`, com espaços opcionais, e passa pelo mesmo validador. Nunca `eval`, JavaScript, URLs ou funções. V1 não aceita expressões arbitrárias compostas no editor global.
 

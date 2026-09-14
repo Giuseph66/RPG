@@ -21,64 +21,67 @@
   box-shadow: var(--shadow-overlay), 0 0 40px color-mix(in srgb, var(--color-hp) 14%, transparent);
 }
 
-/* Segundo filete: a moldura dupla do enquadramento de ficha antiga. */
-.surface::before {
-  content: "";
-  position: absolute;
-  inset: 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent);
-  border-radius: calc(var(--radius-overlay) - 0.25rem);
-  pointer-events: none;
-}
-
-/* Losangos de canto, presos ao filete interno. */
-.surface::after {
-  content: "";
-  position: absolute;
-  inset: 0.4rem;
-  background-image:
-    radial-gradient(circle at 0 0, var(--color-border) 0 2.5px, transparent 2.5px),
-    radial-gradient(circle at 100% 0, var(--color-border) 0 2.5px, transparent 2.5px),
-    radial-gradient(circle at 0 100%, var(--color-border) 0 2.5px, transparent 2.5px),
-    radial-gradient(circle at 100% 100%, var(--color-border) 0 2.5px, transparent 2.5px);
-  opacity: .75;
-  pointer-events: none;
-}
-
 .surface h2 {
-  flex: 1;
+  margin: 0;
   font-family: var(--typography-display-font-family);
   font-size: 1.45rem;
   letter-spacing: .08em;
   text-align: center;
+  pointer-events: none;
 }
 
-/* O X do AppModal vem preenchido; aqui ele é só um traço na moldura. */
+/*
+ * Título centralizado na largura inteira do diálogo, não no espaço que sobra
+ * ao lado do X — senão ele se desloca para a esquerda (mais visível quanto
+ * maior o botão). A linha do cabeçalho é o único filho com um `h2` dentro;
+ * como a estrutura de AppModal/BottomSheet difere (BottomSheet tem a puxa-
+ * -alça antes), cada variante aponta pra sua própria posição.
+ */
+.surfaceModal > div:first-child,
+.surfaceSheet > div:nth-child(2) {
+  position: relative;
+  justify-content: flex-end;
+}
+
+.surfaceModal > div:first-child > h2,
+.surfaceSheet > div:nth-child(2) > h2 {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* O X do AppModal vem preenchido (variante primary); aqui é só um traço. */
 .surface [aria-label="Fechar"] {
   color: var(--color-secondary);
   background: transparent;
-  border-color: color-mix(in srgb, var(--color-border) 42%, transparent);
+  border: 0;
+  box-shadow: none;
 }
 
 .surface [aria-label="Fechar"]:hover {
   color: var(--color-text);
   background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-  border-color: var(--color-secondary);
 }
 
-/* Compensa a largura do botão X para o título cair no centro óptico. */
-.surfaceModal { max-width: 34rem; max-height: min(100%, 52rem); }
-.surfaceModal h2 { padding-left: 2.5rem; }
+/*
+ * Especificidade dobrada (`.classe.classe`) nas duas regras abaixo: cada uma
+ * pisa em cima de uma propriedade que o componente base já define com a
+ * MESMA especificidade (`.dialog{max-width}`, `.sheet{max-height}`,
+ * `.sheet{border-*-radius}`). Empate de especificidade se resolve por ordem
+ * de importação no bundle final, que não é garantida — sem o reforço, a
+ * regra do componente base às vezes vencia e a folha ficava presa em 85vh
+ * com cantos arredondados em vez de tela cheia.
+ */
+.surfaceModal.surfaceModal { max-width: 34rem; max-height: min(100%, 52rem); }
 
 /* Em tela pequena a mesa toma tudo: não sobra nada atrás que valha a pena. */
-.surfaceSheet {
+.surfaceSheet.surfaceSheet {
   max-height: 100dvh;
   height: 100dvh;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
-
-.surfaceSheet h2 { padding-left: 0; }
 
 .content { display: flex; flex-direction: column; gap: var(--spacing-md); color: var(--color-text); }
 
@@ -102,9 +105,9 @@
   max-height: 32vh;
   overflow: hidden;
   border-radius: var(--radius-surface);
-  background:
-    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%),
-    radial-gradient(circle at 50% 50%, transparent 52%, color-mix(in srgb, var(--color-background) 84%, transparent) 100%);
+  /* Vinheta única e discreta: só escurece a borda, deixa a pedra da
+     superfície por trás aparecer no centro, sem a mancha vermelha de antes. */
+  background: radial-gradient(circle, transparent 55%, color-mix(in srgb, var(--color-background) 58%, transparent) 100%);
 }
 
 /* Círculo arcano atrás do dado: dois anéis e uma coroa de marcas. */
@@ -252,13 +255,16 @@
 
 .controlBar {
   display: flex;
-  flex-wrap: wrap;
+  /* Sem quebra: o modo compacto (N/V/D) existe pra caber os três numa linha
+     só mesmo em telas estreitas, deixando o palco do dado com mais altura. */
+  flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 
-.stepper, .modeGroup { display: grid; gap: .25rem; }
+.stepper { display: grid; gap: .25rem; flex: 0 1 auto; }
+.modeGroup { display: grid; gap: .25rem; justify-items: center; flex: 0 0 auto; }
 
 .stepperLabel {
   color: var(--color-text-muted);
@@ -308,16 +314,23 @@
 .modeRow { display: flex; gap: .15rem; padding: .2rem; background: color-mix(in srgb, var(--color-background) 62%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 38%, transparent); border-radius: var(--radius-control); }
 
 .modeButton {
-  min-height: 1.9rem;
-  padding: 0 var(--spacing-sm);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
   color: var(--color-text-muted);
   background: transparent;
   border: 0;
   border-radius: var(--radius-control);
   font-family: var(--typography-label-font-family);
-  font-size: .76rem;
+  font-size: .82rem;
+  font-weight: 700;
   cursor: pointer;
   transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing);
+  /* A revelação é por toque/segurar, não seleção de texto. */
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .modeButton:hover:not(:disabled) { color: var(--color-text); }
@@ -330,7 +343,28 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-hp) 62%, transparent);
 }
 
-.modeHint { color: var(--color-text-muted); font-size: .68rem; letter-spacing: .04em; }
+.modeHint { color: var(--color-text-muted); font-size: .68rem; letter-spacing: .04em; text-align: center; }
+
+/* Nome completo do modo, revelado ao segurar (ou passar o mouse via `title`). */
+.modeReveal {
+  position: absolute;
+  bottom: calc(100% + .4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: .2rem .5rem;
+  color: var(--color-text);
+  background: var(--color-surface-warm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-surface);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
 
 /* ------------------------------------------------------------- histórico */
 
@@ -370,7 +404,6 @@
 }
 
 .rollButton:hover { color: var(--color-text); border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
-.rollButton svg { width: 1.25rem; height: 1.25rem; }
 
 @media (prefers-reduced-motion: reduce) {
   .content * { transition: none !important; animation: none !important; }
@@ -378,6 +411,21 @@
 }
 
 @media (max-width: 520px) {
-  .selectorGrid { grid-template-columns: 1fr; }
   .history li { align-items: flex-start; flex-direction: column; }
+}
+
+/*
+ * Dados + Modo + Modificador numa linha só (de propósito, ver DiceControls)
+ * não cabiam em telas pequenas no tamanho padrão: a soma das três larguras
+ * passava da tela em ~14px num viewport de 372px, e como o diálogo não tem
+ * largura própria para crescer, a coluna da direita (Modificador) ficava
+ * cortada/rolável — um desalinhamento visível na fileira inteira. Encolhe os
+ * três controles o suficiente para a linha caber a partir de ~320px.
+ */
+@media (max-width: 400px) {
+  .controlBar { gap: var(--spacing-xs); }
+  .stepperRow, .modeRow { gap: .1rem; padding: .15rem; }
+  .stepperButton, .modeButton { width: 1.6rem; height: 1.6rem; }
+  .stepperValue { min-width: 1.9rem; font-size: .92rem; }
+  .modeButton { font-size: .74rem; }
 }

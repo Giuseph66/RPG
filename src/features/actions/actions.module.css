@@ -73,3 +73,23 @@
 .count { border-color: var(--color-secondary); color: var(--color-secondary); }
 .emptyReview { background: color-mix(in srgb, var(--color-surface) 84%, var(--color-primary)); }
 .emptyReview > span { color: var(--color-secondary); }
+
+/* Mesma vigília da seleção de personagem; ver o comentário em character-selection.module.css. */
+.actions, .state { position: relative; isolation: isolate; --vigil-scrim-top: 42%; --vigil-scrim-bottom: 90%; }
+.actions { --vigil-scrim-top: 78%; --vigil-scrim-bottom: 96%; }
+.actions::before, .state::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-background) var(--vigil-scrim-top), transparent),
+      color-mix(in srgb, var(--color-background) var(--vigil-scrim-bottom), transparent)),
+    url("../../assets/art/textures/character-vigil.webp");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+}
+.state { align-content: center; min-height: calc(100dvh - var(--app-bar-height, 4.75rem) - var(--size-nav-height, 64px) - 2 * clamp(var(--spacing-xl), 5vw, 4rem)); }
