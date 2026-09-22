@@ -129,7 +129,7 @@ describe("compendium application", () => {
     expect(service.getFavorites()).toMatchObject([{ exists: true, ref: { kind: "static", category: "attributes", entityId: selected.ref.entityId } }]);
     expect(service.toggleFavorite(selected)).toBe(false);
     expect(service.getFavorites()).toHaveLength(0);
-    expect(service.search({ category: "equipment" }).entries.some((entry) => entry.ref.kind === "static")).toBe(false);
+    expect(service.search({ category: "equipment" }).entries.every((entry) => entry.sourceRefs[0]?.sourceId === "phb-ptbr-local-2017")).toBe(true);
   });
 
   it("makes source-backed static categories available with detail and favorites", () => {

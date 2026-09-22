@@ -4,7 +4,7 @@ import type { EntityType, PackVersion, RulesetId, RulesetRef } from "@domain/con
 import type { SourceRef } from "@domain/contracts/primitives";
 
 export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras";
-export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "spell" | "condition" | "race" | "class" | "background" | "equipment" | "feat";
+export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "spell" | "condition" | "race" | "subrace" | "class" | "subclass" | "feature" | "resource" | "progression" | "background" | "equipment" | "feat";
 
 export type CompendiumCategoryStatus = "available" | "pending";
 
