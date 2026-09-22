@@ -59,7 +59,7 @@ describe("CharacterSheet", () => {
     const onDraftChange = vi.fn();
     const service = { update: vi.fn(() => ({ ok: true as const, value: minimalCharacter })), save: vi.fn(async () => ({ ok: true as const, value: minimalCharacter.revision })), retry: vi.fn(), flush: vi.fn() };
     const mounted = await mount(<CharacterSheet character={minimalCharacter} derived={derived} service={service} onRoll={onRoll} onDraftChange={onDraftChange} />);
-    const roll = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Rolar");
+    const roll = [...mounted.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Rolar Percepção"));
     await click(roll as HTMLElement);
     expect(onRoll).toHaveBeenCalledWith(expect.objectContaining({ kind: "skill", skill: "perception", modifier: 3, characterId: minimalCharacter.id }));
     const quickName = mounted.container.querySelector('h1') as HTMLElement;

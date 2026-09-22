@@ -1,4 +1,7 @@
 .inventory { display: grid; gap: var(--spacing-lg); max-width: 82rem; padding: var(--spacing-lg) 0 var(--spacing-section); }
+.inventory .hero { align-items: center; }
+.removeButton { color: var(--color-danger, #d9534f); }
+.removeButton:hover:not(:disabled) { background: color-mix(in srgb, var(--color-danger, #d9534f) 12%, transparent); }
 .hero { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-lg); padding: var(--spacing-lg); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-surface); background: var(--color-surface-elevated); }
 .eyebrow { margin: 0 0 var(--spacing-xs); color: var(--color-primary); font-family: var(--typography-label-font-family); font-size: .75rem; font-weight: 700; letter-spacing: .1em; }
 .hero h1, .state h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1.1; }
@@ -12,6 +15,7 @@
 .currencyGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-md); }
 .currencyField { display: grid; gap: var(--spacing-xs); color: var(--color-text-muted); font-size: .8rem; }
 .currencyField abbr { color: var(--color-primary); font-weight: 700; text-decoration: none; }
+.currencyField small { font-size: .72rem; }
 .currencyField input, .quantity { min-height: var(--size-touch-target); width: 100%; padding: 0 var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); font-variant-numeric: tabular-nums; }
 .currencyField input:disabled, .quantity:disabled { cursor: not-allowed; opacity: .65; }
 .impactGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-lg); }
@@ -48,20 +52,30 @@ tbody tr:hover { background: color-mix(in srgb, var(--color-primary) 7%, transpa
 .itemsPanel:hover, .currencyPanel:hover, .impactPanel:hover { border-color: color-mix(in srgb, var(--color-primary) 75%, var(--color-border)); }
 @media (max-width: 760px) {
   .inventory { padding-inline: var(--spacing-sm); }
-  .hero { align-items: stretch; flex-direction: column; }
-  .heroStats { justify-content: start; text-align: left; }
-  .currencyGrid, .impactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero { align-items: center; flex-direction: row; padding: var(--spacing-md); }
+  .hero h1 { font-size: 1.5rem; }
+  .eyebrow { font-size: .66rem; }
+  .heroStats { justify-content: end; text-align: right; }
+  .heroStats strong { font-size: 1.1rem; }
+  .currencyPanel, .itemsPanel, .impactPanel { padding: var(--spacing-md); }
+  .currencyGrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-xs); }
+  .currencyField { gap: .2rem; text-align: center; }
+  .currencyField small { display: none; }
+  .currencyField input { padding: 0 .25rem; text-align: center; }
+  .impactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tableWrap { overflow: visible; }
   table { display: block; min-width: 0; }
   thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  tbody, tr { display: grid; gap: var(--spacing-sm); }
-  tr { padding: var(--spacing-md) 0; border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
+  tbody { display: grid; }
+  tr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs) var(--spacing-md); padding: var(--spacing-sm) 0; border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
   tr:first-child { border-top: 0; }
-  th, td { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--spacing-sm); padding: 0; border: 0; }
-  td::before, th::before { content: attr(data-label); color: var(--color-text-muted); font-size: .76rem; font-weight: 600; text-transform: uppercase; }
-  th[data-label="Item"]::before { content: none; }
-  tbody th { min-width: 0; }
+  th, td { display: flex; align-items: center; gap: .3rem; min-width: 0; padding: 0; border: 0; }
+  tbody th { flex: 1 1 100%; flex-direction: column; align-items: start; gap: .1rem; min-width: 0; }
+  td::before { content: attr(data-label); color: var(--color-text-muted); font-size: .72rem; }
+  td[data-label="Ações"]::before, td[data-label="Propriedades"]::before { content: none; }
+  td[data-label="Ações"] { flex: 1 0 auto; justify-content: end; margin-left: auto; }
+  td.emptyCell { display: none; }
+  .quantity { width: 3.5rem; min-height: 2.25rem; padding: 0 .35rem; text-align: center; }
   .description { max-width: none; }
-  .actions { min-width: 0; }
+  .actions { min-width: 0; justify-content: end; }
 }
-@media (max-width: 420px) { .currencyGrid, .impactGrid { grid-template-columns: 1fr; } .panelHeading { align-items: start; flex-direction: column; gap: var(--spacing-xs); } }

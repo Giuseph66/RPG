@@ -1,6 +1,7 @@
-.sheet { display: grid; gap: var(--spacing-lg); max-width: 78rem; padding: var(--spacing-lg) 0 var(--spacing-section); }
+.sheet { display: grid; gap: var(--spacing-lg); max-width: 78rem; padding: var(--spacing-lg) 0 0; }
 .hero { display: flex; justify-content: space-between; align-items: end; gap: var(--spacing-lg); padding: var(--spacing-lg); border: 1px solid var(--color-border); border-left: 3px solid var(--color-primary); border-radius: var(--radius-surface); background: var(--color-surface-elevated); }
-.hero h1, .state h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1.05; }
+.hero h1, .state h1 { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(1.6rem, 4vw, 2.6rem); line-height: 1.05; overflow-wrap: anywhere; }
+.heroBody { min-width: 0; }
 .eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .15em; }
 .subtitle { margin: var(--spacing-sm) 0 0; color: var(--color-text-muted); }
 .heroActions, .viewToggle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
@@ -9,6 +10,10 @@
 .detailColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .hpPanel { display: grid; gap: var(--spacing-sm); }
 .hpTotal { display: flex; align-items: baseline; gap: var(--spacing-sm); color: var(--color-text-muted); }
+.hpTemp { margin-left: auto; color: var(--color-secondary); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.hpFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-sm); }
+.hpFields .inlineField { flex-direction: column; align-items: stretch; gap: .25rem; font-size: .8rem; }
+.hpFields .inlineField input { width: 100%; min-height: 2.5rem; }
 .hpTotal strong { color: var(--color-hp); font-family: var(--typography-numeric-font-family); font-size: 2.8rem; font-variant-numeric: tabular-nums; line-height: 1; }
 .inlineField { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); color: var(--color-text-muted); }
 .inlineField input { width: 5rem; padding: .35rem .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); font-variant-numeric: tabular-nums; }
@@ -31,7 +36,7 @@
 .actionMeta { min-width: 2.2rem; text-align: right; font-family: var(--typography-numeric-font-family); font-size: .95rem; }
 .dot { width: .55rem; height: .55rem; flex: 0 0 auto; border: 1px solid var(--color-border); border-radius: 50%; }
 .dotActive { background: var(--color-secondary); border-color: var(--color-secondary); }
-.roll { min-height: 2rem; padding-inline: .35rem; color: var(--color-primary); }
+.roll { min-height: 2rem; min-width: 3rem; padding-inline: .5rem; color: var(--color-primary); font-family: var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
 .provenance { color: var(--color-primary); font-size: .7rem; }
 .provenance summary { cursor: pointer; min-height: 1.4rem; }
 .provenance ul { margin: .25rem 0 0; padding-left: 1.2rem; color: var(--color-text-muted); font-size: .76rem; }
@@ -81,4 +86,19 @@
 .ability, .hero, .stateArt { border-color: var(--color-border-soft); }
 .ability:hover { border-color: var(--color-secondary); }
 .dotActive { background: var(--color-xp); border-color: var(--color-xp); }
-@media (max-width: 680px) { .hero { display: flex; } .heroArt { min-height: 12rem; order: -1; } }
+@media (max-width: 680px) {
+  .hero { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); grid-template-areas: "art body" "actions actions"; align-items: center; gap: var(--spacing-md); min-height: 0; padding: var(--spacing-md); }
+  .heroArt { grid-area: art; width: 5.5rem; height: 7rem; min-height: 0; }
+  .heroBody { grid-area: body; }
+  .heroActions { grid-area: actions; justify-content: space-between; }
+  .hero h1 { font-size: 1.5rem; }
+  .eyebrow { margin-bottom: .25rem; font-size: .66rem; }
+  .subtitle { margin-top: .25rem; font-size: .9rem; }
+  .abilityGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-xs); }
+  .ability { padding: var(--spacing-xs); }
+  .ability strong { font-size: 1.5rem; }
+  .statHint { display: none; }
+  .ability .provenance, .stat .provenance { display: none; }
+  .actionRow { min-height: 2.5rem; }
+  .splitGrid { gap: var(--spacing-md); }
+}

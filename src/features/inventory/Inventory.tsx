@@ -6,13 +6,29 @@ import type { CoinDenomination } from "@domain/contracts/primitives";
 import type { InventoryIntent, InventoryItemView, InventoryProps } from "./types";
 import styles from "./inventory.module.css";
 
-const COINS: readonly { readonly key: CoinDenomination; readonly label: string }[] = [
-  { key: "cp", label: "Cobre" },
-  { key: "sp", label: "Prata" },
-  { key: "ep", label: "Electro" },
-  { key: "gp", label: "Ouro" },
-  { key: "pp", label: "Platina" },
+const COINS: readonly { readonly key: CoinDenomination; readonly label: string; readonly abbr: string }[] = [
+  { key: "cp", label: "Cobre", abbr: "PC" },
+  { key: "sp", label: "Prata", abbr: "PP" },
+  { key: "ep", label: "Electro", abbr: "PE" },
+  { key: "gp", label: "Ouro", abbr: "PO" },
+  { key: "pp", label: "Platina", abbr: "PL" },
 ];
+
+const CATEGORY_LABELS: Readonly<Record<string, string>> = {
+  weapon: "Arma",
+  armor: "Armadura",
+  tool: "Ferramenta",
+  "adventuring-gear": "Equipamento de aventura",
+  consumable: "Consumível",
+  mount: "Montaria",
+  vehicle: "Veículo",
+  "trade-good": "Mercadoria",
+  container: "Recipiente",
+  focus: "Foco",
+};
+
+/** Só armas e armaduras mudam algo ao serem equipadas; o resto não ganha botão. */
+const EQUIPPABLE_CATEGORIES: ReadonlySet<string> = new Set(["weapon", "armor", "focus"]);
 
 const PROPERTY_LABELS: Readonly<Record<NonNullable<InventoryItemView["properties"]>[number], string>> = {
   light: "Leve",
@@ -29,6 +45,14 @@ const PROPERTY_LABELS: Readonly<Record<NonNullable<InventoryItemView["properties
 
 function formatNumber(value: number): string {
   return value.toLocaleString("pt-BR");
+}
+
+/** Valor em cobre mostrado na maior moeda que o representa de forma limpa. */
+function formatValue(cp: number): string {
+  if (cp >= 100 && cp % 100 === 0) return `${formatNumber(cp / 100)} po`;
+  if (cp >= 100) return `${(cp / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} po`;
+  if (cp >= 10 && cp % 10 === 0) return `${formatNumber(cp / 10)} pp`;
+  return `${formatNumber(cp)} pc`;
 }
 
 function formatWeight(grams: number): string {
@@ -78,6 +102,7 @@ function QuantityField({ entry, onIntent, onInvalid }: { readonly entry: Invento
 
 function ItemRow({ entry, onIntent, onInvalidQuantity, onRemove, onConsumed }: { readonly entry: InventoryItemView; readonly onIntent: InventoryProps["onIntent"]; readonly onInvalidQuantity: (message: string) => void; readonly onRemove: (entry: InventoryItemView) => void; readonly onConsumed: (entry: InventoryItemView) => void }) {
   const equipped = entry.item.equippedState === "equipped";
+  const equippable = equipped || (entry.category !== undefined && EQUIPPABLE_CATEGORIES.has(entry.category));
   const properties = entry.properties?.map((property) => PROPERTY_LABELS[property]) ?? [];
 
   return (
@@ -87,18 +112,18 @@ function ItemRow({ entry, onIntent, onInvalidQuantity, onRemove, onConsumed }: {
           <strong>{entry.item.customName || entry.name}</strong>
           {equipped ? <Badge tone="xp">Equipado</Badge> : null}
         </div>
-        {entry.category ? <span className={styles.itemMeta}>{entry.category}</span> : null}
+        {entry.category ? <span className={styles.itemMeta}>{CATEGORY_LABELS[entry.category] ?? entry.category}</span> : null}
         {entry.description ? <p className={styles.description}>{entry.description}</p> : null}
       </th>
-      <td data-label="Quantidade"><QuantityField entry={entry} onIntent={onIntent} onInvalid={onInvalidQuantity} /></td>
+      <td data-label="Qtd."><QuantityField entry={entry} onIntent={onIntent} onInvalid={onInvalidQuantity} /></td>
       <td data-label="Peso" className={styles.numeric}>{entry.unitWeightGrams === undefined ? "—" : formatWeight(Number(entry.unitWeightGrams) * entry.item.quantity)}</td>
-      <td data-label="Valor" className={styles.numeric}>{entry.unitValueCp === undefined ? "—" : `${formatNumber(Number(entry.unitValueCp) * entry.item.quantity)} pc`}</td>
-      <td data-label="Propriedades"><div className={styles.propertyList}>{properties.length === 0 ? <span className={styles.muted}>—</span> : properties.map((property) => <Badge key={property}>{property}</Badge>)}</div></td>
+      <td data-label="Valor" className={styles.numeric}>{entry.unitValueCp === undefined ? "—" : formatValue(Number(entry.unitValueCp) * entry.item.quantity)}</td>
+      <td data-label="Propriedades" className={properties.length === 0 ? styles.emptyCell : undefined}><div className={styles.propertyList}>{properties.length === 0 ? <span className={styles.muted}>—</span> : properties.map((property) => <Badge key={property}>{property}</Badge>)}</div></td>
       <td data-label="Ações">
         <div className={styles.actions}>
-          <Button size="sm" variant={equipped ? "secondary" : "primary"} aria-pressed={equipped} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => sendIntent(onIntent, equipped ? { kind: "unequip", itemId: entry.item.id } : { kind: "equip", itemId: entry.item.id })}>{equipped ? "Desequipar" : "Equipar"}</Button>
+          {equippable ? <Button size="sm" variant={equipped ? "secondary" : "primary"} aria-pressed={equipped} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => sendIntent(onIntent, equipped ? { kind: "unequip", itemId: entry.item.id } : { kind: "equip", itemId: entry.item.id })}>{equipped ? "Desequipar" : "Equipar"}</Button> : null}
           {entry.consumable?.consumeOnUse ? <Button size="sm" variant="secondary" disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onConsumed(entry)}>Consumir</Button> : null}
-          <Button size="sm" variant="danger" disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onRemove(entry)}>Remover</Button>
+          <Button size="sm" variant="ghost" className={styles.removeButton} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onRemove(entry)}>Remover</Button>
         </div>
       </td>
     </tr>
@@ -108,11 +133,11 @@ function ItemRow({ entry, onIntent, onInvalidQuantity, onRemove, onConsumed }: {
 function CurrencyPanel({ currency, onIntent, onInvalid }: { readonly currency: InventoryProps["currency"]; readonly onIntent: InventoryProps["onIntent"]; readonly onInvalid: (message: string) => void }) {
   return (
     <section className={styles.currencyPanel} aria-labelledby="inventory-currency-title">
-      <div className={styles.panelHeading}><h2 id="inventory-currency-title">Moedas</h2><span className={styles.panelHint}>Valores mantidos por denominação</span></div>
+      <div className={styles.panelHeading}><h2 id="inventory-currency-title">Moedas</h2></div>
       <div className={styles.currencyGrid}>
-        {COINS.map(({ key, label }) => (
+        {COINS.map(({ key, label, abbr }) => (
           <label className={styles.currencyField} key={key}>
-            <span>{label} <abbr title={key}>{key.toUpperCase()}</abbr></span>
+            <span><abbr title={label}>{abbr}</abbr> <small>{label}</small></span>
             <input aria-label={`Quantidade de moedas ${label}`} type="number" min={0} step={1} inputMode="numeric" value={currency[key]} disabled={!onIntent} onChange={(event) => { const amount = Number(event.currentTarget.value); if (!isValidCurrency(amount)) { onInvalid("Moedas devem ser um inteiro igual ou maior que zero."); return; } onInvalid(""); sendIntent(onIntent, { kind: "set-currency", denomination: key, amount }); }} />
           </label>
         ))}
@@ -147,7 +172,7 @@ function ErrorState({ error }: Pick<InventoryProps, "error">) {
 }
 
 function EmptyState() {
-  return <section className={styles.state} aria-labelledby="inventory-empty-title"><span className={styles.stateMark} aria-hidden="true">✦</span><h1 id="inventory-empty-title">Inventário vazio</h1><p>Adicione uma instância para acompanhar quantidade, peso, valor e equipamento.</p></section>;
+  return <section className={styles.state} aria-labelledby="inventory-empty-title"><span className={styles.stateMark} aria-hidden="true">✦</span><h1 id="inventory-empty-title">Inventário vazio</h1><p>Adicione itens para acompanhar quantidade, peso, valor e equipamento.</p></section>;
 }
 
 export function Inventory({ items, currency, impact, status = "idle", error, onIntent, title = "Inventário" }: InventoryProps) {
@@ -170,12 +195,12 @@ export function Inventory({ items, currency, impact, status = "idle", error, onI
 
   return (
     <section className={styles.inventory} aria-labelledby="inventory-title">
-      <header className={styles.hero}><div><p className={styles.eyebrow}>POSSES DA FICHA</p><h1 id="inventory-title">{title}</h1><p className={styles.subtitle}>Cada linha representa uma instância preservada do inventário.</p></div><div className={styles.heroStats}><span><strong>{items.length}</strong> instâncias</span>{impact ? <span><strong>{formatWeight(Number(impact.weightGrams))}</strong> carregado</span> : null}</div></header>
+      <header className={styles.hero}><div><p className={styles.eyebrow}>POSSES</p><h1 id="inventory-title">{title}</h1></div><div className={styles.heroStats}><span><strong>{items.length}</strong> {items.length === 1 ? "item" : "itens"}</span>{impact ? <span><strong>{formatWeight(Number(impact.weightGrams))}</strong> carregado</span> : null}</div></header>
       {message ? <InlineStatus tone="warning" assertive>{message}</InlineStatus> : null}
       {validationMessage ? <InlineStatus tone="error" assertive>{validationMessage}</InlineStatus> : null}
       <CurrencyPanel currency={currency} onIntent={onIntent} onInvalid={setValidationMessage} />
       <ImpactPanel impact={impact} />
-      {items.length === 0 ? <EmptyState /> : <section className={styles.itemsPanel} aria-labelledby="inventory-items-title"><div className={styles.panelHeading}><h2 id="inventory-items-title">Itens</h2><span className={styles.panelHint}>Ordem das instâncias preservada</span></div><div className={styles.tableWrap}><table><thead><tr><th scope="col">Item</th><th scope="col">Quantidade</th><th scope="col">Peso</th><th scope="col">Valor</th><th scope="col">Propriedades</th><th scope="col">Ações</th></tr></thead><tbody>{items.map((entry) => <ItemRow key={String(entry.item.id)} entry={entry} onIntent={onIntent} onInvalidQuantity={setValidationMessage} onRemove={handleRemove} onConsumed={handleConsumed} />)}</tbody></table></div></section>}
+      {items.length === 0 ? <EmptyState /> : <section className={styles.itemsPanel} aria-labelledby="inventory-items-title"><div className={styles.panelHeading}><h2 id="inventory-items-title">Itens</h2></div><div className={styles.tableWrap}><table><thead><tr><th scope="col">Item</th><th scope="col">Quantidade</th><th scope="col">Peso</th><th scope="col">Valor</th><th scope="col">Propriedades</th><th scope="col">Ações</th></tr></thead><tbody>{items.map((entry) => <ItemRow key={String(entry.item.id)} entry={entry} onIntent={onIntent} onInvalidQuantity={setValidationMessage} onRemove={handleRemove} onConsumed={handleConsumed} />)}</tbody></table></div></section>}
     </section>
   );
 }

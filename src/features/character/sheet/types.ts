@@ -1,5 +1,6 @@
 import type { Character } from "@domain/contracts/character";
 import type { CharacterDerived } from "@domain/contracts/derived";
+import type { EntityType } from "@domain/contracts/ids";
 import type { CharacterApplicationService } from "@application/character/service";
 import type { StoreStatus } from "@application/state/external-store";
 
@@ -45,4 +46,6 @@ export interface CharacterSheetProps {
   readonly onViewChange?: (view: CharacterSheetView) => void;
   readonly onRoll?: (intent: CharacterRollIntent) => void;
   readonly onDraftChange?: (patch: CharacterSheetPatch) => void;
+  /** Nome legível de uma definição do pack ativo; sem ele a ficha mostra o id formatado. */
+  readonly resolveName?: (entityType: EntityType, entityId: string) => string | undefined;
 }

@@ -23,7 +23,9 @@
 .cardBody { display: grid; align-content: center; gap: .2rem; min-width: 0; }
 .stateMark { color: var(--color-secondary); border-color: var(--color-primary); }
 .card:hover { border-color: var(--color-secondary); background: var(--color-surface-elevated); }
-@media (max-width: 680px) { .card { grid-template-columns: 4rem minmax(0, 1fr); } .cardArt { width: 4rem; height: 4rem; } .card > button { grid-column: 1 / -1; } }
+.draftCard { grid-template-columns: minmax(0, 1fr) auto; }
+.card h3 { overflow-wrap: anywhere; }
+@media (max-width: 680px) { .card { grid-template-columns: 4rem minmax(0, 1fr); } .draftCard { grid-template-columns: minmax(0, 1fr); } .cardArt { width: 4rem; height: 4rem; } .card > button { grid-column: 1 / -1; } }
 
 /**
  * Vigília: arte de fundo da tela inteira.

@@ -97,12 +97,13 @@ export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = []
   const favoriteKeys = new Set(favorites.filter((favorite) => favorite.exists).map((favorite) => favorite.key));
   const orphanFavorites = favorites.filter((favorite) => !favorite.exists);
   const activeDetail = selected ?? selectedEntry;
-  const hasActiveFilter = Boolean(filters.query.trim().length >= MIN_QUERY_LENGTH || filters.category || filters.favoriteOnly);
+  const hasActiveFilter = Boolean(filters.query.trim() || filters.category || filters.favoriteOnly);
   const updateFilter = (patch: Partial<typeof filters>) => onFiltersChange?.({ ...filters, ...patch, query: patch.query ?? filters.query });
   useEffect(() => { setQueryInput(filters.query); }, [filters.query]);
   useEffect(() => {
     const trimmedQuery = queryInput.trim();
     const nextQuery = trimmedQuery.length === 0 || trimmedQuery.length >= MIN_QUERY_LENGTH ? queryInput : "";
+    if (queryInput === filters.query) return;
     if (nextQuery === filters.query) return;
     const timeout = window.setTimeout(() => {
       updateFilter({ query: nextQuery });
@@ -110,7 +111,7 @@ export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = []
     return () => window.clearTimeout(timeout);
   }, [filters, queryInput]);
   return <section className={[styles.page, className ?? ""].filter(Boolean).join(" ")} aria-label="Compêndio de regras">
-    <div className={styles.search}><div className={styles.searchField}><MagnifyingGlass size={19} aria-hidden="true" /><Input label="Buscar por nome, categoria ou tag" placeholder="Buscar por nome, categoria ou tag" value={queryInput} onChange={(event) => setQueryInput(event.currentTarget.value)} /></div><label className={styles.favoriteFilter}><input type="checkbox" checked={filters.favoriteOnly ?? false} onChange={(event) => updateFilter({ favoriteOnly: event.currentTarget.checked })} /> <BookmarkSimple size={17} aria-hidden="true" /><span>Somente favoritos</span></label></div>
+    <div className={styles.search}><div className={styles.searchField}><button type="button" className={styles.searchButton} aria-label="Buscar" onClick={() => updateFilter({ query: queryInput })}><MagnifyingGlass size={19} aria-hidden="true" /></button><Input label="Buscar por nome, categoria ou tag" placeholder="Buscar por nome, categoria ou tag" value={queryInput} onChange={(event) => setQueryInput(event.currentTarget.value)} /></div><label className={styles.favoriteFilter}><input type="checkbox" checked={filters.favoriteOnly ?? false} onChange={(event) => updateFilter({ favoriteOnly: event.currentTarget.checked })} /> <BookmarkSimple size={17} aria-hidden="true" /><span>Somente favoritos</span></label></div>
     {status === "loading" ? <InlineStatus tone="info">Carregando índice local…</InlineStatus> : null}
     {status === "error" ? <InlineStatus tone="error" assertive>{error ?? "Não foi possível carregar o compêndio local."}</InlineStatus> : null}
     {!offline ? <InlineStatus tone="warning">Conhecimento offline indisponível.</InlineStatus> : null}

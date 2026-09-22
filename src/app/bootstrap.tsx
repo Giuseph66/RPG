@@ -63,7 +63,7 @@ import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityS
 import { createSessionService, type SessionService } from "@application/session";
 import type { SyncRuntimeSnapshot } from "@application/sync";
 import { type SessionAuthorizationPort } from "@application/session/authorization";
-import { asAccountId, type AccountId, type Uuid } from "@domain/contracts/ids";
+import { asAccountId, asEntityId, type AccountId, type EntityId, type EntityType, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
 import { AppRouter } from "./router";
 
@@ -520,9 +520,14 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       recovery: recoveryRepository,
     });
 
+    const definitionMaps: Readonly<Partial<Record<EntityType, ReadonlyMap<EntityId, { readonly name: string }>>>> = {
+      race: activePack.races, subrace: activePack.subraces, class: activePack.classes, subclass: activePack.subclasses, background: activePack.backgrounds, feat: activePack.feats, feature: activePack.features, resource: activePack.resources, condition: activePack.conditions, equipment: activePack.equipment, spell: activePack.spells,
+    };
     const registry = createFeatureRegistry({
       services,
       compendiumService,
+      deriveCharacter: (character) => { const derived = deriveCharacter(character, activePack, STATIC_RULE_CONTEXT); return derived.ok ? derived.value : undefined; },
+      resolveDefinitionName: (entityType, entityId) => definitionMaps[entityType]?.get(asEntityId(entityId))?.name,
       diceOverlayController,
       actionDispatcher,
       inventoryDispatcher,

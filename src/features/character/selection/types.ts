@@ -26,4 +26,6 @@ export interface CharacterSelectionProps {
   readonly onResumeDraft?: (id: Uuid) => void;
   readonly onDiscardDraft?: (id: Uuid) => void;
   readonly onRetry?: () => void;
+  /** Nome legível da classe; sem ele o card mostra o id. */
+  readonly resolveClassName?: (classId: string) => string | undefined;
 }

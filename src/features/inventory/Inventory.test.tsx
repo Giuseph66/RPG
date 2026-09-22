@@ -19,7 +19,7 @@ function item(id: string, quantity: number, equippedState: InventoryItem["equipp
       notes: "",
     },
     name: id === "sword" ? "Espada longa" : "Corda de cânhamo",
-    category: "Equipamento",
+    category: id === "sword" ? "weapon" : "adventuring-gear",
     unitWeightGrams: id === "sword" ? 1500 : 500,
     unitValueCp: id === "sword" ? 1500 : 100,
     properties: id === "sword" ? ["versatile"] : [],
