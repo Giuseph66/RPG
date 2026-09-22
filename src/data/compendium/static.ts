@@ -21,16 +21,13 @@ import { PHB_RACES } from "@data/correto/races";
 import { PHB_SPELLCASTING_RULES } from "@data/correto/spellcasting-rules";
 import { PHB_ARMOR_DESCRIPTIONS } from "@data/correto/descricoes/armor";
 import { PHB_ATTRIBUTE_DESCRIPTIONS } from "@data/correto/descricoes/attributes";
-import { PHB_FEATURE_DESCRIPTIONS } from "@data/correto/descricoes/features";
 import { PHB_MOVEMENT_DESCRIPTIONS } from "@data/correto/descricoes/movement";
 import { PHB_PROGRESSION_DESCRIPTIONS } from "@data/correto/descricoes/progression";
-import { PHB_RESOURCE_DESCRIPTIONS } from "@data/correto/descricoes/resources";
 import { PHB_REST_DESCRIPTIONS } from "@data/correto/descricoes/rest";
 import { PHB_SKILL_DESCRIPTIONS } from "@data/correto/descricoes/skills";
-import { PHB_SUBCLASS_DESCRIPTIONS } from "@data/correto/descricoes/subclasses";
-import { PHB_SUBRACE_DESCRIPTIONS } from "@data/correto/descricoes/subraces";
 import { PHB_WEAPON_DESCRIPTIONS } from "@data/correto/descricoes/weapons";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
+import { PHB_CANONICAL_DESCRIPTION_REGISTRY } from "@data/correto/integracao";
 import type { CompendiumCatalogItem, StaticCompendiumCategory } from "@application/compendium";
 
 const ruleset = {
@@ -108,6 +105,37 @@ type ExtractedBookRuleSource = {
   readonly entries: readonly ExtractedBookRule[];
 };
 
+type CanonicalDescription = (typeof PHB_CANONICAL_DESCRIPTION_REGISTRY)[number];
+
+function canonicalChapter(category: string): string {
+  if (category === "subrace") return "Capítulo 2";
+  if (category === "rest" || category === "movement") return "Capítulo 8";
+  if (category === "equipment") return "Capítulo 5";
+  return "Capítulo 3";
+}
+
+function canonicalBookRuleEntry(entry: CanonicalDescription): CompendiumCatalogItem | undefined {
+  if (entry.category === "equipment" || !entry.text.trim()) return undefined;
+  const category = entry.category as StaticCompendiumCategory;
+  const owner = "owner" in entry ? entry.owner : "className" in entry ? entry.className : undefined;
+  return {
+    kind: "static",
+    category,
+    ruleset,
+    aliases: [entry.sourceHeading],
+    summary: `${owner ? `${owner} · ` : ""}${entry.sourceHeading}`,
+    definition: {
+      kind: "book-rule",
+      id: entry.id,
+      name: entry.name,
+      tags: [category, entry.sourceHeading.toLocaleLowerCase("pt-BR")],
+      sourceRefs: [sourceRef(canonicalChapter(category), entry.printedPages[0], entry.pdfPages[0], entry.sourceHeading)],
+      sourceHeading: entry.sourceHeading,
+      text: normalizeBookText(stripLeadingHeading(entry.text, entry.sourceHeading)),
+    },
+  };
+}
+
 /** Subseções curtas demais são cabeçalhos órfãos da extração (ex.: "DESLOCAMENTO" sem corpo). */
 const MIN_BOOK_SUBSECTION_TEXT = 40;
 
@@ -145,10 +173,6 @@ function subsectionEntries(parent: BookPages, subsections: readonly { readonly s
  * entradas, e o bootstrap exclui os tipos equivalentes do pack para não duplicar resultados.
  */
 const BOOK_DESCRIPTION_SOURCES: readonly ExtractedBookRuleSource[] = [
-  { category: "subrace", chapter: "Capítulo 2", tags: ["raça", "sub-raça"], entries: PHB_SUBRACE_DESCRIPTIONS.map((subrace) => ({ name: subrace.name, owner: subrace.raceName, sourceHeading: `${subrace.raceName} · ${subrace.sourceHeading}`, pdfPages: subrace.pdfPages, printedPages: subrace.printedPages, text: subrace.text })) },
-  { category: "subclass", chapter: "Capítulo 3", tags: ["classe", "subclasse"], entries: PHB_SUBCLASS_DESCRIPTIONS.map((subclass) => ({ name: subclass.name, owner: subclass.className, sourceHeading: `${subclass.className} · ${subclass.sourceHeadingAsPrinted}`, pdfPages: subclass.pdfPages, printedPages: subclass.printedPages, text: subclass.text })) },
-  { category: "feature", chapter: "Capítulo 3", tags: ["classe", "característica"], entries: PHB_FEATURE_DESCRIPTIONS.featureBlocks.filter((block) => block.text.trim().length >= MIN_BOOK_SUBSECTION_TEXT).map((block) => ({ name: block.name, owner: block.ownerName, sourceHeading: `${block.ownerName} · ${block.sourceHeading}`, pdfPages: block.pdfPages, printedPages: block.printedPages, text: block.text })) },
-  { category: "resource", chapter: "Capítulo 3", tags: ["classe", "recurso"], entries: PHB_RESOURCE_DESCRIPTIONS.map((resource) => ({ name: resource.name, owner: resource.className, sourceHeading: `${resource.className} · ${resource.sourceHeading}`, pdfPages: resource.pdfPages, printedPages: resource.printedPages, text: resource.text })) },
   { category: "progression", chapter: "Capítulo 3", tags: ["classe", "progressão", "tabela"], entries: PHB_PROGRESSION_DESCRIPTIONS.classProgressionTables.map((table) => ({ name: `Progressão · ${table.className}`, sourceHeading: table.sourceHeading, pdfPages: table.pdfPages, printedPages: table.printedPages, text: table.text })) },
   { category: "progression", chapter: "Capítulo 6", tags: ["multiclasse", "progressão", "espaço de magia", "tabela"], entries: [{ name: "Multiclasse Para Conjurador: Espaço De Magia Por Nível", sourceHeading: PHB_PROGRESSION_DESCRIPTIONS.multiclassSpellSlotProgression.sourceHeading, pdfPages: [164, 164], printedPages: [165, 165], text: PHB_PROGRESSION_DESCRIPTIONS.multiclassSpellSlotProgression.text }] },
   { category: "rest", chapter: "Capítulo 8", tags: ["descanso", "regra"], entries: [PHB_REST_DESCRIPTIONS.overview] },
@@ -198,6 +222,10 @@ const BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = BOOK_RULE_SOURCES.flat
   },
 })));
 
+const CANONICAL_BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = PHB_CANONICAL_DESCRIPTION_REGISTRY
+  .map(canonicalBookRuleEntry)
+  .filter((entry): entry is CompendiumCatalogItem => entry !== undefined);
+
 const RULES_D20 = sourceRef("Introdução", 7, 6, "O d20");
 const RULES_ABILITY = sourceRef("Capítulo 7", 175, 174, "Valores e Modificadores de Habilidade");
 const RULES_ADVANTAGE = sourceRef("Capítulo 7", 175, 174, "Vantagem e Desvantagem");
@@ -208,9 +236,7 @@ const RULES_PASSIVE = sourceRef("Capítulo 7", 177, 176, "Testes Passivos");
 const RULES_GROUP = sourceRef("Capítulo 7", 177, 176, "Testes em Grupo");
 const RULES_SAVING_THROW = sourceRef("Capítulo 7", 181, 180, "Testes de Resistência");
 
-const REST_FOOD_WATER = sourceRef("Capítulo 8", 187, 186, "Comida e Água");
 const REST_RULES = sourceRef("Capítulo 8", 188, 187, "Descanso");
-const REST_DOWNTIME = sourceRef("Capítulo 8", 189, 188, "Entre Aventuras");
 
 const COMBAT_ORDER = sourceRef("Capítulo 9", 191, 190, "A Ordem de Combate");
 const COMBAT_TURN = sourceRef("Capítulo 9", 191, 190, "Seu Turno");
@@ -227,8 +253,6 @@ const MOVEMENT_TERRAIN = sourceRef("Capítulo 8", 184, 183, "Terreno Difícil");
 const MOVEMENT_SPECIAL = sourceRef("Capítulo 8", 184, 183, "Escalada, Natação e Rastejamento");
 const MOVEMENT_JUMP = sourceRef("Capítulo 8", 185, 184, "Saltando");
 const MOVEMENT_ACTIVITY = sourceRef("Capítulo 8", 185, 184, "Atividades Durante Viagem");
-const MOVEMENT_POSITION = sourceRef("Capítulo 9", 193, 192, "Movimento e Posição");
-const MOVEMENT_SPACE = sourceRef("Capítulo 9", 194, 193, "Tamanho e Espaço");
 
 const ADVENTURE_TIME = sourceRef("Capítulo 8", 183, 182, "Tempo");
 const ADVENTURE_ENVIRONMENT = sourceRef("Capítulo 8", 183, 182, "O Ambiente");
@@ -239,6 +263,7 @@ const ADVENTURE_DOWNTIME = sourceRef("Capítulo 8", 189, 188, "Entre Aventuras")
 export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
   ...BOOK_SPELL_ITEMS,
   ...BOOK_RULE_ITEMS,
+  ...CANONICAL_BOOK_RULE_ITEMS,
   ...ABILITIES.map((ability) => {
     const book = PHB_ATTRIBUTE_DESCRIPTIONS.abilities.find((entry) => entry.id === ability.id);
     return {
@@ -275,10 +300,6 @@ export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
   staticEntry("rules", "saving-throw", "Teste de resistência", "Uma resistência é exigida por um efeito ou perigo: role 1d20, adicione o modificador da habilidade indicada e compare à CD do efeito, aplicando proficiência quando concedida.", ["resistência", "teste", "cd", "efeito"], [RULES_SAVING_THROW]),
   bookBackedEntry("rest", "short-rest", "Descanso curto", "Período de inatividade de pelo menos 1 hora, limitado a atividades leves; ao final, o personagem pode gastar Dados de Vida para recuperar pontos de vida.", ["descanso", "curto", "dados de vida", "recuperação"], [REST_RULES], PHB_REST_DESCRIPTIONS.entries.find((entry) => entry.id === "short-rest") ?? { sourceHeading: "Descanso curto", text: "Período de inatividade de pelo menos 1 hora, limitado a atividades leves; ao final, o personagem pode gastar Dados de Vida para recuperar pontos de vida." }),
   bookBackedEntry("rest", "long-rest", "Descanso longo", "Período de inatividade de pelo menos 8 horas, com sono ou atividades leves; ao final, recupera pontos de vida perdidos e parte dos Dados de Vida gastos, se cumprir as condições da regra.", ["descanso", "longo", "dados de vida", "pontos de vida"], [REST_RULES], PHB_REST_DESCRIPTIONS.entries.find((entry) => entry.id === "long-rest") ?? { sourceHeading: "Descanso longo", text: "Período de inatividade de pelo menos 8 horas, com sono ou atividades leves; ao final, recupera pontos de vida perdidos e parte dos Dados de Vida gastos, se cumprir as condições da regra." }),
-  staticEntry("rest", "rest-interruption", "Interrupção do descanso longo", "Uma atividade extenuante de pelo menos 1 hora, como caminhada, combate ou conjuração, interrompe o descanso longo e exige reiniciá-lo para obter o benefício.", ["descanso", "longo", "interrupção", "atividade"], [REST_RULES]),
-  staticEntry("rest", "hit-die-recovery", "Recuperação de Dados de Vida", "Ao terminar um descanso longo, recupera-se uma quantidade de Dados de Vida gastos igual à metade do total de Dados de Vida do personagem, conforme a regra de descanso.", ["descanso", "longo", "dados de vida", "recuperação"], [REST_RULES]),
-  staticEntry("rest", "food-and-water", "Comida e água", "A falta de comida ou água causa exaustão conforme as condições descritas; a exaustão por essa causa só é removida após consumir a quantidade necessária.", ["comida", "água", "exaustão", "sobrevivência"], [REST_FOOD_WATER]),
-  staticEntry("rest", "downtime-recovery", "Recuperação entre aventuras", "Durante o tempo livre, três dias de recuperação permitem um teste de resistência de Constituição CD 15 para encerrar um efeito que impeça a recuperação de pontos de vida ou obter vantagem temporária contra doença ou veneno atuais.", ["tempo livre", "recuperação", "doença", "veneno", "cd"], [REST_DOWNTIME]),
   staticEntry("combat", "combat-order", "Ordem de combate", "O combate organiza os participantes em uma ordem de iniciativa e se repete em rodadas; cada participante atua no próprio turno nessa ordem.", ["combate", "iniciativa", "rodada", "turno"], [COMBAT_ORDER]),
   staticEntry("combat", "combat-turn-economy", "Economia do turno", "No turno, uma criatura pode mover-se até seu deslocamento e realizar uma ação; algumas características permitem uma ação bônus, e uma reação fica disponível quando seu gatilho ocorrer.", ["combate", "turno", "ação", "ação bônus", "reação"], [COMBAT_TURN]),
   staticEntry("combat", "combat-actions", "Ações em combate", "As ações descritas para combate incluem Atacar, Conjurar uma Magia, Disparada, Desengajar, Esquivar, Ajudar, Esconder-se, Preparar, Procurar e Usar um Objeto; a disponibilidade depende do personagem e da situação.", ["combate", "ação", "atacar", "esquivar", "preparar"], [COMBAT_ACTIONS]),
@@ -288,13 +309,11 @@ export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
   staticEntry("combat", "damage-and-healing", "Dano e cura", "O dano reduz os pontos de vida; resistência e vulnerabilidade alteram o dano aplicável, enquanto a cura restaura pontos de vida sem ultrapassar o máximo.", ["combate", "dano", "cura", "pontos de vida", "resistência"], [COMBAT_DAMAGE]),
   staticEntry("combat", "death-saving-throw", "Teste contra a morte", "Uma criatura inconsciente com 0 pontos de vida faz testes contra a morte no início de seus turnos até estabilizar, ser curada ou atingir uma condição de morte definida pela regra.", ["combate", "morte", "inconsciência", "teste de resistência", "pontos de vida"], [COMBAT_DEATH]),
   staticEntry("combat", "temporary-hit-points", "Pontos de vida temporários", "Pontos de vida temporários absorvem dano antes dos pontos de vida normais; não se somam entre si e os restantes expiram ao terminar um descanso longo quando a regra não indicar duração própria.", ["combate", "pontos de vida", "temporários", "dano", "descanso"], [COMBAT_TEMP_HP]),
-  staticEntry("movement", "movement-budget", "Orçamento de movimento", "O deslocamento determina a distância disponível no turno; a criatura pode dividir esse movimento antes, entre ou depois das ações e ataques, respeitando o custo do terreno e do modo usado.", ["movimentação", "deslocamento", "turno", "posição"], [MOVEMENT_POSITION]),
   bookBackedEntry("movement", "travel-pace", "Ritmo de viagem", "Uma viagem usa ritmo rápido, normal ou lento, com valores distintos por minuto, hora e dia e efeitos correspondentes sobre percepção e discrição.", ["movimentação", "viagem", "ritmo", "percepção", "furtividade"], [MOVEMENT_PACE], movementBook("travel-pace") ?? { sourceHeading: "Ritmo de viagem", text: "Uma viagem usa ritmo rápido, normal ou lento, com valores distintos por minuto, hora e dia e efeitos correspondentes sobre percepção e discrição." }),
   bookBackedEntry("movement", "difficult-terrain", "Terreno difícil", "Cada pé de movimento em terreno difícil custa movimento adicional; a mesa deve identificar o terreno antes de calcular o deslocamento restante.", ["movimentação", "terreno", "terreno difícil", "deslocamento"], [MOVEMENT_TERRAIN], movementBook("difficult-terrain") ?? { sourceHeading: "Terreno difícil", text: "Cada pé de movimento em terreno difícil custa movimento adicional; a mesa deve identificar o terreno antes de calcular o deslocamento restante." }),
   bookBackedEntry("movement", "special-movement", "Escalada, natação e rastejamento", "Escalar, nadar ou rastejar normalmente custa movimento adicional, salvo quando a criatura possui deslocamento apropriado ou outra exceção aplicável.", ["movimentação", "escalada", "natação", "rastejamento"], [MOVEMENT_SPECIAL], movementBook("special-movement") ?? { sourceHeading: "Escalada, natação e rastejamento", text: "Escalar, nadar ou rastejar normalmente custa movimento adicional, salvo quando a criatura possui deslocamento apropriado ou outra exceção aplicável." }),
   bookBackedEntry("movement", "jump", "Salto", "O salto usa o deslocamento disponível e depende dos valores de Força e das condições de corrida e obstáculo descritas na regra; os dados ausentes ficam para a situação da mesa.", ["movimentação", "salto", "força", "deslocamento"], [MOVEMENT_JUMP], movementBook("jump") ?? { sourceHeading: "Salto", text: "O salto usa o deslocamento disponível e depende dos valores de Força e das condições de corrida e obstáculo descritas na regra; os dados ausentes ficam para a situação da mesa." }),
   bookBackedEntry("movement", "travel-activity", "Atividade durante viagem", "Durante a viagem, a criatura pode desempenhar tarefas como vigiar ameaças, procurar, rastrear ou forragear; a tarefa escolhida altera o que pode ser percebido ou realizado.", ["movimentação", "viagem", "ordem de marcha", "percepção", "sobrevivência"], [MOVEMENT_ACTIVITY], movementBook("travel-activity") ?? { sourceHeading: "Atividade durante viagem", text: "Durante a viagem, a criatura pode desempenhar tarefas como vigiar ameaças, procurar, rastrear ou forragear; a tarefa escolhida altera o que pode ser percebido ou realizado." }),
-  staticEntry("movement", "creature-space", "Tamanho e espaço", "O tamanho de uma criatura define o espaço que ela ocupa; passar por um espaço menor exige as condições e restrições da regra de apertar-se.", ["movimentação", "tamanho", "espaço", "apertar-se"], [MOVEMENT_SPACE]),
   staticEntry("adventure", "game-time", "Tempo de jogo", "O tempo de jogo organiza a duração de ações, viagens, descansos e outras atividades; a unidade adequada depende da escala da situação.", ["aventura", "tempo", "duração", "jogo"], [ADVENTURE_TIME]),
   staticEntry("adventure", "adventure-scope", "Escopo de Aventura", "Cobertura mecânica parcial do Livro do Jogador: tempo, viagem, ambiente, interações, descanso e tempo livre. Campanhas, personagens não jogadores, mapas e procedimentos do Mestre não fazem parte desta fonte.", ["aventura", "escopo", "cobertura parcial"], [ADVENTURE_TIME, ADVENTURE_ENVIRONMENT]),
   staticEntry("adventure", "environment-visibility", "Ambiente e visibilidade", "Luz, escuridão e sentidos especiais determinam o que pode ser visto; a aplicação de visão no ambiente depende das condições declaradas da cena.", ["aventura", "ambiente", "luz", "escuridão", "visão"], [ADVENTURE_ENVIRONMENT]),

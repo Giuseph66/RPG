@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ABILITIES } from "@data/abilities/abilities";
 import { SKILLS } from "@data/skills/skills";
+import { PHB_CANONICAL_DESCRIPTION_REGISTRY } from "@data/correto/integracao";
 import { STATIC_COMPENDIUM_ITEMS } from "./static";
 
 function definitionId(item: (typeof STATIC_COMPENDIUM_ITEMS)[number]): string {
@@ -47,5 +48,16 @@ describe("static compendium catalog", () => {
     expect(attackSource).toMatchObject({ printedPage: 196, pdfPage: 195 });
     expect(STATIC_COMPENDIUM_ITEMS.find((item) => definitionId(item) === "travel-pace" && item.category === "movement")?.definition.sourceRefs[0]).toMatchObject({ printedPage: 183, pdfPage: 182 });
     expect(STATIC_COMPENDIUM_ITEMS.find((item) => definitionId(item) === "adventure-scope" && item.category === "adventure")?.summary).toContain("Cobertura mecânica parcial");
+  });
+
+  it("integrates canonical missing descriptions without duplicate static IDs", () => {
+    const canonicalEntries = PHB_CANONICAL_DESCRIPTION_REGISTRY.filter((entry) => entry.category !== "equipment" && entry.text.trim());
+    const staticKeys = STATIC_COMPENDIUM_ITEMS.map((item) => `${item.category}:${definitionId(item)}`);
+    expect(new Set(staticKeys).size).toBe(staticKeys.length);
+    for (const entry of canonicalEntries) {
+      const match = STATIC_COMPENDIUM_ITEMS.find((item) => item.category === entry.category && definitionId(item) === entry.id);
+      expect(match, `${entry.category}/${entry.id}`).toBeDefined();
+      expect(match?.definition.sourceRefs[0]?.sourceId).toBe("phb-ptbr-local-2017");
+    }
   });
 });

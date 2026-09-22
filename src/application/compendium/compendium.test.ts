@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { EQUIPMENT_DEFINITIONS } from "@data/equipment";
 import { STATIC_COMPENDIUM_ITEMS } from "@data/compendium";
+import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { asEntityId, asPackVersion, asRulesetId } from "@domain/contracts";
 
 import {
@@ -111,6 +112,18 @@ describe("compendium application", () => {
     const service = createCompendiumService({ items: [items[0]!] });
     expect(service.getIndex()).toHaveLength(1);
     expect(service.getDetail({ rulesetId: "local-pack", version: "1.0.0", entityType: "spell", entityId: "cura" })).toMatchObject({ ok: true, value: { title: "Cura de ferimentos", sourceRefs: [{ chapter: "Capítulo 1" }] } });
+  });
+
+  it("merges canonical armor and special weapon text into pack entries", () => {
+    const pack = loadPhbPtBrLocal2017();
+    expect(pack.ok).toBe(true);
+    if (!pack.ok) return;
+    const service = createCompendiumService({ packs: [pack.value] });
+    for (const [entityId, text] of [["padded-armor", "Acolchoada"], ["lance", "Lança de Montaria"], ["net", "Rede"]] as const) {
+      const detail = service.getDetail({ rulesetId: "phb-ptbr-local-2017", version: "1.0.0", entityType: "equipment", entityId });
+      expect(detail.ok).toBe(true);
+      if (detail.ok) expect((detail.value.definition as { readonly description?: string }).description).toContain(text);
+    }
   });
 
   it("indexes static attributes and skills without changing rulepack references", () => {

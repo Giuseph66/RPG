@@ -1,6 +1,7 @@
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { EntityId, EntityType, RulesetRef } from "@domain/contracts/ids";
 
+import { findCanonicalDescription } from "@data/correto/integracao";
 import { normalizeSearchText } from "./search";
 import { canonicalCategory, COMPENDIUM_CATEGORIES, COMPENDIUM_CATEGORY_SUBSET_TAG, type CompendiumCatalogItem, type CompendiumIndexEntry, type CompendiumCategoryId } from "./types";
 
@@ -20,11 +21,27 @@ export function catalogItemsFromPacks(packs: readonly RulePack[]): readonly Comp
       const definitions = map instanceof Map ? [...map.values()] : [map];
       for (const definition of definitions) {
         if (!definition || typeof definition !== "object" || (!("id" in definition) && !("templateId" in definition)) || !("name" in definition)) continue;
-        items.push({ entityType: category, definition: definition as CompendiumCatalogItem["definition"], ruleset: { id: pack.manifest.id, version: pack.manifest.version } });
+        const ruleset = { id: pack.manifest.id, version: pack.manifest.version };
+        items.push({ entityType: category, definition: enrichPackDefinition(category, definition as CompendiumCatalogItem["definition"], ruleset.id), ruleset });
       }
     }
   }
   return items;
+}
+
+function enrichPackDefinition(category: EntityType, definition: CompendiumCatalogItem["definition"], rulesetId: RulesetRef["id"]): CompendiumCatalogItem["definition"] {
+  if (category !== "equipment" || !("id" in definition)) return definition;
+  const canonical = findCanonicalDescription(category, String(definition.id));
+  if (!canonical || canonical.category !== "equipment") return definition;
+  const description = canonical.text.replace(/\uF0B7/g, "•").replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+  return {
+    ...definition,
+    description,
+    sourceRefs: [
+      ...definition.sourceRefs,
+      { sourceId: rulesetId, chapter: "Capítulo 5", printedPage: canonical.printedPages[0], pdfPage: canonical.pdfPages[0], section: canonical.sourceHeading },
+    ],
+  } as CompendiumCatalogItem["definition"];
 }
 
 export function createIndexEntry(item: CompendiumCatalogItem): CompendiumIndexEntry {
