@@ -27,7 +27,7 @@ import { PHB_REST_DESCRIPTIONS } from "@data/correto/descricoes/rest";
 import { PHB_SKILL_DESCRIPTIONS } from "@data/correto/descricoes/skills";
 import { PHB_WEAPON_DESCRIPTIONS } from "@data/correto/descricoes/weapons";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
-import { PHB_CANONICAL_DESCRIPTION_REGISTRY } from "@data/correto/integracao";
+import { PHB_BACKED_TEXT_BY_ID, PHB_CANONICAL_DESCRIPTION_REGISTRY } from "@data/correto/integracao";
 import type { CompendiumCatalogItem, StaticCompendiumCategory } from "@application/compendium";
 
 const ruleset = {
@@ -39,8 +39,15 @@ function sourceRef(chapter: string, printedPage: number, pdfPage: number, sectio
   return { sourceId: ruleset.id, chapter, printedPage, pdfPage, section } as const;
 }
 
+/**
+ * Card curado do compêndio. Quando existe recorte literal do Livro do Jogador para o mesmo id
+ * (`PHB_BACKED_TEXT_BY_ID`), o texto da fonte é anexado ao próprio card — id, resumo, tags e
+ * referências curadas seguem iguais e nenhuma entrada nova é criada.
+ */
 function staticEntry(category: StaticCompendiumCategory, id: string, name: string, summary: string, tags: readonly string[], sourceRefs: readonly ReturnType<typeof sourceRef>[], aliases: readonly string[] = []): CompendiumCatalogItem {
-  return { kind: "static", category, ruleset, aliases, summary, definition: { id, name, tags, sourceRefs } };
+  const backed = PHB_BACKED_TEXT_BY_ID.get(id);
+  if (!backed) return { kind: "static", category, ruleset, aliases, summary, definition: { id, name, tags, sourceRefs } };
+  return { kind: "static", category, ruleset, aliases: [...aliases, backed.sourceHeading], summary, definition: { kind: "book-rule", id, name, tags, sourceRefs, sourceHeading: backed.sourceHeading, text: normalizeBookText(stripLeadingHeading(backed.text, backed.sourceHeading)) } };
 }
 
 /** Entrada estática que preserva id/resumo curados e anexa o texto integral do livro. */
@@ -205,6 +212,10 @@ function bookRuleId(chapter: string, sourceIndex: number, name: string, index: n
   return `book-${chapter.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${sourceIndex}-${name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${index}`;
 }
 
+/**
+ * A extração do PDF devolveu duas tabelas de progressão vazias ("O MONGE", "O PATRULHEIRO").
+ * Cards sem texto não são publicados; a lacuna depende da fonte e não é preenchida por suposição.
+ */
 const BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = BOOK_RULE_SOURCES.flatMap(({ category, chapter, tags, entries }, sourceIndex) => entries.map((entry, index) => ({
   kind: "static" as const,
   category,
@@ -220,7 +231,7 @@ const BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = BOOK_RULE_SOURCES.flat
     sourceHeading: entry.sourceHeading,
     text: normalizeBookText(stripLeadingHeading(entry.text, entry.sourceHeading)),
   },
-})));
+})).filter((item) => item.definition.text.trim().length > 0));
 
 const CANONICAL_BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = PHB_CANONICAL_DESCRIPTION_REGISTRY
   .map(canonicalBookRuleEntry)

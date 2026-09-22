@@ -37,7 +37,7 @@ describe("Compendium", () => {
     const onFiltersChange = vi.fn();
     const onSelect = vi.fn();
     const { container, unmount } = await mount(<Compendium entries={entries} filters={{ query: "cura" }} categories={[{ id: "spell", label: "Magia", status: "available" }]} onFiltersChange={onFiltersChange} onSelect={onSelect} />);
-    const result = container.querySelector('[aria-labelledby="compendium-results-title"] button') as HTMLButtonElement;
+    const result = container.querySelector('[aria-labelledby="compendium-results-title"] li button') as HTMLButtonElement;
     await fireEvent(result, new MouseEvent("click", { bubbles: true }));
     expect(onSelect).toHaveBeenCalledWith(entries[0]);
     expect(container.textContent).toContain("1 encontrado");
@@ -64,7 +64,7 @@ describe("Compendium", () => {
 
   it("opens selected result in an accessible dialog with source", async () => {
     const { container, unmount } = await mount(<Compendium entries={entries} filters={{ query: "" }} />);
-    const result = container.querySelector('[aria-labelledby="compendium-results-title"] button') as HTMLButtonElement;
+    const result = container.querySelector('[aria-labelledby="compendium-results-title"] li button') as HTMLButtonElement;
     await fireEvent(result, new MouseEvent("click", { bubbles: true }));
     const dialog = container.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
@@ -75,7 +75,7 @@ describe("Compendium", () => {
   it("keeps modal header favorite control keyboard reachable", async () => {
     const onToggleFavorite = vi.fn();
     const { container, unmount } = await mount(<Compendium entries={entries} filters={{ query: "cura" }} onToggleFavorite={onToggleFavorite} />);
-    const result = container.querySelector('[aria-labelledby="compendium-results-title"] button') as HTMLButtonElement;
+    const result = container.querySelector('[aria-labelledby="compendium-results-title"] li button') as HTMLButtonElement;
     await fireEvent(result, new MouseEvent("click", { bubbles: true }));
     const button = container.querySelector('[aria-label="Favoritar"]') as HTMLButtonElement;
     button.focus();

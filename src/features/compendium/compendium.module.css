@@ -85,3 +85,11 @@
 .page :where(input,select,textarea):focus-visible { border-color:var(--color-focus); box-shadow:0 0 0 2px color-mix(in srgb,var(--color-focus) 35%,transparent); outline:none; }
 @media (max-width:640px) { .page{padding-inline:var(--spacing-sm);background-attachment:scroll} .search{align-items:stretch;flex-direction:column} .categories ul button{min-height:3.5rem;padding:var(--spacing-xs)} .categoryGlyph{width:1.9rem;height:1.9rem} }
 @media (orientation:portrait) { .page { background-color:transparent; background-image:none; } }
+
+/* Filtros ativos: as categorias podem estar recolhidas, então a seleção aparece nos resultados. */
+.activeFilters { display:flex; flex-wrap:wrap; gap:var(--spacing-xs); margin:calc(-1 * var(--spacing-xs)) 0 var(--spacing-md); }
+.filterChip { display:inline-flex; align-items:center; gap:.35rem; padding:.2rem .3rem .2rem .55rem; border:1px solid var(--color-border-soft); border-radius:999px; background:color-mix(in srgb,var(--color-secondary) 10%,transparent); font-size:.78rem; }
+.filterChip small { color:var(--color-text-muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; }
+.filterChip strong { color:var(--color-text); font-weight:600; max-width:14rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.filterChip button { display:grid; place-items:center; width:1.35rem; height:1.35rem; padding:0; border:0; border-radius:50%; background:transparent; color:var(--color-text-muted); cursor:pointer; }
+.filterChip button:hover,.filterChip button:focus-visible { background:color-mix(in srgb,var(--color-primary) 18%,transparent); color:var(--color-primary); outline:none; }

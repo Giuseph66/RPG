@@ -22,11 +22,24 @@ export function catalogItemsFromPacks(packs: readonly RulePack[]): readonly Comp
       for (const definition of definitions) {
         if (!definition || typeof definition !== "object" || (!("id" in definition) && !("templateId" in definition)) || !("name" in definition)) continue;
         const ruleset = { id: pack.manifest.id, version: pack.manifest.version };
-        items.push({ entityType: category, definition: enrichPackDefinition(category, definition as CompendiumCatalogItem["definition"], ruleset.id), ruleset });
+        const enriched = enrichPackDefinition(category, definition as CompendiumCatalogItem["definition"], ruleset.id);
+        items.push({ entityType: category, definition: enriched, ruleset, summary: packSummary(enriched) });
       }
     }
   }
   return items;
+}
+
+/**
+ * Resumo mostrado na lista de resultados: capítulo e página impressa da primeira fonte.
+ * Sem isso as entradas do rule pack apareciam só com a categoria, enquanto as entradas
+ * estáticas do livro já mostravam a referência.
+ */
+function packSummary(definition: CompendiumCatalogItem["definition"]): string | undefined {
+  const reference = definition.sourceRefs?.[0];
+  if (!reference) return undefined;
+  const chapter = reference.chapter.split(" — ")[0] ?? reference.chapter;
+  return reference.printedPage === undefined ? chapter : `${chapter} · p. ${reference.printedPage}`;
 }
 
 function enrichPackDefinition(category: EntityType, definition: CompendiumCatalogItem["definition"], rulesetId: RulesetRef["id"]): CompendiumCatalogItem["definition"] {
