@@ -17,8 +17,8 @@ import type { CompendiumCatalogItem } from "./types";
 
 const ruleset = { id: asRulesetId("local-pack"), version: asPackVersion("1.0.0") };
 
-function item(entityType: CompendiumCatalogItem["entityType"], id: string, name: string, tags: readonly string[], summary = "Resumo local"): CompendiumCatalogItem {
-  return { entityType, ruleset, summary, definition: { id: asEntityId(id), name, tags, sourceRefs: [{ sourceId: ruleset.id, chapter: "Capítulo 1", printedPage: 10 }] } as never };
+function item(entityType: CompendiumCatalogItem["entityType"], id: string, name: string, tags: readonly string[], summary = "Resumo local", description?: string): CompendiumCatalogItem {
+  return { entityType, ruleset, summary, definition: { id: asEntityId(id), name, tags, sourceRefs: [{ sourceId: ruleset.id, chapter: "Capítulo 1", printedPage: 10 }], ...(description ? { description } : {}) } as never };
 }
 
 const items = [item("spell", "cura", "Cura de ferimentos", ["cura", "curaçao"]), item("class", "fighter", "Guerreiro", ["combate"]), item("race", "elf", "Elfo", ["floresta"])];
@@ -29,6 +29,11 @@ describe("compendium application", () => {
     const result = searchCompendium(buildCompendiumIndex(items), { query: "CURA DE" });
     expect(result.entries[0]?.title).toBe("Cura de ferimentos");
     expect(searchCompendium(buildCompendiumIndex(items), { query: "floresta", tag: "floresta" }).entries[0]?.title).toBe("Elfo");
+  });
+
+  it("searches generic definition text, including descriptions", () => {
+    const result = searchCompendium(buildCompendiumIndex([item("spell", "escudo", "Escudo arcano", ["defesa"], "Resumo", "Uma barreira protetora contra ataques")]), { query: "barreira protetora" });
+    expect(result.entries[0]?.title).toBe("Escudo arcano");
   });
 
   it("preserves filters and maps visual Regras aliases to one destination", () => {

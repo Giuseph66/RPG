@@ -48,6 +48,10 @@ export interface FeatureRegistryDependencies {
   readonly journalDispatcher?: JournalDispatcher;
   /** Optional only because character creation has no adapter in ApplicationServices yet. */
   readonly creationService?: CreationWizardService;
+  /** Valores derivados (RULE-001) calculados pelo bootstrap; a ficha nunca recomputa regras. */
+  readonly deriveCharacter?: (character: Character) => CharacterDerived | undefined;
+  /** Nome de exibição de uma definição do pack ativo (classe, raça, antecedente…). */
+  readonly resolveDefinitionName?: (entityType: EntityType, entityId: string) => string | undefined;
   /** Read models are supplied by bootstrap; the registry does not own persistence. */
   readonly listCharacters?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
   readonly listCharacterDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
@@ -121,7 +125,7 @@ export interface FeatureRegistry {
   readonly session?: SessionService;
 }
 
-export type CompendiumRegistryProps = Omit<CompendiumProps, "entries" | "categories"> & Partial<Pick<CompendiumProps, "entries" | "categories">>;
+export type CompendiumRegistryProps = Omit<CompendiumProps, "entries" | "categories" | "totalEntries"> & Partial<Pick<CompendiumProps, "entries" | "categories" | "totalEntries">>;
 
 /**
  * Composes public feature exports with already-created application services.
@@ -134,10 +138,16 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     pendingDependencies: dependencies.creationService ? [] : ["CreationWizardService.saveCharacter (adaptador de criação pendente)"],
     bindSelectionProps: (props: CharacterSelectionProps): CharacterSelectionProps => ({
       ...props,
+      resolveClassName: props.resolveClassName ?? (dependencies.resolveDefinitionName ? (classId) => dependencies.resolveDefinitionName?.("class", classId) : undefined),
       onSelect: (id) => { void services.character.select(id); props.onSelect?.(id); },
       onRetry: props.onRetry ?? (() => { void services.character.retry(); }),
     }),
-    bindSheetProps: (props: Omit<CharacterSheetProps, "service">): CharacterSheetProps => ({ ...props, service: services.character }),
+    bindSheetProps: (props: Omit<CharacterSheetProps, "service">): CharacterSheetProps => ({
+      ...props,
+      service: services.character,
+      derived: props.derived ?? (props.character && dependencies.deriveCharacter ? dependencies.deriveCharacter(props.character) : undefined),
+      resolveName: props.resolveName ?? dependencies.resolveDefinitionName,
+    }),
     bindCreationProps: (props: Omit<CreationProps, "service">): CreationProps => ({ ...props, ...(dependencies.creationService ? { service: dependencies.creationService } : {}) }),
     bindProgressionProps: (props: CharacterProgressionProps): CharacterProgressionProps => props,
     list: dependencies.listCharacters,
@@ -178,7 +188,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     pendingDependencies: [],
     bindProps: (props: CompendiumRegistryProps): CompendiumProps => {
       const filters: CompendiumFilters = props.filters ?? { query: "" };
-      return { ...props, entries: props.entries ?? dependencies.compendiumService.search(filters).entries, categories: props.categories ?? dependencies.compendiumService.getCategories() };
+      return { ...props, entries: props.entries ?? dependencies.compendiumService.search(filters).entries, categories: props.categories ?? dependencies.compendiumService.getCategories(), totalEntries: props.totalEntries ?? dependencies.compendiumService.getIndex().length };
     },
   };
 

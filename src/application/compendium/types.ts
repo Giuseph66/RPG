@@ -114,6 +114,7 @@ export interface CompendiumIndexEntry {
   readonly title: string;
   readonly aliases: readonly string[];
   readonly tags: readonly string[];
+  readonly searchText: string;
   readonly summary?: string;
   readonly sourceRefs: readonly SourceRef[];
 }

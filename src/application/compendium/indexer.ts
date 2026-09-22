@@ -1,6 +1,7 @@
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { EntityId, EntityType, RulesetRef } from "@domain/contracts/ids";
 
+import { normalizeSearchText } from "./search";
 import { canonicalCategory, COMPENDIUM_CATEGORIES, COMPENDIUM_CATEGORY_SUBSET_TAG, type CompendiumCatalogItem, type CompendiumIndexEntry, type CompendiumCategoryId } from "./types";
 
 const CATALOG_MAPS: Readonly<Record<EntityType, keyof RulePack>> = {
@@ -30,6 +31,8 @@ export function createIndexEntry(item: CompendiumCatalogItem): CompendiumIndexEn
   const definition = item.definition;
   const definitionId = "id" in definition ? definition.id : definition.templateId;
   const tags = "tags" in definition ? definition.tags : [];
+  const searchableDefinitionText = collectText(definition).join(" ");
+  const searchText = normalizeSearchText([item.summary, item.aliases?.join(" "), item.category, item.entityType, searchableDefinitionText].filter(Boolean).join(" "));
   if (item.kind === "static") {
     if (!item.category) throw new Error("Entrada estática do compêndio precisa de categoria.");
     return {
@@ -40,6 +43,7 @@ export function createIndexEntry(item: CompendiumCatalogItem): CompendiumIndexEn
       title: definition.name,
       aliases: [...(item.aliases ?? [])],
       tags: [...tags],
+      searchText,
       summary: item.summary,
       sourceRefs: [...definition.sourceRefs],
     };
@@ -53,9 +57,17 @@ export function createIndexEntry(item: CompendiumCatalogItem): CompendiumIndexEn
     title: definition.name,
     aliases: [...(item.aliases ?? [])],
     tags: [...tags],
+    searchText,
     summary: item.summary,
     sourceRefs: [...definition.sourceRefs],
   };
+}
+
+function collectText(value: unknown): readonly string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(collectText);
+  if (value && typeof value === "object") return Object.values(value).flatMap(collectText);
+  return [];
 }
 
 export function buildCompendiumIndex(items: readonly CompendiumCatalogItem[]): readonly CompendiumIndexEntry[] {

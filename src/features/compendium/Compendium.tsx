@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { AppModal, Badge, IconButton, InlineStatus, Input } from "@components/ui";
@@ -10,6 +10,7 @@ import type { CompendiumDetailProps, CompendiumProps } from "./types";
 import styles from "./compendium.module.css";
 
 const DEFAULT_FILTERS = { query: "" } as const;
+const MIN_QUERY_LENGTH = 3;
 
 function categoryIcon(id: string): ReactNode {
   if (id === "combat") return <Sword size={19} weight="duotone" aria-hidden="true" />;
@@ -27,9 +28,14 @@ function formatSource(source: CompendiumDetail["sourceRefs"][number]): string {
   return `${source.chapter}${page}`;
 }
 
+const CATEGORY_NAMES: Readonly<Record<string, string>> = { adventure: "Aventura", attributes: "Atributo", background: "Antecedente", class: "Classe", combat: "Combate", condition: "Condição", equipment: "Equipamento", feat: "Talento", feature: "Característica", movement: "Movimentação", progression: "Progressão", race: "Raça", resource: "Recurso", rest: "Descanso", rules: "Regras", skills: "Perícia", spell: "Magia", subclass: "Subclasse", subrace: "Sub-raça", "character-template": "Modelo de personagem" };
+
+function categoryName(category: string): string {
+  return CATEGORY_NAMES[category] ?? category;
+}
+
 function formatHumanReference(detail: CompendiumDetail): string {
-  const categoryNames: Record<string, string> = { adventure: "Aventura", background: "Antecedente", class: "Classe", combat: "Combate", condition: "Condições", equipment: "Equipamento", feat: "Talento", race: "Raça", spell: "Magia", rules: "Regras" };
-  return `${categoryNames[detail.category] ?? detail.category} · ${detail.title}`;
+  return `${categoryName(detail.category)} · ${detail.title}`;
 }
 
 function isSpellDefinition(definition: CompendiumDetail["definition"]): definition is SpellDefinition {
@@ -83,22 +89,33 @@ export function CompendiumDetailPanel({ detail }: CompendiumDetailProps) {
   return <article className={styles.detail} aria-labelledby="compendium-detail-title"><div className={styles.detailHeading}><h2 id="compendium-detail-title">{detail.title}</h2><span className={styles.technicalId}>{formatHumanReference(detail)}</span></div>{bookSpell ? <p className={styles.summary}>{bookSpell.description}</p> : !bookRule && detail.summary ? <p className={styles.summary}>{detail.summary}</p> : null}{isSpellDefinition(detail.definition) ? <SpellDetails spell={detail.definition} /> : bookSpell ? <BookSpellDetails spell={bookSpell} /> : null}{bookRule ? <section className={styles.bookRuleText} aria-label="Texto da regra"><h3>{bookRule.sourceHeading}</h3><p>{bookRule.text}</p></section> : null}{bookSpell?.higherLevels ? <section className={styles.higherLevels}><h3>Em níveis superiores</h3><p>{bookSpell.higherLevels}</p></section> : null}{detail.sourceRefs.length > 0 ? <div className={styles.detailMeta}><span>Fonte · {detail.sourceRefs.map(formatSource).join(" · ")}</span></div> : null}{detail.tags.length > 0 ? <div className={styles.tagList}>{detail.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}</div> : null}</article>;
 }
 
-export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className }: CompendiumProps) {
+export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], totalEntries, selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className }: CompendiumProps) {
   const [selectedEntry, setSelectedEntry] = useState<CompendiumDetail | undefined>(undefined);
   const [detailOpen, setDetailOpen] = useState(Boolean(selected));
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
+  const [queryInput, setQueryInput] = useState(filters.query);
   const favoriteKeys = new Set(favorites.filter((favorite) => favorite.exists).map((favorite) => favorite.key));
   const orphanFavorites = favorites.filter((favorite) => !favorite.exists);
   const activeDetail = selected ?? selectedEntry;
-  const hasActiveFilter = Boolean(filters.query.trim() || filters.category || filters.favoriteOnly);
+  const hasActiveFilter = Boolean(filters.query.trim().length >= MIN_QUERY_LENGTH || filters.category || filters.favoriteOnly);
   const updateFilter = (patch: Partial<typeof filters>) => onFiltersChange?.({ ...filters, ...patch, query: patch.query ?? filters.query });
+  useEffect(() => { setQueryInput(filters.query); }, [filters.query]);
+  useEffect(() => {
+    const trimmedQuery = queryInput.trim();
+    const nextQuery = trimmedQuery.length === 0 || trimmedQuery.length >= MIN_QUERY_LENGTH ? queryInput : "";
+    if (nextQuery === filters.query) return;
+    const timeout = window.setTimeout(() => {
+      updateFilter({ query: nextQuery });
+    }, 1000);
+    return () => window.clearTimeout(timeout);
+  }, [filters, queryInput]);
   return <section className={[styles.page, className ?? ""].filter(Boolean).join(" ")} aria-label="Compêndio de regras">
-    <div className={styles.search}><div className={styles.searchField}><MagnifyingGlass size={19} aria-hidden="true" /><Input label="Buscar por nome, categoria ou tag" value={filters.query} onChange={(event) => updateFilter({ query: event.currentTarget.value })} /></div><label className={styles.favoriteFilter}><input type="checkbox" checked={filters.favoriteOnly ?? false} onChange={(event) => updateFilter({ favoriteOnly: event.currentTarget.checked })} /> <BookmarkSimple size={17} aria-hidden="true" /><span>Somente favoritos</span></label></div>
+    <div className={styles.search}><div className={styles.searchField}><MagnifyingGlass size={19} aria-hidden="true" /><Input label="Buscar por nome, categoria ou tag" placeholder="Buscar por nome, categoria ou tag" value={queryInput} onChange={(event) => setQueryInput(event.currentTarget.value)} /></div><label className={styles.favoriteFilter}><input type="checkbox" checked={filters.favoriteOnly ?? false} onChange={(event) => updateFilter({ favoriteOnly: event.currentTarget.checked })} /> <BookmarkSimple size={17} aria-hidden="true" /><span>Somente favoritos</span></label></div>
     {status === "loading" ? <InlineStatus tone="info">Carregando índice local…</InlineStatus> : null}
     {status === "error" ? <InlineStatus tone="error" assertive>{error ?? "Não foi possível carregar o compêndio local."}</InlineStatus> : null}
     {!offline ? <InlineStatus tone="warning">Conhecimento offline indisponível.</InlineStatus> : null}
-    <section className={styles.categories} aria-labelledby="compendium-categories-title"><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Índice do grimório</p><h2 id="compendium-categories-title">Categorias</h2></div><button type="button" className={styles.categoryToggle} aria-expanded={categoriesExpanded} aria-controls="compendium-category-grid" aria-label={categoriesExpanded ? "Recolher categorias" : "Expandir categorias"} onClick={() => setCategoriesExpanded((expanded) => !expanded)}><span>{categories.length} seções</span><CaretDown size={17} aria-hidden="true" /></button></div>{categoriesExpanded ? (categories.length === 0 ? <p className={styles.muted}>Categorias indisponíveis.</p> : <ul id="compendium-category-grid">{categories.map((category) => { const isSelected = filters.category === category.id; return <li key={category.id}><button type="button" className={isSelected ? styles.activeCategory : undefined} aria-pressed={isSelected} disabled={category.status === "pending" && !onLoadCategory} onClick={() => category.status === "pending" ? onLoadCategory?.(category.id) : updateFilter({ category: isSelected ? undefined : category.id })}><span className={styles.categoryGlyph}>{categoryIcon(category.id)}</span><span className={styles.categoryLabel}><strong>{category.label}</strong>{category.status === "pending" ? <small className={styles.pendingHint}>Pendente</small> : <small className={styles.categoryHint}>{isSelected ? "Selecionada · toque para limpar" : "Explorar seção"}</small>}</span><span className={styles.categoryArrow} aria-hidden="true">›</span></button></li>; })}</ul>) : null}</section>
-    {!hasActiveFilter && categoriesExpanded ? <section className={styles.instruction} aria-label="Como consultar"><BookOpen size={22} weight="duotone" aria-hidden="true" /><span>Escolha uma categoria ou busque por nome, categoria ou tag.</span></section> : hasActiveFilter ? <section className={styles.results} aria-labelledby="compendium-results-title"><div className={styles.resultsHeading}><div><p className={styles.eyebrow}>Correspondências locais</p><h2 id="compendium-results-title">Resultados</h2></div><span aria-live="polite">{entries.length} encontrado(s)</span></div>{entries.length === 0 ? <p className={styles.empty}><Books size={28} weight="duotone" aria-hidden="true" /><span>Nenhum resultado para estes filtros.</span></p> : <ul>{entries.map((entry) => <li key={entry.key}><button type="button" className={activeDetail?.key === entry.key ? styles.activeResult : undefined} aria-current={activeDetail?.key === entry.key ? "true" : undefined} aria-haspopup="dialog" onClick={() => { onSelect?.(entry); setSelectedEntry(entry as CompendiumDetail); setDetailOpen(true); }}><span><strong>{entry.title}</strong><small>{entry.category === "spell" ? "Magia" : entry.category}{entry.summary ? ` · ${entry.summary}` : ""}</small></span>{favoriteKeys.has(entry.key) ? <BookmarkSimple size={17} weight="fill" aria-label="Favorito" /> : null}</button></li>)}</ul>}</section> : null}
+    <section className={styles.categories} aria-labelledby="compendium-categories-title"><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>Índice do grimório</p><h2 id="compendium-categories-title">Categorias</h2></div><button type="button" className={styles.categoryToggle} aria-expanded={categoriesExpanded} aria-controls="compendium-category-grid" aria-label={categoriesExpanded ? "Recolher categorias" : "Expandir categorias"} onClick={() => setCategoriesExpanded((expanded) => !expanded)}><span>{categories.length} seções{totalEntries ? ` · ${totalEntries.toLocaleString("pt-BR")} regras` : ""}</span><CaretDown size={17} aria-hidden="true" /></button></div>{categoriesExpanded ? (categories.length === 0 ? <p className={styles.muted}>Categorias indisponíveis.</p> : <ul id="compendium-category-grid">{categories.map((category) => { const isSelected = filters.category === category.id; return <li key={category.id}><button type="button" className={isSelected ? styles.activeCategory : undefined} aria-pressed={isSelected} disabled={category.status === "pending" && !onLoadCategory} onClick={() => category.status === "pending" ? onLoadCategory?.(category.id) : updateFilter({ category: isSelected ? undefined : category.id })}><span className={styles.categoryGlyph}>{categoryIcon(category.id)}</span><span className={styles.categoryLabel}><strong>{category.label}</strong>{category.status === "pending" ? <small className={styles.pendingHint}>Pendente</small> : <small className={styles.categoryHint}>{isSelected ? "Selecionada · toque para limpar" : "Explorar seção"}</small>}</span><span className={styles.categoryArrow} aria-hidden="true">›</span></button></li>; })}</ul>) : null}</section>
+    {!hasActiveFilter && categoriesExpanded ? <section className={styles.instruction} aria-label="Como consultar"><BookOpen size={22} weight="duotone" aria-hidden="true" /><span>Escolha uma categoria ou busque por nome, categoria ou tag.</span></section> : hasActiveFilter ? <section className={styles.results} aria-labelledby="compendium-results-title"><div className={styles.resultsHeading}><div><p className={styles.eyebrow}>Correspondências locais</p><h2 id="compendium-results-title">Resultados</h2></div><span aria-live="polite">{entries.length} encontrado(s)</span></div>{entries.length === 0 ? <p className={styles.empty}><Books size={28} weight="duotone" aria-hidden="true" /><span>Nenhum resultado para estes filtros.</span></p> : <ul>{entries.map((entry) => <li key={entry.key}><button type="button" className={activeDetail?.key === entry.key ? styles.activeResult : undefined} aria-current={activeDetail?.key === entry.key ? "true" : undefined} aria-haspopup="dialog" onClick={() => { onSelect?.(entry); setSelectedEntry(entry as CompendiumDetail); setDetailOpen(true); }}><span><strong>{entry.title}</strong><small>{categoryName(entry.category)}{entry.summary ? ` · ${entry.summary}` : ""}</small></span>{favoriteKeys.has(entry.key) ? <BookmarkSimple size={17} weight="fill" aria-label="Favorito" /> : null}</button></li>)}</ul>}</section> : null}
     {orphanFavorites.length > 0 ? <section className={styles.orphansPanel} aria-labelledby="orphan-favorites-title"><h2 id="orphan-favorites-title">Favoritos órfãos</h2><p className={styles.muted}>Alguns favoritos não existem no pack atual.</p><ul className={styles.orphans}>{orphanFavorites.map((favorite) => <li key={favorite.key}>{favorite.ref.kind === "static" ? favorite.ref.category : favorite.ref.entityType} · {favorite.ref.entityId}</li>)}</ul></section> : null}
     {activeDetail ? <AppModal open={detailOpen} title="Regra" titleClassName={styles.modalTitle} onClose={() => setDetailOpen(false)} closeClassName={styles.detailClose} headerActions={onToggleFavorite ? <IconButton className={styles.favoriteIcon} label={favoriteKeys.has(activeDetail.key) ? "Remover favorito" : "Favoritar"} icon={<BookmarkSimple size={19} weight={favoriteKeys.has(activeDetail.key) ? "fill" : "regular"} />} variant="ghost" aria-pressed={favoriteKeys.has(activeDetail.key)} onClick={() => onToggleFavorite(activeDetail)} /> : undefined} className={styles.detailModal}><CompendiumDetailPanel detail={activeDetail} /></AppModal> : null}
   </section>;
