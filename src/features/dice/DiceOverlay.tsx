@@ -1,6 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useSyncExternalStore, useState } from "react";
 
 import { AppModal, BottomSheet, Button, IconButton, InlineStatus, LiveRegion } from "@components/ui";
+import type { AppSettings } from "@application/ports/settings-repository";
+import type { SettingsStore } from "@application/settings";
+import type { StoreSnapshot } from "@application/state/external-store";
 import { dicePerformancePolicy } from "@domain/dice";
 import { Eye, EyeSlash } from "../../assets/icons";
 import diceMedallion from "../../assets/art/icons/d20-medallion.webp";
@@ -16,10 +19,18 @@ const PhysicalDiceStage = lazy(() =>
   import("@features/dice3d/PhysicalDiceStage").then((module) => ({ default: module.PhysicalDiceStage })),
 );
 
-export interface DiceOverlayProps { readonly controller: DiceOverlayController; }
+export interface DiceOverlayProps { readonly controller: DiceOverlayController; readonly settingsStore?: SettingsStore; }
 
-export function DiceOverlay({ controller }: DiceOverlayProps) {
+const DEFAULT_DICE_COLORS = { face: "#14100d", edge: "#D0AB72", shadow: "#090706" } as const;
+const EMPTY_SETTINGS_SNAPSHOT: StoreSnapshot<AppSettings> = Object.freeze({ status: "idle", hasPendingChanges: false });
+const EMPTY_SETTINGS_SUBSCRIBE = (_listener: () => void): (() => void) => () => undefined;
+const EMPTY_SETTINGS_SNAPSHOT_READ = (): StoreSnapshot<AppSettings> => EMPTY_SETTINGS_SNAPSHOT;
+
+export function DiceOverlay({ controller, settingsStore }: DiceOverlayProps) {
   const state = useDiceOverlay(controller);
+  const subscribeSettings = settingsStore?.subscribe ?? EMPTY_SETTINGS_SUBSCRIBE;
+  const readSettings = settingsStore?.getSnapshot ?? EMPTY_SETTINGS_SNAPSHOT_READ;
+  const settingsSnapshot = useSyncExternalStore(subscribeSettings, readSettings, readSettings);
   const [mobile, setMobile] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [catalogoAberto, setCatalogoAberto] = useState(false);
@@ -51,6 +62,11 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
 
   const rolling = state.status === "rolling" || state.status === "saving";
   const expression = state.expression;
+  const diceAppearance = useMemo(() => ({
+    color: settingsSnapshot.value?.diceFaceColor ?? DEFAULT_DICE_COLORS.face,
+    edgeColor: settingsSnapshot.value?.diceEdgeColor ?? DEFAULT_DICE_COLORS.edge,
+  }), [settingsSnapshot.value?.diceEdgeColor, settingsSnapshot.value?.diceFaceColor]);
+  const diceShadowColor = settingsSnapshot.value?.diceShadowColor ?? DEFAULT_DICE_COLORS.shadow;
 
   // Não existe mais teto de dados na mesa: todos vão para a física. O
   // orçamento de `dicePerformancePolicy` virou recomendação, e passar dele só
@@ -154,6 +170,8 @@ export function DiceOverlay({ controller }: DiceOverlayProps) {
               variant="fullscreen"
               awaitingPhysics={state.awaitingPhysics}
               physicsExpression={state.pendingExpression}
+              appearance={diceAppearance}
+              shadowColor={diceShadowColor}
               onResult={(values) => void controller.onPhysicsResult(values)}
               onPhysicsAvailable={controller.setPhysicsAvailable}
               onPhysicsDeclined={controller.declinePhysics}

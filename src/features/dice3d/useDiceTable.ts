@@ -43,8 +43,10 @@ export function useDiceTable(opcoes: UseDiceTableOptions): UseDiceTableResult {
     gravity,
     bounds,
     background,
+    shadowColor,
     random,
     maxRollSeconds,
+    cameraDistance,
   } = opcoes;
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -67,8 +69,10 @@ export function useDiceTable(opcoes: UseDiceTableOptions): UseDiceTableResult {
       gravity,
       bounds,
       background,
+      shadowColor,
       random,
       maxRollSeconds,
+      cameraDistance,
     });
     mesaRef.current = mesa;
     setPronto(false);
@@ -104,7 +108,7 @@ export function useDiceTable(opcoes: UseDiceTableOptions): UseDiceTableResult {
     };
     // `appearance` é aplicada na criação; use `mesa().setAppearance` para trocar depois
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, chaveDados, basePath, gravity, bounds, background, random, maxRollSeconds]);
+  }, [enabled, chaveDados, basePath, gravity, bounds, background, random, maxRollSeconds, cameraDistance]);
 
   const rolar = useCallback(
     async (ids?: string[], opts?: RollOptions): Promise<RollOutcome[]> => {

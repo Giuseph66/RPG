@@ -30,6 +30,7 @@ export function AppShell({
   onCreateCharacter,
   onImportCharacter,
   onRetryBoot,
+  settingsStore,
 }: AppShellProps) {
   const mainRef = useRef<HTMLElement>(null);
   const hasMountedRef = useRef(false);
@@ -76,7 +77,7 @@ export function AppShell({
           )}
         </main>
       </div>
-      <OverlayHost>{diceOverlayController ? <DiceOverlay controller={diceOverlayController} /> : null}</OverlayHost>
+      <OverlayHost>{diceOverlayController ? <DiceOverlay controller={diceOverlayController} settingsStore={settingsStore} /> : null}</OverlayHost>
     </div>
   );
 }

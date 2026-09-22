@@ -14,6 +14,7 @@ import { useDiceTable } from "./useDiceTable";
 export interface Dice3DHandle {
   rolar: (ids?: string[], opts?: RollOptions) => Promise<RollOutcome[]>;
   setAppearance: (id: string, a: DieAppearance, slot?: number) => void;
+  setShadowColor: (color: string) => void;
 }
 
 export interface Dice3DProps {
@@ -25,6 +26,8 @@ export interface Dice3DProps {
   /** Injete o RNG do domínio aqui para o lançamento não usar `Math.random`. */
   random?: () => number;
   background?: string | null;
+  shadowColor?: string;
+  cameraDistance?: number;
   className?: string;
   onResult?: (resultados: RollOutcome[]) => void;
   ref?: Ref<Dice3DHandle>;
@@ -36,6 +39,8 @@ export function Dice3D({
   basePath,
   random,
   background = "#12141b",
+  shadowColor,
+  cameraDistance,
   className,
   onResult,
   ref,
@@ -46,6 +51,8 @@ export function Dice3D({
     basePath,
     random,
     background,
+    shadowColor,
+    cameraDistance,
   });
 
   useImperativeHandle(
@@ -53,6 +60,7 @@ export function Dice3D({
     () => ({
       rolar,
       setAppearance: (id, a, slot) => mesa()?.setAppearance(id, a, slot),
+      setShadowColor: (color) => mesa()?.setShadowColor(color),
     }),
     [rolar, mesa],
   );
@@ -60,6 +68,10 @@ export function Dice3D({
   useEffect(() => {
     if (resultados.length > 0) onResult?.(resultados);
   }, [resultados, onResult]);
+
+  useEffect(() => {
+    if (shadowColor !== undefined) mesa()?.setShadowColor(shadowColor);
+  }, [mesa, shadowColor]);
 
   if (erro) {
     return (

@@ -1,9 +1,12 @@
-import { type SettingsRepository, type AppSettings, type ThemePreference } from "@application/ports/settings-repository";
+import { type SettingsRepository, type AppSettings, type DiceColorHex, type ThemePreference } from "@application/ports/settings-repository";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 
 export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
   theme: "system",
   reducedMotion: undefined,
+  diceFaceColor: "#14100d",
+  diceEdgeColor: "#D0AB72",
+  diceShadowColor: "#090706",
   diceHistoryRetention: 1000,
   language: "pt-BR",
 });
@@ -14,6 +17,10 @@ function isTheme(value: unknown): value is ThemePreference {
   return value === "system" || value === "light" || value === "dark";
 }
 
+function isDiceColor(value: unknown): value is DiceColorHex {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+}
+
 function isSettings(value: unknown): value is AppSettings {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -21,6 +28,9 @@ function isSettings(value: unknown): value is AppSettings {
     (record.activeCharacterId === undefined || typeof record.activeCharacterId === "string") &&
     isTheme(record.theme) &&
     (record.reducedMotion === undefined || typeof record.reducedMotion === "boolean") &&
+    (record.diceFaceColor === undefined || isDiceColor(record.diceFaceColor)) &&
+    (record.diceEdgeColor === undefined || isDiceColor(record.diceEdgeColor)) &&
+    (record.diceShadowColor === undefined || isDiceColor(record.diceShadowColor)) &&
     typeof record.diceHistoryRetention === "number" &&
     Number.isInteger(record.diceHistoryRetention) &&
     record.diceHistoryRetention >= 0 &&

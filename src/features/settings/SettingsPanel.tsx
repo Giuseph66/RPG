@@ -1,56 +1,84 @@
-import { useEffect, useState } from "react";
-import { Button, InlineStatus, SectionCard, Select } from "@components/ui";
-import type { AppSettings } from "@application/ports/settings-repository";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Input } from "@components/ui";
+import type { AppSettings, DiceColorHex } from "@application/ports/settings-repository";
 import type { SettingsStore } from "@application/settings";
+import { Dice3D, type Dice3DHandle } from "@features/dice3d";
 import styles from "./settings.module.css";
 
 export interface SettingsPanelProps {
   readonly store?: SettingsStore;
 }
 
-const FALLBACK: AppSettings = { theme: "system", reducedMotion: undefined, diceHistoryRetention: 1000, language: "pt-BR" };
+const DICE_COLORS = { face: "#14100d", edge: "#D0AB72", shadow: "#090706" } as const;
+const FALLBACK: AppSettings = { theme: "system", reducedMotion: undefined, diceFaceColor: DICE_COLORS.face, diceEdgeColor: DICE_COLORS.edge, diceShadowColor: DICE_COLORS.shadow, diceHistoryRetention: 1000, language: "pt-BR" };
 
 /** Settings stay a utility surface; persistence is optional until composition injects it. */
 export function SettingsPanel({ store }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings>(store?.getSnapshot().value ?? FALLBACK);
-  const [message, setMessage] = useState<string>();
+  const previewRef = useRef<Dice3DHandle>(null);
 
   useEffect(() => {
     if (!store) return;
     const unsubscribe = store.subscribe(() => {
       const next = store.getSnapshot();
       if (next.value) setSettings(next.value);
-      if (next.status === "error") setMessage("Não foi possível salvar a preferência.");
-      if (next.status === "clean") setMessage("Preferência salva.");
     });
     void store.hydrate();
     return unsubscribe;
   }, [store]);
 
-  async function update(patch: Partial<AppSettings>) {
+  function update(patch: Partial<AppSettings>) {
     setSettings((current) => ({ ...current, ...patch }));
     if (!store) return;
-    const result = await store.update(patch);
-    setMessage(result.ok ? "Preferência salva." : "Não foi possível salvar a preferência.");
+    void store.update(patch);
   }
+
+  const corDoDado = settings.diceFaceColor ?? DICE_COLORS.face;
+  const corDasArestas = settings.diceEdgeColor ?? DICE_COLORS.edge;
+  const corDaSombra = settings.diceShadowColor ?? DICE_COLORS.shadow;
+  const previewAppearance = useMemo(() => ({
+    color: corDoDado,
+    edgeColor: corDasArestas,
+    edgeOpacity: 0.85,
+    numberColor: "#f7f7fa",
+    roughness: 0.34,
+    metalness: 0.32,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.12,
+  }), [corDasArestas, corDoDado]);
+
+  useEffect(() => {
+    previewRef.current?.setAppearance("d20", previewAppearance);
+  }, [previewAppearance]);
+
+  useEffect(() => {
+    previewRef.current?.setShadowColor(corDaSombra);
+  }, [corDaSombra]);
 
   return (
     <section className={styles.panel} aria-labelledby="settings-title">
       <p className={styles.eyebrow}>FERRAMENTAS DA MESA</p>
-      <h1 id="settings-title" className={styles.title} tabIndex={-1}>Configurações</h1>
-      <p className={styles.intro}>Ajustes pequenos ficam neste dispositivo e acompanham seu modo de jogar.</p>
-      {message ? <InlineStatus tone={message.includes("não") ? "error" : "success"}>{message}</InlineStatus> : null}
-      <div className={styles.grid}>
-        <SectionCard heading="Aparência" headingLevel={2}>
-          <Select label="Tema" value={settings.theme} onChange={(event) => void update({ theme: event.target.value as AppSettings["theme"] })} options={[{ value: "system", label: "Sistema" }, { value: "dark", label: "Noite de pedra" }, { value: "light", label: "Papel claro" }]} />
-          <label className={styles.checkRow}><input type="checkbox" checked={settings.reducedMotion === true} onChange={(event) => void update({ reducedMotion: event.target.checked })} /> <span>Reduzir movimento</span></label>
-        </SectionCard>
-        <SectionCard heading="Dados e idioma" headingLevel={2}>
-          <p className={styles.detail}><strong>Idioma</strong><span>Português (Brasil)</span></p>
-          <p className={styles.detail}><strong>Histórico de dados</strong><span>{settings.diceHistoryRetention} entradas</span></p>
-          <Button variant="secondary" size="sm" onClick={() => void update({ diceHistoryRetention: 1000 })}>Restaurar retenção padrão</Button>
-        </SectionCard>
+      <h1 id="settings-title" className={styles.title} tabIndex={-1}>Definição do dado</h1>
+      <p className={styles.intro}>Escolha as cores usadas por todos os dados da mesa.</p>
+      <div className={styles.preview}>
+        <Dice3D
+          ref={previewRef}
+          dice={["d20"]}
+          appearance={previewAppearance}
+          background={null}
+          shadowColor={corDaSombra}
+          cameraDistance={0.16}
+          className={styles.previewCanvas}
+        />
       </div>
+      <fieldset className={styles.colorControls}>
+        <legend className={styles.controlsTitle}>Cores</legend>
+        <div className={styles.colorGrid}>
+          <Input className={styles.colorInput} label="Face" type="color" value={corDoDado} onChange={(event) => update({ diceFaceColor: event.target.value as DiceColorHex })} />
+          <Input className={styles.colorInput} label="Arestas" type="color" value={corDasArestas} onChange={(event) => update({ diceEdgeColor: event.target.value as DiceColorHex })} />
+          <Input className={styles.colorInput} label="Sombra" type="color" value={corDaSombra} onChange={(event) => update({ diceShadowColor: event.target.value as DiceColorHex })} />
+        </div>
+      </fieldset>
     </section>
   );
 }

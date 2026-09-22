@@ -44,6 +44,8 @@ export interface PhysicalDiceStageProps {
   readonly variant?: "overlay" | "inline" | "fullscreen";
   /** Acabamento dos dados. Padrão: obsidiana e bronze da paleta do app. */
   readonly appearance?: DieAppearance;
+  /** Cor da sombra projetada pelos dados. */
+  readonly shadowColor?: string;
   /** Peso da mão no arremesso. `1` é o padrão; acima disso o dado sai mais forte. */
   readonly forceScale?: number;
   /** Faces lidas depois que todos os dados pararam, uma por dado. */
@@ -85,7 +87,7 @@ const ID_POR_FACES: Record<DiceFaces, string> = {
   120: "d120",
 };
 
-export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, active, random, variant = "overlay", appearance = APARENCIA_MESA, forceScale = 1, onResult, onPhysicsAvailable, onPhysicsDeclined }: PhysicalDiceStageProps) {
+export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, active, random, variant = "overlay", appearance = APARENCIA_MESA, shadowColor = "#090706", forceScale = 1, onResult, onPhysicsAvailable, onPhysicsDeclined }: PhysicalDiceStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mesaRef = useRef<DiceTable | null>(null);
   const [mobile, setMobile] = useState(false);
@@ -129,6 +131,7 @@ export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, 
       mesa = new DiceTable({
         canvas,
         background: null,
+        shadowColor,
         random,
         mobile,
         // A câmera define a arena E o tamanho aparente do dado — é a mesma
@@ -162,7 +165,7 @@ export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, 
       mesaRef.current = null;
       onDisponivelRef.current?.(false);
     };
-  }, [active, forceScale, mobile, random, reducedMotion, variant]);
+  }, [active, forceScale, mobile, random, reducedMotion, shadowColor, variant]);
 
   useEffect(() => {
     const mesa = mesaRef.current;

@@ -44,6 +44,8 @@ export interface DiceTableOptions {
   bounds?: number;
   /** Cor de fundo; `null` deixa transparente. */
   background?: THREE.ColorRepresentation | null;
+  /** Cor da sombra projetada pelos dados. */
+  shadowColor?: THREE.ColorRepresentation;
   /**
    * Fonte de aleatoriedade. Injete aqui o `RandomSource` do domínio para que
    * o lançamento use o RNG auditado do projeto em vez de `Math.random`.
@@ -174,6 +176,7 @@ export class DiceTable {
   private maxPhysicsSubsteps: number;
   private readonly instancias: Instancia[] = [];
   private readonly materialFisico = new CANNON.Material("dado");
+  private materialSombra: THREE.ShadowMaterial | null = null;
 
   private relogio = new THREE.Timer();
   private frame = 0;
@@ -219,14 +222,14 @@ export class DiceTable {
     }
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 500);
-    const distancia = Math.max(0.2, opts.cameraDistance ?? 1);
+    const distancia = Math.max(0.08, opts.cameraDistance ?? 1);
     this.faixaCamera = opts.cameraDistanceRange
       ? [Math.max(0.2, opts.cameraDistanceRange[0]), Math.max(0.2, opts.cameraDistanceRange[1])]
       : null;
     this.posicionarCamera(distancia);
 
     this.montarLuzes();
-    this.montarMundo(opts.gravity ?? -981);
+    this.montarMundo(opts.gravity ?? -981, opts.shadowColor);
     this.resize();
     this.renderFrame();
   }
@@ -287,7 +290,7 @@ export class DiceTable {
     this.scene.add(fill);
   }
 
-  private montarMundo(gravity: number): void {
+  private montarMundo(gravity: number, shadowColor?: THREE.ColorRepresentation): void {
     this.world.gravity.set(0, gravity, 0);
     this.world.allowSleep = true;
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
@@ -339,9 +342,10 @@ export class DiceTable {
     }
     this.posicionarParedes();
 
+    this.materialSombra = new THREE.ShadowMaterial({ color: shadowColor ?? "#090706", opacity: 0.38 });
     const sombra = new THREE.Mesh(
       new THREE.PlaneGeometry(this.bounds * 4, this.bounds * 4),
-      new THREE.ShadowMaterial({ opacity: 0.38 }),
+      this.materialSombra,
     );
     sombra.rotation.x = -Math.PI / 2;
     sombra.receiveShadow = true;
@@ -460,6 +464,7 @@ export class DiceTable {
     aplicarInerciaIsotropica(corpo, meta);
     corpo.sleep();
     this.world.addBody(corpo);
+    corpo.position.set(0, Math.max(meta.diameterCm / 2, 1), 0);
 
     const slot = this.instancias.filter((i) => i.id === id).length;
     this.instancias.push({
@@ -473,6 +478,7 @@ export class DiceTable {
       materialArestas,
       arestas,
     });
+    this.renderFrame();
     return slot;
   }
 
@@ -506,6 +512,15 @@ export class DiceTable {
     } else if (aparencia.edgeColor !== undefined) {
       inst.arestas.forEach((l) => (l.visible = true));
     }
+    this.renderFrame();
+  }
+
+  /** Atualiza a sombra sem desmontar a cena 3D. */
+  setShadowColor(shadowColor: THREE.ColorRepresentation): void {
+    if (!this.materialSombra) return;
+    this.materialSombra.color.set(shadowColor);
+    this.materialSombra.needsUpdate = true;
+    this.renderFrame();
   }
 
   private buscar(id: string, slot: number): Instancia | undefined {

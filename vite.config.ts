@@ -55,6 +55,7 @@ export default defineConfig(({ mode }) => {
     },
   },
   server: {
+    host: true,
     port: 5173,
     allowedHosts: ["umbonate-theda-conterminously.ngrok-free.dev"],
   },
