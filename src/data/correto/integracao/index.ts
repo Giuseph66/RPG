@@ -7,6 +7,7 @@ export * from "./weapon-table";
 export * from "./section-text";
 export * from "./gear-items";
 export * from "./gear-table";
+export * from "./equipment-weights";
 export * from "./tool-items";
 export * from "./rules-backed";
 export * from "./compendium-description-registry";

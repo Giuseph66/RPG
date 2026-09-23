@@ -87,10 +87,10 @@ const martialRanged: readonly WeaponSpec[] = [
   { id: "longbow", name: "Arco Longo", damage: { quantity: 1, faces: 8 }, damageType: "piercing", properties: ["ammunition", "heavy", "two-handed"], range: [45, 180], proficiency: "martial", weightGrams: 1000, valueGold: 50 },
   { id: "hand-crossbow", name: "Besta de Mão", damage: { quantity: 1, faces: 6 }, damageType: "piercing", properties: ["ammunition", "light", "loading"], range: [9, 36], proficiency: "martial", weightGrams: 1500, valueGold: 75 },
   { id: "heavy-crossbow", name: "Besta Pesada", damage: { quantity: 1, faces: 10 }, damageType: "piercing", properties: ["ammunition", "heavy", "loading", "two-handed"], range: [30, 120], proficiency: "martial", weightGrams: 4500, valueGold: 50 },
-  { id: "net", name: "Rede", properties: ["special", "thrown"], range: [1.5, 4.5], proficiency: "martial", weightGrams: 3000, valueGold: 1 },
+  { id: "net", name: "Rede", properties: ["special", "thrown"], range: [1.5, 4.5], proficiency: "martial", weightGrams: 1500, valueGold: 1 },
   // A fonte informa dano fixo 1; o contrato atual aceita apenas DiceFormula, portanto a
   // parcela fica pendente de extensão contratual e não é convertida silenciosamente em d4.
-  { id: "blowgun", name: "Zarabatana", properties: ["ammunition", "loading"], range: [7.5, 30], proficiency: "martial", weightGrams: 1000, valueGold: 10 },
+  { id: "blowgun", name: "Zarabatana", properties: ["ammunition", "loading"], range: [7.5, 30], proficiency: "martial", weightGrams: 500, valueGold: 10 },
 ];
 
 /** As 37 linhas da tabela de armas descritas em equipamento/armas.md. */

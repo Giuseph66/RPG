@@ -119,7 +119,7 @@ export const PHB_PTBR_LOCAL_2017_MANIFEST: RulePackManifest = {
     feature: "b87e9a56",
     resource: "bb1fab4a",
     condition: "34775fe4",
-    equipment: "5a01d5cf",
+    equipment: "99bf2d06",
     spell: "8e1fdd97",
     progression: "10a8a812",
     "character-template": "8ec0050d",
