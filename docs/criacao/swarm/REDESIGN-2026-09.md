@@ -154,3 +154,11 @@ Auditorias são somente leitura. Handoffs confirmam que dados, serviços, callba
 - Entregas: PV exibe atual+temporários/máximo e aplica dano/cura pelas regras de `domain/rules/combat`; salvamentos contra morte e condições editáveis; edição de identidade/narrativa em modal com retrato de fundo, modal de retrato e ocultar raça/classe (`Character.sheetDisplay`, `portraitSha256`); gerenciador de magias usando o catálogo completo do cap. 11; inventário com "Adicionar item" (intent `add`) e barra de carga 7,5 kg × FOR com marca da variante 2,5 kg × FOR; pesos de concessões de antecedente herdados da linha impressa equivalente (checksum de equipment atualizado).
 - Pendência externa: bucket do Cloud Storage de `rpg-c8827` não existe (404). Retrato fica local + metadados no Firestore; bytes sobem quando o Storage for ativado (nova tentativa a cada abertura da ficha).
 - Falhas pré-existentes fora do escopo: `src/app/{router,bootstrap}.test.tsx` (5) e `Compendium.test.tsx` (3) já falhavam no HEAD; `Actions.test.tsx` (2) quebrou com mudanças não commitadas de outro agente em `src/features/actions/**`.
+
+## REDESIGN-011 — Tela de Ações fiel à referência
+
+- Status: `DONE` — typecheck limpo; Actions 12, controller de dados 15 testes; smoke Playwright 390/1440 sem overflow. As 17 falhas restantes da suíte já existiam no HEAD (app, collaboration, compendium, encumbrance).
+- Responsável: Claude Opus direto, pedido do usuário em 2026-09-24.
+- Referência: `docs/imagens/referencia/image-gen-2(8).png`; fundo `src/assets/art/textures/fundo-dado.webp` (convertido do PNG de 2 MB para 120 KB).
+- Entregas: hero com arte; painel Dados (último resultado com crítico, d4/d6/d8/d20/d100 que rolam um dado padrão direto na tela, rolar novamente, ícone abre a mesa completa); ações rápidas (Ataque, Magias e Descansos em modal com a revisão existente; Teste de perícia com perícias/atributos/resistências; Iniciativa rola direto; Condições leva à ficha em `#condicoes`); atividade recente com rótulo da rolagem.
+- Contrato: `DiceRoll.label` opcional; `DiceOverlayController.quickRoll/endQuick` e `hydrate(characterId?)`; a mesa 3D não remonta mais ao nascer em celular e tolera 500 ms de recriação antes de cair no RNG.

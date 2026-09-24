@@ -21,8 +21,21 @@ export interface DiceOverlayOpenOptions {
   readonly formula?: string;
 }
 
+/** Rolagem rápida disparada fora do modal (ex.: painel de Dados em Ações). */
+export interface QuickRollRequest {
+  readonly expression: DiceExpression;
+  readonly purpose?: DicePurpose;
+  readonly label?: string;
+  readonly characterId?: Uuid;
+}
+
 export interface DiceOverlayState {
   readonly open: boolean;
+  /**
+   * `true` enquanto uma rolagem rápida está na tela sem o modal: o palco 3D cobre
+   * a tela, o dado cai e fica visível por alguns segundos depois de parar.
+   */
+  readonly quick: boolean;
   readonly source?: DiceOverlaySource;
   readonly characterId?: Uuid;
   readonly purpose: DicePurpose;
@@ -72,7 +85,12 @@ export interface DiceOverlayController {
   setMode(mode: DiceMode): void;
   roll(): Promise<Result<DiceRoll, AppError>>;
   reroll(roll?: DiceRoll): Promise<Result<DiceRoll, AppError>>;
-  hydrate(): Promise<Result<DiceHistoryPage, AppError>>;
+  /** Rola sem abrir o modal: o dado cai direto na tela (ou pelo RNG, sem mesa 3D). */
+  quickRoll(request: QuickRollRequest): Promise<Result<DiceRoll, AppError>>;
+  /** Tira da tela o dado da rolagem rápida. */
+  endQuick(): void;
+  /** Carrega o histórico salvo; com `characterId`, passa a olhar as rolagens desse personagem. */
+  hydrate(characterId?: Uuid): Promise<Result<DiceHistoryPage, AppError>>;
   /**
    * Liga/desliga o modo físico. Só o `PhysicalDiceStage` sabe se a mesa 3D
    * existe de verdade (WebGL pode falhar, `prefers-reduced-motion` pode estar
@@ -103,6 +121,8 @@ export interface DiceOverlayController {
 const PHYSICS_TIMEOUT_MS = 12_000;
 
 const DEFAULT_FORMULA = "1d20";
+/** Quanto a mesa pode sumir (recriação) antes de a rolagem em voo cair no RNG. */
+const PHYSICS_REMOUNT_GRACE_MS = 500;
 
 export function createDiceOverlayController(options: DiceOverlayControllerOptions): DiceOverlayController {
   const listeners = new Set<DiceOverlayListener>();
@@ -112,6 +132,7 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
   const initialParsed = parseDiceFormula(initialFormula);
   let state: DiceOverlayState = {
     open: false,
+    quick: false,
     purpose: "free",
     formula: initialFormula,
     mode: "normal",
@@ -124,6 +145,23 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
 
   /** Só vira `true` quando o palco 3D confirma que montou a mesa. */
   let physicsAvailable = false;
+  /** Quem espera a mesa montar para decidir entre física e RNG (primeira rolagem rápida). */
+  let physicsWaiters: Array<(available: boolean) => void> = [];
+  /** Adia a desistência da física quando a mesa some só pela recriação. */
+  let declineTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** A mesa monta de forma assíncrona (chunk three.js + WebGL); espera um pouco antes de cair no RNG. */
+  function waitForPhysics(timeoutMs: number): Promise<boolean> {
+    if (physicsAvailable) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        physicsWaiters = physicsWaiters.filter((waiter) => waiter !== done);
+        resolve(physicsAvailable);
+      }, timeoutMs);
+      const done = (available: boolean) => { clearTimeout(timer); resolve(available); };
+      physicsWaiters.push(done);
+    });
+  }
   /** Resolve a Promise de `roll()` quando a física devolve o resultado. */
   let pendingResolve: ((result: Result<DiceRoll, AppError>) => void) | null = null;
   let pendingTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -145,12 +183,14 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
     return options.history.append({ roll, characterId: roll.characterId });
   }
 
-  function metaFor(metadataSource?: DiceRoll): RollMeta {
+  function metaFor(metadataSource?: Pick<DiceRoll, "purpose" | "characterId" | "label">): RollMeta {
+    const label = metadataSource?.label;
     return {
       id: idGenerator.uuid(),
       timestamp: clock.now(),
       purpose: metadataSource?.purpose ?? state.purpose,
       characterId: metadataSource?.characterId ?? state.characterId,
+      ...(label ? { label } : {}),
     };
   }
 
@@ -180,7 +220,7 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
     pendingResolve = null;
   }
 
-  async function executeRollWithRng(expressionOverride?: DiceExpression, metadataSource?: DiceRoll): Promise<Result<DiceRoll, AppError>> {
+  async function executeRollWithRng(expressionOverride?: DiceExpression, metadataSource?: Pick<DiceRoll, "purpose" | "characterId" | "label">): Promise<Result<DiceRoll, AppError>> {
     const expressionResult = expressionOverride ? ok(expressionOverride) : expressionForRoll();
     if (!expressionResult.ok) {
       publish({ status: "error", awaitingPhysics: false, validationError: expressionResult.error.message, persistenceError: undefined });
@@ -201,7 +241,7 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
    * responder dentro de `PHYSICS_TIMEOUT_MS`, cai no RNG para o botão não
    * ficar girando indefinidamente.
    */
-  function executeRollWithPhysics(expressionOverride?: DiceExpression, metadataSource?: DiceRoll): Promise<Result<DiceRoll, AppError>> {
+  function executeRollWithPhysics(expressionOverride?: DiceExpression, metadataSource?: Pick<DiceRoll, "purpose" | "characterId" | "label">): Promise<Result<DiceRoll, AppError>> {
     const expressionResult = expressionOverride ? ok(expressionOverride) : expressionForRoll();
     if (!expressionResult.ok) {
       publish({ status: "error", awaitingPhysics: false, validationError: expressionResult.error.message, persistenceError: undefined });
@@ -236,7 +276,7 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
     });
   }
 
-  function executeRoll(expressionOverride?: DiceExpression, metadataSource?: DiceRoll): Promise<Result<DiceRoll, AppError>> {
+  function executeRoll(expressionOverride?: DiceExpression, metadataSource?: Pick<DiceRoll, "purpose" | "characterId" | "label">): Promise<Result<DiceRoll, AppError>> {
     return physicsAvailable
       ? executeRollWithPhysics(expressionOverride, metadataSource)
       : executeRollWithRng(expressionOverride, metadataSource);
@@ -273,7 +313,22 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
         pendingResolve(err({ code: "validation-error", field: "roll", message: "Rolagem cancelada." }));
         clearPending();
       }
-      publish({ open: false, awaitingPhysics: false, pendingExpression: undefined, pendingMeta: undefined, status: "idle" });
+      publish({ open: false, quick: false, awaitingPhysics: false, pendingExpression: undefined, pendingMeta: undefined, status: "idle" });
+    },
+    async quickRoll(request) {
+      const metadata = { purpose: request.purpose ?? "free", characterId: request.characterId ?? state.characterId, ...(request.label ? { label: request.label } : {}) };
+      publish({ quick: true, validationError: undefined, persistenceError: undefined });
+      // Primeira rolagem rápida: a mesa ainda está montando. Sem ela, o RNG decide na hora.
+      if (!physicsAvailable) await waitForPhysics(2_500);
+      return executeRoll(request.expression, metadata);
+    },
+    endQuick() {
+      if (!state.quick) return;
+      if (!state.open && pendingResolve) {
+        pendingResolve(err({ code: "validation-error", field: "roll", message: "Rolagem cancelada." }));
+        clearPending();
+      }
+      publish({ quick: false, ...(state.open ? {} : { awaitingPhysics: false, pendingExpression: undefined, pendingMeta: undefined }) });
     },
     setFormula(formula) {
       const parsed = parseDiceFormula(formula);
@@ -303,7 +358,8 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
       if (!roll) return Promise.resolve(err({ code: "validation-error", field: "result", message: "Faça uma rolagem antes de rolar novamente." }));
       return executeRoll(roll.expression, roll);
     },
-    async hydrate() {
+    async hydrate(characterId) {
+      if (characterId !== undefined && characterId !== state.characterId) publish({ characterId });
       // `open()` dispara a hidratação, que pode terminar com uma rolagem já em
       // curso — e uma rolagem física fica no ar por segundos. Publicar o status
       // do histórico por cima apagaria o "rolando" com os dados ainda caindo.
@@ -322,17 +378,29 @@ export function createDiceOverlayController(options: DiceOverlayControllerOption
     },
     setPhysicsAvailable(available) {
       physicsAvailable = available;
+      const waiters = physicsWaiters;
+      physicsWaiters = [];
+      waiters.forEach((waiter) => waiter(available));
+      if (declineTimer !== null) { clearTimeout(declineTimer); declineTimer = null; }
       // A mesa morreu com uma rolagem em voo (contexto WebGL perdido, overlay
-      // trocando de variante): fecha pelo RNG agora em vez de esperar o teto.
-      if (!available && pendingResolve) controller.declinePhysics();
+      // trocando de variante): fecha pelo RNG. Espera um instante antes, porque
+      // a mesa também some por um quadro quando é recriada (resize, troca de modo).
+      if (!available && pendingResolve) {
+        declineTimer = setTimeout(() => {
+          declineTimer = null;
+          if (!physicsAvailable && pendingResolve) controller.declinePhysics();
+        }, PHYSICS_REMOUNT_GRACE_MS);
+      }
     },
     declinePhysics() {
       const expr = state.pendingExpression;
+      const meta = state.pendingMeta;
       const resolve = pendingResolve;
       if (!expr || !resolve) return;
       clearPending();
       publish({ pendingExpression: undefined, pendingMeta: undefined });
-      void executeRollWithRng(expr).then(resolve);
+      // Mantém propósito e rótulo da rolagem original ("Teste de perícia (…)").
+      void executeRollWithRng(expr, meta).then(resolve);
     },
     async onPhysicsResult(values) {
       const expr = state.pendingExpression;

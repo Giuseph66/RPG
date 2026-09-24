@@ -1,11 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 
-import { Button, InlineStatus, Input } from "@components/ui";
-import type { DiceRoll } from "@domain/contracts/dice";
+import { AppModal, Button, InlineStatus, Input } from "@components/ui";
+import { ArrowsClockwise, CaretRight, ClockCounterClockwise } from "@phosphor-icons/react";
+import {
+  GiBed,
+  GiCoffeeCup,
+  GiCrossedSwords,
+  GiD4,
+  GiD10,
+  GiDiceEightFacesEight,
+  GiDiceSixFacesSix,
+  GiDiceTwentyFacesTwenty,
+  GiFlame,
+  GiSkills,
+  GiSkullCrossedBones,
+  GiSparkles,
+  GiWingfoot,
+} from "react-icons/gi";
+import type { DicePurpose, DiceRoll } from "@domain/contracts/dice";
+import type { Ability, DiceFaces, Skill } from "@domain/contracts/primitives";
+import heroArt from "../../assets/art/textures/fundo-dado.webp";
 import type { CastPreview } from "@domain/contracts/definitions/spell";
 import type { RuleResult } from "@domain/contracts/rules";
 
-import type { ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionSourceRef, ActionsProps } from "./types";
+import type { ActionAttackRoll, ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionRollDice, ActionSourceRef, ActionSpellRoll, ActionsProps } from "./types";
+import { ABILITY_LABELS, SKILL_ABILITY, SKILL_LABELS } from "@features/character/sheet/mapping";
 import styles from "./actions.module.css";
 
 const KIND_LABELS: Record<ActionCapabilityKind, string> = {
@@ -39,6 +59,7 @@ function castPreviewOf(preview: ActionPreview | undefined): CastPreview | undefi
 }
 
 function sourceLabel(source: ActionSourceRef): string {
+  if (typeof source !== "object" || source === null) return "Fonte não registrada";
   if ("chapter" in source) {
     const page = source.printedPage === undefined ? "" : `, p. ${source.printedPage}`;
     return `${source.chapter}${page}${source.section ? ` · ${source.section}` : ""}`;
@@ -75,7 +96,7 @@ function previewDetails(preview: ActionPreview | undefined): ActionPreviewDetail
         status: preview.status,
         effects: preview.effects.map((effect) => effectLabel(effect.kind)),
         explanations: preview.explanations.map((explanation) => valueLabel(explanation.value)),
-        pending: [], blocked: [], sources: preview.sourceRefs,
+        pending: [], blocked: [], sources: preview.sourceRefs ?? [],
       };
     }
     if (preview.status === "needsInput") {
@@ -86,17 +107,17 @@ function previewDetails(preview: ActionPreview | undefined): ActionPreviewDetail
         explanations: [],
         pending: [...preview.requests.map((request) => request.reason), ...(cast?.interventionsRequired.map((item) => item.reason) ?? [])],
         blocked: [],
-        sources: preview.sourceRefs,
+        sources: preview.sourceRefs ?? [],
       };
     }
-    return { status: preview.status, effects: [], explanations: [], pending: [], blocked: preview.errors.map((error) => error.message), sources: preview.sourceRefs };
+    return { status: preview.status, effects: [], explanations: [], pending: [], blocked: preview.errors.map((error) => error.message), sources: preview.sourceRefs ?? [] };
   }
   return {
     effects: [],
     explanations: [],
     pending: preview.interventionsRequired.map((item) => item.reason),
     blocked: [],
-    sources: preview.sourceRefs,
+    sources: preview.sourceRefs ?? [],
   };
 }
 
@@ -205,7 +226,7 @@ function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitti
     {details.explanations.length ? <div className={styles.explanations}><h3>Explicação</h3><ul className={styles.detailList}>{details.explanations.map((explanation, index) => <li key={`${explanation}-${index}`}>{explanation}</li>)}</ul></div> : null}
     {details.pending.length ? <InlineStatus tone="warning" assertive>{details.pending.join(" ")}</InlineStatus> : null}
     {state.reasons.length && state.status !== "available" ? <InlineStatus tone={state.status === "pending" ? "warning" : "error"} assertive>{state.reasons.join(" ")}</InlineStatus> : null}
-    <div className={styles.provenance}><h3>Fonte</h3>{(capability.sourceRefs?.length || details.sources.length) ? <ul className={styles.detailList}>{[...(capability.sourceRefs ?? []), ...details.sources].map((source, index) => <li key={`${sourceLabel(source)}-${index}`}>{sourceLabel(source)}</li>)}</ul> : <p className={styles.muted}>Fonte não registrada.</p>}</div>
+    <div className={styles.provenance}><h3>Fonte</h3>{(capability.sourceRefs?.length || details.sources.length) ? <ul className={styles.detailList}>{[...(capability.sourceRefs ?? []), ...details.sources].filter((source): source is ActionSourceRef => Boolean(source)).map((source, index) => <li key={`${sourceLabel(source)}-${index}`}>{sourceLabel(source)}</li>)}</ul> : <p className={styles.muted}>Fonte não registrada.</p>}</div>
     <div className={styles.confirmRow}><Button size="lg" disabled={disabled} disabledReason={disabledReason} busy={submitting} onClick={onConfirm}>Confirmar execução</Button><span className={styles.commandHint}>Comando {String(capability.commandId)}</span></div>
   </section>;
 }
@@ -216,26 +237,307 @@ function resultMessage(result: RuleResult): { readonly tone: "success" | "warnin
   return { tone: "error", message: result.errors.map((error) => error.message).join(" ") || "O dispatcher rejeitou a execução." };
 }
 
+/** Uma prévia malformada não pode derrubar a página inteira: a revisão mostra um aviso no lugar. */
+class ReviewBoundary extends Component<{ readonly children: ReactNode; readonly resetKey?: string }, { readonly failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } { return { failed: true }; }
+  override componentDidCatch(error: unknown, info: ErrorInfo): void { console.error("Falha ao montar a revisão da ação", error, info.componentStack); }
+  override componentDidUpdate(previous: { readonly resetKey?: string }): void {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) this.setState({ failed: false });
+  }
+  override render(): ReactNode {
+    return this.state.failed ? <InlineStatus tone="error">Não foi possível montar a revisão desta ação. Escolha outra opção ou recarregue a página.</InlineStatus> : this.props.children;
+  }
+}
+
 function LoadingState() {
   return <section className={styles.state} role="status" aria-live="polite"><span className={styles.stateMark} aria-hidden="true">◌</span><h1>Carregando capacidades</h1><p>Consultando ações disponíveis para a sessão.</p></section>;
 }
 
-export function Actions({ character, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel }: ActionsProps) {
+// ------------------------------------------------------------------ dados
+
+const QUICK_DICE: readonly { readonly faces: DiceFaces; readonly icon: ReactNode }[] = [
+  { faces: 4, icon: <GiD4 /> },
+  { faces: 6, icon: <GiDiceSixFacesSix /> },
+  { faces: 8, icon: <GiDiceEightFacesEight /> },
+  { faces: 20, icon: <GiDiceTwentyFacesTwenty /> },
+  { faces: 100, icon: <GiD10 /> },
+];
+
+const DIE_ICONS: Partial<Record<number, ReactNode>> = Object.fromEntries(QUICK_DICE.map((die) => [die.faces, die.icon]));
+
+const PURPOSE_LABELS: Readonly<Record<DicePurpose, string>> = {
+  free: "Rolagem livre",
+  attack: "Ataque",
+  damage: "Dano",
+  healing: "Cura",
+  "saving-throw": "Teste de resistência",
+  "skill-check": "Teste",
+  initiative: "Iniciativa",
+  "death-save": "Salvamento contra morte",
+  "ability-score-generation": "Geração de atributos",
+};
+
+/** 20/1 natural num único d20 que contou no resultado. */
+function criticalOf(roll: DiceRoll | undefined): "success" | "failure" | undefined {
+  if (!roll || roll.expression.faces !== 20) return undefined;
+  const kept = roll.selectedIndexes.length ? roll.selectedIndexes.map((index) => roll.rawDice[index]) : roll.rawDice;
+  if (kept.length !== 1) return undefined;
+  if (kept[0] === 20) return "success";
+  if (kept[0] === 1) return "failure";
+  return undefined;
+}
+
+function rollTitle(roll: DiceRoll): string {
+  return roll.label ?? PURPOSE_LABELS[roll.purpose];
+}
+
+function rollFormula(roll: DiceRoll): string {
+  const { quantity, faces, modifier } = roll.expression;
+  const base = `${quantity > 1 ? quantity : ""}d${faces}`;
+  return modifier ? `${base}${modifier > 0 ? "+" : "−"}${Math.abs(modifier)}` : base;
+}
+
+function rollTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (date.toDateString() === today.toDateString()) return `Hoje, ${time}`;
+  if (date.toDateString() === yesterday.toDateString()) return `Ontem, ${time}`;
+  return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}, ${time}`;
+}
+
+/** Painel com a moldura da ficha: bronze, cantos dourados e título Cinzel. */
+function Panel({ id, title, tagline, action, children, className }: { readonly id: string; readonly title: string; readonly tagline?: string; readonly action?: ReactNode; readonly children: ReactNode; readonly className?: string }) {
+  return (
+    <section className={[styles.panel, className ?? ""].filter(Boolean).join(" ")} aria-labelledby={id}>
+      <span className={styles.cornerTl} aria-hidden="true" /><span className={styles.cornerTr} aria-hidden="true" /><span className={styles.cornerBl} aria-hidden="true" /><span className={styles.cornerBr} aria-hidden="true" />
+      <div className={styles.panelHeader}>
+        <h2 id={id} className={styles.panelTitle}>{title}</h2>
+        {tagline || action ? <div className={styles.panelAside}>{tagline ? <span className={styles.panelTagline}>{tagline}</span> : null}{action}</div> : null}
+      </div>
+      <span className={styles.panelRule} aria-hidden="true" />
+      {children}
+    </section>
+  );
+}
+
+function DicePanel({ dice }: { readonly dice?: ActionsProps["dice"] }) {
+  const last = dice?.lastResult ?? dice?.history[0];
+  const initialFaces = QUICK_DICE.some((die) => die.faces === last?.expression.faces) ? last!.expression.faces : 20;
+  const [faces, setFaces] = useState<DiceFaces>(initialFaces);
+  const critical = criticalOf(last);
+  const canRoll = Boolean(dice?.roll);
+  const roll = (next: DiceFaces) => {
+    setFaces(next);
+    dice?.roll?.({ faces: next, purpose: "free" });
+  };
+  return (
+    <Panel id="actions-dice-title" title="Dados" tagline="Que a sorte te acompanhe." action={dice?.openTable ? <button type="button" className={styles.iconButton} aria-label="Abrir mesa de dados e histórico" onClick={dice.openTable}><ClockCounterClockwise aria-hidden="true" /></button> : undefined}>
+      <div className={styles.diceLayout}>
+        <div className={styles.lastResult} aria-live="polite">
+          <span className={styles.lastLabel}>Último resultado</span>
+          <strong className={styles.lastValue}>{dice?.rolling ? "…" : last ? last.total : "—"}</strong>
+          <span className={[styles.lastOutcome, critical === "success" ? styles.outcomeSuccess : critical === "failure" ? styles.outcomeFailure : ""].join(" ")}>
+            {dice?.rolling ? "Rolando…" : critical === "success" ? "Sucesso Crítico!" : critical === "failure" ? "Falha Crítica!" : last ? `${rollFormula(last)} · ${rollTitle(last)}` : "Nenhuma rolagem ainda"}
+          </span>
+        </div>
+        <div className={styles.diceControls}>
+          <div className={styles.dicePicker} role="group" aria-label="Rolar um dado">
+            {QUICK_DICE.map((die) => (
+              <button key={die.faces} type="button" className={[styles.dieButton, faces === die.faces ? styles.dieButtonActive : ""].join(" ")} aria-pressed={faces === die.faces} aria-label={`Rolar d${die.faces}`} disabled={!canRoll || dice?.rolling} onClick={() => roll(die.faces)}>
+                <span className={styles.dieIcon} aria-hidden="true">{die.icon}</span>
+                <span>d{die.faces}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className={styles.rerollButton} disabled={!canRoll || dice?.rolling} onClick={() => roll(faces)}>
+            <ArrowsClockwise aria-hidden="true" />{last ? "Rolar novamente" : `Rolar d${faces}`}
+          </button>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------- ações rápidas
+
+type QuickActionId = "attack" | "spells" | "skills" | "initiative" | "short-rest" | "long-rest";
+
+const QUICK_ACTIONS: readonly { readonly id: QuickActionId; readonly title: string; readonly subtitle: string; readonly icon: ReactNode }[] = [
+  { id: "attack", title: "Ataque", subtitle: "Role o ataque e dano", icon: <GiCrossedSwords /> },
+  { id: "spells", title: "Magias", subtitle: "Conjure suas magias", icon: <GiFlame /> },
+  { id: "skills", title: "Teste de perícia", subtitle: "Role um teste de atributo", icon: <GiSkills /> },
+  { id: "initiative", title: "Iniciativa", subtitle: "Role a iniciativa do combate", icon: <GiWingfoot /> },
+  { id: "short-rest", title: "Descanso curto", subtitle: "Recupere recursos", icon: <GiCoffeeCup /> },
+  { id: "long-rest", title: "Descanso longo", subtitle: "Restaure seus pontos de vida", icon: <GiBed /> },
+];
+
+const ABILITY_ORDER: readonly Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
+
+function formatModifier(value: number): string {
+  return value >= 0 ? `+${value}` : `−${Math.abs(value)}`;
+}
+
+type TestTab = "skills" | "abilities" | "saves";
+
+/** Perícias, atributos e resistências da ficha: tocar rola 1d20 + modificador na tela. */
+function SkillTestModal({ open, onClose, derived, onRoll }: { readonly open: boolean; readonly onClose: () => void; readonly derived?: ActionsProps["derived"]; readonly onRoll?: (faces: DiceFaces, modifier: number, purpose: DicePurpose, label: string) => void }) {
+  const [tab, setTab] = useState<TestTab>("skills");
+  const rows: readonly { readonly key: string; readonly name: string; readonly meta: string; readonly modifier: number; readonly proficient: boolean; readonly purpose: DicePurpose; readonly label: string }[] = !derived ? [] : tab === "skills"
+    ? [...derived.skills].sort((a, b) => SKILL_LABELS[a.skill].localeCompare(SKILL_LABELS[b.skill], "pt-BR")).map((skill) => ({ key: skill.skill, name: SKILL_LABELS[skill.skill], meta: ABILITY_LABELS[SKILL_ABILITY[skill.skill as Skill]].short, modifier: skill.modifier.value, proficient: skill.proficient, purpose: "skill-check" as const, label: `Teste de perícia (${SKILL_LABELS[skill.skill]})` }))
+    : tab === "abilities"
+      ? ABILITY_ORDER.flatMap((ability) => { const entry = derived.abilityScores.find((item) => item.ability === ability); return entry ? [{ key: ability, name: ABILITY_LABELS[ability].name, meta: `Valor ${entry.score.value}`, modifier: entry.modifier.value, proficient: false, purpose: "skill-check" as const, label: `Teste de ${ABILITY_LABELS[ability].name}` }] : []; })
+      : ABILITY_ORDER.flatMap((ability) => { const entry = derived.savingThrows.find((item) => item.ability === ability); return entry ? [{ key: ability, name: ABILITY_LABELS[ability].name, meta: entry.proficient ? "Proficiente" : ABILITY_LABELS[ability].short, modifier: entry.modifier.value, proficient: entry.proficient, purpose: "saving-throw" as const, label: `Resistência de ${ABILITY_LABELS[ability].name}` }] : []; });
+  return (
+    <AppModal open={open} title="Teste de perícia" onClose={onClose} className={styles.actionModal}>
+      <div className={styles.tabs} role="tablist" aria-label="Tipo de teste">
+        {([["skills", "Perícias"], ["abilities", "Atributos"], ["saves", "Resistências"]] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={[styles.tab, tab === id ? styles.tabActive : ""].join(" ")} onClick={() => setTab(id)}>{label}</button>
+        ))}
+      </div>
+      {!derived ? <p className={styles.muted}>Os valores derivados da ficha ainda não estão disponíveis.</p> : (
+        <div className={styles.testGrid}>
+          {rows.map((row) => (
+            <button key={row.key} type="button" className={styles.testRow} disabled={!onRoll} aria-label={`Rolar ${row.label} (${formatModifier(row.modifier)})`} onClick={() => { onRoll?.(20, row.modifier, row.purpose, row.label); onClose(); }}>
+              <span className={[styles.testDot, row.proficient ? styles.testDotActive : ""].join(" ")} aria-hidden="true" />
+              <span className={styles.testCopy}><strong>{row.name}</strong><small>{row.meta}</small></span>
+              <span className={styles.testModifier}>{formatModifier(row.modifier)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </AppModal>
+  );
+}
+
+// ------------------------------------------------------------- atividade
+
+function ActivityPanel({ dice }: { readonly dice?: ActionsProps["dice"] }) {
+  const [expanded, setExpanded] = useState(false);
+  const history = dice?.history ?? [];
+  const visible = history.slice(0, expanded ? 12 : 3);
+  return (
+    <Panel id="activity-title" title="Atividade recente" action={history.length > 3 ? <button type="button" className={styles.panelLink} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? "Ver menos" : "Ver todas"}<CaretRight aria-hidden="true" /></button> : undefined}>
+      {visible.length === 0 ? <p className={styles.emptyActivity}>Suas rolagens aparecem aqui depois do primeiro lance.</p> : (
+        <ol className={styles.activityList}>
+          {visible.map((roll) => {
+            const critical = criticalOf(roll);
+            return (
+              <li key={roll.id}>
+                <button type="button" className={styles.activityRow} disabled={!dice?.openTable} onClick={dice?.openTable} aria-label={`${rollFormula(roll)} · ${rollTitle(roll)}: ${roll.total}${critical === "success" ? ", sucesso crítico" : critical === "failure" ? ", falha crítica" : ""}. Abrir histórico.`}>
+                  <span className={[styles.activityDie, critical === "success" ? styles.activityDieCrit : critical === "failure" ? styles.activityDieFumble : ""].join(" ")} aria-hidden="true">{DIE_ICONS[roll.expression.faces] ?? <GiDiceTwentyFacesTwenty />}</span>
+                  <span className={styles.activityCopy}>
+                    <span className={styles.activityTitle}><strong>{rollFormula(roll)}</strong> · {rollTitle(roll)}</span>
+                    <span className={styles.activityTime}>{rollTime(roll.timestamp)}</span>
+                  </span>
+                  <span className={styles.activityResult}>
+                    <strong>{roll.total}</strong>
+                    {critical ? <small className={critical === "success" ? styles.outcomeSuccess : styles.outcomeFailure}>{critical === "success" ? "Sucesso Crítico!" : "Falha Crítica!"}</small> : null}
+                  </span>
+                  <CaretRight className={styles.activityChevron} aria-hidden="true" />
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Panel>
+  );
+}
+
+// ------------------------------------------------------------ rolagens
+
+function diceText(dice: ActionRollDice): string {
+  return `${dice.quantity}d${dice.faces}${dice.modifier ? `${dice.modifier > 0 ? "+" : "−"}${Math.abs(dice.modifier)}` : ""}`;
+}
+
+type RollFn = (faces: DiceFaces, modifier: number, purpose: DicePurpose, label: string, quantity?: number) => void;
+
+/** Botões que rolam direto na tela: ataque (1d20 + bônus) e dano/cura com os dados da ficha. */
+function RollChip({ label, detail, tone, onClick, disabled }: { readonly label: string; readonly detail: string; readonly tone?: "attack" | "damage" | "healing" | "save"; readonly onClick?: () => void; readonly disabled?: boolean }) {
+  const className = [styles.rollChip, tone === "damage" ? styles.rollChipDamage : tone === "healing" ? styles.rollChipHealing : tone === "save" ? styles.rollChipSave : ""].join(" ");
+  if (!onClick) return <span className={className}><small>{label}</small><strong>{detail}</strong></span>;
+  return <button type="button" className={className} disabled={disabled} onClick={onClick} aria-label={`Rolar ${label} ${detail}`}><small>{label}</small><strong>{detail}</strong></button>;
+}
+
+function AttackRolls({ attacks, unequipped, roll }: { readonly attacks: readonly ActionAttackRoll[]; readonly unequipped: readonly string[]; readonly roll?: RollFn }) {
+  const weapons = attacks.filter((attack) => attack.id !== "unarmed");
+  return (
+    <section className={styles.rollSection} aria-label="Rolar ataque">
+      {weapons.length === 0 ? <p className={styles.rollHint}>Nenhuma arma equipada{unequipped.length ? `: ${unequipped.join(", ")} está no inventário — equipe na ficha para rolar o ataque com ela` : ""}.</p> : null}
+      {attacks.map((attack) => (
+        <div key={attack.id} className={styles.rollRow}>
+          <span className={styles.rollName}><strong>{attack.name}</strong>{attack.damage?.typeLabel ? <small>Dano {attack.damage.typeLabel}</small> : attack.fixedDamage ? <small>{attack.fixedDamage}</small> : null}</span>
+          <span className={styles.rollChips}>
+            <RollChip label="Ataque" detail={formatModifier(attack.attackBonus)} tone="attack" onClick={roll ? () => roll(20, attack.attackBonus, "attack", `Ataque (${attack.name})`) : undefined} />
+            {attack.damage ? <RollChip label="Dano" detail={diceText(attack.damage)} tone="damage" onClick={roll ? () => roll(attack.damage!.faces, attack.damage!.modifier, "damage", `Dano (${attack.name})`, attack.damage!.quantity) : undefined} /> : null}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function SpellRolls({ spells, roll }: { readonly spells: readonly ActionSpellRoll[]; readonly roll?: RollFn }) {
+  if (spells.length === 0) return <p className={styles.rollHint}>Escolha magias na ficha (Magias → Gerenciar) para rolá-las aqui.</p>;
+  return (
+    <section className={styles.rollSection} aria-label="Rolar magia">
+      {spells.map((spell) => (
+        <div key={spell.id} className={styles.rollRow}>
+          <span className={styles.rollName}><strong>{spell.name}</strong><small>{spell.level === 0 ? "Truque" : `${spell.level}º círculo`}{spell.effect?.typeLabel ? ` · ${spell.effect.kind === "healing" ? "cura" : `dano ${spell.effect.typeLabel}`}` : ""}</small></span>
+          <span className={styles.rollChips}>
+            {spell.attackBonus !== undefined ? <RollChip label="Ataque" detail={formatModifier(spell.attackBonus)} tone="attack" onClick={roll ? () => roll(20, spell.attackBonus!, "attack", `Ataque mágico (${spell.name})`) : undefined} /> : null}
+            {spell.saveDc !== undefined ? <RollChip label={`CD ${spell.saveAbility ?? ""}`.trim()} detail={String(spell.saveDc)} tone="save" /> : null}
+            {spell.effect ? <RollChip label={spell.effect.kind === "healing" ? "Cura" : "Dano"} detail={diceText(spell.effect)} tone={spell.effect.kind} onClick={roll ? () => roll(spell.effect!.faces, spell.effect!.modifier, spell.effect!.kind === "healing" ? "healing" : "damage", `${spell.effect!.kind === "healing" ? "Cura" : "Dano"} (${spell.name})`, spell.effect!.quantity) : undefined} /> : null}
+            {spell.attackBonus === undefined && spell.saveDc === undefined && !spell.effect ? <span className={styles.rollNone}>Sem rolagem</span> : null}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// ------------------------------------------------------------- página
+
+type CapabilityGroup = "attack" | "spells" | "rest";
+
+const GROUP_TITLES: Readonly<Record<CapabilityGroup, string>> = { attack: "Ataque", spells: "Magias e recursos", rest: "Descanso" };
+
+function groupOf(capability: ActionCapability): CapabilityGroup {
+  if (capability.kind === "attack" || capability.kind === "damage" || capability.kind === "item") return "attack";
+  if (capability.kind === "rest") return "rest";
+  return "spells";
+}
+
+export function Actions({ character, derived, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [] }: ActionsProps) {
   const [selectedId, setSelectedId] = useState<string>();
+  const [openGroup, setOpenGroup] = useState<CapabilityGroup>();
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ readonly tone: "success" | "warning" | "error" | "info"; readonly message: string }>();
   const [submitting, setSubmitting] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const submittedCommands = useRef(new Set<string>());
 
   const selected = capabilities.find((capability) => capability.id === selectedId);
+  const hydrate = dice?.hydrate;
 
   useEffect(() => {
     setSelectedId(undefined);
+    setOpenGroup(undefined);
     setFeedback(undefined);
     setSubmitting(false);
     setInputValue("");
     submittedCommands.current.clear();
   }, [character?.id]);
+
+  // Uma vez por personagem: o histórico salvo alimenta "Último resultado" e a atividade recente.
+  const hydrateRef = useRef(hydrate);
+  hydrateRef.current = hydrate;
+  useEffect(() => { hydrateRef.current?.(); }, [character?.id]);
 
   // Reseta o input ao trocar de capacidade selecionada: dano/cura ganha o default (nunca vazio,
   // para nunca bloquear a confirmação); CA de alvo sempre começa vazia (nunca inventa um valor).
@@ -249,7 +551,9 @@ export function Actions({ character, dice, capabilities = [], previews, availabl
 
   const selectedPreview = selected ? lookupPreview(selected, previews) : undefined;
   const selectedState = selected ? capabilityState(selected, selectedPreview, availableActions) : undefined;
-  const recentRolls = dice?.history.slice(0, 3) ?? [];
+  const groupCapabilities = openGroup ? capabilities.filter((capability) => groupOf(capability) === openGroup) : [];
+
+  const quickRoll = (faces: DiceFaces, modifier: number, purpose: DicePurpose, label: string, quantity?: number) => dice?.roll?.({ faces, modifier, purpose, label, ...(quantity && quantity > 1 ? { quantity } : {}) });
 
   const confirm = async () => {
     if (!selected || !selectedState || selectedState.status !== "available" || !onIntent || submittedCommands.current.has(String(selected.commandId))) return;
@@ -284,28 +588,75 @@ export function Actions({ character, dice, capabilities = [], previews, availabl
     setFeedback(undefined);
   };
 
+  const openQuickAction = (id: QuickActionId) => {
+    setFeedback(undefined);
+    if (id === "skills") { setSkillsOpen(true); return; }
+    if (id === "initiative") {
+      if (derived) quickRoll(20, derived.initiative.value, "initiative", "Iniciativa");
+      else setFeedback({ tone: "warning", message: "A iniciativa ainda não foi calculada para esta ficha." });
+      return;
+    }
+    if (id === "short-rest" || id === "long-rest") {
+      setOpenGroup("rest");
+      setSelectedId(capabilities.find((capability) => capability.id === `rest:${id === "short-rest" ? "short" : "long"}`)?.id);
+      return;
+    }
+    setOpenGroup(id === "attack" ? "attack" : "spells");
+    setSelectedId(undefined);
+  };
+
+  const closeGroup = () => {
+    setOpenGroup(undefined);
+    setSelectedId(undefined);
+  };
+
   return <section className={styles.actions} aria-labelledby="actions-title">
     <header className={styles.hero}>
+      <img className={styles.heroArt} src={heroArt} alt="" aria-hidden="true" />
+      <span className={styles.heroFade} aria-hidden="true" />
+      <span className={styles.cornerTl} aria-hidden="true" /><span className={styles.cornerTr} aria-hidden="true" /><span className={styles.cornerBl} aria-hidden="true" /><span className={styles.cornerBr} aria-hidden="true" />
       <div className={styles.heroCopy}>
-        <p className={styles.eyebrow}>MESA DE COMANDO · {character.name || "PERSONAGEM"}</p>
         <h1 id="actions-title">{title}</h1>
         <p className={styles.subtitle}>Grandes histórias nascem de pequenas decisões.</p>
-        <p className={styles.heroMotto}>ROLE. JÁ. NARE. SIGA EM FRENTE.</p>
+        <span className={styles.heroDivider} aria-hidden="true"><span /><GiSparkles /><span /></span>
+        <p className={styles.heroMotto}>Role. Aja. Narre.<br />Siga em frente.</p>
       </div>
-      <div className={styles.heroDie} aria-hidden="true"><svg viewBox="0 0 180 180"><path d="M90 10 158 50v80l-68 40-68-40V50L90 10Z"/><path d="M90 10v78m68-38L90 88l-68-38m68 38v82m0-82 68 42m-68-42-68 42"/><path d="m43 77 18-12 19 12-19 12-18-12Zm57-23 18-12 19 12-19 12-18-12Z"/><text x="90" y="119" textAnchor="middle">20</text></svg></div>
-      <div className={styles.availability} aria-label="Disponibilidade de ações"><span>Ações disponíveis</span><strong>{availableActions.length ? availableActions.join(" · ") : "Nenhuma informada"}</strong></div>
     </header>
-    {feedback ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
-    <section className={styles.quickPanel} aria-labelledby="capabilities-title">
-      <div className={styles.panelHeading}><div><p className={styles.eyebrow}>CAPACIDADES RESOLVIDAS</p><h2 id="capabilities-title">Ações rápidas</h2></div><span className={styles.count}>{capabilities.length}</span></div>
-      <p className={styles.quickIntro}>Escolha uma ação para revisar custos, efeitos e pendências antes de confirmar.</p>
-      {capabilities.length === 0 ? <p className={styles.muted}>Nenhuma capacidade foi fornecida pelo resolvedor.</p> : <div className={styles.capabilityList}>{capabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>}
-      {selected && selectedState ? <ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /> : <aside className={styles.emptyReview} aria-label="Revisão de capacidade"><span aria-hidden="true">◈</span><p>Selecione uma ação para conferir custo, efeitos e fonte antes de executar.</p></aside>}
-    </section>
-    <section className={styles.activityPanel} aria-labelledby="activity-title">
-      <div className={styles.panelHeading}><div><p className={styles.eyebrow}>REGISTRO DA SESSÃO</p><h2 id="activity-title">Atividade recente</h2></div><span className={styles.activityCaption}>Últimas rolagens</span></div>
-      {recentRolls.length ? <div className={styles.activityList}>{recentRolls.map((roll) => <article className={styles.activityItem} key={roll.id}><span className={styles.activityDie} aria-hidden="true">{roll.expression.faces}</span><div className={styles.activityCopy}><strong>{roll.expression.quantity}d{roll.expression.faces}</strong><span>{roll.rawDice.join(" + ") || "Rolagem registrada"}</span></div><strong className={styles.activityResult}>{roll.total}</strong></article>)}</div> : <p className={styles.emptyActivity}>Suas rolagens aparecem aqui depois do primeiro lance.</p>}
-    </section>
+    {feedback && !openGroup ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
+
+    <DicePanel dice={dice} />
+
+    <Panel id="quick-actions-title" title="Ações rápidas" tagline="Escolha sua próxima ação.">
+      <div className={styles.quickGrid}>
+        {QUICK_ACTIONS.map((action) => (
+          <button key={action.id} type="button" className={styles.quickCard} onClick={() => openQuickAction(action.id)}>
+            <span className={styles.quickIcon} aria-hidden="true">{action.icon}</span>
+            <span className={styles.quickCopy}><strong>{action.title}</strong><span>{action.subtitle}</span></span>
+            <CaretRight className={styles.quickChevron} aria-hidden="true" />
+          </button>
+        ))}
+        <button type="button" className={[styles.quickCard, styles.quickWide].join(" ")} disabled={!onOpenConditions} onClick={onOpenConditions}>
+          <span className={styles.quickIcon} aria-hidden="true"><GiSkullCrossedBones /></span>
+          <span className={styles.quickCopy}><strong>Condições</strong><span>Gerencie condições e efeitos{character.conditions.length ? ` · ${character.conditions.length} ativa${character.conditions.length === 1 ? "" : "s"}` : ""}</span></span>
+          <CaretRight className={styles.quickChevron} aria-hidden="true" />
+        </button>
+      </div>
+    </Panel>
+
+    <ActivityPanel dice={dice} />
+
+    <SkillTestModal open={skillsOpen} onClose={() => setSkillsOpen(false)} derived={derived} onRoll={dice?.roll ? quickRoll : undefined} />
+
+    <AppModal open={Boolean(openGroup)} title={openGroup ? GROUP_TITLES[openGroup] : "Ações"} onClose={closeGroup} className={styles.actionModal}>
+      {feedback ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
+      {openGroup === "attack" ? <AttackRolls attacks={attackRolls} unequipped={unequippedWeapons} roll={dice?.roll ? quickRoll : undefined} /> : null}
+      {openGroup === "spells" ? <SpellRolls spells={spellRolls} roll={dice?.roll ? quickRoll : undefined} /> : null}
+      {openGroup !== "rest" && groupCapabilities.length ? <h3 className={styles.modalSubheading}>Aplicar na ficha</h3> : null}
+      {groupCapabilities.length === 0 ? (openGroup === "rest" ? <p className={styles.muted}>Nenhum descanso disponível.</p> : null) : (
+        <div className={styles.capabilityList}>{groupCapabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>
+      )}
+      {selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
+    </AppModal>
   </section>;
 }
 

@@ -11,3 +11,31 @@
 .colorInput :global(input[type="color"]) { width: 100%; height: 2.5rem; min-height: 0; padding: .15rem; cursor: pointer; background: transparent; }
 .panel :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
 @media (max-width: 680px) { .panel { padding: var(--spacing-lg) var(--spacing-md); } .colorControls { padding-inline: var(--spacing-sm); } }
+
+/* Personagem ativo (dropdown) */
+.characterPicker { position: relative; display: grid; gap: .35rem; margin: 0 0 var(--spacing-xl); }
+.pickerIntro { margin: 0 0 .25rem; color: var(--color-text-muted); font-size: .85rem; }
+.dropdownButton { display: flex; align-items: center; gap: .7rem; width: 100%; min-height: 3.2rem; padding: .45rem .8rem; color: var(--color-text); background: linear-gradient(180deg, rgba(30, 24, 18, .92), rgba(12, 10, 8, .96)); border: 1px solid color-mix(in srgb, var(--color-secondary) 65%, transparent); border-radius: 8px; font: inherit; text-align: left; cursor: pointer; }
+.dropdownButton:focus-visible, .characterOption:focus-visible, .createOption:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.dropdownCaret { flex: 0 0 auto; color: var(--color-secondary); font-size: 1.1rem; transition: transform var(--motion-feedback) var(--motion-easing); }
+.dropdownCaretOpen { transform: rotate(180deg); }
+.dropdownPanel { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; display: grid; margin-top: .3rem; padding: .35rem; background: #0F1315; border: 1px solid color-mix(in srgb, var(--color-secondary) 55%, transparent); border-radius: 8px; box-shadow: 0 16px 36px rgba(0, 0, 0, .65); }
+/* Quatro opções visíveis (3,2rem + espaço); acima disso a lista rola e "Criar" fica fixo embaixo. */
+.dropdownList { display: grid; gap: .3rem; max-height: calc(4 * 3.2rem + 3 * .3rem); margin: 0; padding: 0; overflow-y: auto; list-style: none; scrollbar-width: thin; }
+.characterOption { display: flex; align-items: center; gap: .7rem; width: 100%; min-height: 3.2rem; padding: .4rem .7rem; color: var(--color-text); background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); border-radius: 6px; font: inherit; text-align: left; cursor: pointer; }
+.characterOption:hover { border-color: var(--color-secondary); }
+.characterOptionActive { border-color: var(--color-secondary); background: linear-gradient(180deg, rgba(48, 38, 24, .95), rgba(16, 14, 12, .95)); }
+.characterMark { flex: 0 0 auto; width: 1rem; height: 1rem; border: 2px solid var(--color-border); border-radius: 50%; }
+.characterOptionActive .characterMark { border-color: var(--color-secondary); background: radial-gradient(circle, var(--color-secondary) 45%, transparent 50%); }
+.characterCopy { display: grid; flex: 1; min-width: 0; line-height: 1.2; }
+.characterCopy strong { overflow: hidden; font-size: .98rem; text-overflow: ellipsis; white-space: nowrap; text-transform: capitalize; }
+.characterCopy small { color: var(--color-text-muted); font-size: .78rem; }
+.characterBadge { flex: 0 0 auto; padding: .1rem .5rem; color: #0B0D0E; background: var(--color-secondary); border-radius: 999px; font-size: .68rem; font-weight: 700; }
+.createOption { display: flex; align-items: center; gap: .6rem; min-height: 3rem; margin-top: .35rem; padding: .4rem .8rem; color: var(--color-secondary); background: none; border: 1px dashed color-mix(in srgb, var(--color-secondary) 60%, transparent); border-radius: 6px; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.createOption span { display: grid; place-items: center; width: 1.4rem; height: 1.4rem; color: #0B0D0E; background: var(--color-secondary); border-radius: 50%; font-weight: 700; }
+.createOption:hover { border-style: solid; }
+.draftGroup { display: grid; gap: .3rem; margin-top: .45rem; padding-top: .45rem; border-top: 1px solid rgba(190, 144, 91, .25); }
+.draftTitle { padding: 0 .2rem; color: var(--color-secondary); font-family: var(--typography-label-font-family); font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; }
+.draftOption { border-style: dashed; }
+.draftMark { display: grid; flex: 0 0 auto; place-items: center; width: 1.3rem; color: var(--color-secondary); font-size: .95rem; }
+.draftAction { flex: 0 0 auto; color: var(--color-secondary); font-size: .78rem; font-weight: 600; }

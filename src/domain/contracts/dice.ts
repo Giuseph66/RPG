@@ -41,6 +41,8 @@ export interface DiceRoll {
   readonly purpose: DicePurpose;
   readonly characterId?: Uuid;
   readonly commandId?: CommandId;
+  /** Contexto legível da rolagem ("Sobrevivência", "Espada Longa"), exibido no histórico. */
+  readonly label?: string;
   readonly timestamp: IsoTimestamp;
   readonly rawDice: readonly number[];
   readonly selectedIndexes: readonly number[];

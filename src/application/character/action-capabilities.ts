@@ -86,6 +86,12 @@ import { spendResource } from "@domain/rules/resources";
 import { castSpell, previewCast } from "@domain/spells";
 import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
 import { type ActionCapability, type ActionCapabilityKind } from "@features/actions/types";
+import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
+
+/** Nome impresso da magia (catálogo do cap. 11) para as que ainda não têm definição estruturada. */
+function bookSpellName(spellId: string): string | undefined {
+  return EXTRACTED_PHB_SPELLS.find((spell) => spell.id === spellId)?.name;
+}
 
 /** Uma rolagem que `action-dispatcher.ts` precisa gerar (com RNG real) antes de `resolve`. */
 export interface RollPlanRequest {
@@ -349,7 +355,8 @@ function buildSpellCapabilities(
           id,
           commandId: idGenerator.commandId(),
           kind: "spell",
-          label: String(spellRef.entityId),
+          label: bookSpellName(String(spellRef.entityId)) ?? String(spellRef.entityId),
+          description: "Magia do Livro do Jogador ainda sem automação: role e resolva o efeito na mesa.",
           status: "pending",
           pendingReasons: ["Definição da magia ausente no rule pack ativo; nada foi inventado no lugar."],
         });

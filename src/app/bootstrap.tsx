@@ -431,8 +431,19 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       // personagem ativo nunca é restaurado ao recarregar a página, mesmo com sucesso na
       // leitura. Bug pré-existente descoberto ao verificar o achado #1 de QA-004.
       const character = await services.character.select(settings.value.activeCharacterId);
-      if (!character.ok) throw new Error(character.error.message);
+      // Ficha apagada ou indisponível neste aparelho: segue sem personagem em vez de travar o boot.
+      if (!character.ok) void services.settings.update({ activeCharacterId: undefined });
     }
+
+    // Guarda o personagem ativo a cada troca (ficha aberta, seleção em Configurações), para
+    // que recarregar a página volte ao mesmo personagem.
+    let persistedCharacterId = settings.value.activeCharacterId;
+    services.character.store.subscribe(() => {
+      const id = services.character.store.getSnapshot().value?.id;
+      if (!id || id === persistedCharacterId) return;
+      persistedCharacterId = id;
+      void services.settings.update({ activeCharacterId: id });
+    });
 
     const campaigns = await services.campaign.list();
     if (!campaigns.ok) throw new Error(campaigns.error.message);

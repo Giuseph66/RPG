@@ -1,2 +1,2 @@
 export { SettingsPanel } from "./SettingsPanel";
-export type { SettingsPanelProps } from "./SettingsPanel";
+export type { SettingsCharacterOption, SettingsDraftOption, SettingsPanelProps } from "./SettingsPanel";

@@ -29,3 +29,16 @@ export interface CharacterSelectionProps {
   /** Nome legível da classe; sem ele o card mostra o id. */
   readonly resolveClassName?: (classId: string) => string | undefined;
 }
+
+/** Nome legível de cada etapa do assistente de criação (rascunhos). */
+export const DRAFT_STEP_LABELS: Readonly<Record<string, string>> = {
+  identity: "Identidade",
+  race: "Raça",
+  class: "Classe",
+  background: "Antecedente",
+  "ability-scores": "Atributos",
+  equipment: "Equipamento",
+  spells: "Magias",
+  details: "Detalhes",
+  review: "Revisão",
+};

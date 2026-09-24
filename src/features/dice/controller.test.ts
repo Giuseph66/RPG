@@ -213,4 +213,66 @@ describe("DiceOverlayController — rolagem decidida pela física", () => {
     expect(rng.calls).toBe(1);
     expect(controller.getSnapshot().awaitingPhysics).toBe(false);
   });
+
+  describe("rolagem rápida", () => {
+    it("rola sem abrir o modal e grava propósito e rótulo (sem mesa 3D, pelo RNG)", async () => {
+      vi.useFakeTimers();
+      try {
+        const rng = createSequenceRandomSource([17]);
+        const history = historyStub();
+        const controller = createDiceOverlayController({ history, rng, idGenerator: { uuid: () => id("30") }, clock });
+        controller.setPhysicsAvailable(false);
+        const pending = controller.quickRoll({ expression: { quantity: 1, faces: 20, modifier: 3, mode: "normal" }, purpose: "skill-check", label: "Teste de perícia (Sobrevivência)" });
+        await vi.advanceTimersByTimeAsync(3_000);
+        const result = await pending;
+        expect(result.ok && result.value).toEqual(expect.objectContaining({ total: 20, purpose: "skill-check", label: "Teste de perícia (Sobrevivência)" }));
+        expect(controller.getSnapshot().open).toBe(false);
+        expect(controller.getSnapshot().quick).toBe(true);
+        controller.endQuick();
+        expect(controller.getSnapshot().quick).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("espera a mesa recriada em vez de desistir da física na hora", async () => {
+      vi.useFakeTimers();
+      try {
+        const rng = createSequenceRandomSource([5]);
+        const history = historyStub();
+        const controller = createDiceOverlayController({ history, rng, idGenerator: { uuid: () => id("31") }, clock });
+        controller.setPhysicsAvailable(true);
+        const pending = controller.quickRoll({ expression: { quantity: 1, faces: 20, modifier: 0, mode: "normal" }, purpose: "initiative", label: "Iniciativa" });
+        await vi.advanceTimersByTimeAsync(0);
+        // A mesa some por um instante (recriação) e volta: a rolagem continua esperando a física.
+        controller.setPhysicsAvailable(false);
+        controller.setPhysicsAvailable(true);
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(controller.getSnapshot().awaitingPhysics).toBe(true);
+        await controller.onPhysicsResult([12]);
+        const result = await pending;
+        expect(result.ok && result.value).toEqual(expect.objectContaining({ total: 12, purpose: "initiative", label: "Iniciativa", rngVersion: expect.stringContaining("physical") }));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("quando a mesa morre de vez, o RNG fecha a rolagem mantendo o rótulo", async () => {
+      vi.useFakeTimers();
+      try {
+        const rng = createSequenceRandomSource([9]);
+        const history = historyStub();
+        const controller = createDiceOverlayController({ history, rng, idGenerator: { uuid: () => id("32") }, clock });
+        controller.setPhysicsAvailable(true);
+        const pending = controller.quickRoll({ expression: { quantity: 1, faces: 20, modifier: 0, mode: "normal" }, purpose: "saving-throw", label: "Resistência de Força" });
+        await vi.advanceTimersByTimeAsync(0);
+        controller.setPhysicsAvailable(false);
+        await vi.advanceTimersByTimeAsync(1_000);
+        const result = await pending;
+        expect(result.ok && result.value).toEqual(expect.objectContaining({ total: 9, purpose: "saving-throw", label: "Resistência de Força" }));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

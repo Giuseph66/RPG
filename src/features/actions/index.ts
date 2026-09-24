@@ -12,6 +12,10 @@ export type {
   ActionPreviewDetails,
   ActionSourceRef,
   ActionsDice,
+  ActionAttackRoll,
+  ActionRollDice,
+  ActionSpellRoll,
+  ActionsRollRequest,
   ActionsProps,
   ActionsStatus,
 } from "./types";

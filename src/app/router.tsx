@@ -17,7 +17,9 @@ import type { DataManagementIntent } from "@features/data-management";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { Revision } from "@domain/contracts/versioning";
 import type { StoreStatus } from "@application/state";
-import type { ActionCapability, ActionsDice } from "@features/actions";
+import type { ActionCapability, ActionsDice, ActionsRollRequest } from "@features/actions";
+import type { SettingsCharacterOption, SettingsDraftOption } from "@features/settings";
+import { DRAFT_STEP_LABELS } from "@features/character/selection/types";
 import type { AccountSyncState } from "@features/account";
 import type { AccountCampaign } from "@features/account/types";
 import type { CampaignAdjustmentTarget, CollaborationCharacter } from "@features/collaboration/types";
@@ -28,7 +30,7 @@ import { createRuleLookup } from "./rule-lookup";
 import { generateNpcCharacter } from "@application/character/generate-npc-character";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
-import { carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, spellOptionsFor } from "./character-route-data";
+import { attackRollsFor, carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, spellOptionsFor, spellRollsFor, unequippedWeaponsFor } from "./character-route-data";
 
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
 const LazyCharacterSheet = lazy(() => import("@features/character/sheet").then((module) => ({ default: module.CharacterSheet })));
@@ -62,6 +64,7 @@ const EMPTY_DICE_STATE = Object.freeze({
   status: "idle" as const,
   announcement: "",
   awaitingPhysics: false,
+  quick: false,
 });
 const EMPTY_DICE_SUBSCRIBE = (_listener: () => void): (() => void) => () => undefined;
 const EMPTY_DICE_GET_SNAPSHOT = () => EMPTY_DICE_STATE;
@@ -155,6 +158,30 @@ function CreateCharacterRoute({
       })}
     />
   );
+}
+
+/**
+ * Aba Ficha: abre direto o personagem ativo (a troca fica em Configurações). Sem ativo,
+ * usa a ficha mais recente; só sem nenhuma ficha aparece a tela para criar personagem.
+ */
+function CharacterHomeRoute({ registry, character, navigate, replace }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly navigate: (to: string) => void; readonly replace: (to: string) => void }) {
+  const activeId = character?.value?.id;
+  const [empty, setEmpty] = useState(false);
+  useEffect(() => {
+    if (activeId) { replace(`/character/${activeId}`); return undefined; }
+    const list = registry.character.list;
+    if (!list) { setEmpty(true); return undefined; }
+    let active = true;
+    void list().then((result) => {
+      if (!active) return;
+      const newest = result.ok ? [...result.value].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] : undefined;
+      if (newest) replace(`/character/${newest.id}`);
+      else setEmpty(true);
+    });
+    return () => { active = false; };
+  }, [activeId, registry.character.list, replace]);
+  if (empty) return <CharacterSelectionRoute registry={registry} navigate={navigate} />;
+  return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Abrindo a ficha ativa.</InlineStatus></section>;
 }
 
 function CharacterSelectionRoute({ registry, navigate }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void }) {
@@ -677,12 +704,13 @@ function renderRegistryRoute(
       }
       return <PendingDestination title="Criação de personagem" reasons={registry.character.pendingDependencies.length ? registry.character.pendingDependencies : ["Catálogo e draft de criação não foram fornecidos nesta composição."]} />;
     }
-    if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} /> : <CharacterSelectionRoute registry={registry} navigate={navigate} />;
+    if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} /> : <CharacterHomeRoute registry={registry} character={character} navigate={navigate} replace={replace} />;
     return <CharacterDetailRoute registry={registry} character={character} pack={pack} id={match.params.id} />;
   }
   if (match.kind === "actions") {
     const ActionPage = LazyActions;
-    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} dice={actionsDice} />;
+    const derived = currentCharacter ? registry.character.bindSheetProps({ character: currentCharacter }).derived : undefined;
+    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} />;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} isCampaignMaster={isCampaignMaster} match={match} navigate={navigate} pack={pack} />;
@@ -722,6 +750,43 @@ export function useAppNavigation(initialPath?: string): AppNavigation {
   }, []);
 
   return useMemo(() => ({ path, match: matchRoute(path), navigate, replace }), [path, navigate, replace]);
+}
+
+/** Configurações com a escolha do personagem ativo (fichas deste aparelho). */
+function SettingsRoute({ registry, store, character, navigate }: { readonly registry?: FeatureRegistry; readonly store: AppRouterProps["settingsStore"]; readonly character: AppRouterProps["character"]; readonly navigate: (to: string) => void }) {
+  const [characters, setCharacters] = useState<readonly SettingsCharacterOption[]>([]);
+  const [drafts, setDrafts] = useState<readonly SettingsDraftOption[]>([]);
+  const list = registry?.character.list;
+  const listDrafts = registry?.character.listDrafts;
+  useEffect(() => {
+    if (!listDrafts) return;
+    let active = true;
+    void listDrafts().then((result) => {
+      if (!active || !result.ok) return;
+      setDrafts([...result.value].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).map((draft) => ({
+        id: String(draft.id),
+        name: draft.partial.name?.trim() || "Personagem sem nome",
+        step: DRAFT_STEP_LABELS[draft.currentStep] ?? draft.currentStep,
+      })));
+    });
+    return () => { active = false; };
+  }, [listDrafts]);
+  const resolveName = registry?.character.bindSheetProps({}).resolveName;
+  useEffect(() => {
+    if (!list) return;
+    let active = true;
+    void list().then((result) => {
+      if (!active || !result.ok) return;
+      setCharacters([...result.value].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).map((summary) => ({
+        id: String(summary.id),
+        name: summary.name || "Personagem sem nome",
+        detail: summary.classSummary.map((entry) => `${resolveName?.("class", String(entry.classId)) ?? String(entry.classId)} ${entry.level}`).join(" / ") || undefined,
+      })));
+    });
+    return () => { active = false; };
+  }, [list, resolveName]);
+  const Panel = LazySettingsPanel;
+  return <Panel store={store} characters={characters} activeCharacterId={character?.value?.id ? String(character.value.id) : undefined} onSelectCharacter={registry ? (id) => { void registry.character.service.select(asUuid(id)); } : undefined} onCreateCharacter={() => navigate("/character/create")} drafts={drafts} onResumeDraft={(id) => navigate(`/character/create/${id}`)} />;
 }
 
 /** Small History API router: keeps the shell usable without adding a package. */
@@ -771,10 +836,33 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
     diceOverlayController?.getSnapshot ?? EMPTY_DICE_GET_SNAPSHOT,
     diceOverlayController?.getSnapshot ?? EMPTY_DICE_GET_SNAPSHOT,
   );
-  const actionsDice: ActionsDice | undefined = diceOverlayController ? {
-    history: diceState.history,
-  } : undefined;
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <LazySettingsPanel store={shellProps.settingsStore} /> : undefined);
+  const actionCharacterId = character?.value?.id;
+  // Funções estáveis (só mudam com o controller/personagem): a página de Ações hidrata o
+  // histórico num efeito, e uma função nova a cada mudança de estado dos dados virava loop.
+  const actionsDiceCommands = useMemo(() => diceOverlayController ? {
+    roll: (request: ActionsRollRequest) => {
+      void diceOverlayController.quickRoll({
+        expression: { quantity: request.quantity ?? 1, faces: request.faces, modifier: request.modifier ?? 0, mode: "normal" },
+        purpose: request.purpose ?? "free",
+        ...(request.label ? { label: request.label } : {}),
+        ...(actionCharacterId ? { characterId: actionCharacterId } : {}),
+      });
+    },
+    openTable: () => diceOverlayController.open({ source: "actions", ...(actionCharacterId ? { characterId: actionCharacterId } : {}) }),
+    hydrate: () => { void diceOverlayController.hydrate(actionCharacterId); },
+  } : undefined, [actionCharacterId, diceOverlayController]);
+  const actionsDice: ActionsDice | undefined = useMemo(() => {
+    if (!actionsDiceCommands) return undefined;
+    // O histórico hidratado chega na ordem do banco; a página mostra do mais recente ao mais antigo.
+    const history = [...diceState.history].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    return {
+    ...actionsDiceCommands,
+    history,
+    lastResult: diceState.result ?? history[0],
+    rolling: diceState.status === "rolling" || diceState.awaitingPhysics,
+    };
+  }, [actionsDiceCommands, diceState.awaitingPhysics, diceState.history, diceState.result, diceState.status]);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
 
   return (
     <AppShell

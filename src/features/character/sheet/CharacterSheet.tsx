@@ -140,11 +140,11 @@ function RollButton({ label, accessibleLabel = label, intent, onRoll }: { readon
 }
 
 /** Painel ornamentado (borda bronze, título Cinzel) com ação opcional alinhada à direita. */
-function Panel({ heading, headingLevel = 2, action, children, className, hint }: { readonly heading: string; readonly headingLevel?: 1 | 2 | 3 | 4 | 5 | 6; readonly action?: ReactNode; readonly children: ReactNode; readonly className?: string; readonly hint?: RuleHintProps }) {
+function Panel({ heading, headingLevel = 2, action, children, className, hint, anchorId }: { readonly heading: string; readonly headingLevel?: 1 | 2 | 3 | 4 | 5 | 6; readonly action?: ReactNode; readonly children: ReactNode; readonly className?: string; readonly hint?: RuleHintProps; readonly anchorId?: string }) {
   const headingId = useId();
   const HeadingTag = `h${headingLevel}` as ElementType;
   return (
-    <section className={[styles.panel, className ?? ""].filter(Boolean).join(" ")} aria-labelledby={headingId}>
+    <section id={anchorId} className={[styles.panel, className ?? ""].filter(Boolean).join(" ")} aria-labelledby={headingId}>
       <span className={styles.panelCornerTl} aria-hidden="true" />
       <span className={styles.panelCornerTr} aria-hidden="true" />
       <span className={styles.panelCornerBl} aria-hidden="true" />
@@ -252,6 +252,13 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   useEffect(() => {
     setDraft({});
     setMessage(undefined);
+  }, [character?.id]);
+
+  // Vindo de Ações → Condições (`#condicoes`): leva direto ao painel.
+  useEffect(() => {
+    if (!character || typeof window === "undefined" || window.location.hash !== "#condicoes") return;
+    const timer = setTimeout(() => document.getElementById("condicoes")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    return () => clearTimeout(timer);
   }, [character?.id]);
 
   const updatePatch = (patch: CharacterSheetPatch) => {
@@ -530,7 +537,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
         <div className={styles.actionList}>{derived?.savingThrows.map((save) => <div {...rule({ category: "attributes", title: ABILITY_LABELS[save.ability].name, entityId: save.ability })} className={styles.actionRow} key={save.ability}><span className={[styles.dot, save.proficient ? styles.dotActive : ""].join(" ")} aria-label={save.proficient ? "proficiente" : "não proficiente"} /><span className={styles.actionName}>{ABILITY_LABELS[save.ability].name}</span><RollButton label={formatModifier(save.modifier.value)} accessibleLabel={`resistência de ${ABILITY_LABELS[save.ability].name} (${formatModifier(save.modifier.value)})`} intent={intentFor("saving-throw", save.ability, save.modifier.value)} onRoll={onRoll} /></div>) ?? <p className={styles.muted}>Resistências derivadas ainda não estão disponíveis.</p>}</div>
       </Panel>
 
-      <Panel heading="Condições e morte" headingLevel={2}>
+      <Panel heading="Condições e morte" headingLevel={2} anchorId="condicoes">
         <div className={styles.conditionLayout}>
           <div>
             <h3>Condições ativas</h3>

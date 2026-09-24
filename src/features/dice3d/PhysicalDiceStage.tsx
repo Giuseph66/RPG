@@ -90,8 +90,10 @@ const ID_POR_FACES: Record<DiceFaces, string> = {
 export function PhysicalDiceStage({ awaitingPhysics = false, physicsExpression, active, random, variant = "overlay", appearance = APARENCIA_MESA, shadowColor = "#090706", forceScale = 1, onResult, onPhysicsAvailable, onPhysicsDeclined }: PhysicalDiceStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mesaRef = useRef<DiceTable | null>(null);
-  const [mobile, setMobile] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  // Lido já no primeiro render: começar em `false` e corrigir no efeito remontava a mesa
+  // logo depois de criada, derrubando a rolagem que já esperava a física.
+  const [mobile, setMobile] = useState(() => typeof window !== "undefined" && (window.matchMedia?.("(max-width: 680px)").matches ?? window.innerWidth <= 680));
+  const [reducedMotion, setReducedMotion] = useState(() => typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false));
   // Guardados em ref para não reiniciar o lançamento quando o pai recria os
   // callbacks a cada render.
   const onResultRef = useRef(onResult);

@@ -21,6 +21,8 @@ const PhysicalDiceStage = lazy(() =>
 
 export interface DiceOverlayProps { readonly controller: DiceOverlayController; readonly settingsStore?: SettingsStore; }
 
+/** Tempo que o dado da rolagem rápida fica parado na tela antes de sumir. */
+const QUICK_ROLL_LINGER_MS = 2_800;
 const DEFAULT_DICE_COLORS = { face: "#14100d", edge: "#D0AB72", shadow: "#090706" } as const;
 const EMPTY_SETTINGS_SNAPSHOT: StoreSnapshot<AppSettings> = Object.freeze({ status: "idle", hasPendingChanges: false });
 const EMPTY_SETTINGS_SUBSCRIBE = (_listener: () => void): (() => void) => () => undefined;
@@ -54,6 +56,20 @@ export function DiceOverlay({ controller, settingsStore }: DiceOverlayProps) {
       reduced?.removeEventListener?.("change", update);
     };
   }, []);
+
+  // Rolagem rápida (fora do modal): o dado fica na tela um pouco depois de parar e sai sozinho.
+  // Uma nova rolagem rápida reinicia a contagem, porque o resultado muda.
+  useEffect(() => {
+    if (!state.quick || state.open) return undefined;
+    if (reducedMotion) {
+      controller.setPhysicsAvailable(false);
+      if (state.status === "idle" && !state.awaitingPhysics) controller.endQuick();
+      return undefined;
+    }
+    if (state.awaitingPhysics || state.status === "rolling" || state.status === "saving") return undefined;
+    const timer = setTimeout(() => controller.endQuick(), QUICK_ROLL_LINGER_MS);
+    return () => clearTimeout(timer);
+  }, [controller, reducedMotion, state.awaitingPhysics, state.open, state.quick, state.result?.id, state.status]);
 
   // Reabrir o overlay não deve herdar "ocultar" da sessão anterior.
   useEffect(() => {
@@ -162,11 +178,11 @@ export function DiceOverlay({ controller, settingsStore }: DiceOverlayProps) {
           A ocultação (`dadosVisiveis`) é só visual — opacidade no wrapper, sem
           desmontar: a física continua rodando por baixo, e reabrir a visão
           mostra o dado onde ele estiver naquele instante, não reinicia a queda. */}
-      {state.open && !reducedMotion ? (
-        <div className={dadosVisiveis ? undefined : styles.dadosOcultos}>
+      {(state.open || state.quick) && !reducedMotion ? (
+        <div className={dadosVisiveis || !state.open ? undefined : styles.dadosOcultos}>
           <Suspense fallback={null}>
             <PhysicalDiceStage
-              active={state.open}
+              active={state.open || state.quick}
               variant="fullscreen"
               awaitingPhysics={state.awaitingPhysics}
               physicsExpression={state.pendingExpression}

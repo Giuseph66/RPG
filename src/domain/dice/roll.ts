@@ -17,6 +17,7 @@ export interface RollMeta {
   readonly purpose: DicePurpose;
   readonly characterId?: Uuid;
   readonly commandId?: CommandId;
+  readonly label?: string;
 }
 
 /** Seleciona o índice vencedor entre dois d20 (`a` = primeiro rolado, `b` = segundo). Empate
@@ -88,6 +89,7 @@ export function rollExpression(expr: DiceExpression, rng: RandomSource, meta: Ro
       purpose: meta.purpose,
       characterId: meta.characterId,
       commandId: meta.commandId,
+      ...(meta.label ? { label: meta.label } : {}),
       timestamp: meta.timestamp,
       rawDice,
       selectedIndexes,
@@ -164,6 +166,7 @@ export function buildRollFromValues(
     purpose: meta.purpose,
     characterId: meta.characterId,
     commandId: meta.commandId,
+    ...(meta.label ? { label: meta.label } : {}),
     timestamp: meta.timestamp,
     rawDice: physicalValues,
     selectedIndexes,
