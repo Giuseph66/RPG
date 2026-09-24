@@ -1,6 +1,6 @@
-.appShell { --app-bar-height: 4.75rem; min-height: 100vh; background-color: var(--color-background); background-image: radial-gradient(ellipse at 85% 0%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 58%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 70%, transparent), color-mix(in srgb, var(--color-background) 70%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat, repeat-y, no-repeat; background-position: center top; background-size: 100% 36rem, 100% 100vh, cover; background-attachment: scroll, scroll, fixed; }
+.appShell { --app-bar-height: 4.75rem; min-height: 100vh; background-color: var(--color-background); background-image: radial-gradient(ellipse at 82% 0%, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 54%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 91%, transparent), color-mix(in srgb, var(--color-background) 91%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat, repeat-y, repeat; background-position: center top; background-size: 100% 36rem, 100% 100vh, 34rem auto; background-attachment: scroll, scroll, scroll; }
 .header { position: sticky; isolation: isolate; top: 0; z-index: var(--z-sticky); background-color: var(--color-background); background-image: radial-gradient(120% 180% at 3% 0, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 34%, transparent), color-mix(in srgb, var(--color-background) 74%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--color-primary) 12%, transparent), 0 10px 24px rgba(0, 0, 0, .45); }
-.headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); max-width: 1680px; margin: 0 auto; padding: max(var(--spacing-sm), env(safe-area-inset-top)) var(--spacing-xl) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
+.headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); width: 100%; margin: 0; padding: max(var(--spacing-sm), env(safe-area-inset-top)) clamp(var(--spacing-lg), 2.4vw, 2.75rem) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
 .identityButton { display: flex; min-width: 0; align-items: center; gap: var(--spacing-md); padding: var(--spacing-xs); margin: calc(var(--spacing-xs) * -1); color: var(--color-text); background: none; border: 0; border-radius: var(--radius-control); text-align: left; cursor: pointer; }
 .identityButton:hover .identityName { color: var(--color-text); }
 .identityButton:hover .brandMarkImage { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-hp) 78%, transparent)) drop-shadow(0 0 18px color-mix(in srgb, var(--color-hp) 48%, transparent)); }
@@ -11,10 +11,13 @@
 .identityName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-secondary); font-family: var(--typography-body-font-family); font-size: 1.12rem; font-weight: 700; letter-spacing: .01em; }
 .identityContext { overflow: hidden; color: var(--color-text-muted); text-overflow: ellipsis; white-space: nowrap; font-family: var(--typography-body-font-family); font-size: .78rem; letter-spacing: .04em; }
 .headerActions { display: flex; align-items: center; margin-left: auto; }
+.roleBadge { display: inline-flex; align-items: center; gap: .45rem; min-height: 2rem; padding: 0 .75rem; color: var(--color-text-muted); background: color-mix(in srgb, var(--color-surface) 75%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); font-size: .76rem; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.roleBadge[data-role="master"] { color: var(--color-secondary); border-color: color-mix(in srgb, var(--color-secondary) 48%, var(--color-border-soft)); background: color-mix(in srgb, var(--color-secondary) 9%, var(--color-surface)); }
+.roleBadge svg { color: var(--color-primary); }
 .headerSettingsButton { flex-shrink: 0; color: color-mix(in srgb, var(--color-border) 88%, transparent); }
 .headerSettingsButton:hover { color: var(--color-secondary); }
-.shellBody { display: flex; max-width: 1680px; min-height: calc(100vh - var(--app-bar-height)); margin: 0 auto; }
-.navigation { position: sticky; top: var(--app-bar-height); align-self: flex-start; box-sizing: border-box; display: flex; flex: 0 0 15rem; flex-direction: column; width: 15rem; height: calc(100vh - var(--app-bar-height)); padding: var(--spacing-xl) var(--spacing-md); background-color: color-mix(in srgb, var(--color-background) 86%, transparent); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 48%, transparent), color-mix(in srgb, var(--color-background) 82%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
+.shellBody { display: flex; width: 100%; min-height: calc(100vh - var(--app-bar-height)); margin: 0; }
+.navigation { position: sticky; top: var(--app-bar-height); align-self: flex-start; box-sizing: border-box; display: flex; flex: 0 0 15rem; flex-direction: column; width: 15rem; height: calc(100vh - var(--app-bar-height)); padding: var(--spacing-xl) var(--spacing-md); background-color: color-mix(in srgb, var(--color-background) 94%, transparent); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 80%, transparent), color-mix(in srgb, var(--color-background) 92%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .navigationList { display: grid; gap: var(--spacing-xs); }
 .navItem, .navUtility { position: relative; display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-control); font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
 .navItem:hover, .navUtility:hover { color: var(--color-text); }
@@ -34,7 +37,7 @@
 .navUtility { width: 100%; }
 .main { flex: 1; min-width: 0; padding: clamp(var(--spacing-lg), 3vw, 3rem) clamp(var(--spacing-lg), 3vw, 3.75rem); overflow-wrap: anywhere; }
 .utilityMain { padding-top: var(--spacing-xl); }
-.routeMount { width: 100%; max-width: 92rem; margin: 0 auto; }
+.routeMount { width: 100%; max-width: 104rem; margin: 0 auto; }
 .routeContent, .stateContent { max-width: 48rem; }
 .routeHeadingAnchor { position: absolute; width: 0; height: 0; overflow: hidden; }
 .eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
@@ -64,7 +67,7 @@
   .navLabel { display: none; }
   .navShortLabel { display: inline; }
   .navUtility { display: none; }
-  .navDice { position: absolute; z-index: 1; bottom: calc(env(safe-area-inset-bottom) + 3rem); left: 50%; width: 4.25rem; min-width: 4.25rem; min-height: 4.25rem; margin: 0; padding: 0; transform: translateX(-50%); color: var(--color-secondary); background: none; border: 0; border-radius: 50%; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); }
+  .navDice { position: absolute; z-index: 1; bottom: calc(env(safe-area-inset-bottom) + 4rem); left: 50%; width: 4.25rem; min-width: 4.25rem; min-height: 4.25rem; margin: 0; padding: 0; transform: translateX(-50%); color: var(--color-secondary); background: none; border: 0; border-radius: 50%; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); }
   .navDice:hover { color: var(--color-text); }
   .navDice:active { transform: translateX(-50%) translateY(1px) scale(.98); }
   .navDice:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }
@@ -76,4 +79,8 @@
 }
 @media (max-width: 420px) {
   .identityContext { max-width: 18ch; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .navigation { flex-basis: 13rem; width: 13rem; }
+  .main { padding-inline: var(--spacing-lg); }
 }

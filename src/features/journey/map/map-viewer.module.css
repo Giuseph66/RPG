@@ -28,8 +28,15 @@
 .panelHeading h2 { margin: 0; color: var(--color-text); font: var(--typography-heading-font-weight) 1rem var(--typography-heading-font-family); }
 .panelHeading > span { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 .markerList { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; }
-.markerListButton { display: flex; align-items: center; gap: var(--spacing-sm); width: 100%; min-height: var(--size-touch-target); padding: var(--spacing-xs) var(--spacing-sm); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.markerRow { display: flex; align-items: center; gap: var(--spacing-xs); min-width: 0; }
+.markerListButton { display: flex; flex: 1; align-items: center; gap: var(--spacing-sm); min-width: 0; min-height: var(--size-touch-target); padding: var(--spacing-xs) var(--spacing-sm); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; }
+.markerListButton > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .markerListButton:hover, .markerListButton:focus-visible, .markerListButton[aria-current="true"] { border-color: var(--color-magic); background: color-mix(in srgb, var(--color-magic) 10%, var(--color-surface)); outline: none; }
+.markerTools { display: flex; flex: 0 0 auto; gap: .15rem; }
+.markerTools button { display: grid; place-items: center; width: 2.25rem; min-height: 2.25rem; padding: 0; color: var(--color-text-muted); background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); cursor: pointer; }
+.markerTools button:hover { color: var(--color-secondary); border-color: var(--color-border-soft); background: var(--color-surface); }
+.markerTools button:last-child:not(:first-child):hover { color: var(--color-danger); }
+.markerTools button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .markerDot { display: grid; place-items: center; color: var(--color-secondary); line-height: 1; }
 .muted, .help { margin: 0; color: var(--color-text-muted); font-size: .82rem; }
 .help { font-size: .76rem; }

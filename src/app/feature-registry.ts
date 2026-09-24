@@ -17,6 +17,7 @@ import type { CompendiumFilters } from "@application/compendium";
 import type { Character, CharacterDraft, CharacterSummary } from "@domain/contracts/character";
 import type { CharacterDerived } from "@domain/contracts/derived";
 import type { JournalEntry } from "@domain/contracts/campaign";
+import type { Asset } from "@domain/contracts/campaign";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { EntityType, Uuid } from "@domain/contracts/ids";
 import type { Result, AppError } from "@domain/contracts/errors";
@@ -59,6 +60,7 @@ export interface FeatureRegistryDependencies {
   readonly listCharacters?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
   readonly listCharacterDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
   readonly listJournalEntries?: (campaignId: Uuid) => Promise<Result<readonly JournalEntry[], AppError>>;
+  readonly getLocalAsset?: (assetId: Uuid) => Promise<Result<Asset, AppError>>;
   readonly journalDraftState?: () => JournalDraftState | undefined;
   readonly dataManagement?: {
     readonly service: DataManagementService;
@@ -101,6 +103,7 @@ export interface FeatureRegistry {
     readonly bindJournalProps: (props: JournalEditorProps & JournalEntryListProps) => JournalEditorProps & JournalEntryListProps;
     readonly bindMapProps: (props: MapViewerProps) => MapViewerProps;
     readonly listJournalEntries?: (campaignId: Uuid) => Promise<Result<readonly JournalEntry[], AppError>>;
+    readonly getLocalAsset?: (assetId: Uuid) => Promise<Result<Asset, AppError>>;
     readonly getJournalDraftState?: () => JournalDraftState | undefined;
   };
   readonly compendium: {
@@ -184,6 +187,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     bindJournalProps: (props: JournalEditorProps & JournalEntryListProps): JournalEditorProps & JournalEntryListProps => ({ ...props, onIntent: props.onIntent ?? dependencies.journalDispatcher }),
     bindMapProps: (props: MapViewerProps): MapViewerProps => props,
     listJournalEntries: dependencies.listJournalEntries,
+    getLocalAsset: dependencies.getLocalAsset,
     getJournalDraftState: dependencies.journalDraftState,
   };
 

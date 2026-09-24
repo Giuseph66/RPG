@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent, PointerEvent, WheelEvent } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, WheelEvent } from "react";
 
 import { Button } from "@components/ui";
-import { ArrowsOut, Crosshair, MapPin, MapTrifold, Minus, Plus } from "@phosphor-icons/react";
+import { ArrowsOut, Crosshair, MapPin, MapTrifold, Minus, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { normalizeCoordinate } from "@domain/campaign/maps";
 
 import { markerViewCoordinate, markerViewId, markerViewLabel, type MapViewerProps } from "./types";
@@ -44,6 +44,8 @@ export function MapViewer({
   selectedMarkerId,
   groupPosition,
   onMarkerSelect,
+  onMarkerEdit,
+  onMarkerRemove,
   onAddMarker,
   onViewportChange,
   className,
@@ -110,6 +112,17 @@ export function MapViewer({
     zoomBy(event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP);
   };
 
+  const placeMarker = (event: MouseEvent<HTMLDivElement>) => {
+    if (!onAddMarker || !(event.target instanceof Element)) return;
+    const canvas = event.target.closest(`.${styles.canvas}`);
+    const bounds = canvas?.getBoundingClientRect();
+    if (!bounds?.width || !bounds.height) return;
+    event.preventDefault();
+    const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+    const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+    onAddMarker({ x, y });
+  };
+
   const selectMarker = (id: string) => onMarkerSelect?.(id);
 
   return (
@@ -137,6 +150,7 @@ export function MapViewer({
             onPointerMove={onPointerMove}
             onPointerUp={stopPanning}
             onPointerCancel={stopPanning}
+            onDoubleClick={placeMarker}
             onWheel={onWheel}
           >
             {source ? (
@@ -160,10 +174,10 @@ export function MapViewer({
 
         <aside className={styles.markerPanel} aria-labelledby="map-locations-title">
           <div className={styles.panelHeading}><div className={styles.panelTitle}><MapPin size={19} weight="duotone" aria-hidden="true" /><h2 id="map-locations-title">Locais</h2></div><span>{markers.length}</span></div>
-          {markers.length === 0 ? <p className={styles.muted}>Nenhum local marcado ainda.</p> : <ul className={styles.markerList}>{markers.map((marker) => { const id = markerViewId(marker); return <li key={id}><button type="button" className={styles.markerListButton} aria-current={selectedMarkerId === id ? "true" : undefined} onClick={() => selectMarker(id)}><span className={styles.markerDot} aria-hidden="true"><MapPin size={18} weight="duotone" /></span><span>{markerViewLabel(marker)}</span></button></li>; })}</ul>}
+          {markers.length === 0 ? <p className={styles.muted}>Nenhum local marcado ainda.</p> : <ul className={styles.markerList}>{markers.map((marker) => { const id = markerViewId(marker); const label = markerViewLabel(marker); return <li className={styles.markerRow} key={id}><button type="button" className={styles.markerListButton} aria-current={selectedMarkerId === id ? "true" : undefined} onClick={() => selectMarker(id)}><span className={styles.markerDot} aria-hidden="true"><MapPin size={18} weight="duotone" /></span><span>{label}</span></button>{onMarkerEdit || onMarkerRemove ? <div className={styles.markerTools}>{onMarkerEdit ? <button type="button" aria-label={`Renomear local ${label}`} onClick={() => onMarkerEdit(id)}><PencilSimple size={16} aria-hidden="true" /></button> : null}{onMarkerRemove ? <button type="button" aria-label={`Remover local ${label}`} onClick={() => onMarkerRemove(id)}><Trash size={16} aria-hidden="true" /></button> : null}</div> : null}</li>; })}</ul>}
         </aside>
       </div>
-      <p className={styles.help}>Arraste para mover. Use as setas, + e − com o mapa focado.</p>
+      <p className={styles.help}>{onAddMarker ? "Arraste para mover. Dê um duplo clique no mapa para marcar um local, ou use o botão para marcar o centro." : "Arraste para mover. Use as setas, + e − com o mapa focado."}</p>
     </section>
   );
 }

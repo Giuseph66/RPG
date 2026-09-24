@@ -12,7 +12,6 @@ export type {
   ActionPreviewDetails,
   ActionSourceRef,
   ActionsDice,
-  ActionsDieFaces,
   ActionsProps,
   ActionsStatus,
 } from "./types";

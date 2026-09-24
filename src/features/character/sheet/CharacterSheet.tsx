@@ -59,6 +59,8 @@ import {
   preparedSpellCount,
 } from "./mapping";
 import { EditCharacterModal, PortraitModal, SpellManagerModal } from "./SheetEditors";
+import { SpellIcon } from "./SpellIcon";
+import { useRuleHint, type RuleHintProps, type RuleQuery } from "@features/compendium";
 import type { CharacterRollIntent, CharacterSheetPatch, CharacterSheetProps, CharacterSheetView, SheetSpellOption } from "./types";
 import styles from "./character-sheet.module.css";
 
@@ -138,7 +140,7 @@ function RollButton({ label, accessibleLabel = label, intent, onRoll }: { readon
 }
 
 /** Painel ornamentado (borda bronze, título Cinzel) com ação opcional alinhada à direita. */
-function Panel({ heading, headingLevel = 2, action, children, className }: { readonly heading: string; readonly headingLevel?: 1 | 2 | 3 | 4 | 5 | 6; readonly action?: ReactNode; readonly children: ReactNode; readonly className?: string }) {
+function Panel({ heading, headingLevel = 2, action, children, className, hint }: { readonly heading: string; readonly headingLevel?: 1 | 2 | 3 | 4 | 5 | 6; readonly action?: ReactNode; readonly children: ReactNode; readonly className?: string; readonly hint?: RuleHintProps }) {
   const headingId = useId();
   const HeadingTag = `h${headingLevel}` as ElementType;
   return (
@@ -148,7 +150,7 @@ function Panel({ heading, headingLevel = 2, action, children, className }: { rea
       <span className={styles.panelCornerBl} aria-hidden="true" />
       <span className={styles.panelCornerBr} aria-hidden="true" />
       <div className={styles.panelHeader}>
-        <HeadingTag id={headingId} className={styles.panelHeading}>{heading}</HeadingTag>
+        <HeadingTag {...hint} id={headingId} className={styles.panelHeading}>{heading}</HeadingTag>
         {action}
       </div>
       <span className={styles.panelHeadingRule} aria-hidden="true" />
@@ -165,7 +167,7 @@ function PanelLink({ label, expanded, onClick }: { readonly label: string; reado
   );
 }
 
-function SkillRow({ skill, modifier, proficient, expertise, onRoll, intent }: { readonly skill: Skill; readonly modifier: number; readonly proficient: boolean; readonly expertise: boolean; readonly onRoll?: (intent: CharacterRollIntent) => void; readonly intent: CharacterRollIntent }) {
+function SkillRow({ skill, modifier, proficient, expertise, onRoll, intent, hint }: { readonly skill: Skill; readonly modifier: number; readonly proficient: boolean; readonly expertise: boolean; readonly onRoll?: (intent: CharacterRollIntent) => void; readonly intent: CharacterRollIntent; readonly hint?: RuleHintProps }) {
   const modText = formatModifier(modifier);
   const content = (
     <>
@@ -177,8 +179,8 @@ function SkillRow({ skill, modifier, proficient, expertise, onRoll, intent }: { 
       <span className={styles.skillMod}>{modText}</span>
     </>
   );
-  if (!onRoll) return <div className={styles.skillRow}>{content}</div>;
-  return <button type="button" className={styles.skillRow} aria-label={`Rolar ${SKILL_LABELS[skill]} (${modText})`} onClick={() => onRoll(intent)}>{content}</button>;
+  if (!onRoll) return <div {...hint} className={styles.skillRow}>{content}</div>;
+  return <button {...hint} type="button" className={styles.skillRow} aria-label={`Rolar ${SKILL_LABELS[skill]} (${modText})`} onClick={() => onRoll(intent)}>{content}</button>;
 }
 
 /** Três marcas clicáveis: clicar na n-ésima define o total em n (ou n-1 se já marcada). */
@@ -218,12 +220,12 @@ function newConditionId(): ConditionInstance["id"] {
 }
 
 export function CharacterSheet({ character, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, conditionOptions, portrait }: CharacterSheetProps) {
+  const rule = useRuleHint();
   const [view, setView] = useState<CharacterSheetView>(initialView);
   const [draft, setDraft] = useState<CharacterSheetPatch>({});
   const [message, setMessage] = useState<string>();
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [inventoryExpanded, setInventoryExpanded] = useState(false);
-  const [spellsExpanded, setSpellsExpanded] = useState(false);
   const [managingSpells, setManagingSpells] = useState(false);
   const [viewingPortrait, setViewingPortrait] = useState(false);
   const [hpAmount, setHpAmount] = useState("");
@@ -300,7 +302,10 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const displayName = valueOr(draft, "name", character.name) || "Personagem sem nome";
   const quoteText = character.ideals[0]?.trim() || character.personalityTraits[0]?.trim() || undefined;
   const maxHp = derived?.hitPointsMax.value;
-  const identityParts = [sheetDisplay.hideRace ? undefined : name("race", character.raceRef), sheetDisplay.hideClass ? undefined : className].filter(Boolean);
+  const identityParts: readonly { readonly label: string; readonly query: RuleQuery }[] = [
+    ...(sheetDisplay.hideRace ? [] : [{ label: name("race", character.raceRef), query: { category: "race" as const, title: name("race", character.raceRef) } }]),
+    ...(sheetDisplay.hideClass || character.classes.length === 0 ? [] : character.classes.map((entry) => ({ label: name("class", entry.classId), query: { category: "class" as const, title: name("class", entry.classId) } }))),
+  ];
 
   const intentFor = (kind: CharacterRollIntent["kind"], id: Ability | Skill, modifier: number): CharacterRollIntent => {
     if (kind === "ability") return { kind, characterId: character.id, ability: id as Ability, modifier };
@@ -349,7 +354,8 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
     option: spellById.get(String(ref.entityId)),
     prepared: preparedSelections.some((selection) => selection.castingSourceId === entry.id && selection.spellRef.entityId === ref.entityId),
   }))).sort((a, b) => (a.option?.level ?? 0) - (b.option?.level ?? 0));
-  const visibleSpells = spellsExpanded ? spellEntries : spellEntries.slice(0, ITEMS_COMPACT_COUNT);
+  const cantripEntries = spellEntries.filter((entry) => (entry.option?.level ?? 0) === 0);
+  const leveledEntries = spellEntries.filter((entry) => (entry.option?.level ?? 0) > 0);
   const selectedSpellIds = new Set(spellEntries.map((entry) => String(entry.ref.entityId)));
   const sourceLevel = character.classes.find((entry) => String(entry.classId) === sourceClassId)?.level ?? totalLevel;
   const sourceModifier = source ? abilityMap.get(source.ability)?.modifier.value ?? 0 : 0;
@@ -397,14 +403,14 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
                 <span className={styles.heroEditIcon} aria-hidden="true"><PencilSimple weight="bold" /></span>
               </button>
             </div>
-            {identityParts.length > 0 ? <p className={styles.heroLine}>{identityParts.map((part, index) => <span key={part}>{index > 0 ? <span aria-hidden="true"> • </span> : null}{part}</span>)}</p> : null}
+            {identityParts.length > 0 ? <p className={styles.heroLine}>{identityParts.map((part, index) => <span key={part.label}>{index > 0 ? <span aria-hidden="true"> • </span> : null}<span {...rule(part.query)} className={styles.ruleText}>{part.label}</span></span>)}</p> : null}
             <p className={styles.heroLine}>Nível {totalLevel}</p>
             <div className={styles.heroDivider} aria-hidden="true"><span className={styles.heroDividerRule} /><span className={styles.heroDividerMark}><GiSparkles /></span><span className={styles.heroDividerRule} /></div>
           </div>
         </div>
         <div className={styles.heroStats}>
           <details className={styles.statTile}>
-            <summary className={styles.statTileSummary} aria-label={`Pontos de vida: ${hp.current}${hp.temp > 0 ? ` mais ${hp.temp} temporários` : ""} de ${maxHp ?? "—"}. Abrir controle de PV.`}>
+            <summary {...rule({ category: "combat", title: "Dano e cura" })} className={styles.statTileSummary} aria-label={`Pontos de vida: ${hp.current}${hp.temp > 0 ? ` mais ${hp.temp} temporários` : ""} de ${maxHp ?? "—"}. Abrir controle de PV.`}>
               <span className={styles.statTileHead}><span className={styles.statIcon} aria-hidden="true"><GiHearts /></span><span className={styles.statLabel}>PV</span></span>
               <strong className={[styles.statValue, hp.temp > 0 ? styles.statValueTemp : ""].join(" ")}>{hp.current + hp.temp}<span className={styles.statValueSub}>/{maxHp ?? "—"}</span></strong>
             </summary>
@@ -436,11 +442,11 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             <span className={styles.statTileHead}><span className={styles.statIcon} aria-hidden="true"><GiShield /></span><span className={styles.statLabel}>CA</span></span>
             <strong className={styles.statValue}>{derived ? String(derived.armorClass.value) : "—"}</strong>
           </div>
-          <div className={styles.statTile}>
+          <div {...rule({ category: "combat", title: "Ordem de combate" })} className={styles.statTile}>
             <span className={styles.statTileHead}><span className={styles.statIcon} aria-hidden="true"><GiWingfoot /></span><span className={styles.statLabel}>Iniciativa</span></span>
             <strong className={styles.statValue}>{derived ? <RollButton label={formatModifier(derived.initiative.value)} accessibleLabel="iniciativa" intent={intentFor("initiative", "dex", derived.initiative.value)} onRoll={onRoll} /> : "—"}</strong>
           </div>
-          <div className={styles.statTile}>
+          <div {...rule({ category: "movement", title: "Movimento e posição" })} className={styles.statTile}>
             <span className={styles.statTileHead}><span className={styles.statIcon} aria-hidden="true"><GiBoots /></span><span className={styles.statLabel}>Deslocamento</span></span>
             <strong className={styles.statValue}>{primarySpeed === undefined ? "—" : `${(Number(primarySpeed) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} m`}</strong>
           </div>
@@ -450,9 +456,9 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
       {staleDerived ? <InlineStatus tone="warning">Os valores derivados pertencem a outra revisão; atualize a ficha antes de rolar.</InlineStatus> : null}
       {hp.current === 0 ? <InlineStatus tone="error" assertive>PV zerados: resolva o estado de morte antes da próxima ação.</InlineStatus> : null}
 
-      <Panel heading="Atributos" headingLevel={2}>
+      <Panel heading="Atributos" headingLevel={2} hint={rule({ category: "rules", title: "Valores E Modificadores De Habilidade" })}>
         <div className={styles.abilityGrid}>{ABILITIES.map((ability) => { const item = abilityMap.get(ability); return (
-          <div className={styles.ability} key={ability}>
+          <div {...rule({ category: "attributes", title: ABILITY_LABELS[ability].name, entityId: ability })} className={styles.ability} key={ability}>
             <span className={styles.abilityShort}>{ABILITY_LABELS[ability].short}</span>
             <VisuallyHidden>{ABILITY_LABELS[ability].name}</VisuallyHidden>
             <strong>{item ? <RollButton label={String(item.score.value)} accessibleLabel={ABILITY_LABELS[ability].name} intent={intentFor("ability", ability, item.modifier.value)} onRoll={onRoll} /> : "—"}</strong>
@@ -462,9 +468,9 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
         ); })}</div>
       </Panel>
 
-      <Panel heading="Perícias" headingLevel={2} action={sortedSkills.length > SKILLS_COMPACT_COUNT ? <PanelLink label={skillsExpanded ? "Ver menos" : "Ver todas"} expanded={skillsExpanded} onClick={() => setSkillsExpanded((value) => !value)} /> : undefined}>
+      <Panel heading="Perícias" headingLevel={2} hint={rule({ category: "rules", title: "Testes De Habilidade" })} action={sortedSkills.length > SKILLS_COMPACT_COUNT ? <PanelLink label={skillsExpanded ? "Ver menos" : "Ver todas"} expanded={skillsExpanded} onClick={() => setSkillsExpanded((value) => !value)} /> : undefined}>
         {sortedSkills.length === 0 ? <p className={styles.muted}>Perícias derivadas ainda não estão disponíveis.</p> : (
-          <div className={styles.skillGrid}>{visibleSkills.map((skill) => <SkillRow key={skill.skill} skill={skill.skill} modifier={skill.modifier.value} proficient={skill.proficient} expertise={skill.expertise} onRoll={onRoll} intent={intentFor("skill", skill.skill, skill.modifier.value)} />)}</div>
+          <div className={styles.skillGrid}>{visibleSkills.map((skill) => <SkillRow key={skill.skill} hint={rule({ category: "skills", title: SKILL_LABELS[skill.skill], entityId: skill.skill })} skill={skill.skill} modifier={skill.modifier.value} proficient={skill.proficient} expertise={skill.expertise} onRoll={onRoll} intent={intentFor("skill", skill.skill, skill.modifier.value)} />)}</div>
         )}
       </Panel>
 
@@ -476,7 +482,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
               const weight = info && info.weightGrams > 0 ? formatGrams(info.weightGrams * item.quantity) : undefined;
               const meta = [item.quantity > 1 ? `${item.quantity}×` : undefined, info ? EQUIPMENT_CATEGORY_LABELS[info.category] ?? info.category : undefined, weight].filter(Boolean).join(" · ");
               return (
-                <button type="button" className={[styles.itemRow, item.equippedState === "equipped" ? styles.itemEquipped : ""].join(" ")} key={item.id} onClick={() => document.querySelector(`[data-item-id="${item.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+                <button {...rule({ category: "equipment", title: item.customName || name("equipment", item.equipmentRef), entityId: String(item.equipmentRef.entityId) })} type="button" className={[styles.itemRow, item.equippedState === "equipped" ? styles.itemEquipped : ""].join(" ")} key={item.id} onClick={() => document.querySelector(`[data-item-id="${item.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
                   <span className={styles.itemIcon} aria-hidden="true">{(info && CATEGORY_ICONS[info.category]) ?? <GiBackpack />}</span>
                   <span className={styles.itemInfo}>
                     <span className={styles.itemName}>{item.customName || name("equipment", item.equipmentRef)}</span>
@@ -488,28 +494,40 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             })}</div>
           )}
         </Panel>
-        <Panel heading="Magias" headingLevel={2} action={spellOptions && source && canEdit ? <PanelLink label="Gerenciar" onClick={() => setManagingSpells(true)} /> : spellEntries.length > ITEMS_COMPACT_COUNT ? <PanelLink label={spellsExpanded ? "Ver menos" : "Ver todos"} expanded={spellsExpanded} onClick={() => setSpellsExpanded((value) => !value)} /> : undefined}>
+        <Panel heading="Magias" headingLevel={2} className={styles.spellPanel} hint={rule({ category: "rules", title: "Conjurando Uma Magia" })} action={spellOptions && source && canEdit ? <PanelLink label="Gerenciar" onClick={() => setManagingSpells(true)} /> : undefined}>
           {!source ? <p className={styles.muted}>Esta classe não conjura magias neste nível.</p> : spellEntries.length === 0 ? (
             <div className={styles.emptySpells}>
               <p className={styles.muted}>Nenhuma magia selecionada.</p>
               {spellOptions && canEdit ? <Button size="sm" variant="secondary" onClick={() => setManagingSpells(true)}>Escolher magias</Button> : null}
             </div>
           ) : (
-            <div className={styles.itemList}>{visibleSpells.map((entry) => (
-              <div className={styles.itemRow} key={`${entry.ref.entityId}-${entry.ability}`}>
-                <span className={[styles.spellIcon, styles[`school_${entry.option?.school ?? "none"}`] ?? ""].join(" ")} aria-hidden="true"><GiSparkles /></span>
-                <span className={styles.itemInfo}>
-                  <span className={styles.itemName}>{entry.option?.name ?? name("spell", entry.ref)}</span>
-                  <span className={styles.itemSub}>{entry.option ? `${SPELL_SCHOOL_LABELS[entry.option.school] ?? entry.option.school} · ${formatSpellLevel(entry.option.level)}` : `Conjuração · ${ABILITY_LABELS[entry.ability].short}`}</span>
-                </span>
-              </div>
-            ))}{spellEntries.length > ITEMS_COMPACT_COUNT && spellOptions ? <button type="button" className={styles.moreLink} onClick={() => setSpellsExpanded((value) => !value)}>{spellsExpanded ? "Ver menos" : `Ver todas (${spellEntries.length})`}</button> : null}</div>
+            <div className={styles.spellColumns}>
+              {([["Truques", cantripEntries, "Truques"], ["Magias", leveledEntries, "Magias Conhecidas E Preparadas"]] as const).map(([label, entries, ruleTitle]) => (
+                <section key={label} className={styles.spellColumn} aria-label={label}>
+                  <h3 {...rule({ category: "rules", title: ruleTitle })} className={styles.spellColumnTitle}>{label}<span>{entries.length}</span></h3>
+                  {entries.length === 0 ? <p className={styles.muted}>{label === "Truques" ? "Nenhum truque." : "Nenhuma magia."}</p> : (
+                    <ul className={styles.spellList}>{entries.map((entry) => {
+                      const spellName = entry.option?.name ?? name("spell", entry.ref);
+                      return (
+                        <li {...rule({ category: "spell", title: spellName, entityId: String(entry.ref.entityId) })} className={styles.spellRow} key={`${entry.ref.entityId}-${entry.ability}`}>
+                          <span className={[styles.spellIcon, styles[`school_${entry.option?.school ?? "none"}`] ?? ""].join(" ")} aria-hidden="true"><SpellIcon spellId={String(entry.ref.entityId)} fallback={<GiSparkles />} /></span>
+                          <span className={styles.spellRowInfo}>
+                            <span className={styles.spellRowName}>{spellName}</span>
+                            <span className={styles.spellRowMeta}>{entry.option ? `${entry.option.level > 0 ? `${entry.option.level}º · ` : ""}${SPELL_SCHOOL_LABELS[entry.option.school] ?? entry.option.school}` : ABILITY_LABELS[entry.ability].short}</span>
+                          </span>
+                        </li>
+                      );
+                    })}</ul>
+                  )}
+                </section>
+              ))}
+            </div>
           )}
         </Panel>
       </section>
 
-      <Panel heading="Resistências" headingLevel={2}>
-        <div className={styles.actionList}>{derived?.savingThrows.map((save) => <div className={styles.actionRow} key={save.ability}><span className={[styles.dot, save.proficient ? styles.dotActive : ""].join(" ")} aria-label={save.proficient ? "proficiente" : "não proficiente"} /><span className={styles.actionName}>{ABILITY_LABELS[save.ability].name}</span><RollButton label={formatModifier(save.modifier.value)} accessibleLabel={`resistência de ${ABILITY_LABELS[save.ability].name} (${formatModifier(save.modifier.value)})`} intent={intentFor("saving-throw", save.ability, save.modifier.value)} onRoll={onRoll} /></div>) ?? <p className={styles.muted}>Resistências derivadas ainda não estão disponíveis.</p>}</div>
+      <Panel heading="Resistências" headingLevel={2} hint={rule({ category: "rules", title: "Testes De Resistência" })}>
+        <div className={styles.actionList}>{derived?.savingThrows.map((save) => <div {...rule({ category: "attributes", title: ABILITY_LABELS[save.ability].name, entityId: save.ability })} className={styles.actionRow} key={save.ability}><span className={[styles.dot, save.proficient ? styles.dotActive : ""].join(" ")} aria-label={save.proficient ? "proficiente" : "não proficiente"} /><span className={styles.actionName}>{ABILITY_LABELS[save.ability].name}</span><RollButton label={formatModifier(save.modifier.value)} accessibleLabel={`resistência de ${ABILITY_LABELS[save.ability].name} (${formatModifier(save.modifier.value)})`} intent={intentFor("saving-throw", save.ability, save.modifier.value)} onRoll={onRoll} /></div>) ?? <p className={styles.muted}>Resistências derivadas ainda não estão disponíveis.</p>}</div>
       </Panel>
 
       <Panel heading="Condições e morte" headingLevel={2}>
@@ -519,7 +537,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             {conditions.length === 0 ? <p className={styles.muted}>Nenhuma condição ativa.</p> : (
               <ul className={styles.conditionChips}>{conditions.map((condition) => (
                 <li key={condition.id} className={styles.conditionChip}>
-                  <Badge tone="warning">{name("condition", condition.definitionRef)}</Badge>
+                  <span {...rule({ category: "condition", title: name("condition", condition.definitionRef) })}><Badge tone="warning">{name("condition", condition.definitionRef)}</Badge></span>
                   <span className={styles.conditionOrigin}>{formatConditionOrigin(condition.origin, name)}</span>
                   {canEdit ? <button type="button" className={styles.chipRemove} aria-label={`Remover ${name("condition", condition.definitionRef)}`} onClick={() => updatePatch({ conditions: conditions.filter((entry) => entry.id !== condition.id) })}><X aria-hidden="true" /></button> : null}
                 </li>
@@ -536,7 +554,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             ) : null}
           </div>
           <div className={styles.deathSaves}>
-            <h3>Salvamentos contra morte</h3>
+            <h3 {...rule({ category: "combat", title: "Teste contra a morte" })}>Salvamentos contra morte</h3>
             <SaveMarks label="Sucessos" tone="success" count={deathSaves.successes} onChange={canEdit ? (next) => updatePatch({ deathSaves: { ...deathSaves, successes: next, stable: next >= 3 ? true : deathSaves.stable && next >= 3 } }) : undefined} />
             <SaveMarks label="Falhas" tone="failure" count={deathSaves.failures} onChange={canEdit ? (next) => updatePatch({ deathSaves: { ...deathSaves, failures: next, stable: false } }) : undefined} />
             <p className={styles.deathStatus}>{deathSaves.failures >= 3 ? "Morto." : deathSaves.stable || deathSaves.successes >= 3 ? "Estável." : hp.current === 0 ? "Morrendo — role um salvamento a cada turno." : "Consciente."}</p>
@@ -546,8 +564,8 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
       </Panel>
 
       <Panel heading="Sessão" headingLevel={2} action={character.inspiration ? <Badge tone="xp">Inspiração</Badge> : undefined}>
-        <div className={styles.sessionList}><p><span>Proficiência</span><strong>{derived ? formatModifier(derived.proficiencyBonus.value) : "—"}</strong></p><p><span>Percepção passiva</span><strong>{derived?.passivePerception.value ?? "—"}</strong></p><p><span>Experiência</span><strong>{valueOr(draft, "xp", character.xp).toLocaleString("pt-BR")} XP</strong></p></div>
-        <label className={styles.checkRow}><input type="checkbox" checked={valueOr(draft, "inspiration", character.inspiration)} onChange={(event) => updatePatch({ inspiration: event.target.checked })} /> <span>Inspiração disponível</span></label>
+        <div className={styles.sessionList}><p {...rule({ category: "rules", title: "Bônus de proficiência" })}><span>Proficiência</span><strong>{derived ? formatModifier(derived.proficiencyBonus.value) : "—"}</strong></p><p {...rule({ category: "rules", title: "Teste passivo" })}><span>Percepção passiva</span><strong>{derived?.passivePerception.value ?? "—"}</strong></p><p><span>Experiência</span><strong>{valueOr(draft, "xp", character.xp).toLocaleString("pt-BR")} XP</strong></p></div>
+        <label {...rule({ category: "background", title: "Inspiração" })} className={styles.checkRow}><input type="checkbox" checked={valueOr(draft, "inspiration", character.inspiration)} onChange={(event) => updatePatch({ inspiration: event.target.checked })} /> <span>Inspiração disponível</span></label>
       </Panel>
 
       {character.resources.length === 0 ? null : <Panel heading="Recursos" headingLevel={2}>

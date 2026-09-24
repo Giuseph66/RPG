@@ -11,6 +11,19 @@ export interface SessionAttendance {
   readonly present: boolean;
 }
 
+export interface EncounterCombatant {
+  readonly entityType: "character" | "npc";
+  readonly entityId: Uuid;
+  readonly initiative: number;
+}
+
+/** Controle de ordem da mesa, sem criar regra de combate ou atributos. */
+export interface EncounterState {
+  readonly round: number;
+  readonly activeCombatantKey?: string;
+  readonly combatants: readonly EncounterCombatant[];
+}
+
 /** Registro serializável da sessão; permanece útil sem rede. */
 export interface CampaignSession {
   readonly id: Uuid;
@@ -23,6 +36,7 @@ export interface CampaignSession {
   readonly summary: string;
   readonly status: SessionStatus;
   readonly attendance: readonly SessionAttendance[];
+  readonly encounter?: EncounterState;
   readonly startedAt?: IsoTimestamp;
   readonly endedAt?: IsoTimestamp;
   readonly createdAt: IsoTimestamp;

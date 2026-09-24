@@ -31,6 +31,8 @@ export interface MapViewerProps {
   readonly selectedMarkerId?: string;
   readonly groupPosition?: NormalizedCoordinate | number;
   readonly onMarkerSelect?: (markerId: string) => void;
+  readonly onMarkerEdit?: (markerId: string) => void;
+  readonly onMarkerRemove?: (markerId: string) => void;
   readonly onAddMarker?: (coordinate: NormalizedCoordinate) => void;
   readonly onViewportChange?: (viewport: { readonly zoom: number; readonly offsetX: number; readonly offsetY: number }) => void;
   readonly className?: string;

@@ -365,6 +365,21 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .moreLink { justify-self: start; padding: .2rem 0; color: var(--color-secondary); background: none; border: 0; font: inherit; font-size: .85rem; cursor: pointer; }
 .moreLink:hover { color: #F6DFAE; }
 
+/* Magias: Truques | Magias lado a lado, linhas compactas como Resistências */
+.spellColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; align-items: start; }
+.spellColumn { display: grid; gap: .4rem; min-width: 0; }
+.spellColumnTitle { display: flex; align-items: center; justify-content: space-between; gap: .4rem; margin: 0; padding-bottom: .25rem; color: var(--color-secondary); border-bottom: 1px solid rgba(190, 144, 91, .28); font-family: var(--typography-heading-font-family); font-size: .92rem; letter-spacing: .03em; }
+.spellColumnTitle span { min-width: 1.4rem; padding: 0 .35rem; color: var(--color-text-muted); background: rgba(0, 0, 0, .35); border: 1px solid rgba(190, 144, 91, .3); border-radius: 999px; font-family: var(--typography-numeric-font-family); font-size: .72rem; text-align: center; }
+.spellList { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.spellRow { display: flex; align-items: center; gap: .45rem; min-height: 2.6rem; padding: .25rem .4rem .25rem .3rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 4px; cursor: default; }
+.spellRow .spellIcon { width: 1.8rem; height: 1.8rem; font-size: 1.05rem; }
+.spellRow:hover { border-color: color-mix(in srgb, var(--color-secondary) 70%, transparent); }
+.spellRowInfo { display: grid; flex: 1; min-width: 0; line-height: 1.15; }
+.spellRowName { overflow: hidden; color: var(--color-text); font-size: .86rem; text-overflow: ellipsis; white-space: nowrap; }
+.spellRowMeta { overflow: hidden; color: var(--color-text-muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.ruleText { cursor: help; text-decoration: underline dotted rgba(208, 171, 114, .45); text-underline-offset: .2em; }
+[data-rule-hint] { -webkit-tap-highlight-color: transparent; }
+
 /* Escolas de magia */
 .school_abjuration { color: #BFD8FF; background: radial-gradient(circle at 50% 40%, rgba(58, 98, 160, .95), rgba(12, 22, 40, .98)); border-color: rgba(120, 160, 230, .5); box-shadow: 0 0 8px rgba(90, 140, 220, .3); }
 .school_conjuration { color: #9FE3A0; background: radial-gradient(circle at 50% 40%, rgba(46, 110, 60, .95), rgba(10, 30, 16, .98)); border-color: rgba(120, 200, 130, .45); }

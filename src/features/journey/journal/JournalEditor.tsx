@@ -31,20 +31,19 @@ export function JournalEditor({ draft, status = "clean", error, links = [], onIn
       <InlineStatus tone={statusInfo.tone}>{error ?? statusInfo.text}</InlineStatus>
       <div className={styles.editorFields}>
         <Input label="Título" required value={draft.title} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { title: event.currentTarget.value } })} />
-        <label className={styles.field}><span className={styles.fieldLabel}>Resumo e notas</span><textarea aria-label="Resumo e notas" value={draft.body} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { body: event.currentTarget.value } })} onKeyDown={onKeyDown} rows={9} /></label>
+        <label className={styles.field}><span className={styles.fieldLabel}>Notas da sessão</span><textarea aria-label="Notas da sessão" placeholder="O que aconteceu? O que ficou pendente? Quem apareceu?" value={draft.body} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { body: event.currentTarget.value } })} onKeyDown={onKeyDown} rows={12} /></label>
         <div className={styles.twoColumns}>
           <Input label="Sessão" type="number" min={1} step={1} value={draft.sessionNumber ?? ""} disabled={!onIntent || status === "saving"} onChange={(event) => { const value = event.currentTarget.value; send(onIntent, { kind: "update-draft", patch: { sessionNumber: value === "" ? undefined : Number(value) } }); }} />
           <Input label="Tags" hint="Separe tags por vírgulas" value={draft.tags.join(", ")} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { tags: event.currentTarget.value.split(",").map((tag) => tag.trim()).filter(Boolean) } })} />
         </div>
-        <Input label="IDs de vínculos" hint="Separe IDs por vírgulas" value={draft.linkedEntityIds.map(String).join(", ")} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { linkedEntityIds: event.currentTarget.value.split(",").map((id) => id.trim()).filter(Boolean) as never } })} />
         <div className={styles.links}>
-          <h3><LinkSimple size={18} aria-hidden="true" /> Vínculos</h3>
-          {links.length === 0 ? <p className={styles.muted}>Nenhum vínculo neste registro.</p> : <ul>{links.map((link) => <li key={String(link.id)}><span>{link.label ?? String(link.id)}</span>{link.exists ? null : <span className={styles.orphan}>Vínculo ausente</span>}</li>)}</ul>}
+          <h3><LinkSimple size={18} aria-hidden="true" /> Referências</h3>
+          {links.length === 0 ? <p className={styles.muted}>Este registro ainda não tem referências a personagens ou lugares.</p> : <ul>{links.map((link) => <li key={String(link.id)}><span>{link.label ?? "Referência da campanha"}</span>{link.exists ? null : <span className={styles.orphan}>Vínculo ausente</span>}</li>)}</ul>}
         </div>
+        <details className={styles.advancedLinks}><summary>Referências avançadas</summary><Input label="IDs de vínculos" hint="Para importar ou ligar registros por identificador interno." value={draft.linkedEntityIds.map(String).join(", ")} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { linkedEntityIds: event.currentTarget.value.split(",").map((id) => id.trim()).filter(Boolean) as never } })} /></details>
       </div>
       <div className={styles.editorActions}>
         <Button variant="primary" disabled={!onIntent || status === "saving"} onClick={() => send(onIntent, { kind: "save-draft" })}><FloppyDisk size={17} aria-hidden="true" /> Salvar</Button>
-        <Button variant="secondary" disabled={!onIntent || status === "saving"} onClick={() => send(onIntent, { kind: "reload-draft" })}>Recarregar</Button>
         <Button variant="ghost" disabled={!onIntent || status === "saving"} onClick={() => send(onIntent, { kind: "discard-draft" })}>Descartar alterações</Button>
       </div>
       <p className={styles.keyboardHint}>Dica: Ctrl+S salva o rascunho sem interpretar o texto como HTML.</p>
@@ -52,6 +51,11 @@ export function JournalEditor({ draft, status = "clean", error, links = [], onIn
   );
 }
 
-export function JournalEntryList({ entries, selectedEntryId, onSelect }: JournalEntryListProps) {
-  return <section className={styles.entryList} aria-labelledby="journal-entry-list-title"><div className={styles.panelHeading}><div className={styles.headingTitle}><span className={styles.headingIcon} aria-hidden="true"><BookOpen size={21} weight="duotone" /></span><h2 id="journal-entry-list-title">Registros</h2></div><span>{entries.length}</span></div>{entries.length === 0 ? <p className={styles.muted}>Nenhum registro de sessão ainda.</p> : <ul>{entries.map((entry) => <li key={String(entry.id)}><button type="button" aria-current={selectedEntryId === String(entry.id) ? "true" : undefined} onClick={() => onSelect?.(String(entry.id))}><strong>{entry.title}</strong><span>{entry.sessionNumber ? `Sessão ${entry.sessionNumber}` : "Registro livre"}</span></button></li>)}</ul>}</section>;
+export function JournalEntryList({ entries, totalEntries = entries.length, selectedEntryId, searchQuery = "", onSearch, onSelect, onCreate }: JournalEntryListProps) {
+  return <section className={styles.entryList} aria-labelledby="journal-entry-list-title">
+    <div className={styles.panelHeading}><div className={styles.headingTitle}><span className={styles.headingIcon} aria-hidden="true"><BookOpen size={21} weight="duotone" /></span><div><p className={styles.eyebrow}>ARQUIVO</p><h2 id="journal-entry-list-title">Diário</h2></div></div>{onCreate ? <Button size="sm" variant="secondary" aria-label="Criar registro" onClick={onCreate}><Plus size={17} aria-hidden="true" /> Novo</Button> : null}</div>
+    <Input label="Buscar no diário" value={searchQuery} onChange={(event) => onSearch?.(event.currentTarget.value)} placeholder="Título, nota ou tag" />
+    <p className={styles.entryCount}>{searchQuery ? `${entries.length} de ${totalEntries} registros` : `${totalEntries} ${totalEntries === 1 ? "registro" : "registros"}`}</p>
+    {entries.length === 0 ? <div className={styles.listEmpty}><strong>{searchQuery ? "Nada encontrado" : "Nenhum registro ainda. A primeira sessão pode começar por aqui."}</strong><span>{searchQuery ? "Tente outro termo ou tag." : "Guarde os acontecimentos, pistas e decisões importantes."}</span></div> : <ul>{entries.map((entry) => <li key={String(entry.id)}><button type="button" aria-current={selectedEntryId === String(entry.id) ? "true" : undefined} onClick={() => onSelect?.(String(entry.id))}><strong>{entry.title || "Registro sem título"}</strong><span>{entry.sessionNumber ? `Sessão ${entry.sessionNumber}` : "Anotação livre"}{entry.tags.length ? ` · ${entry.tags.slice(0, 2).join(" · ")}` : ""}</span>{entry.body ? <p>{entry.body.slice(0, 100)}{entry.body.length > 100 ? "…" : ""}</p> : null}</button></li>)}</ul>}
+  </section>;
 }

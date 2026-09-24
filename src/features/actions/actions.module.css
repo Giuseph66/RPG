@@ -9,7 +9,6 @@
   gap: var(--spacing-lg);
   max-width: 90rem;
   padding: var(--spacing-lg) 0 var(--spacing-section);
-  --actions-success: #70d58d;
   --vigil-scrim-top: 78%;
   --vigil-scrim-bottom: 96%;
 }
@@ -32,7 +31,6 @@
 }
 
 .hero,
-.dicePanel,
 .quickPanel,
 .activityPanel,
 .review,
@@ -137,7 +135,6 @@
   line-height: 1.6;
 }
 
-.dicePanel,
 .quickPanel,
 .activityPanel,
 .review,
@@ -170,102 +167,13 @@
   line-height: 1.2;
 }
 
-.diceMark { color: var(--color-secondary); font-size: 1.8rem; }
 .count { display: grid; place-items: center; min-width: 2rem; min-height: 2rem; border: 1px solid var(--color-secondary); border-radius: var(--radius-pill); color: var(--color-secondary); font-family: var(--typography-numeric-font-family); font-weight: 700; }
-
-.diceLayout {
-  display: grid;
-  grid-template-columns: minmax(12rem, .72fr) minmax(0, 1.28fr);
-  align-items: stretch;
-  gap: var(--spacing-md);
-}
-
-.lastRoll {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: var(--spacing-xs);
-  min-height: 11.5rem;
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-background) 82%, var(--color-primary));
-  text-align: center;
-}
-
-.lastRollLabel,
-.activityCaption { color: var(--color-text-muted); font-size: .82rem; }
-.rollValue { color: var(--color-secondary); font-family: var(--typography-display-font-family); font-size: clamp(3.2rem, 8vw, 5rem); font-weight: 500; line-height: .95; }
-.rollOutcome { color: var(--color-text-muted); font-family: var(--typography-heading-font-family); font-size: 1.05rem; }
-.criticalSuccess { color: var(--actions-success); }
-.criticalFailure { color: var(--color-danger); }
-
-.diceControls { display: grid; align-content: center; gap: var(--spacing-sm); }
-.diceChoices { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-xs); }
-
-.dieChoice {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: var(--spacing-xs);
-  min-width: 0;
-  min-height: 7.25rem;
-  padding: var(--spacing-xs);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-control);
-  background: var(--color-background);
-  color: var(--color-text);
-  font-family: var(--typography-numeric-font-family);
-  font-size: .9rem;
-  cursor: pointer;
-  transition: border-color var(--motion-transition) var(--motion-easing), background-color var(--motion-transition) var(--motion-easing), color var(--motion-transition) var(--motion-easing), transform var(--motion-transition) var(--motion-easing);
-}
-
-.dieGlyph {
-  display: grid;
-  place-items: center;
-  width: 2.45rem;
-  aspect-ratio: 1;
-  background: color-mix(in srgb, var(--color-secondary) 86%, var(--color-background));
-  color: var(--color-background);
-  font-family: var(--typography-numeric-font-family);
-  font-size: .76rem;
-  clip-path: polygon(50% 0, 90% 24%, 90% 76%, 50% 100%, 10% 76%, 10% 24%);
-}
-
-.dieChoice:hover { border-color: var(--color-secondary); transform: translateY(-2px); }
-.dieChoice:focus-visible,
-.rollAgain:focus-visible,
 .capabilityButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
-.selectedDie { border-color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 14%, var(--color-background)); box-shadow: 0 0 0 1px var(--color-danger); color: var(--color-text); }
-.selectedDie .dieGlyph { background: var(--color-danger); color: white; }
-
-.rollAgain {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  min-height: 3.5rem;
-  border: 1px solid var(--color-secondary);
-  border-radius: var(--radius-control);
-  background: linear-gradient(110deg, color-mix(in srgb, var(--color-secondary) 16%, var(--color-surface)), var(--color-surface-warm));
-  color: var(--color-secondary);
-  font-family: var(--typography-label-font-family);
-  font-size: .83rem;
-  font-weight: 800;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color var(--motion-transition) var(--motion-easing), border-color var(--motion-transition) var(--motion-easing), opacity var(--motion-transition) var(--motion-easing);
-}
-
-.rollAgain > span { font-size: 1.25rem; }
-.rollAgain:hover:not(:disabled) { background: color-mix(in srgb, var(--color-secondary) 24%, var(--color-surface)); }
-.rollAgain:disabled { cursor: not-allowed; opacity: .48; }
 
 .quickIntro,
 .muted,
 .emptyActivity { margin: 0; color: var(--color-text-muted); }
+.activityCaption { color: var(--color-text-muted); font-size: .82rem; }
 .capabilityList { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); gap: var(--spacing-sm); }
 .concentrationCard { grid-column: 1 / -1; }
 
@@ -372,13 +280,7 @@
   .availability { grid-column: 1 / -1; justify-items: start; text-align: left; }
   .availability strong { max-width: 100%; }
   .heroMotto { max-width: 20rem; font-size: .64rem; letter-spacing: .19em; }
-  .diceLayout { grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr); gap: var(--spacing-sm); }
-  .lastRoll { grid-template-columns: 1fr; justify-items: center; min-height: 7rem; text-align: center; }
-  .rollValue { grid-column: auto; grid-row: auto; font-size: 3.1rem; }
-  .rollOutcome { grid-column: auto; font-size: .82rem; }
-  .diceChoices { gap: .35rem; }
-  .dieChoice { min-height: 6rem; font-size: .8rem; }
-  .dieGlyph { width: 2rem; }
+  .quickIntro { display: none; }
   .capabilityList { grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); }
   .reviewGrid { grid-template-columns: 1fr; }
   .confirmRow { align-items: stretch; flex-direction: column; }
@@ -388,7 +290,6 @@
 @media (max-width: 420px) {
   .hero { padding: var(--spacing-md); }
   .hero h1 { font-size: 2.3rem; }
-  .dicePanel,
   .quickPanel,
   .activityPanel,
   .review { padding: var(--spacing-md); }
@@ -400,7 +301,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dieChoice,
-  .rollAgain,
   .capability { transition: none; }
 }

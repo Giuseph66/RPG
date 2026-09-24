@@ -42,7 +42,7 @@ const dice = {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AppShell character={{ value: character, status: "ready" }} route={matchRoute("/actions")} navigate={() => undefined}>
+    <AppShell character={{ value: character, status: "clean" }} route={matchRoute("/actions")} navigate={() => undefined}>
       <Actions character={character} capabilities={capabilities as never} availableActions={["action", "bonus-action", "reaction", "free"]} dice={dice as never} onIntent={() => undefined} />
     </AppShell>
   </StrictMode>,

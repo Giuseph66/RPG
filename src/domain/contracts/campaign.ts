@@ -33,6 +33,8 @@ export interface Quest {
 
 export interface NpcRecord {
   readonly id: Uuid;
+  /** Registros antigos sem tipo continuam sendo NPCs por compatibilidade. */
+  readonly kind?: "npc" | "enemy";
   readonly name: string;
   readonly description: string;
   readonly linkedEntityIds: readonly Uuid[];

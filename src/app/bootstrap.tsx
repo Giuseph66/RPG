@@ -526,7 +526,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
         return owner.ok ? ok(undefined) : err(appError.validation("membership", owner.error.message));
       },
     });
-    const campaignRecordDispatcher = createCampaignRecordDispatcher({ campaignService: services.campaign });
+    const campaignRecordDispatcher = createCampaignRecordDispatcher({ campaignService: services.campaign, idGenerator, clock });
     const journalDispatcher = createJournalDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock });
     const backup = createBackupService({
       characters: characterRepository,
@@ -563,6 +563,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       listCharacters: () => characterRepository.list(),
       listCharacterDrafts: () => characterRepository.listDrafts(),
       listJournalEntries: (campaignId) => campaignRepository.listJournalEntries(campaignId),
+      getLocalAsset: (assetId) => assets.getLocal(assetId),
       journalDraftState: () => journalDispatcher.getDraftState(),
       dataManagement: { service: dataManagement, previewImport: (envelope) => backup.previewImport(envelope) },
       auth,

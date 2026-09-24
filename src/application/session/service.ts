@@ -1,7 +1,7 @@
-import { type AccountId, type Uuid } from "@domain/contracts/ids";
+import { type AccountId, isUuid, type Uuid } from "@domain/contracts/ids";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { asRevision, type Revision } from "@domain/contracts/versioning";
-import { SESSION_SCHEMA_VERSION, type CampaignSession, type SessionAttendance } from "@domain/session";
+import { SESSION_SCHEMA_VERSION, type CampaignSession, type EncounterState, type SessionAttendance } from "@domain/session";
 import { type SyncOutboxService, toJsonSnapshot } from "@application/sync";
 import { type Clock } from "@application/ports/clock";
 import { type IdGenerator } from "@application/ports/id-generator";
@@ -44,6 +44,7 @@ export interface SessionService {
   end(id: Uuid, accountId: AccountId, summary?: string): Promise<Result<CampaignSession, AppError>>;
   updateNotes(id: Uuid, accountId: AccountId, notes: string): Promise<Result<CampaignSession, AppError>>;
   setAttendance(id: Uuid, accountId: AccountId, attendance: readonly SessionAttendance[]): Promise<Result<CampaignSession, AppError>>;
+  setEncounter(id: Uuid, accountId: AccountId, encounter: EncounterState | undefined): Promise<Result<CampaignSession, AppError>>;
   get(id: Uuid): Promise<Result<CampaignSession, AppError>>;
   list(campaignId: Uuid): Promise<Result<readonly CampaignSession[], AppError>>;
   delete(id: Uuid, accountId: AccountId): Promise<Result<void, AppError>>;
@@ -71,6 +72,28 @@ function validateAttendance(attendance: readonly SessionAttendance[]): Result<re
     seen.add(item.characterId);
   }
   return ok(attendance.map((item) => ({ ...item })));
+}
+
+function validateEncounter(encounter: EncounterState | undefined): Result<EncounterState | undefined, AppError> {
+  if (encounter === undefined) return ok(undefined);
+  if (!Number.isInteger(encounter.round) || encounter.round < 1 || !Array.isArray(encounter.combatants)) {
+    return err(appError.validation("encounter", "Rodada ou lista do encontro inválida."));
+  }
+  const keys = new Set<string>();
+  const combatants: EncounterState["combatants"][number][] = [];
+  for (const item of encounter.combatants) {
+    if ((item.entityType !== "character" && item.entityType !== "npc") || !isUuid(String(item.entityId)) || !Number.isInteger(item.initiative)) {
+      return err(appError.validation("encounter", "Participante ou iniciativa inválida."));
+    }
+    const key = item.entityType + ":" + item.entityId;
+    if (keys.has(key)) return err(appError.validation("encounter", "O mesmo participante não pode entrar duas vezes no encontro."));
+    keys.add(key);
+    combatants.push({ entityType: item.entityType, entityId: item.entityId, initiative: item.initiative });
+  }
+  if (encounter.activeCombatantKey && !keys.has(encounter.activeCombatantKey)) {
+    return err(appError.validation("encounter", "O turno atual precisa pertencer a um participante do encontro."));
+  }
+  return ok({ round: encounter.round, ...(encounter.activeCombatantKey ? { activeCombatantKey: encounter.activeCombatantKey } : {}), combatants });
 }
 
 function withUpdatedAt(session: CampaignSession, patch: Partial<CampaignSession>, clock: Clock): CampaignSession {
@@ -180,6 +203,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     setAttendance: (id, accountId, attendance) => mutate(id, accountId, (current) => {
       const valid = validateAttendance(attendance);
       return valid.ok ? ok(withUpdatedAt(current, { attendance: valid.value }, clock)) : valid;
+    }),
+    setEncounter: (id, accountId, encounter) => mutate(id, accountId, (current) => {
+      const valid = validateEncounter(encounter);
+      return valid.ok ? ok(withUpdatedAt(current, { encounter: valid.value }, clock)) : valid;
     }),
     get: (id) => repository.get(id),
     list: (campaignId) => repository.list(campaignId),

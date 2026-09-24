@@ -7,12 +7,9 @@ import type { SourceRef } from "@domain/contracts/primitives";
 
 export type ActionCapabilityKind = "attack" | "damage" | "spell" | "resource" | "item" | "rest" | "concentration";
 export type ActionCapabilityStatus = "available" | "blocked" | "pending" | "unsupported";
-export type ActionsDieFaces = 4 | 6 | 8 | 20 | 100;
 
 export interface ActionsDice {
   readonly history: readonly DiceRoll[];
-  readonly busy: boolean;
-  readonly onRoll: (faces: ActionsDieFaces) => void;
 }
 /**
  * Sinaliza que a `ReviewPanel` (Actions.tsx) precisa coletar um número do usuário antes de

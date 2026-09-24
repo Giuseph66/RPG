@@ -1,0 +1,42 @@
+.workspace { display: grid; gap: var(--spacing-lg); width: 100%; }
+.heading { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--spacing-lg); padding: .25rem 0 var(--spacing-md); border-bottom: 1px solid var(--color-border-soft); }
+.headingCopy { display: grid; gap: var(--spacing-xs); }
+.heading h1, .empty h2 { margin: 0; color: var(--color-text); font-family: var(--typography-display-font-family); font-size: clamp(1.8rem, 3vw, 2.6rem); line-height: 1.08; }
+.headingCopy > p:last-child, .empty > p:not(.eyebrow) { max-width: 60ch; margin: 0; color: var(--color-text-muted); }
+.eyebrow, .mapKicker { margin: 0; color: var(--color-secondary); font-size: .68rem; font-weight: 800; letter-spacing: .14em; }
+.fileInput { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.nameEditor { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--spacing-sm); padding: var(--spacing-md); background: var(--color-surface); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
+.nameEditor > :first-child { flex: 1 1 15rem; }
+.empty { display: grid; justify-items: center; gap: var(--spacing-md); min-height: 25rem; align-content: center; padding: clamp(var(--spacing-xl), 6vw, 5rem); text-align: center; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 60%), linear-gradient(150deg, var(--color-surface), color-mix(in srgb, var(--color-surface-warm) 66%, var(--color-surface))); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); }
+.emptySeal { display: grid; place-items: center; width: 4.25rem; height: 4.25rem; color: var(--color-secondary); border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface-elevated); box-shadow: 0 0 0 .45rem color-mix(in srgb, var(--color-primary) 6%, transparent); }
+.empty > .eyebrow { margin-top: var(--spacing-sm); }
+.empty h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+.importForm { display: grid; justify-items: center; gap: var(--spacing-sm); width: min(100%, 28rem); margin-top: var(--spacing-md); }
+.importForm > :first-child { width: 100%; text-align: left; }
+.importForm small, .imageMeta { color: var(--color-text-muted); font-size: .78rem; }
+.mapLayout { display: grid; grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); gap: var(--spacing-lg); align-items: start; }
+.mapRail { position: sticky; top: calc(var(--app-bar-height) + var(--spacing-lg)); display: grid; gap: var(--spacing-md); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-surface) 94%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); }
+.railHeading, .mapToolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
+.railHeading { color: var(--color-text); font-family: var(--typography-heading-font-family); }
+.railHeading span { color: var(--color-text-muted); font: 600 .8rem var(--typography-numeric-font-family); }
+.mapRail ul { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; }
+.mapRail button { display: flex; align-items: center; gap: var(--spacing-sm); width: 100%; min-height: 3.6rem; padding: var(--spacing-sm); color: var(--color-text); text-align: left; background: transparent; border: 1px solid transparent; border-radius: var(--radius-control); cursor: pointer; }
+.mapRail button:hover, .mapRail button[aria-current="true"] { background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border-soft)); }
+.mapRail button > span:last-child { display: grid; gap: .18rem; min-width: 0; }
+.mapRail button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapRail button small { color: var(--color-text-muted); font-size: .76rem; }
+.mapIndex { display: grid; place-items: center; width: 2rem; height: 2rem; flex: 0 0 auto; color: var(--color-secondary); border: 1px solid var(--color-border-soft); border-radius: 50%; font: 700 .68rem var(--typography-numeric-font-family); }
+.railNote { margin: 0; padding-top: var(--spacing-sm); color: var(--color-text-muted); border-top: 1px solid var(--color-border-soft); font-size: .76rem; line-height: 1.45; }
+.mapStage { display: grid; gap: var(--spacing-sm); min-width: 0; }
+.mapToolbar { padding: 0 var(--spacing-xs) var(--spacing-sm); }
+.mapToolbar h2 { margin: .2rem 0 0; font-family: var(--typography-display-font-family); font-size: 1.5rem; }
+.mapActions { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.mapActions :global(button) { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.pinForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--spacing-sm) var(--spacing-md); padding: var(--spacing-md); background: var(--color-surface); border: 1px solid var(--color-border-soft); border-left: 2px solid var(--color-secondary); }
+.pinForm > :first-child { width: 100%; }
+.pinForm p { grid-column: 1 / -1; margin: 0; color: var(--color-text-muted); font-size: .8rem; }
+.pinForm > div { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.mapStage > section { max-width: none; }
+.imageMeta { display: flex; justify-content: space-between; padding: 0 var(--spacing-xs); }
+@media (max-width: 900px) { .mapLayout { grid-template-columns: 1fr; } .mapRail { position: static; } .mapRail ul { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); } }
+@media (max-width: 620px) { .heading, .mapToolbar { align-items: flex-start; flex-direction: column; } .heading > :last-child { align-self: stretch; } .mapActions { width: 100%; } .mapActions > * { flex: 1; } .pinForm { grid-template-columns: 1fr; } .pinForm > p { grid-column: auto; } .pinForm > div { justify-content: stretch; } .pinForm > div > * { flex: 1; } .empty { min-height: 19rem; padding: var(--spacing-lg); } .mapRail ul { grid-template-columns: 1fr; } }

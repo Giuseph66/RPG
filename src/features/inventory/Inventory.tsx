@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { AppModal, Badge, Button, InlineStatus } from "@components/ui";
+import { useRuleHint } from "@features/compendium";
 import type { CoinDenomination } from "@domain/contracts/primitives";
 
 import type { InventoryCarrying, InventoryCatalogOption, InventoryIntent, InventoryItemView, InventoryProps } from "./types";
@@ -104,10 +105,11 @@ function ItemRow({ entry, onIntent, onInvalidQuantity, onRemove, onConsumed }: {
   const equipped = entry.item.equippedState === "equipped";
   const equippable = equipped || (entry.category !== undefined && EQUIPPABLE_CATEGORIES.has(entry.category));
   const properties = entry.properties?.map((property) => PROPERTY_LABELS[property]) ?? [];
+  const rule = useRuleHint();
 
   return (
     <tr className={equipped ? styles.equippedRow : undefined} data-item-id={String(entry.item.id)}>
-      <th scope="row" data-label="Item">
+      <th {...rule({ category: "equipment", title: entry.name, entityId: String(entry.item.equipmentRef.entityId) })} scope="row" data-label="Item">
         <div className={styles.itemName}>
           <strong>{entry.item.customName || entry.name}</strong>
           {equipped ? <Badge tone="xp">Equipado</Badge> : null}
@@ -166,13 +168,14 @@ function ImpactPanel({ impact }: Pick<InventoryProps, "impact">) {
 /** Barra de carga: 7,5 kg × Força é o máximo do livro; acima disso fica em vermelho. */
 function CarryingPanel({ carrying }: { readonly carrying: InventoryCarrying }) {
   const { totalGrams, capacityGrams, encumberedGrams, strengthScore } = carrying;
+  const rule = useRuleHint();
   const over = totalGrams > capacityGrams;
   const percent = capacityGrams > 0 ? Math.min(100, (totalGrams / capacityGrams) * 100) : 100;
   const markerPercent = encumberedGrams !== undefined && capacityGrams > 0 ? Math.min(100, (encumberedGrams / capacityGrams) * 100) : undefined;
   return (
     <section className={[styles.carryPanel, over ? styles.carryOver : ""].join(" ")} aria-labelledby="inventory-carry-title">
       <div className={styles.panelHeading}>
-        <h2 id="inventory-carry-title">Carga</h2>
+        <h2 {...rule({ category: "rules", title: "Usando Cada Habilidade" })} id="inventory-carry-title">Carga</h2>
         <span className={over ? styles.overLimit : styles.carryValue}><strong>{formatWeight(totalGrams)}</strong> / {formatWeight(capacityGrams)}</span>
       </div>
       <div className={styles.carryTrack} role="meter" aria-label="Peso carregado" aria-valuemin={0} aria-valuemax={capacityGrams} aria-valuenow={Math.min(totalGrams, capacityGrams)} aria-valuetext={`${formatWeight(totalGrams)} de ${formatWeight(capacityGrams)}${over ? ", acima da capacidade" : ""}`}>

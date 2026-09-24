@@ -20,6 +20,10 @@ export interface JournalEditorProps {
 
 export interface JournalEntryListProps {
   readonly entries: readonly JournalEntry[];
+  readonly totalEntries?: number;
+  readonly onCreate?: () => void;
   readonly selectedEntryId?: string;
+  readonly searchQuery?: string;
+  readonly onSearch?: (query: string) => void;
   readonly onSelect?: (entryId: string) => void;
 }

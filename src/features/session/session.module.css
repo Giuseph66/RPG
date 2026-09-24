@@ -16,3 +16,28 @@
 .checkRow input { width: 1.1rem; height: 1.1rem; accent-color: var(--color-primary); }
 .empty { margin: 0; color: var(--color-text-muted); }
 @media (max-width: 700px) { .panel { padding: var(--spacing-lg); } .createForm { grid-template-columns: 1fr; } .createForm button { width: 100%; } }
+.encounter { display: grid; gap: var(--spacing-md); padding: clamp(var(--spacing-md), 2vw, var(--spacing-lg)); background: radial-gradient(ellipse at 100% 0, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 42%), var(--color-surface-elevated); border: 1px solid var(--color-border-soft); border-top: 2px solid var(--color-primary); border-radius: var(--radius-control); }
+.encounterHeading, .roundBadge { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
+.encounterHeading > div { display: grid; gap: var(--spacing-xs); }
+.encounterHeading h3 { margin: 0; color: var(--color-text); font: var(--typography-heading-font-weight) 1.25rem var(--typography-heading-font-family); }
+.encounterHeading > div > p:last-child { max-width: 68ch; margin: 0; color: var(--color-text-muted); font-size: .82rem; line-height: 1.45; }
+.roundBadge { flex: 0 0 auto; padding: .55rem .8rem; color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); font-size: .8rem; }
+.roundBadge strong { color: var(--color-secondary); font: 700 1rem var(--typography-numeric-font-family); }
+.encounterAdd { display: grid; grid-template-columns: minmax(0, 1fr) minmax(7rem, .3fr) auto; align-items: end; gap: var(--spacing-sm); padding: var(--spacing-sm); background: color-mix(in srgb, var(--color-background) 35%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
+.encounterAdd label { display: grid; gap: var(--spacing-xs); color: var(--color-text); font-size: .84rem; font-weight: 650; }
+.encounterAdd select { box-sizing: border-box; width: 100%; min-height: var(--size-touch-target); padding: 0 var(--spacing-sm); color: var(--color-text); background: var(--color-background); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
+.encounterAdd > :last-child { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.turnOrder { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; counter-reset: turn; }
+.turnOrder li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto auto auto; align-items: center; gap: var(--spacing-sm); min-height: 3.6rem; padding: .45rem .65rem; background: color-mix(in srgb, var(--color-background) 32%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
+.turnOrder li[data-active="true"] { border-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-border)); background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)); box-shadow: inset 2px 0 var(--color-primary); }
+.turnNumber { color: var(--color-text-muted); font: 700 .72rem var(--typography-numeric-font-family); }
+.turnCopy { display: grid; min-width: 0; gap: .15rem; }
+.turnCopy strong { overflow: hidden; color: var(--color-text); text-overflow: ellipsis; white-space: nowrap; }
+.turnCopy small { color: var(--color-text-muted); font-size: .75rem; }
+.initiativeValue { min-width: 2rem; color: var(--color-secondary); font: 700 1rem var(--typography-numeric-font-family); text-align: right; }
+.activeTurn { display: inline-flex; align-items: center; gap: .3rem; color: var(--color-secondary); font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.encounterActions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-sm); }
+.encounterActions :global(button) { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.encounter .empty { padding: var(--spacing-sm); line-height: 1.45; }
+@media (max-width: 700px) { .encounterAdd { grid-template-columns: minmax(0, 1fr) minmax(6rem, .35fr); } .encounterAdd > :last-child { grid-column: 1 / -1; justify-content: center; } .encounterHeading { align-items: flex-start; } .roundBadge { padding-inline: .55rem; } }
+@media (max-width: 480px) { .encounterHeading { flex-direction: column; } .encounterAdd { grid-template-columns: 1fr; } .turnOrder li { grid-template-columns: 1.6rem minmax(0, 1fr) auto; } .activeTurn { grid-column: 2; grid-row: 2; } .turnOrder li > :last-child { grid-column: 3; grid-row: 1 / 3; } .initiativeValue { grid-column: 3; grid-row: 2; } }

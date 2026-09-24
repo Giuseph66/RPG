@@ -124,4 +124,22 @@ describe("CharacterSheet", () => {
     expect((mounted.container.querySelector("header") as HTMLElement).textContent).not.toContain("Anão");
     await mounted.unmount();
   });
+
+  it("separa truques e magias em colunas próprias", async () => {
+    const rulesetId = minimalCharacter.rulesetRef.id;
+    const ref = (id: string) => ({ rulesetId, entityId: asEntityId(id) });
+    const source = { id: asUuid("88888888-8888-4888-8888-888888888888"), grantingRef: ref("druid"), ability: "wis" as const, knownSpellRefs: [ref("bordao-mistico")], preparedSpellRefs: [ref("cure-wounds")], spellbookRefs: [], resourcePoolIds: [] };
+    const spellOptions = [
+      { ref: ref("bordao-mistico"), name: "Bordão Místico", level: 0, school: "transmutation", ritual: false, concentration: false },
+      { ref: ref("cure-wounds"), name: "Curar Ferimentos", level: 1, school: "evocation", ritual: false, concentration: false },
+    ];
+    const mounted = await mount(<CharacterSheet character={withCharacter({ castingSources: [source] })} derived={derived} spellOptions={spellOptions} />);
+    const cantrips = mounted.container.querySelector('section[aria-label="Truques"]') as HTMLElement;
+    const spells = mounted.container.querySelector('section[aria-label="Magias"]') as HTMLElement;
+    expect(cantrips.textContent).toContain("Bordão Místico");
+    expect(cantrips.textContent).not.toContain("Curar Ferimentos");
+    expect(spells.textContent).toContain("Curar Ferimentos");
+    expect(spells.textContent).toContain("1º · Evocação");
+    await mounted.unmount();
+  });
 });

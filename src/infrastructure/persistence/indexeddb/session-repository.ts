@@ -21,6 +21,21 @@ function isSessionRecord(value: unknown): value is CampaignSession {
     const attendance = item as Record<string, unknown>;
     return typeof attendance.characterId === "string" && isUuid(attendance.characterId) && isAccountId(attendance.playerId) && typeof attendance.present === "boolean";
   })) return false;
+  if (record.encounter !== undefined) {
+    if (typeof record.encounter !== "object" || record.encounter === null) return false;
+    const encounter = record.encounter as Record<string, unknown>;
+    if (!Number.isInteger(encounter.round) || Number(encounter.round) < 1 || !Array.isArray(encounter.combatants)) return false;
+    const keys = new Set<string>();
+    for (const item of encounter.combatants) {
+      if (typeof item !== "object" || item === null) return false;
+      const combatant = item as Record<string, unknown>;
+      if ((combatant.entityType !== "character" && combatant.entityType !== "npc") || typeof combatant.entityId !== "string" || !isUuid(combatant.entityId) || !Number.isInteger(combatant.initiative)) return false;
+      const key = combatant.entityType + ":" + combatant.entityId;
+      if (keys.has(key)) return false;
+      keys.add(key);
+    }
+    if (encounter.activeCombatantKey !== undefined && (typeof encounter.activeCombatantKey !== "string" || !keys.has(encounter.activeCombatantKey))) return false;
+  }
   if (typeof record.createdAt !== "string" || typeof record.updatedAt !== "string") return false;
   if (record.startedAt !== undefined && typeof record.startedAt !== "string") return false;
   if (record.endedAt !== undefined && typeof record.endedAt !== "string") return false;

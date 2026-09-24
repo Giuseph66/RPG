@@ -5,7 +5,7 @@ import type { DiceRoll } from "@domain/contracts/dice";
 import type { CastPreview } from "@domain/contracts/definitions/spell";
 import type { RuleResult } from "@domain/contracts/rules";
 
-import type { ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionSourceRef, ActionsDieFaces, ActionsProps } from "./types";
+import type { ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionSourceRef, ActionsProps } from "./types";
 import styles from "./actions.module.css";
 
 const KIND_LABELS: Record<ActionCapabilityKind, string> = {
@@ -27,8 +27,6 @@ const KIND_SYMBOLS: Record<ActionCapabilityKind, string> = {
   rest: "☾",
   concentration: "◈",
 };
-
-const DICE_FACES: readonly ActionsDieFaces[] = [4, 6, 8, 20, 100];
 
 function isRuleResult(preview: ActionPreview): preview is RuleResult {
   return "status" in preview;
@@ -222,21 +220,11 @@ function LoadingState() {
   return <section className={styles.state} role="status" aria-live="polite"><span className={styles.stateMark} aria-hidden="true">◌</span><h1>Carregando capacidades</h1><p>Consultando ações disponíveis para a sessão.</p></section>;
 }
 
-function rollOutcome(roll: DiceRoll | undefined): string {
-  if (!roll) return "Sua próxima história começa no próximo lance.";
-  if (roll.expression.faces === 20 && roll.expression.quantity === 1) {
-    if (roll.rawDice[0] === 20) return "Sucesso crítico!";
-    if (roll.rawDice[0] === 1) return "Falha crítica.";
-  }
-  return `${roll.expression.quantity}d${roll.expression.faces} · rolagem registrada`;
-}
-
 export function Actions({ character, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel }: ActionsProps) {
   const [selectedId, setSelectedId] = useState<string>();
   const [feedback, setFeedback] = useState<{ readonly tone: "success" | "warning" | "error" | "info"; readonly message: string }>();
   const [submitting, setSubmitting] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const [selectedDie, setSelectedDie] = useState<ActionsDieFaces>(20);
   const submittedCommands = useRef(new Set<string>());
 
   const selected = capabilities.find((capability) => capability.id === selectedId);
@@ -261,10 +249,7 @@ export function Actions({ character, dice, capabilities = [], previews, availabl
 
   const selectedPreview = selected ? lookupPreview(selected, previews) : undefined;
   const selectedState = selected ? capabilityState(selected, selectedPreview, availableActions) : undefined;
-  const latestRoll = dice?.history[0];
   const recentRolls = dice?.history.slice(0, 3) ?? [];
-  const criticalSuccess = latestRoll?.expression.faces === 20 && latestRoll.expression.quantity === 1 && latestRoll.rawDice[0] === 20;
-  const criticalFailure = latestRoll?.expression.faces === 20 && latestRoll.expression.quantity === 1 && latestRoll.rawDice[0] === 1;
 
   const confirm = async () => {
     if (!selected || !selectedState || selectedState.status !== "available" || !onIntent || submittedCommands.current.has(String(selected.commandId))) return;
@@ -311,22 +296,6 @@ export function Actions({ character, dice, capabilities = [], previews, availabl
       <div className={styles.availability} aria-label="Disponibilidade de ações"><span>Ações disponíveis</span><strong>{availableActions.length ? availableActions.join(" · ") : "Nenhuma informada"}</strong></div>
     </header>
     {feedback ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
-    <section className={styles.dicePanel} aria-labelledby="dice-title">
-      <div className={styles.panelHeading}><div><p className={styles.eyebrow}>QUE A SORTE TE ACOMPANHE</p><h2 id="dice-title">Dados</h2></div><span className={styles.diceMark} aria-hidden="true">✧</span></div>
-      <div className={styles.diceLayout}>
-        <div className={styles.lastRoll} aria-live="polite">
-          <span className={styles.lastRollLabel}>Último resultado</span>
-          <strong className={styles.rollValue}>{latestRoll?.total ?? "—"}</strong>
-          <span className={[styles.rollOutcome, criticalSuccess ? styles.criticalSuccess : "", criticalFailure ? styles.criticalFailure : ""].filter(Boolean).join(" ")}>{rollOutcome(latestRoll)}</span>
-        </div>
-        <div className={styles.diceControls}>
-          <div className={styles.diceChoices} role="group" aria-label="Escolha o dado">
-            {DICE_FACES.map((faces) => <button key={faces} className={[styles.dieChoice, selectedDie === faces ? styles.selectedDie : ""].filter(Boolean).join(" ")} type="button" aria-pressed={selectedDie === faces} onClick={() => setSelectedDie(faces)}><span className={styles.dieGlyph} aria-hidden="true">{faces}</span><span>d{faces}</span></button>)}
-          </div>
-          <button className={styles.rollAgain} type="button" disabled={!dice || dice.busy} onClick={() => dice?.onRoll(selectedDie)}><span aria-hidden="true">↻</span>{latestRoll ? "Rolar novamente" : "Rolar dado"}</button>
-        </div>
-      </div>
-    </section>
     <section className={styles.quickPanel} aria-labelledby="capabilities-title">
       <div className={styles.panelHeading}><div><p className={styles.eyebrow}>CAPACIDADES RESOLVIDAS</p><h2 id="capabilities-title">Ações rápidas</h2></div><span className={styles.count}>{capabilities.length}</span></div>
       <p className={styles.quickIntro}>Escolha uma ação para revisar custos, efeitos e pendências antes de confirmar.</p>

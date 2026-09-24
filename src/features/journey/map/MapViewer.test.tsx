@@ -33,6 +33,33 @@ describe("MapViewer", () => {
     await unmount();
   });
 
+  it("uses the map coordinates on double click and keeps center placement available", async () => {
+    const onAddMarker = vi.fn();
+    const { container, unmount } = await mount(<MapViewer image={{ src: "map.png" }} markers={[]} onAddMarker={onAddMarker} />);
+    const surface = container.querySelector('[role="application"]') as HTMLElement;
+    const canvas = surface.firstElementChild as HTMLElement;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20, width: 200, height: 100, right: 210, bottom: 120, x: 10, y: 20, toJSON: () => ({}) } as DOMRect);
+    await fireEvent(canvas, new MouseEvent("dblclick", { bubbles: true, clientX: 60, clientY: 95 }));
+    expect(onAddMarker).toHaveBeenLastCalledWith({ x: 0.25, y: 0.75 });
+    const center = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Adicionar local"))!;
+    await fireEvent(center, new MouseEvent("click", { bubbles: true }));
+    expect(onAddMarker).toHaveBeenLastCalledWith({ x: 0.5, y: 0.5 });
+    await unmount();
+  });
+
+  it("exposes marker management only through the callbacks provided by the master", async () => {
+    const onMarkerEdit = vi.fn();
+    const onMarkerRemove = vi.fn();
+    const { container, unmount } = await mount(<MapViewer image={{ src: "map.png" }} markers={[markers[0]]} onMarkerEdit={onMarkerEdit} onMarkerRemove={onMarkerRemove} />);
+    const edit = container.querySelector('[aria-label="Renomear local Aldeia"]') as HTMLButtonElement;
+    const remove = container.querySelector('[aria-label="Remover local Aldeia"]') as HTMLButtonElement;
+    await fireEvent(edit, new MouseEvent("click", { bubbles: true }));
+    await fireEvent(remove, new MouseEvent("click", { bubbles: true }));
+    expect(onMarkerEdit).toHaveBeenCalledWith("first");
+    expect(onMarkerRemove).toHaveBeenCalledWith("first");
+    await unmount();
+  });
+
   it("keeps the marker list when the local image is unavailable", async () => {
     const { container, unmount } = await mount(<MapViewer markers={markers} />);
     expect(container.textContent).toContain("Este mapa não tem imagem");

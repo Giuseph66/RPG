@@ -37,4 +37,23 @@ describe("CampaignPanel", () => {
     expect(onIntent).toHaveBeenCalledWith({ kind: "complete-quest", questId: "quest" });
     await unmount();
   });
+
+  it("creates an NPC with an explicit narrative type", async () => {
+    const onIntent = vi.fn();
+    const { container, unmount } = await mount(<CampaignRecords npcs={[]} sections={["npcs"]} onIntent={onIntent} />);
+    const create = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Novo NPC"))!;
+    await fireEvent(create, new MouseEvent("click", { bubbles: true }));
+    const input = container.querySelector('input[maxlength="80"]') as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "Mira, a cartógrafa");
+    await fireEvent(input, new Event("input", { bubbles: true }));
+    const description = container.querySelector("textarea") as HTMLTextAreaElement;
+    const textareaSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    textareaSetter?.call(description, "Conhece os caminhos do norte.");
+    await fireEvent(description, new Event("input", { bubbles: true }));
+    const save = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Adicionar ao elenco"))!;
+    await fireEvent(save, new MouseEvent("click", { bubbles: true }));
+    expect(onIntent).toHaveBeenCalledWith({ kind: "create-npc", name: "Mira, a cartógrafa", description: "Conhece os caminhos do norte.", recordKind: "npc" });
+    await unmount();
+  });
 });

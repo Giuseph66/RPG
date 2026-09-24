@@ -1,5 +1,5 @@
 import { type Asset, type Campaign, type MapPin, type MapRecord } from "@domain/contracts/campaign";
-import { err, type AppError, type Result } from "@domain/contracts/errors";
+import { appError, err, type AppError, type Result } from "@domain/contracts/errors";
 import { type Uuid } from "@domain/contracts/ids";
 import { type CampaignRepository } from "@application/ports/campaign-repository";
 import { type UnitOfWork, type TransactionContext } from "@application/ports/unit-of-work";
@@ -329,9 +329,11 @@ function createSyncCampaignRepository(repository: CampaignRepository, options: C
 export class CampaignApplicationService {
   readonly store: CampaignStore;
   private readonly writeRepository: CampaignRepository;
+  private readonly idGenerator?: IdGenerator;
 
   constructor(private readonly repository: CampaignRepository, debounceMs = 500, writeOptions: CampaignWriteOptions = {}) {
     this.writeRepository = createSyncCampaignRepository(repository, writeOptions);
+    this.idGenerator = writeOptions.idGenerator;
     this.store = createCampaignStore(this.writeRepository, { debounceMs });
   }
 
@@ -383,6 +385,59 @@ export class CampaignApplicationService {
 
   deleteMap(id: Uuid, expectedRevision: Revision): ReturnType<CampaignRepository["deleteMap"]> {
     return this.writeRepository.deleteMap(id, expectedRevision);
+  }
+
+  listMaps(campaignId: Uuid): ReturnType<CampaignRepository["listMaps"]> {
+    return this.repository.listMaps(campaignId);
+  }
+
+  getMap(id: Uuid): ReturnType<CampaignRepository["getMap"]> {
+    return this.repository.getMap(id);
+  }
+
+  async createMapPin(input: {
+    readonly mapId: Uuid;
+    readonly x: number;
+    readonly y: number;
+    readonly label: string;
+    readonly expectedRevision: Revision;
+  }): Promise<Result<{ readonly pin: MapPin; readonly revision: Revision }, AppError>> {
+    const label = input.label.trim();
+    if (!label) return err(appError.validation("label", "Informe um nome para o local."));
+    if (!Number.isFinite(input.x) || !Number.isFinite(input.y) || input.x < 0 || input.x > 1 || input.y < 0 || input.y > 1) {
+      return err(appError.validation("coordinate", "A posição do local precisa estar dentro do mapa."));
+    }
+    if (!this.idGenerator) return err(appError.validation("map", "Gerador de IDs indisponível para criar o local."));
+    const pin: MapPin = { id: this.idGenerator.uuid(), normalizedX: input.x, normalizedY: input.y, label, noteIds: [], iconToken: "pin" };
+    const result = await this.writeRepository.addMapPin(input.mapId, pin, input.expectedRevision);
+    return result.ok ? { ok: true, value: { pin, revision: result.value } } : result;
+  }
+
+  updateMapPin(mapId: Uuid, pin: MapPin, expectedRevision: Revision): ReturnType<CampaignRepository["updateMapPin"]> {
+    return this.writeRepository.updateMapPin(mapId, pin, expectedRevision);
+  }
+
+  removeMapPin(mapId: Uuid, pinId: Uuid, expectedRevision: Revision): ReturnType<CampaignRepository["removeMapPin"]> {
+    return this.writeRepository.removeMapPin(mapId, pinId, expectedRevision);
+  }
+
+  importMapAsset(input: {
+    readonly campaignId: Uuid;
+    readonly name: string;
+    readonly mediaType: string;
+    readonly bytes: Uint8Array;
+    readonly hash: string;
+    readonly width: number;
+    readonly height: number;
+    readonly originalName: string;
+  }): Promise<ReturnType<CampaignRepository["importAtomic"]> extends Promise<Result<infer T, AppError>> ? Result<T, AppError> : never> {
+    if (!this.idGenerator) return Promise.resolve(err(appError.validation("map", "Gerador de IDs indisponível para importar o mapa.")));
+    const assetId = this.idGenerator.uuid();
+    const mapId = this.idGenerator.uuid();
+    return this.importMapWithAsset({
+      asset: { id: assetId, mediaType: input.mediaType, bytes: input.bytes, hash: input.hash, width: input.width, height: input.height, originalName: input.originalName },
+      map: { id: mapId, campaignId: input.campaignId, name: input.name.trim() || input.originalName, assetId, pins: [], revision: asRevision(0) },
+    });
   }
 
   importMapWithAsset(input: { readonly map: MapRecord; readonly asset: Asset }): ReturnType<CampaignRepository["importAtomic"]> {

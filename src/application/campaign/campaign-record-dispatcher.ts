@@ -24,14 +24,18 @@
 
 import { type Campaign } from "@domain/contracts/campaign";
 import { type AppError, appError } from "@domain/contracts/errors";
-import { type JournalResult, updateNpc, updateQuest } from "@domain/campaign/journal";
+import { type JournalResult, createNpc, updateNpc, updateQuest } from "@domain/campaign/journal";
 import { type CampaignRecordIntent } from "@features/journey/campaign/types";
+import type { IdGenerator } from "@application/ports/id-generator";
+import type { Clock } from "@application/ports/clock";
 
 import { type CampaignApplicationService } from "./service";
 import { mapJournalError } from "./map-journal-error";
 
 export interface CampaignRecordDispatcherOptions {
   readonly campaignService: CampaignApplicationService;
+  readonly idGenerator?: IdGenerator;
+  readonly clock?: Clock;
   /**
    * `CampaignRecordsProps.onIntent` não tem canal de erro no tipo. Erros de domínio (missão/NPC
    * inexistente, patch inválido) e a ausência de campanha ativa são reportados aqui quando
@@ -41,7 +45,7 @@ export interface CampaignRecordDispatcherOptions {
   readonly onError?: (error: AppError, intent: CampaignRecordIntent) => void;
 }
 
-function applyIntent(campaign: Campaign, intent: CampaignRecordIntent): JournalResult<Campaign> {
+function applyIntent(campaign: Campaign, intent: CampaignRecordIntent, idGenerator?: IdGenerator, clock?: Clock): JournalResult<Campaign> {
   switch (intent.kind) {
     case "complete-quest":
       return updateQuest(campaign, intent.questId, { status: "completed" });
@@ -49,6 +53,19 @@ function applyIntent(campaign: Campaign, intent: CampaignRecordIntent): JournalR
       return updateQuest(campaign, intent.questId, intent.patch);
     case "update-npc":
       return updateNpc(campaign, intent.npcId, intent.patch);
+    case "create-npc": {
+      if (!idGenerator || !clock) return { ok: false, error: { code: "validation-error", field: "npc", message: "Criação de registro indisponível nesta composição." } };
+      const name = intent.name.trim();
+      if (!name) return { ok: false, error: { code: "validation-error", field: "name", message: "Informe um nome para este registro." } };
+      const now = clock.now();
+      const created = createNpc({ id: idGenerator.uuid(), kind: intent.recordKind, name, description: intent.description.trim(), linkedEntityIds: [], createdAt: now, updatedAt: now });
+      return created.ok ? { ok: true, value: { ...campaign, npcs: [...campaign.npcs, created.value] } } : created;
+    }
+    case "delete-npc": {
+      const exists = campaign.npcs.some((npc) => String(npc.id) === intent.npcId);
+      if (!exists) return { ok: false, error: { code: "validation-error", field: "npcId", message: "Este registro já não existe na campanha." } };
+      return { ok: true, value: { ...campaign, npcs: campaign.npcs.filter((npc) => String(npc.id) !== intent.npcId) } };
+    }
   }
 }
 
@@ -59,7 +76,7 @@ function applyIntent(campaign: Campaign, intent: CampaignRecordIntent): JournalR
  * `createCampaignRecordDispatcher(options: { readonly campaignService: CampaignApplicationService; readonly onError?: (error: AppError, intent: CampaignRecordIntent) => void }): (intent: CampaignRecordIntent) => void`
  */
 export function createCampaignRecordDispatcher(options: CampaignRecordDispatcherOptions): (intent: CampaignRecordIntent) => void {
-  const { campaignService, onError } = options;
+  const { campaignService, onError, idGenerator, clock } = options;
 
   return (intent: CampaignRecordIntent): void => {
     const campaign: Campaign | undefined = campaignService.store.getSnapshot().value;
@@ -68,7 +85,7 @@ export function createCampaignRecordDispatcher(options: CampaignRecordDispatcher
       return;
     }
 
-    const mutationResult = applyIntent(campaign, intent);
+    const mutationResult = applyIntent(campaign, intent, idGenerator, clock);
     if (!mutationResult.ok) {
       onError?.(mapJournalError(mutationResult.error), intent);
       return;

@@ -30,6 +30,8 @@ describe("CollaborationPanel", () => {
   it("lista o mestre e envia convite pelo identificador suportado", async () => {
     const membership = fakeMembership();
     const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} />);
+    const participantsTab = [...mounted.container.querySelectorAll('[role="tab"]')].find((item) => item.textContent?.includes("Participantes"))!;
+    await fireEvent(participantsTab, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.textContent).toContain("Você");
     const input = mounted.container.querySelector("input") as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -38,6 +40,27 @@ describe("CollaborationPanel", () => {
     const button = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Enviar convite"));
     await fireEvent(button!, new MouseEvent("click", { bubbles: true }));
     expect(membership.issuePlayerInvite).toHaveBeenCalledWith(expect.objectContaining({ playerAccountId: asAccountId("player-2") }));
+    await mounted.unmount();
+  });
+
+  it("navega as abas do mestre pelo teclado e associa cada conteúdo à sua aba", async () => {
+    const membership = fakeMembership();
+    const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} />);
+    const tab = (name: string) => [...mounted.container.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((item) => item.textContent?.includes(name))!;
+    const overview = tab("Resumo");
+    expect(overview.tabIndex).toBe(0);
+    expect(mounted.container.querySelector(`#${overview.getAttribute("aria-controls")}`)?.getAttribute("role")).toBe("tabpanel");
+
+    await fireEvent(overview, new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    const characters = tab("Personagens");
+    expect(characters.getAttribute("aria-selected")).toBe("true");
+    expect(mounted.container.ownerDocument.activeElement).toBe(characters);
+    expect(mounted.container.querySelector(`#${characters.getAttribute("aria-controls")}`)?.getAttribute("aria-labelledby")).toBe(characters.id);
+
+    await fireEvent(characters, new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    const sessions = tab("Sessões");
+    expect(sessions.getAttribute("aria-selected")).toBe("true");
+    expect(mounted.container.querySelector(`#${sessions.getAttribute("aria-controls")}`)?.getAttribute("role")).toBe("tabpanel");
     await mounted.unmount();
   });
 
@@ -52,6 +75,8 @@ describe("CollaborationPanel", () => {
     });
     const mounted = await mount(<CollaborationPanel membership={membership} campaigns={[campaign]} />);
     expect(mounted.container.textContent).toContain("identidade local persistente");
+    const participantsTab = [...mounted.container.querySelectorAll('[role="tab"]')].find((item) => item.textContent?.includes("Participantes"))!;
+    await fireEvent(participantsTab, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.textContent).toContain("Jogadores e mestre");
     expect((membership as any).ensureCampaignOwner).toHaveBeenCalled();
     await mounted.unmount();
@@ -63,6 +88,8 @@ describe("CollaborationPanel", () => {
     const onLinkCharacter = vi.fn(async () => ok(asRevision(3)));
     const onUnlinkCharacter = vi.fn(async () => ok(asRevision(4)));
     const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} characters={[character]} onLinkCharacter={onLinkCharacter} onUnlinkCharacter={onUnlinkCharacter} />);
+    const charactersTab = [...mounted.container.querySelectorAll('[role="tab"]')].find((item) => item.textContent?.includes("Personagens"))!;
+    await fireEvent(charactersTab, new MouseEvent("click", { bubbles: true }));
     const link = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Vincular"));
     await fireEvent(link!, new MouseEvent("click", { bubbles: true }));
     expect(onLinkCharacter).toHaveBeenCalledWith(character.id, campaign.id, character.revision);
@@ -78,6 +105,8 @@ describe("CollaborationPanel", () => {
     const membership = fakeMembership();
     const otherCampaign = asUuid("00000000-0000-4000-8000-000000000012");
     const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} characters={[{ id: asUuid("00000000-0000-4000-8000-000000000013"), name: "Protegida", campaignId: otherCampaign, revision: asRevision(1) }]} onLinkCharacter={vi.fn()} />);
+    const charactersTab = [...mounted.container.querySelectorAll('[role="tab"]')].find((item) => item.textContent?.includes("Personagens"))!;
+    await fireEvent(charactersTab, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.textContent).toContain("ligadas a outra campanha");
     expect([...mounted.container.querySelectorAll("button")].some((item) => item.textContent?.includes("Vincular"))).toBe(false);
     await mounted.unmount();

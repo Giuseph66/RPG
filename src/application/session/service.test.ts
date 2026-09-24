@@ -74,6 +74,37 @@ describe("SessionService", () => {
     expect(unwrap(await service.list(campaignId))).toHaveLength(0);
   });
 
+  it("persiste a ordem da iniciativa apenas por ação do mestre", async () => {
+    const repository = new IndexedDbSessionRepository(database, clock);
+    const service = createSessionService({ repository, authorization, clock, idGenerator: ids });
+    const created = unwrap(await service.create({ campaignId, accountId: master, number: 2 }));
+    unwrap(await service.start(created.id, master));
+    const npcId = asUuid("40000000-0000-4000-8000-000000000001");
+    const encounter = {
+      round: 2,
+      activeCombatantKey: "character:" + characterId,
+      combatants: [
+        { entityType: "character" as const, entityId: characterId, initiative: 14 },
+        { entityType: "npc" as const, entityId: npcId, initiative: 11 },
+      ],
+    };
+    const updated = await service.setEncounter(created.id, master, encounter);
+    expect(updated.ok && updated.value.encounter).toEqual(encounter);
+    expect(await service.setEncounter(created.id, player, undefined)).toMatchObject({ ok: false, error: { code: "membership-forbidden" } });
+    expect(unwrap(await service.get(created.id)).encounter).toEqual(encounter);
+  });
+
+  it("rejeita participantes repetidos na ordem do encontro", async () => {
+    const repository = new IndexedDbSessionRepository(database, clock);
+    const service = createSessionService({ repository, authorization, clock, idGenerator: ids });
+    const created = unwrap(await service.create({ campaignId, accountId: master, number: 3 }));
+    const duplicated = { round: 1, combatants: [
+      { entityType: "character" as const, entityId: characterId, initiative: 12 },
+      { entityType: "character" as const, entityId: characterId, initiative: 8 },
+    ] };
+    expect(await service.setEncounter(created.id, master, duplicated)).toMatchObject({ ok: false, error: { code: "validation-error", field: "encounter" } });
+  });
+
   it("materializa o dono local ao criar sessão de campanha recém-criada", async () => {
     const repository = new IndexedDbSessionRepository(database, clock);
     const local = asAccountId("local-device-1");

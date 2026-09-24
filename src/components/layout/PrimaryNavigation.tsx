@@ -21,7 +21,7 @@ export function PrimaryNavigation({ route, navigate, isCampaignMaster = false, o
             ? active === "character" || route.kind === "collaboration"
             : active === item.id;
           const label = campaignCharacters ? "Personagens" : item.label;
-          const shortLabel = campaignCharacters ? "Elenco" : item.shortLabel;
+          const shortLabel = campaignCharacters ? "Personagens" : item.shortLabel;
           return (
             <button
               key={item.id}

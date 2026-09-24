@@ -23,6 +23,7 @@ import type { CollaborationCharacter } from "@features/collaboration/types";
 import type { CompendiumCategoryId, CompendiumDetail, CompendiumFilters } from "@application/compendium";
 import type { FeatureRegistry } from "./feature-registry";
 import { matchRoute, type RouteMatch } from "./routes";
+import { createRuleLookup } from "./rule-lookup";
 import { carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, spellOptionsFor } from "./character-route-data";
 
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
@@ -31,9 +32,10 @@ const LazyCharacterCreation = lazy(() => import("@features/character/creation").
 const LazyActions = lazy(() => import("@features/actions").then((module) => ({ default: module.Actions })));
 const LazyInventory = lazy(() => import("@features/inventory").then((module) => ({ default: module.Inventory })));
 const LazyJourneyCampaign = lazy(() => import("@features/journey/campaign").then((module) => ({ default: module.JourneyCampaign })));
-const LazyMapViewer = lazy(() => import("@features/journey/map").then((module) => ({ default: module.MapViewer })));
+const LazyMapWorkspace = lazy(() => import("@features/journey/map").then((module) => ({ default: module.MapWorkspace })));
 const LazyJournalWorkspace = lazy(() => import("@features/journey/journal").then((module) => ({ default: module.JournalWorkspace })));
 const LazyCompendium = lazy(() => import("@features/compendium").then((module) => ({ default: module.Compendium })));
+const LazyRuleLookupProvider = lazy(() => import("@features/compendium").then((module) => ({ default: module.RuleLookupProvider })));
 const LazyDataManagementPanel = lazy(() => import("@features/data-management").then((module) => ({ default: module.DataManagementPanel })));
 const LazySettingsPanel = lazy(() => import("@features/settings").then((module) => ({ default: module.SettingsPanel })));
 const LazyAccountPanel = lazy(() => import("@features/account").then((module) => ({ default: module.AccountPanel })));
@@ -185,6 +187,7 @@ function CharacterSelectionRoute({ registry, navigate }: { readonly registry: Fe
 
 function CharacterDetailRoute({ registry, character, pack, id }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string }) {
   const validId = isUuid(id) ? asUuid(id) : undefined;
+  const ruleLookup = useMemo(() => createRuleLookup(registry.compendium.service), [registry.compendium.service]);
   useEffect(() => {
     if (validId && character?.value?.id !== validId) void registry.character.service.select(validId);
   }, [character?.value?.id, registry.character.service, validId]);
@@ -214,7 +217,8 @@ function CharacterDetailRoute({ registry, character, pack, id }: { readonly regi
     spellOptions: spellOptionsFor(currentCharacter, pack),
     conditionOptions: conditionOptionsFor(pack),
   });
-  return <div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div>;
+  const RuleProvider = LazyRuleLookupProvider;
+  return <RuleProvider lookup={ruleLookup}><div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div></RuleProvider>;
 }
 
 function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"] }) {
@@ -460,7 +464,7 @@ function CollaborationRoute({ registry, campaign, navigate }: { readonly registr
   />;
 }
 
-function SessionRoute({ registry, match }: { readonly registry: FeatureRegistry; readonly match: RouteMatch }) {
+function SessionRoute({ registry, match, campaign }: { readonly registry: FeatureRegistry; readonly match: RouteMatch; readonly campaign: AppRouterProps["campaign"] }) {
   const campaignId = match.params.campaignId;
   const session = registry.account.auth?.currentSession() ?? null;
   const activeCampaignId = campaignId && isUuid(campaignId) ? asUuid(campaignId) : undefined;
@@ -482,7 +486,8 @@ function SessionRoute({ registry, match }: { readonly registry: FeatureRegistry;
     return () => { active = false; };
   }, [activeCampaignId, registry.character.list, registry.session, session]);
   const Component = LazySessionPanel;
-  return <Component session={registry.session} authSession={session} campaignId={activeCampaignId} characters={characters} />;
+  const npcs = campaign?.value && campaign.value.id === activeCampaignId ? campaign.value.npcs : [];
+  return <Component session={registry.session} authSession={session} campaignId={activeCampaignId} characters={characters} npcs={npcs} />;
 }
 
 function campaignStatus(status: StoreStatus | undefined): "idle" | "loading" | "error" | "saving" {
@@ -575,6 +580,7 @@ function renderRegistryRoute(
   syncState: AppRouterProps["syncState"],
   syncMessage: AppRouterProps["syncMessage"],
   actionsDice: ActionsDice | undefined,
+  isCampaignMaster: boolean,
   navigate: (to: string) => void,
   replace: (to: string) => void,
 ): ReactNode | undefined {
@@ -596,7 +602,7 @@ function renderRegistryRoute(
   }
   if (match.kind === "journey") {
     const Journey = LazyJourneyCampaign;
-    const Map = LazyMapViewer;
+    const Map = LazyMapWorkspace;
     const activeCampaign = campaign?.value ?? undefined;
     const campaignProps = registry.journey.bindCampaignProps({
       campaign: activeCampaign,
@@ -606,14 +612,14 @@ function renderRegistryRoute(
       status: campaignStatus(campaign?.status),
       error: campaign?.errorMessage,
     });
-    const content = <Journey {...campaignProps} mapPanel={<Map {...registry.journey.bindMapProps({ markers: [] })} />} journalPanel={<JournalRoute registry={registry} campaign={campaign} />} />;
+    const content = <Journey {...campaignProps} mapPanel={<Map campaignId={activeCampaign?.id} canManage={isCampaignMaster} listMaps={(id) => registry.journey.service.listMaps(id)} getAsset={registry.journey.getLocalAsset} importMap={(input) => registry.journey.service.importMapAsset(input)} addPin={(input) => registry.journey.service.createMapPin(input)} updatePin={(mapId, pin, revision) => registry.journey.service.updateMapPin(mapId, pin, revision)} removePin={(mapId, pinId, revision) => registry.journey.service.removeMapPin(mapId, pinId, revision)} saveMap={(map, revision) => registry.journey.service.saveMap(map, revision)} deleteMap={(id, revision) => registry.journey.service.deleteMap(id, revision)} />} journalPanel={<JournalRoute registry={registry} campaign={campaign} />} />;
     return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "compendium") {
     return <CompendiumRoute registry={registry} />;
   }
   if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} />;
-  if (match.kind === "session") return <SessionRoute registry={registry} match={match} />;
+  if (match.kind === "session") return <SessionRoute registry={registry} match={match} campaign={campaign} />;
   if (match.kind === "data") return <DataManagementRoute registry={registry} character={character} campaign={campaign} />;
   if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} syncState={syncState} syncMessage={syncMessage} campaign={campaign} />;
   return undefined;
@@ -654,6 +660,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   const membership = registry?.membership;
   const [accountSession, setAccountSession] = useState(() => accountAuth?.currentSession() ?? null);
   const [isCampaignMaster, setIsCampaignMaster] = useState(false);
+  const [campaignRole, setCampaignRole] = useState<"master" | "player">();
   const localIdentity = membership?.localActor();
   const actorId = accountSession ? asAccountId(accountSession.uid) : localIdentity?.accountId;
   const activeCampaignId = campaign?.value?.id;
@@ -674,11 +681,14 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   useEffect(() => {
     let current = true;
     setIsCampaignMaster(false);
+    setCampaignRole(undefined);
     if (!membership || !actorId || !activeCampaignId) return () => { current = false; };
     void membership.listMemberships({ actorId, campaignId: activeCampaignId }).then((result) => {
       if (!current || !result.ok) return;
       const ownMembership = result.value.find((item) => item.accountId === actorId);
-      setIsCampaignMaster(ownMembership?.role === "master" && ownMembership.status === "active");
+      const activeRole = ownMembership?.status === "active" ? ownMembership.role : undefined;
+      setCampaignRole(activeRole === "master" || activeRole === "player" ? activeRole : undefined);
+      setIsCampaignMaster(activeRole === "master");
     }).catch(() => {
       if (current) setIsCampaignMaster(false);
     });
@@ -692,14 +702,8 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   );
   const actionsDice: ActionsDice | undefined = diceOverlayController ? {
     history: diceState.history,
-    busy: diceState.status === "rolling" || diceState.status === "saving" || diceState.awaitingPhysics,
-    onRoll: (faces) => {
-      const characterId = character?.value?.id;
-      diceOverlayController.open({ source: "actions", ...(characterId ? { characterId } : {}), formula: `1d${faces}` });
-      void diceOverlayController.roll();
-    },
   } : undefined;
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, actionsDice, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <LazySettingsPanel store={shellProps.settingsStore} /> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <LazySettingsPanel store={shellProps.settingsStore} /> : undefined);
 
   return (
     <AppShell
@@ -707,6 +711,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
       character={character}
       campaign={campaign}
       isCampaignMaster={isCampaignMaster}
+      campaignRole={campaignRole}
       diceOverlayController={diceOverlayController}
       route={navigation.match}
       navigate={navigation.navigate}

@@ -85,6 +85,28 @@ describe("AccountPanel", () => {
     await mounted.unmount();
   });
 
+  it("salva a preferência de mestre na criação da conta sem alterar o vínculo de campanha", async () => {
+    const auth = fakeAuth();
+    const membership = {
+      localActor: () => undefined,
+      ensureAccount: vi.fn(async (input: { readonly preferredCampaignRole?: "master" | "player" }) => ok({ preferredCampaignRole: input.preferredCampaignRole })),
+    } as unknown as import("@application/membership").MembershipService;
+    const mounted = await mount(<AccountPanel auth={auth} availability={{ available: true }} membership={membership} />);
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Criar uma conta"))!, new MouseEvent("click", { bubbles: true }));
+    const masterChoice = mounted.container.querySelector('input[name="preferred-role"][value="master"]') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "checked")?.set?.call(masterChoice, true);
+      masterChoice.dispatchEvent(new Event("click", { bubbles: true }));
+    });
+    await input(mounted.container, "email", "mestre@example.com");
+    await input(mounted.container, "password", "senha-nova");
+    await fireEvent(mounted.container.querySelector("form")!, new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+
+    expect(membership.ensureAccount).toHaveBeenCalledWith(expect.objectContaining({ preferredCampaignRole: "master", email: "mestre@example.com" }));
+    expect(mounted.container.textContent).toContain("Painel do mestre");
+    await mounted.unmount();
+  });
+
   it("mostra erro acionável e limpa a senha", async () => {
     const auth = fakeAuth();
     const credentialsError: AuthError = { code: "auth-credentials-error", reason: "wrong-password", message: "wrong" };

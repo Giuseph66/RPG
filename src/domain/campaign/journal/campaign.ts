@@ -56,7 +56,7 @@ export function createNpc(input: NpcRecord): JournalResult<NpcRecord> {
   return valid.ok ? { ok: true, value: { ...input, linkedEntityIds: [...input.linkedEntityIds] } } : valid;
 }
 
-export function updateNpc(campaign: Campaign, npcId: string, patch: Partial<Pick<NpcRecord, "name" | "description" | "linkedEntityIds" | "characterRef" | "updatedAt">>): JournalResult<Campaign> {
+export function updateNpc(campaign: Campaign, npcId: string, patch: Partial<Pick<NpcRecord, "name" | "description" | "linkedEntityIds" | "characterRef" | "kind" | "updatedAt">>): JournalResult<Campaign> {
   const npc = campaign.npcs.find((candidate) => String(candidate.id) === npcId);
   if (!npc) return { ok: false, error: { code: "validation-error", field: "npcId", message: "NPC não encontrado nesta campanha." } };
   const nextNpc = { ...npc, ...patch, linkedEntityIds: patch.linkedEntityIds ? [...patch.linkedEntityIds] : [...npc.linkedEntityIds] };

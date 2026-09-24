@@ -17,7 +17,9 @@ export type CampaignIntent =
 export type CampaignRecordIntent =
   | { readonly kind: "complete-quest"; readonly questId: string }
   | { readonly kind: "update-quest"; readonly questId: string; readonly patch: Partial<Pick<Quest, "title" | "description" | "status" | "linkedEntityIds">> }
-  | { readonly kind: "update-npc"; readonly npcId: string; readonly patch: Partial<Pick<NpcRecord, "name" | "description" | "linkedEntityIds">> };
+  | { readonly kind: "create-npc"; readonly name: string; readonly description: string; readonly recordKind: "npc" | "enemy" }
+  | { readonly kind: "update-npc"; readonly npcId: string; readonly patch: Partial<Pick<NpcRecord, "name" | "description" | "linkedEntityIds" | "kind">> }
+  | { readonly kind: "delete-npc"; readonly npcId: string };
 
 export interface CampaignPanelProps {
   readonly campaigns: readonly CampaignSummary[];

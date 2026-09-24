@@ -20,6 +20,7 @@ export function AppShell({
   character,
   campaign,
   isCampaignMaster,
+  campaignRole,
   bootState = "ready",
   bootErrorMessage,
   children,
@@ -63,7 +64,7 @@ export function AppShell({
   return (
     <div className={styles.appShell}>
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
-      <Header session={character} campaign={campaign} route={route} navigate={navigate} onSelectCharacter={onSelectCharacter} />
+      <Header session={character} campaign={campaign} campaignRole={campaignRole} route={route} navigate={navigate} onSelectCharacter={onSelectCharacter} />
       <div className={styles.shellBody}>
         <PrimaryNavigation route={route} navigate={navigate} isCampaignMaster={isCampaignMaster} onOpenDice={() => openDice(navigationDiceSource())} />
         <main ref={mainRef} id="main-content" className={[styles.main, isPrimary ? "" : styles.utilityMain].filter(Boolean).join(" ")} tabIndex={-1}>
