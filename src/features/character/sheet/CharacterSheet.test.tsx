@@ -64,7 +64,7 @@ describe("CharacterSheet", () => {
     expect(onRoll).toHaveBeenCalledWith(expect.objectContaining({ kind: "skill", skill: "perception", modifier: 3, characterId: minimalCharacter.id }));
     const quickName = mounted.container.querySelector('h1') as HTMLElement;
     expect(quickName.textContent).toContain("Guerreiro de Teste");
-    await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Expandida") as HTMLElement);
+    await click(mounted.container.querySelector('button[aria-label="Editar personagem"]') as HTMLElement);
     const nameLabel = [...mounted.container.querySelectorAll("label")].find((label) => label.textContent === "Nome") as HTMLLabelElement;
     const expandedName = document.getElementById(nameLabel.htmlFor) as HTMLInputElement;
     const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -73,6 +73,55 @@ describe("CharacterSheet", () => {
     expect(onDraftChange).toHaveBeenCalledWith({ name: "Nome em rascunho" });
     await mounted.rerender(<CharacterSheet character={withCharacter({ name: "Nome recarregado" })} derived={derived} service={service} onRoll={onRoll} onDraftChange={onDraftChange} initialView="expanded" />);
     expect((document.getElementById(nameLabel.htmlFor) as HTMLInputElement).value).toBe("Nome em rascunho");
+    await mounted.unmount();
+  });
+
+  it("soma PV temporários no bloco e o dano consome os temporários primeiro", async () => {
+    const updates: Character[] = [];
+    let state = withCharacter({ hp: { current: 11, temp: 10 } });
+    const service = {
+      update: vi.fn((fn: (current: Character) => Character) => { state = fn(state); updates.push(state); return { ok: true as const, value: state }; }),
+      save: vi.fn(async () => ({ ok: true as const, value: minimalCharacter.revision })),
+      retry: vi.fn(),
+      flush: vi.fn(),
+    };
+    const hpDerived = { ...derived, hitPointsMax: explanation(11) };
+    const mounted = await mount(<CharacterSheet character={state} derived={hpDerived} service={service} />);
+    const tile = mounted.container.querySelector("summary strong") as HTMLElement;
+    expect(tile.textContent).toBe("21/11");
+    const amount = mounted.container.querySelector('[aria-label="Quantidade de PV"]') as HTMLInputElement;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setValue?.call(amount, "13");
+    await fireEvent(amount, new Event("input", { bubbles: true }));
+    await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Dano") as HTMLElement);
+    expect(updates.at(-1)?.hp).toEqual({ current: 8, temp: 0 });
+    expect((mounted.container.querySelector("summary strong") as HTMLElement).textContent).toBe("8/11");
+    setValue?.call(amount, "20");
+    await fireEvent(amount, new Event("input", { bubbles: true }));
+    await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Cura") as HTMLElement);
+    expect(updates.at(-1)?.hp).toEqual({ current: 11, temp: 0 });
+    await mounted.unmount();
+  });
+
+  it("marca salvamentos contra morte como caixas editáveis", async () => {
+    const service = { update: vi.fn(() => ({ ok: true as const, value: minimalCharacter })), save: vi.fn(async () => ({ ok: true as const, value: minimalCharacter.revision })), retry: vi.fn(), flush: vi.fn() };
+    const onDraftChange = vi.fn();
+    const mounted = await mount(<CharacterSheet character={minimalCharacter} derived={derived} service={service} onDraftChange={onDraftChange} />);
+    await click(mounted.container.querySelector('input[aria-label="Sucessos 2"]') as HTMLElement);
+    expect(onDraftChange).toHaveBeenLastCalledWith({ deathSaves: expect.objectContaining({ successes: 2 }) });
+    await click(mounted.container.querySelector('input[aria-label="Falhas 1"]') as HTMLElement);
+    expect(onDraftChange).toHaveBeenLastCalledWith({ deathSaves: expect.objectContaining({ successes: 2, failures: 1 }) });
+    await mounted.unmount();
+  });
+
+  it("oculta raça e classe conforme a preferência de exibição", async () => {
+    const mounted = await mount(<CharacterSheet character={withCharacter({ sheetDisplay: { hideRace: true, hideClass: true } })} derived={derived} resolveName={(type) => type === "race" ? "Anão" : type === "class" ? "Mago" : undefined} />);
+    const hero = mounted.container.querySelector("header") as HTMLElement;
+    expect(hero.textContent).not.toContain("Anão");
+    expect(hero.textContent).not.toContain("Mago");
+    await mounted.rerender(<CharacterSheet character={withCharacter({ sheetDisplay: { hideRace: true } })} derived={derived} resolveName={(type) => type === "race" ? "Anão" : type === "class" ? "Mago" : undefined} />);
+    expect((mounted.container.querySelector("header") as HTMLElement).textContent).toContain("Mago");
+    expect((mounted.container.querySelector("header") as HTMLElement).textContent).not.toContain("Anão");
     await mounted.unmount();
   });
 });

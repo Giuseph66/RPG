@@ -19,7 +19,65 @@ function syncCopy(state: CollaborationPanelProps["syncState"]): { readonly label
   }
 }
 
-export function CollaborationPanel({ membership, session, campaigns = [], characters = [], activeCampaignId, syncState = "local", onOpenSession, onLinkCharacter, onUnlinkCharacter }: CollaborationPanelProps) {
+type Vitality = "critical" | "wounded" | "stable" | "unknown";
+
+function vitality(character: CollaborationCharacter): Vitality {
+  const hp = character.hitPoints;
+  if (!hp || hp.maximum === undefined || hp.maximum <= 0) return "unknown";
+  if (hp.current <= 0) return "critical";
+  return hp.current / hp.maximum <= 0.3 ? "wounded" : "stable";
+}
+
+function vitalityLabel(value: Vitality): string {
+  return value === "critical" ? "Caído" : value === "wounded" ? "Ferido" : value === "stable" ? "Estável" : "PV indisponível";
+}
+
+function characterInitials(name: string): string {
+  return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+function CharacterStatusRow({ character }: { readonly character: CollaborationCharacter }) {
+  const hp = character.hitPoints;
+  const status = vitality(character);
+  const maximum = hp?.maximum;
+  const current = hp?.current ?? 0;
+  const progress = maximum ? Math.max(0, Math.min(current, maximum)) : 0;
+  const initiative = character.initiative;
+  return (
+    <li className={styles.rosterEntry} data-vital={status}>
+      <div className={styles.rosterIdentity}>
+        <span className={styles.portrait} aria-hidden="true">{characterInitials(character.name)}</span>
+        <span className={styles.rosterCopy}>
+          <strong>{character.name || "Personagem sem nome"}</strong>
+          <small>{character.playerName || "Jogador não informado"} · {character.className || "Classe não informada"}{character.totalLevel ? ` · Nv. ${character.totalLevel}` : ""}</small>
+        </span>
+      </div>
+      <div className={styles.vitalGroup}>
+        <div className={styles.vitalNumbers}><span>PV</span><strong>{hp ? `${Math.max(0, current)} / ${maximum ?? "—"}` : "—"}</strong></div>
+        {maximum ? <progress aria-label={`Pontos de vida de ${character.name}`} max={maximum} value={progress} /> : null}
+        {hp && hp.temporary > 0 ? <small>+{hp.temporary} temporários</small> : null}
+      </div>
+      <div className={styles.rosterStats}>
+        <span>CA <strong>{character.armorClass ?? "—"}</strong></span>
+        <span>Inic. <strong>{initiative === undefined ? "—" : initiative >= 0 ? `+${initiative}` : initiative}</strong></span>
+        {character.resources ? <span>Recursos <strong>{character.resources.available}/{character.resources.total}</strong></span> : null}
+      </div>
+      <div className={styles.conditionGroup}>
+        <span className={styles.columnLabel}>Condições</span>
+        <div className={styles.conditionList}>
+          {character.conditions?.length ? character.conditions.map((condition, index) => <span className={styles.conditionChip} key={`${condition}:${index}`}>{condition}</span>) : <span className={styles.noConditions}>Nenhuma</span>}
+          {character.concentration ? <span className={styles.concentrationChip}>Concentração</span> : null}
+          {character.inspiration ? <span className={styles.inspirationChip}>Inspiração</span> : null}
+          {character.pendingResolutions ? <span className={styles.pendingChip}>{character.pendingResolutions} pendência{character.pendingResolutions === 1 ? "" : "s"}</span> : null}
+          {status === "critical" && character.deathSaves ? <span className={styles.deathSaves}>Salv. {character.deathSaves.successes} · Falh. {character.deathSaves.failures}</span> : null}
+        </div>
+      </div>
+      <span className={styles.vitalityBadge} data-vital={status}>{vitalityLabel(status)}</span>
+    </li>
+  );
+}
+
+export function CollaborationPanel({ membership, session, campaigns = [], characters = [], activeCampaignId, syncState = "local", onOpenSession, onOpenJourney, onLinkCharacter, onUnlinkCharacter }: CollaborationPanelProps) {
   const localActor = membership?.localActor?.();
   const actorId = session ? asAccountId(session.uid) : localActor?.accountId;
   const localActorId = localActor?.accountId;
@@ -63,6 +121,10 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
   const ownMembership = useMemo(() => members.find((item) => item.accountId === actorId), [actorId, members]);
   const isMaster = ownMembership?.role === "master" && ownMembership.status === "active";
   const invitations = allMembers.filter((item) => item.accountId === actorId && item.status === "invited");
+  const partyCharacters = characterLinks.filter((character) => character.campaignId === selectedCampaign?.id);
+  const attentionCharacters = partyCharacters.filter((character) => vitality(character) === "critical" || vitality(character) === "wounded" || Boolean(character.conditions?.length) || Boolean(character.pendingResolutions));
+  const activeConditions = partyCharacters.reduce((total, character) => total + (character.conditions?.length ?? 0), 0);
+  const concentratingCharacters = partyCharacters.filter((character) => character.concentration).length;
 
   async function invite() {
     if (!membership || !actorId || !selectedCampaign || !identifier.trim()) return;
@@ -116,7 +178,30 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
   return <section className={styles.panel} aria-labelledby="collaboration-title">
     <header className={styles.hero}><div><p className={styles.eyebrow}>MESA COMPARTILHADA</p><h1 id="collaboration-title" className={styles.title} tabIndex={-1}>Colaboração</h1><p className={styles.intro}>{session ? "Convites e alterações ficam locais primeiro e podem sincronizar com sua conta." : "Você está usando uma identidade local persistente. Mestre, jogadores e convites ficam neste dispositivo até uma conta ser vinculada."}</p></div><CampaignSigil aria-hidden="true" /></header>
     <div className={styles.statusLine}><InlineStatus tone={sync.tone}>{sync.label}</InlineStatus><span>{sync.description}</span>{syncState === "offline" ? <WifiSlash size={18} aria-label="Sem conexão" /> : syncState === "pending" ? <ArrowsClockwise size={18} aria-label="Sincronização pendente" /> : null}</div>
-    {campaigns.length === 0 ? <SectionCard heading="Campanhas" headingLevel={2}><p className={styles.empty}>Crie uma campanha para convidar jogadores.</p></SectionCard> : <>
+    {isMaster && selectedCampaign ? <section className={styles.masterOverview} aria-labelledby="master-overview-title">
+      <header className={styles.masterHeading}>
+        <div><p className={styles.eyebrow}>ESTADO DA COMPANHIA</p><h2 id="master-overview-title">{selectedCampaign.name}</h2><p>{partyCharacters.length} {partyCharacters.length === 1 ? "personagem vinculado" : "personagens vinculados"} à campanha.</p></div>
+        <div className={styles.masterActions}><span className={styles.masterBadge}>Mestre ativo</span>{onOpenSession ? <Button variant="secondary" onClick={() => onOpenSession(selectedCampaign.id)}><GiCrossedSwords aria-hidden="true" /> Abrir sessões</Button> : null}</div>
+      </header>
+      <div className={styles.masterMetrics} aria-label="Resumo do grupo">
+        <div><span>Personagens</span><strong>{partyCharacters.length}</strong></div>
+        <div data-alert={attentionCharacters.length > 0}><span>Precisam de atenção</span><strong>{attentionCharacters.length}</strong></div>
+        <div><span>Condições ativas</span><strong>{activeConditions}</strong></div>
+        <div><span>Concentração</span><strong>{concentratingCharacters}</strong></div>
+      </div>
+      <div className={styles.masterWorkspace}>
+        <section className={styles.partySection} aria-labelledby="party-title">
+          <div className={styles.partyHeading}><div><h3 id="party-title">Elenco da campanha</h3><p>Vida, defesa e efeitos ativos de cada ficha.</p></div><span>{partyCharacters.length} fichas</span></div>
+          {partyCharacters.length ? <ul className={styles.rosterList}>{partyCharacters.map((character) => <CharacterStatusRow key={String(character.id)} character={character} />)}</ul> : <p className={styles.emptyRoster}>Nenhuma ficha vinculada. Vincule personagens abaixo para acompanhar o estado do grupo.</p>}
+        </section>
+        <aside className={styles.attentionPanel} aria-labelledby="attention-title">
+          <p className={styles.eyebrow}>VIGILÂNCIA</p><h3 id="attention-title">Pontos de atenção</h3>
+          {attentionCharacters.length ? <ul className={styles.attentionList}>{attentionCharacters.map((character) => <li key={String(character.id)}><strong>{character.name}</strong><span>{vitalityLabel(vitality(character))}{character.conditions?.length ? ` · ${character.conditions.length} condição${character.conditions.length === 1 ? "" : "ões"}` : ""}{character.pendingResolutions ? ` · ${character.pendingResolutions} decisão pendente` : ""}</span></li>)}</ul> : <p className={styles.allClear}>Nenhum alerta de vida ou condição no grupo.</p>}
+          {onOpenSession ? <Button variant="secondary" onClick={() => onOpenSession(selectedCampaign.id)}>Ver sessões e presença</Button> : null}
+        </aside>
+      </div>
+    </section> : null}
+    {campaigns.length === 0 ? <SectionCard heading="Campanhas" headingLevel={2}><p className={styles.empty}>Crie uma campanha para convidar jogadores.</p>{onOpenJourney ? <Button className={styles.sessionButton} onClick={onOpenJourney}>Criar campanha</Button> : null}</SectionCard> : <>
       <SectionCard heading="Campanha" headingLevel={2}><label className={styles.label} htmlFor="collaboration-campaign">Escolha a campanha</label><select id="collaboration-campaign" className={styles.select} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{campaigns.map((campaign) => <option key={String(campaign.id)} value={String(campaign.id)}>{campaign.name}</option>)}</select>{onOpenSession && selectedCampaign ? <Button className={styles.sessionButton} variant="secondary" onClick={() => onOpenSession(selectedCampaign.id)}><GiCrossedSwords aria-hidden="true" /> Abrir sessões</Button> : null}</SectionCard>
       {message ? <InlineStatus tone={message.includes("salvo") || message.includes("aceito") || message.includes("vinculado") || message.includes("desvinculado") ? "success" : "error"}>{message}</InlineStatus> : null}
       {isMaster ? <SectionCard heading="Convidar jogador" headingLevel={2}><div className={styles.inviteForm}><Input label="UID ou identificador da conta" hint="O modelo atual aceita o AccountId; o email só funciona se for usado como identificador pela conta." value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="off" /><Button busy={busy} disabled={busy || !identifier.trim()} onClick={() => void invite()}>Enviar convite</Button></div></SectionCard> : null}

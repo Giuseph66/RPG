@@ -19,6 +19,8 @@ export interface Account {
   readonly id: AccountId;
   readonly email: string | null;
   readonly displayName?: string;
+  /** Preferência de papel padrão para novas campanhas; nunca concede privilégio de mestre em campanhas existentes. */
+  readonly preferredCampaignRole?: CampaignRole;
   /** Revisão local do perfil; ausente somente em registros legados. */
   readonly revision?: Revision;
   readonly schemaVersion: SchemaVersion;

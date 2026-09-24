@@ -20,9 +20,18 @@
 .profileIdentity p { margin: 0 0 var(--spacing-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
 .profileEdit { margin-left: auto; }
 .syncDescription { margin: calc(var(--spacing-sm) * -1) 0 0; color: var(--color-text-muted); font-size: .88rem; }
-.dashboardGrid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .65fr); align-items: start; gap: var(--spacing-xl); }
+.dashboardGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(20rem, .8fr); align-items: start; gap: var(--spacing-xl); }
 .primaryColumn, .secondaryColumn { display: grid; gap: var(--spacing-xl); min-width: 0; }
-.form, .session, .profileForm { display: grid; gap: var(--spacing-md); max-width: 32rem; }
+.form, .session, .profileForm { display: grid; gap: var(--spacing-md); width: min(100%, 40rem); }
+.roleChoice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-sm); margin: 0; padding: 0; border: 0; }
+.roleChoice legend { grid-column: 1 / -1; padding: 0; color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: .95rem; font-weight: 600; }
+.roleHint { grid-column: 1 / -1; margin: calc(var(--spacing-xs) * -1) 0 0; color: var(--color-text-muted); font-size: .86rem; }
+.roleOption { display: flex; align-items: flex-start; gap: var(--spacing-sm); min-height: calc(var(--size-touch-target) + var(--spacing-md)); padding: var(--spacing-md); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); color: var(--color-text); cursor: pointer; }
+.roleOption > span { display: grid; gap: var(--spacing-xs); }
+.roleOption strong { font-family: var(--typography-heading-font-family); font-size: .9rem; }
+.roleOption small { color: var(--color-text-muted); font-size: .82rem; line-height: 1.35; }
+.roleOption:has(input:checked) { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+.roleOption input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .passwordField { position: relative; }
 .passwordInput { max-width: none; }
 .passwordInput input { padding-right: calc(var(--spacing-md) + var(--size-touch-target)); }
@@ -72,3 +81,4 @@
   .campaignVisual { width: 3rem; height: 3rem; }
   .campaignCard button { grid-column: 1 / -1; width: 100%; }
 }
+@media (max-width: 36rem) { .roleChoice { grid-template-columns: 1fr; } }

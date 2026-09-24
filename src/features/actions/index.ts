@@ -11,6 +11,8 @@ export type {
   ActionPreview,
   ActionPreviewDetails,
   ActionSourceRef,
+  ActionsDice,
+  ActionsDieFaces,
   ActionsProps,
   ActionsStatus,
 } from "./types";

@@ -116,4 +116,37 @@ describe("Inventory", () => {
     expect(error.container.textContent).toContain("Falha de gravação");
     await error.unmount();
   });
+
+  it("mostra a carga contra a capacidade e destaca em vermelho quando excede", async () => {
+    const { container, rerender, unmount } = await mount(<Inventory items={[item("sword", 1)]} currency={currency} carrying={{ totalGrams: 1500, capacityGrams: 105000, encumberedGrams: 35000, strengthScore: 14 }} />);
+    expect(container.textContent).toContain("1,5 kg");
+    expect(container.textContent).toContain("105 kg");
+    expect(container.querySelector('[role="meter"]')?.getAttribute("aria-valuetext")).toBe("1,5 kg de 105 kg");
+    expect(container.textContent).not.toContain("Acima da capacidade");
+    await rerender(<Inventory items={[item("sword", 1)]} currency={currency} carrying={{ totalGrams: 132500, capacityGrams: 105000, strengthScore: 14 }} />);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Acima da capacidade em 27,5 kg.");
+    await unmount();
+  });
+
+  it("adiciona itens do catálogo pelo modal de busca", async () => {
+    const onIntent = vi.fn();
+    const catalog = [
+      { equipmentRef: { rulesetId: "phb" as never, entityId: "hempen-rope" as never }, name: "Corda de cânhamo", category: "adventuring-gear", unitWeightGrams: 5000 },
+      { equipmentRef: { rulesetId: "phb" as never, entityId: "longsword" as never }, name: "Espada longa", category: "weapon", unitWeightGrams: 1500 },
+    ];
+    const { container, unmount } = await mount(<Inventory items={[]} currency={currency} onIntent={onIntent} catalog={catalog} />);
+    const open = [...container.querySelectorAll("button")].find((button) => button.textContent === "Adicionar item") as HTMLElement;
+    open.click();
+    await Promise.resolve();
+    const search = document.querySelector('[role="dialog"] input[type="search"]') as HTMLInputElement;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setValue?.call(search, "espada");
+    await fireEvent(search, new Event("input", { bubbles: true }));
+    const options = [...document.querySelectorAll('[role="dialog"] li button')];
+    expect(options).toHaveLength(1);
+    (options[0] as HTMLElement).click();
+    await Promise.resolve();
+    expect(onIntent).toHaveBeenCalledWith({ kind: "add", equipmentRef: catalog[1]!.equipmentRef, quantity: 1 });
+    await unmount();
+  });
 });

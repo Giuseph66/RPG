@@ -46,6 +46,28 @@ export const DAMAGE_LABELS: Readonly<Record<DamageType, string>> = {
   thunder: "trovão",
 };
 
+/** Perícia → habilidade que a rege (regra fixa do PHB, não dado de personagem). */
+export const SKILL_ABILITY: Readonly<Record<Skill, Ability>> = {
+  athletics: "str",
+  acrobatics: "dex",
+  "sleight-of-hand": "dex",
+  stealth: "dex",
+  arcana: "int",
+  history: "int",
+  investigation: "int",
+  nature: "int",
+  religion: "int",
+  "animal-handling": "wis",
+  insight: "wis",
+  medicine: "wis",
+  perception: "wis",
+  survival: "wis",
+  performance: "cha",
+  deception: "cha",
+  intimidation: "cha",
+  persuasion: "cha",
+};
+
 export function formatModifier(value: number): string {
   return value >= 0 ? `+${value}` : String(value);
 }
@@ -61,4 +83,63 @@ export function formatSource(source: { readonly sourceRef: { readonly entityId?:
     : "sourceId" in source.sourceRef ? source.sourceRef.sourceId
     : "Fonte não resolvida";
   return `${source.description} · ${ref}${source.amount === undefined ? "" : ` (${formatModifier(source.amount)})`}`;
+}
+
+export const SPELL_SCHOOL_LABELS: Readonly<Record<string, string>> = {
+  abjuration: "Abjuração",
+  conjuration: "Conjuração",
+  divination: "Adivinhação",
+  enchantment: "Encantamento",
+  evocation: "Evocação",
+  illusion: "Ilusão",
+  necromancy: "Necromancia",
+  transmutation: "Transmutação",
+};
+
+export const EQUIPMENT_CATEGORY_LABELS: Readonly<Record<string, string>> = {
+  weapon: "Arma",
+  armor: "Armadura",
+  tool: "Ferramenta",
+  "adventuring-gear": "Equipamento",
+  consumable: "Consumível",
+  mount: "Montaria",
+  vehicle: "Veículo",
+  "trade-good": "Mercadoria",
+  container: "Recipiente",
+  focus: "Foco",
+};
+
+/** Classes que conhecem magias fixas; as demais preparam da lista (Livro do Jogador, cap. 3). */
+export const KNOWN_SPELL_CLASSES: ReadonlySet<string> = new Set(["bard", "sorcerer", "warlock", "ranger"]);
+
+/** Truques conhecidos por nível de classe (tabelas de classe do Livro do Jogador). */
+const CANTRIPS_BY_CLASS: Readonly<Record<string, readonly [number, number, number]>> = {
+  bard: [2, 3, 4],
+  cleric: [3, 4, 5],
+  druid: [2, 3, 4],
+  sorcerer: [4, 5, 6],
+  warlock: [2, 3, 4],
+  wizard: [3, 4, 5],
+};
+
+export function cantripsKnown(classId: string, level: number): number | undefined {
+  const row = CANTRIPS_BY_CLASS[classId];
+  if (!row) return undefined;
+  return level >= 10 ? row[2] : level >= 4 ? row[1] : row[0];
+}
+
+/** Magias preparadas: modificador + nível (metade do nível para paladino), mínimo 1. */
+export function preparedSpellCount(classId: string, level: number, abilityModifier: number): number | undefined {
+  if (classId === "paladin") return Math.max(1, abilityModifier + Math.floor(level / 2));
+  if (classId === "cleric" || classId === "druid" || classId === "wizard") return Math.max(1, abilityModifier + level);
+  return undefined;
+}
+
+export function formatSpellLevel(level: number): string {
+  return level === 0 ? "Truque" : `${level}º círculo`;
+}
+
+export function formatGrams(grams: number): string {
+  if (grams >= 1000) return `${(grams / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`;
+  return `${grams.toLocaleString("pt-BR")} g`;
 }

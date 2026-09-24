@@ -1,6 +1,6 @@
-.appShell { --app-bar-height: 4.75rem; min-height: 100vh; background: var(--color-background); }
+.appShell { --app-bar-height: 4.75rem; min-height: 100vh; background-color: var(--color-background); background-image: radial-gradient(ellipse at 85% 0%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 58%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 70%, transparent), color-mix(in srgb, var(--color-background) 70%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat, repeat-y, no-repeat; background-position: center top; background-size: 100% 36rem, 100% 100vh, cover; background-attachment: scroll, scroll, fixed; }
 .header { position: sticky; isolation: isolate; top: 0; z-index: var(--z-sticky); background-color: var(--color-background); background-image: radial-gradient(120% 180% at 3% 0, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 34%, transparent), color-mix(in srgb, var(--color-background) 74%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--color-primary) 12%, transparent), 0 10px 24px rgba(0, 0, 0, .45); }
-.headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); max-width: 1440px; margin: 0 auto; padding: max(var(--spacing-sm), env(safe-area-inset-top)) var(--spacing-xl) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
+.headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); max-width: 1680px; margin: 0 auto; padding: max(var(--spacing-sm), env(safe-area-inset-top)) var(--spacing-xl) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
 .identityButton { display: flex; min-width: 0; align-items: center; gap: var(--spacing-md); padding: var(--spacing-xs); margin: calc(var(--spacing-xs) * -1); color: var(--color-text); background: none; border: 0; border-radius: var(--radius-control); text-align: left; cursor: pointer; }
 .identityButton:hover .identityName { color: var(--color-text); }
 .identityButton:hover .brandMarkImage { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-hp) 78%, transparent)) drop-shadow(0 0 18px color-mix(in srgb, var(--color-hp) 48%, transparent)); }
@@ -13,14 +13,15 @@
 .headerActions { display: flex; align-items: center; margin-left: auto; }
 .headerSettingsButton { flex-shrink: 0; color: color-mix(in srgb, var(--color-border) 88%, transparent); }
 .headerSettingsButton:hover { color: var(--color-secondary); }
-.shellBody { display: flex; max-width: 1440px; min-height: calc(100vh - var(--app-bar-height)); margin: 0 auto; }
-.navigation { width: 14rem; flex: 0 0 14rem; padding: var(--spacing-xl) var(--spacing-md); background-color: var(--color-background); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 40%, transparent), color-mix(in srgb, var(--color-background) 80%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
+.shellBody { display: flex; max-width: 1680px; min-height: calc(100vh - var(--app-bar-height)); margin: 0 auto; }
+.navigation { position: sticky; top: var(--app-bar-height); align-self: flex-start; box-sizing: border-box; display: flex; flex: 0 0 15rem; flex-direction: column; width: 15rem; height: calc(100vh - var(--app-bar-height)); padding: var(--spacing-xl) var(--spacing-md); background-color: color-mix(in srgb, var(--color-background) 86%, transparent); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 48%, transparent), color-mix(in srgb, var(--color-background) 82%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .navigationList { display: grid; gap: var(--spacing-xs); }
-.navItem, .navUtility { position: relative; display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text-muted); background: none; border: 0; border-radius: var(--radius-control); font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
+.navItem, .navUtility { position: relative; display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-control); font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
 .navItem:hover, .navUtility:hover { color: var(--color-text); }
 .navItem:active, .navUtility:active { transform: translateY(1px); }
 .navItem:focus-visible, .navUtility:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.navItemActive { color: var(--color-text); }
+.navItemActive { color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 11%, var(--color-surface)); }
+.navItemActive::before { position: absolute; inset: .55rem auto .55rem 0; width: 2px; border-radius: var(--radius-pill); background: var(--color-secondary); content: ""; }
 .navGlyph { display: grid; place-items: center; width: 1.3rem; color: color-mix(in srgb, var(--color-primary) 76%, var(--color-text-muted)); text-align: center; font-size: 1.05rem; opacity: .92; transition: color var(--motion-feedback) var(--motion-easing), filter var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
 .navGlyph svg { width: 1.2rem; height: 1.2rem; }
 .navItemActive .navGlyph { color: var(--color-danger); opacity: 1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-danger) 58%, transparent)) drop-shadow(0 0 14px color-mix(in srgb, var(--color-danger) 38%, transparent)); }
@@ -29,11 +30,11 @@
 .navDiceImage { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform var(--motion-feedback) var(--motion-easing); }
 .navDice:hover .navDiceImage { transform: scale(1.06); }
 .navShortLabel { display: none; }
-.navigationRule { height: 1px; margin: var(--spacing-xl) var(--spacing-sm); background: color-mix(in srgb, var(--color-border) 55%, transparent); }
+.navigationRule { height: 1px; margin: auto var(--spacing-sm) var(--spacing-md); background: color-mix(in srgb, var(--color-border) 55%, transparent); }
 .navUtility { width: 100%; }
-.main { flex: 1; min-width: 0; padding: clamp(var(--spacing-xl), 5vw, 4rem) clamp(var(--spacing-lg), 5vw, 5rem); overflow-wrap: anywhere; }
+.main { flex: 1; min-width: 0; padding: clamp(var(--spacing-lg), 3vw, 3rem) clamp(var(--spacing-lg), 3vw, 3.75rem); overflow-wrap: anywhere; }
 .utilityMain { padding-top: var(--spacing-xl); }
-.routeMount { max-width: 66rem; margin: 0 auto; }
+.routeMount { width: 100%; max-width: 92rem; margin: 0 auto; }
 .routeContent, .stateContent { max-width: 48rem; }
 .routeHeadingAnchor { position: absolute; width: 0; height: 0; overflow: hidden; }
 .eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
@@ -49,9 +50,11 @@
   .appShell { --app-bar-height: 4.5rem; }
   .headerInner { padding: max(var(--spacing-xs), env(safe-area-inset-top)) var(--spacing-md) var(--spacing-xs); }
   .shellBody { display: block; box-sizing: border-box; min-height: calc(100vh - var(--app-bar-height)); padding-bottom: calc(var(--size-nav-height) + var(--spacing-xl) + env(safe-area-inset-bottom)); }
-  .navigation { position: fixed; right: 0; bottom: 0; left: 0; z-index: var(--z-navigation); display: flex; box-sizing: border-box; width: auto; height: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); padding: var(--spacing-xs) var(--spacing-sm) env(safe-area-inset-bottom); background-color: var(--color-surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 55%, transparent), color-mix(in srgb, var(--color-surface) 90%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent); border-right: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .3); }
+  .navigation { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: var(--z-navigation); display: flex; box-sizing: border-box; flex-direction: row; align-self: auto; width: auto; height: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); padding: var(--spacing-xs) var(--spacing-sm) env(safe-area-inset-bottom); background-color: var(--color-surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 55%, transparent), color-mix(in srgb, var(--color-surface) 90%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent); border-right: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .3); }
   .navigationList { display: grid; flex: 1; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; gap: 0; }
   .navItem, .navUtility { flex: 1; min-width: 0; min-height: var(--size-touch-target); padding: .35rem var(--spacing-xs) .3rem; justify-content: center; flex-direction: column; gap: .16rem; border-radius: var(--radius-control); font-size: .72rem; line-height: 1; text-align: center; }
+  .navItemActive { background: transparent; }
+  .navItemActive::before { display: none; }
   .navItem:hover { color: var(--color-text); }
   .navItemActive { color: var(--color-text); }
   .navItemActive .navGlyph { transform: translateY(-1px) scale(1.06); }
@@ -73,8 +76,4 @@
 }
 @media (max-width: 420px) {
   .identityContext { max-width: 18ch; }
-}
-@media (orientation: portrait) {
-  .shellBody { background-color: var(--color-background); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 12%, transparent), color-mix(in srgb, var(--color-background) 54%, transparent)), url("../../assets/art/textures/stone-vertical.png"); background-position: center top; background-size: auto 100vh; background-repeat: repeat-y; }
-  .main { background: transparent; }
 }

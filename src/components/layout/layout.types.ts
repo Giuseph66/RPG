@@ -28,6 +28,7 @@ export interface SessionCampaign {
 export interface AppShellProps {
   readonly character?: SessionCharacter;
   readonly campaign?: SessionCampaign;
+  readonly isCampaignMaster?: boolean;
   readonly bootState?: BootState;
   readonly bootErrorMessage?: string;
   readonly children?: ReactNode;

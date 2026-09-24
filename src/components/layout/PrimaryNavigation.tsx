@@ -6,27 +6,33 @@ import styles from "./layout.module.css";
 interface PrimaryNavigationProps {
   readonly route: RouteMatch;
   readonly navigate: (to: string) => void;
+  readonly isCampaignMaster?: boolean;
   readonly onOpenDice?: () => void;
 }
 
-export function PrimaryNavigation({ route, navigate, onOpenDice }: PrimaryNavigationProps) {
+export function PrimaryNavigation({ route, navigate, isCampaignMaster = false, onOpenDice }: PrimaryNavigationProps) {
   const active = primaryRouteFor(route.kind);
   return (
     <nav className={styles.navigation} aria-label="Destinos principais">
       <div className={styles.navigationList}>
         {PRIMARY_NAV_ROUTES.map((item) => {
-          const selected = active === item.id;
+          const campaignCharacters = item.id === "character" && isCampaignMaster;
+          const selected = campaignCharacters
+            ? active === "character" || route.kind === "collaboration"
+            : active === item.id;
+          const label = campaignCharacters ? "Personagens" : item.label;
+          const shortLabel = campaignCharacters ? "Elenco" : item.shortLabel;
           return (
             <button
               key={item.id}
               type="button"
               className={[styles.navItem, styles[`nav-${item.id}` as keyof typeof styles], selected ? styles.navItemActive : ""].filter(Boolean).join(" ")}
               aria-current={selected ? "page" : undefined}
-              onClick={() => navigate(pathForRoute(item.id))}
+              onClick={() => navigate(campaignCharacters ? "/collaboration" : pathForRoute(item.id))}
             >
               <span className={styles.navGlyph} aria-hidden="true">{item.id === "character" ? <GiPerson /> : item.id === "actions" ? <GiCrossedSwords /> : item.id === "journey" ? <GiScrollUnfurled /> : item.id === "compendium" ? <GiSpellBook /> : item.id === "account" ? <User weight="fill" /> : <GiPerson />}</span>
-              <span className={styles.navLabel}>{item.label}</span>
-              <span className={styles.navShortLabel}>{item.shortLabel}</span>
+              <span className={styles.navLabel}>{label}</span>
+              <span className={styles.navShortLabel}>{shortLabel}</span>
             </button>
           );
         })}

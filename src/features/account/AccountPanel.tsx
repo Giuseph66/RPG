@@ -6,6 +6,7 @@ import { ArrowsClockwise, Check, Gear, User, WifiSlash } from "@assets/icons";
 import { Button, InlineStatus, Input, SectionCard } from "@components/ui";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 import type { AuthError, AuthSession } from "@application/ports/auth-port";
+import type { CampaignRole } from "@domain/contracts/cloud-sync";
 import { asAccountId } from "@domain/contracts/ids";
 import type { AccountCampaign, AccountPanelProps, AccountSessionState } from "./types";
 import styles from "./account.module.css";
@@ -70,6 +71,7 @@ export function AccountPanel({ auth, availability, onBackToLocal, membership, sy
   const [busy, setBusy] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [profileMessage, setProfileMessage] = useState<string>();
+  const [preferredRole, setPreferredRole] = useState<CampaignRole>("player");
 
   useEffect(() => {
     if (!auth) {
@@ -111,12 +113,22 @@ export function AccountPanel({ auth, availability, onBackToLocal, membership, sy
     const result = mode === "register"
       ? await auth.registerWithEmailAndPassword(email.trim(), password)
       : await auth.signInWithEmailAndPassword(email.trim(), password);
-    setBusy(false);
     setPassword("");
     if (!result.ok) {
+      setBusy(false);
       setFormError(authErrorMessage(result.error));
       return;
     }
+    if (mode === "register" && membership) {
+      const account = await membership.ensureAccount({
+        actorId: asAccountId(result.value.uid),
+        email: result.value.email,
+        preferredCampaignRole: preferredRole,
+      });
+      if (!account.ok) setProfileMessage(`Conta criada; não foi possível salvar a preferência: ${account.error.message}`);
+      else setPreferredRole(account.value.preferredCampaignRole ?? preferredRole);
+    }
+    setBusy(false);
     setSessionState({ status: "signed-in", session: result.value });
   }
 
@@ -142,14 +154,17 @@ export function AccountPanel({ auth, availability, onBackToLocal, membership, sy
   useEffect(() => {
     if (!session || !membership) return;
     void membership.ensureAccount({ actorId: asAccountId(session.uid), email: session.email }).then((result) => {
-      if (result.ok) setDisplayName(result.value.displayName ?? "");
+      if (result.ok) {
+        setDisplayName(result.value.displayName ?? "");
+        setPreferredRole(result.value.preferredCampaignRole ?? "player");
+      }
     });
   }, [membership, session]);
 
   async function saveProfile() {
     if (!session || !membership) return;
     setBusy(true);
-    const result = await membership.ensureAccount({ actorId: asAccountId(session.uid), email: session.email, displayName: displayName.trim() });
+    const result = await membership.ensureAccount({ actorId: asAccountId(session.uid), email: session.email, displayName: displayName.trim(), preferredCampaignRole: preferredRole });
     if (!result.ok) {
       setBusy(false);
       setProfileMessage(result.error.message);
@@ -215,6 +230,18 @@ export function AccountPanel({ auth, availability, onBackToLocal, membership, sy
                 <p className={styles.sessionMeta}>UID: {session.uid}</p>
                 {membership ? <div className={styles.profileForm}>
                   <Input id="account-name" label="Nome na mesa" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} />
+                  <fieldset className={styles.roleChoice}>
+                    <legend>Papel inicial nas campanhas novas</legend>
+                    <p className={styles.roleHint}>O papel de cada campanha continua definido pelo vínculo da mesa.</p>
+                    <label className={styles.roleOption}>
+                      <input type="radio" name="preferred-role-profile" value="player" checked={preferredRole === "player"} onChange={() => setPreferredRole("player")} />
+                      <span><strong>Colaborador</strong><small>Participar das mesas para as quais receber convite.</small></span>
+                    </label>
+                    <label className={styles.roleOption}>
+                      <input type="radio" name="preferred-role-profile" value="master" checked={preferredRole === "master"} onChange={() => setPreferredRole("master")} />
+                      <span><strong>Mestre</strong><small>Criar campanhas e acompanhar a companhia.</small></span>
+                    </label>
+                  </fieldset>
                   <Button variant="secondary" busy={busy} disabled={busy} onClick={() => void saveProfile()}>Salvar perfil</Button>
                   {profileMessage ? <InlineStatus tone={profileMessage.includes("salvo") ? "success" : "error"}>{profileMessage}</InlineStatus> : null}
                 </div> : null}
@@ -237,6 +264,18 @@ export function AccountPanel({ auth, availability, onBackToLocal, membership, sy
                     {passwordVisible ? <EyeSlash size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
                   </button>
                 </div>
+                {mode === "register" ? <fieldset className={styles.roleChoice}>
+                  <legend>Como quer participar das campanhas?</legend>
+                  <p className={styles.roleHint}>Sua escolha vale como preferência. O acesso é definido pelo vínculo de cada mesa.</p>
+                  <label className={styles.roleOption}>
+                    <input type="radio" name="preferred-role" value="player" checked={preferredRole === "player"} onChange={() => setPreferredRole("player")} />
+                    <span><strong>Colaborador</strong><small>Participar das mesas para as quais receber convite.</small></span>
+                  </label>
+                  <label className={styles.roleOption}>
+                    <input type="radio" name="preferred-role" value="master" checked={preferredRole === "master"} onChange={() => setPreferredRole("master")} />
+                    <span><strong>Mestre</strong><small>Criar campanhas e acompanhar a companhia.</small></span>
+                  </label>
+                </fieldset> : null}
                 {formError && !formError.includes("email") && !formError.includes("senha") ? <InlineStatus tone="error" assertive>{formError}</InlineStatus> : null}
                 <div className={styles.actions}>
                   <Button type="submit" busy={busy} disabled={busy}>{mode === "sign-in" ? "Entrar" : "Criar conta"}</Button>
@@ -261,8 +300,8 @@ export function AccountPanel({ auth, availability, onBackToLocal, membership, sy
           <SectionCard heading="Mesa compartilhada" headingLevel={2}>
             <div className={styles.collaborationEntry}>
               <CampaignSigil title="Selo da mesa compartilhada" />
-              <div><h3>Convide sua companhia</h3><p>Gerencie participantes, convites e fichas vinculadas sem deixar esta conta.</p></div>
-              <Button variant="secondary" disabled={!onOpenCollaboration} disabledReason={!onOpenCollaboration ? "A rota de colaboração ainda não foi conectada pelo shell." : undefined} onClick={onOpenCollaboration}>Abrir colaboração</Button>
+              <div><h3>{preferredRole === "master" ? "Painel do mestre" : "Sua companhia"}</h3><p>{preferredRole === "master" ? "Acompanhe personagens, sessões e participantes da campanha que você conduz." : "Veja sua participação e as campanhas para as quais foi convidado."}</p></div>
+              <Button variant="secondary" disabled={!onOpenCollaboration} disabledReason={!onOpenCollaboration ? "A rota de colaboração ainda não foi conectada pelo shell." : undefined} onClick={onOpenCollaboration}>{preferredRole === "master" ? "Abrir painel do mestre" : "Abrir colaboração"}</Button>
             </div>
           </SectionCard>
           <SectionCard heading="Configurações da conta" headingLevel={2}>

@@ -222,6 +222,11 @@ export interface ManualAdjustment {
 // Character
 // ---------------------------------------------------------------------------
 
+export interface CharacterSheetDisplay {
+  readonly hideRace?: boolean;
+  readonly hideClass?: boolean;
+}
+
 export interface Character {
   // Envelope
   readonly id: Uuid;
@@ -246,6 +251,10 @@ export interface Character {
   readonly flaws: readonly string[];
   readonly history: string;
   readonly portraitAssetId?: Uuid;
+  /** SHA-256 dos bytes do retrato; permite baixar a cópia da nuvem em outro dispositivo. */
+  readonly portraitSha256?: string;
+  /** Preferências de exibição da ficha (ex.: esconder raça/classe no cabeçalho). */
+  readonly sheetDisplay?: CharacterSheetDisplay;
 
   // Formação
   readonly classes: readonly ClassLevel[];

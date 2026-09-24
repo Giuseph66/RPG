@@ -1,4 +1,4 @@
-import { type Account, type Membership, type SyncScope } from "@domain/contracts/cloud-sync";
+import { type Account, type CampaignRole, type Membership, type SyncScope } from "@domain/contracts/cloud-sync";
 import { type AccountId, asAccountId, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
 import { err, ok, type MembershipError, type Result } from "@domain/contracts/errors";
 import { asRevision, type Revision } from "@domain/contracts/versioning";
@@ -17,6 +17,8 @@ export interface EnsureAccountInput {
   readonly actorId: AccountId;
   readonly email?: string | null;
   readonly displayName?: string;
+  /** Preferência de papel padrão; nunca é autoridade para permissões em campanhas existentes. */
+  readonly preferredCampaignRole?: CampaignRole;
 }
 
 export interface EnsureOwnerInput {
@@ -141,13 +143,15 @@ export class MembershipService {
       const currentRevision = current.ok ? (current.value.revision ?? asRevision(0)) : asRevision(0);
       const changed = !current.ok ||
         (input.email !== undefined && input.email !== current.value.email) ||
-        (input.displayName !== undefined && input.displayName !== current.value.displayName);
+        (input.displayName !== undefined && input.displayName !== current.value.displayName) ||
+        (input.preferredCampaignRole !== undefined && input.preferredCampaignRole !== current.value.preferredCampaignRole);
       if (current.ok && !changed) return ok(current.value);
       const account: Account = current.ok
         ? {
           ...current.value,
           ...(input.email !== undefined ? { email: input.email } : {}),
           ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
+          ...(input.preferredCampaignRole !== undefined ? { preferredCampaignRole: input.preferredCampaignRole } : {}),
           revision: nextRevision(currentRevision),
           updatedAt: now,
         }
@@ -155,6 +159,7 @@ export class MembershipService {
           id: input.actorId,
           email: input.email ?? null,
           ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+          ...(input.preferredCampaignRole === undefined ? {} : { preferredCampaignRole: input.preferredCampaignRole }),
           revision: asRevision(0),
           schemaVersion: 1,
           createdAt: now,

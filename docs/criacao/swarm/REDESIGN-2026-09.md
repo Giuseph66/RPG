@@ -135,3 +135,22 @@ Auditorias são somente leitura. Handoffs confirmam que dados, serviços, callba
 - Dependências: REDESIGN-007 `DONE`.
 - Arquivos próprios temporários: `src/components/layout/PrimaryNavigation.tsx`, `src/components/layout/layout.module.css`, `src/components/layout/AppShell.test.tsx`.
 - Escopo: cinco destinos igualmente distribuídos na ordem Ficha, Ações, Jornada, Regras, Conta; Jornada central; D20 absoluto/flutuante acima da coluna Jornada e acionador independente do destino.
+
+## REDESIGN-009 — Ficha fiel à referência
+
+- Status: `DONE` — hero/tiles/atributos/perícias/equipamento/magias fiéis à referência; typecheck, 3 testes focais e diff check aprovados; sem overflow 390/768/1440.
+- Responsável: Claude Opus direto (usuário dispensou swarm/subagentes em 2026-09-24).
+- Referência: `docs/imagens/referencia/image-gen-1(20260913-175954).png`.
+- Dependências: REDESIGN-003, REDESIGN-007, REDESIGN-008 `DONE`.
+- Arquivos próprios temporários: somente `src/features/character/sheet/**` e testes locais. App bar, barra inferior e `src/components/layout/**` proibidos por ordem do usuário.
+- Escopo: hero com arte em largura total, nome/raça/classe/nível e 4 blocos (PV, CA, Iniciativa, Deslocamento); Atributos em 6 blocos; Perícias em grade 2 colunas com ícone e "Ver todas"; Equipamento e Magias lado a lado com 3 itens e "Ver todos". Somente dados reais; sem citação/conteúdo inventado.
+- Preservar: edição de PV/inspiração, rolagens, salvar, visão expandida, estados vazio/erro/carregando, proveniência.
+- Critério de aceite: screenshot 390px comparável à referência; typecheck e testes focais passam; sem overflow 320–1440.
+
+## REDESIGN-010 — Ficha interativa (PV temporários, morte, magias, inventário, retrato)
+
+- Status: `DONE` — typecheck limpo; testes focais (ficha 6, inventário/dispatcher 22, dados 116) aprovados; smoke Playwright 390/1440 sem overflow.
+- Responsável: Claude Opus direto, pedido do usuário em 2026-09-24.
+- Entregas: PV exibe atual+temporários/máximo e aplica dano/cura pelas regras de `domain/rules/combat`; salvamentos contra morte e condições editáveis; edição de identidade/narrativa em modal com retrato de fundo, modal de retrato e ocultar raça/classe (`Character.sheetDisplay`, `portraitSha256`); gerenciador de magias usando o catálogo completo do cap. 11; inventário com "Adicionar item" (intent `add`) e barra de carga 7,5 kg × FOR com marca da variante 2,5 kg × FOR; pesos de concessões de antecedente herdados da linha impressa equivalente (checksum de equipment atualizado).
+- Pendência externa: bucket do Cloud Storage de `rpg-c8827` não existe (404). Retrato fica local + metadados no Firestore; bytes sobem quando o Storage for ativado (nova tentativa a cada abertura da ficha).
+- Falhas pré-existentes fora do escopo: `src/app/{router,bootstrap}.test.tsx` (5) e `Compendium.test.tsx` (3) já falhavam no HEAD; `Actions.test.tsx` (2) quebrou com mudanças não commitadas de outro agente em `src/features/actions/**`.

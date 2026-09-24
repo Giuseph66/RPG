@@ -28,7 +28,7 @@
  * do zero.
  */
 
-import { type AppError, appError } from "@domain/contracts/errors";
+import { type AppError, appError, type Result } from "@domain/contracts/errors";
 import { asRevision } from "@domain/contracts/versioning";
 import { asUuid, type RulesetRef, type Uuid } from "@domain/contracts/ids";
 import { createCampaign, prepareCampaignDeletion } from "@domain/campaign/journal";
@@ -54,6 +54,8 @@ export interface CampaignDispatcherOptions {
    * `{ id: activePack.manifest.id, version: activePack.manifest.version }`.
    */
   readonly rulesetRef: RulesetRef;
+  /** Initializes the creator's per-campaign membership after the local campaign is committed. */
+  readonly onCampaignCreated?: (campaignId: Uuid) => Promise<Result<void, AppError>>;
   /**
    * `CampaignPanelProps.onIntent` não tem canal de erro no tipo. Erros de domínio (nome vazio,
    * escopo de exclusão ausente, backup não confirmado, campanha inexistente) e falhas de
@@ -72,7 +74,7 @@ function toUuid(value: string, field: string): { readonly ok: true; readonly val
 }
 
 export function createCampaignDispatcher(options: CampaignDispatcherOptions): (intent: CampaignIntent) => void {
-  const { campaignService, repository, idGenerator, clock, rulesetRef, onError } = options;
+  const { campaignService, repository, idGenerator, clock, rulesetRef, onCampaignCreated, onError } = options;
 
   function fail(error: AppError, intent: CampaignIntent): void {
     onError?.(error, intent);
@@ -96,6 +98,12 @@ export function createCampaignDispatcher(options: CampaignDispatcherOptions): (i
     const saved = await campaignService.saveCampaign(campaign, asRevision(0));
     if (!saved.ok) {
       fail(saved.error, intent);
+      return;
+    }
+
+    const access = await onCampaignCreated?.(campaign.id);
+    if (access && !access.ok) {
+      fail(access.error, intent);
       return;
     }
 

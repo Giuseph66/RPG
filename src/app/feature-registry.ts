@@ -5,7 +5,7 @@ import type { CreationWizardService } from "@features/character/creation";
 import type { CharacterCreationWizardProps as CreationProps } from "@features/character/creation";
 import type { CharacterProgressionProps } from "@features/character/progression";
 import type { CharacterSelectionProps } from "@features/character/selection";
-import type { CharacterSheetProps } from "@features/character/sheet";
+import type { CharacterSheetProps, SheetPortrait } from "@features/character/sheet";
 import type { ActionCommitResult, ActionsProps } from "@features/actions";
 import type { InventoryIntent, InventoryProps } from "@features/inventory";
 import type { CampaignIntent, CampaignPanelProps, CampaignRecordIntent, CampaignRecordsProps, JourneyCampaignProps } from "@features/journey/campaign";
@@ -53,6 +53,8 @@ export interface FeatureRegistryDependencies {
   readonly deriveCharacter?: (character: Character) => CharacterDerived | undefined;
   /** Nome de exibição de uma definição do pack ativo (classe, raça, antecedente…). */
   readonly resolveDefinitionName?: (entityType: EntityType, entityId: string) => string | undefined;
+  /** Retratos: cópia local em IndexedDB e bytes no Cloud Storage quando há sessão. */
+  readonly portraits?: SheetPortrait;
   /** Read models are supplied by bootstrap; the registry does not own persistence. */
   readonly listCharacters?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
   readonly listCharacterDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
@@ -148,6 +150,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
       service: services.character,
       derived: props.derived ?? (props.character && dependencies.deriveCharacter ? dependencies.deriveCharacter(props.character) : undefined),
       resolveName: props.resolveName ?? dependencies.resolveDefinitionName,
+      portrait: props.portrait ?? dependencies.portraits,
     }),
     bindCreationProps: (props: Omit<CreationProps, "service">): CreationProps => ({ ...props, ...(dependencies.creationService ? { service: dependencies.creationService } : {}) }),
     bindProgressionProps: (props: CharacterProgressionProps): CharacterProgressionProps => props,

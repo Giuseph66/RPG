@@ -17,6 +17,8 @@ export interface TabsProps {
   activeId?: string;
   defaultActiveId?: string;
   onChange?: (id: string) => void;
+  /** Keep inactive panels mounted when switching tabs, preserving their local state. */
+  keepMounted?: boolean;
 }
 
 function firstEnabledId(tabs: TabItem[]): string | undefined {
@@ -33,7 +35,7 @@ function resolveActiveId(
     : firstEnabledId(tabs);
 }
 
-export function Tabs({ label, tabs, activeId, defaultActiveId, onChange }: TabsProps) {
+export function Tabs({ label, tabs, activeId, defaultActiveId, onChange, keepMounted = false }: TabsProps) {
   const baseId = useId();
   const isControlled = activeId !== undefined;
   const [internalActiveId, setInternalActiveId] = useState(
@@ -146,7 +148,7 @@ export function Tabs({ label, tabs, activeId, defaultActiveId, onChange }: TabsP
             hidden={!isActive}
             className={styles.panel}
           >
-            {isActive ? tab.panel : null}
+            {keepMounted || isActive ? tab.panel : null}
           </div>
         );
       })}

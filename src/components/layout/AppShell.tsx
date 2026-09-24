@@ -19,6 +19,7 @@ function navigationDiceSource(): "header" | "fab" {
 export function AppShell({
   character,
   campaign,
+  isCampaignMaster,
   bootState = "ready",
   bootErrorMessage,
   children,
@@ -64,7 +65,7 @@ export function AppShell({
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
       <Header session={character} campaign={campaign} route={route} navigate={navigate} onSelectCharacter={onSelectCharacter} />
       <div className={styles.shellBody}>
-        <PrimaryNavigation route={route} navigate={navigate} onOpenDice={() => openDice(navigationDiceSource())} />
+        <PrimaryNavigation route={route} navigate={navigate} isCampaignMaster={isCampaignMaster} onOpenDice={() => openDice(navigationDiceSource())} />
         <main ref={mainRef} id="main-content" className={[styles.main, isPrimary ? "" : styles.utilityMain].filter(Boolean).join(" ")} tabIndex={-1}>
           {bootState === "booting" ? (
             <section className={styles.stateContent} aria-labelledby="boot-title"><p className={styles.eyebrow}>ABRINDO A MESA</p><h1 id="boot-title" tabIndex={-1} className={styles.pageTitle}>Abrindo dados locais</h1><InlineStatus tone="info">Preparando preferências, personagem e campanha.</InlineStatus></section>

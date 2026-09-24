@@ -1,6 +1,6 @@
 import type { Character } from "@domain/contracts/character";
 import type { CharacterDerived } from "@domain/contracts/derived";
-import type { EntityType } from "@domain/contracts/ids";
+import type { DefinitionRef, EntityType } from "@domain/contracts/ids";
 import type { CharacterApplicationService } from "@application/character/service";
 import type { StoreStatus } from "@application/state/external-store";
 
@@ -26,7 +26,41 @@ export type CharacterSheetPatch = Partial<Pick<Character,
   | "inspiration"
   | "hp"
   | "deathSaves"
+  | "conditions"
+  | "pendingResolutions"
+  | "castingSources"
+  | "preparedSelections"
+  | "portraitAssetId"
+  | "portraitSha256"
+  | "sheetDisplay"
 >>;
+
+/** Categoria e peso de um item do inventário, resolvidos do rule pack pelo consumidor. */
+export interface SheetEquipmentInfo {
+  readonly category: string;
+  readonly weightGrams: number;
+}
+
+/** Magia disponível para a lista das classes conjuradoras do personagem. */
+export interface SheetSpellOption {
+  readonly ref: DefinitionRef;
+  readonly name: string;
+  readonly level: number;
+  readonly school: string;
+  readonly ritual: boolean;
+  readonly concentration: boolean;
+}
+
+export type PortraitUploadResult =
+  | { readonly ok: true; readonly assetId: NonNullable<Character["portraitAssetId"]>; readonly sha256: string }
+  | { readonly ok: false; readonly message: string };
+
+/** Retrato do personagem: carrega os bytes (local ou nuvem) e envia uma nova imagem. */
+export interface SheetPortrait {
+  /** Resolve uma URL exibível para o asset; `undefined` quando não há cópia disponível. */
+  readonly load: (assetId: NonNullable<Character["portraitAssetId"]>, sha256?: string) => Promise<string | undefined>;
+  readonly upload?: (file: File) => Promise<PortraitUploadResult>;
+}
 
 export type CharacterSheetService = Pick<
   CharacterApplicationService,
@@ -48,4 +82,10 @@ export interface CharacterSheetProps {
   readonly onDraftChange?: (patch: CharacterSheetPatch) => void;
   /** Nome legível de uma definição do pack ativo; sem ele a ficha mostra o id formatado. */
   readonly resolveName?: (entityType: EntityType, entityId: string) => string | undefined;
+  readonly equipmentInfo?: (entityId: string) => SheetEquipmentInfo | undefined;
+  /** Lista de magias das classes do personagem; habilita "Gerenciar magias". */
+  readonly spellOptions?: readonly SheetSpellOption[];
+  /** Condições do pack para o seletor "Adicionar condição". */
+  readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
+  readonly portrait?: SheetPortrait;
 }

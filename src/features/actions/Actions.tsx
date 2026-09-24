@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Badge, Button, InlineStatus, Input } from "@components/ui";
+import { Button, InlineStatus, Input } from "@components/ui";
+import type { DiceRoll } from "@domain/contracts/dice";
 import type { CastPreview } from "@domain/contracts/definitions/spell";
 import type { RuleResult } from "@domain/contracts/rules";
 
-import type { ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionSourceRef, ActionsProps } from "./types";
+import type { ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionSourceRef, ActionsDieFaces, ActionsProps } from "./types";
 import styles from "./actions.module.css";
 
 const KIND_LABELS: Record<ActionCapabilityKind, string> = {
@@ -16,6 +17,18 @@ const KIND_LABELS: Record<ActionCapabilityKind, string> = {
   rest: "Descanso",
   concentration: "Concentração",
 };
+
+const KIND_SYMBOLS: Record<ActionCapabilityKind, string> = {
+  attack: "⚔",
+  damage: "✦",
+  spell: "✧",
+  resource: "◇",
+  item: "▣",
+  rest: "☾",
+  concentration: "◈",
+};
+
+const DICE_FACES: readonly ActionsDieFaces[] = [4, 6, 8, 20, 100];
 
 function isRuleResult(preview: ActionPreview): preview is RuleResult {
   return "status" in preview;
@@ -142,12 +155,18 @@ function CostList({ costs }: { readonly costs?: readonly ActionCost[] }) {
 
 function CapabilityCard({ capability, preview, state, selected, onSelect }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly selected: boolean; readonly onSelect: () => void }) {
   const costs = capability.costs ?? previewCosts(preview);
-  return <article className={[styles.capability, selected ? styles.selected : "", state.status !== "available" ? styles[state.status] : ""].filter(Boolean).join(" ")}>
-    <div className={styles.capabilityTop}><Badge tone={capability.kind === "spell" ? "magic" : state.status === "available" ? "xp" : state.status === "unsupported" ? "neutral" : "warning"}>{KIND_LABELS[capability.kind]}</Badge><span className={styles.status}>{statusLabel(state.status)}</span></div>
-    <h2>{capability.label}</h2>
-    {capability.description ? <p className={styles.description}>{capability.description}</p> : null}
-    <div className={styles.cardMeta}><span>{costs.length ? `${costs.length} custo${costs.length === 1 ? "" : "s"}` : "Custo pendente"}</span><span>{capability.effectSummary?.length ? `${capability.effectSummary.length} efeito${capability.effectSummary.length === 1 ? "" : "s"}` : "Efeito na prévia"}</span></div>
-    <Button variant={selected ? "primary" : "secondary"} size="sm" aria-pressed={selected} onClick={onSelect}>{selected ? "Em revisão" : "Revisar capacidade"}</Button>
+  return <article className={[styles.capability, capability.kind === "concentration" ? styles.concentrationCard : "", selected ? styles.selected : "", state.status !== "available" ? styles[state.status] : ""].filter(Boolean).join(" ")}>
+    <button className={styles.capabilityButton} type="button" aria-label={`Revisar capacidade: ${capability.label}`} aria-pressed={selected} onClick={onSelect}>
+      <span className={styles.capabilityIcon} aria-hidden="true">{KIND_SYMBOLS[capability.kind]}</span>
+      <span className={styles.capabilityCopy}>
+        {capability.label.trim().toLocaleLowerCase() === KIND_LABELS[capability.kind].toLocaleLowerCase() ? null : <span className={styles.capabilityKind}>{KIND_LABELS[capability.kind]}</span>}
+        <strong className={styles.capabilityTitle}>{capability.label}</strong>
+        <span className={styles.capabilityDescription}>{capability.description ?? capability.effectSummary?.[0] ?? "Confira custos e efeitos antes de executar."}</span>
+        <span className={styles.capabilityMeta}>{statusLabel(state.status)} · {costs.length ? `${costs.length} custo${costs.length === 1 ? "" : "s"}` : "custo pendente"}</span>
+        <span className={styles.screenReaderOnly}>{selected ? "Em revisão" : "Revisar capacidade"}</span>
+      </span>
+      <span className={styles.capabilityChevron} aria-hidden="true">›</span>
+    </button>
   </article>;
 }
 
@@ -203,11 +222,21 @@ function LoadingState() {
   return <section className={styles.state} role="status" aria-live="polite"><span className={styles.stateMark} aria-hidden="true">◌</span><h1>Carregando capacidades</h1><p>Consultando ações disponíveis para a sessão.</p></section>;
 }
 
-export function Actions({ character, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações da sessão", onIntent, onCancel }: ActionsProps) {
+function rollOutcome(roll: DiceRoll | undefined): string {
+  if (!roll) return "Sua próxima história começa no próximo lance.";
+  if (roll.expression.faces === 20 && roll.expression.quantity === 1) {
+    if (roll.rawDice[0] === 20) return "Sucesso crítico!";
+    if (roll.rawDice[0] === 1) return "Falha crítica.";
+  }
+  return `${roll.expression.quantity}d${roll.expression.faces} · rolagem registrada`;
+}
+
+export function Actions({ character, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel }: ActionsProps) {
   const [selectedId, setSelectedId] = useState<string>();
   const [feedback, setFeedback] = useState<{ readonly tone: "success" | "warning" | "error" | "info"; readonly message: string }>();
   const [submitting, setSubmitting] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [selectedDie, setSelectedDie] = useState<ActionsDieFaces>(20);
   const submittedCommands = useRef(new Set<string>());
 
   const selected = capabilities.find((capability) => capability.id === selectedId);
@@ -232,6 +261,10 @@ export function Actions({ character, capabilities = [], previews, availableActio
 
   const selectedPreview = selected ? lookupPreview(selected, previews) : undefined;
   const selectedState = selected ? capabilityState(selected, selectedPreview, availableActions) : undefined;
+  const latestRoll = dice?.history[0];
+  const recentRolls = dice?.history.slice(0, 3) ?? [];
+  const criticalSuccess = latestRoll?.expression.faces === 20 && latestRoll.expression.quantity === 1 && latestRoll.rawDice[0] === 20;
+  const criticalFailure = latestRoll?.expression.faces === 20 && latestRoll.expression.quantity === 1 && latestRoll.rawDice[0] === 1;
 
   const confirm = async () => {
     if (!selected || !selectedState || selectedState.status !== "available" || !onIntent || submittedCommands.current.has(String(selected.commandId))) return;
@@ -267,12 +300,43 @@ export function Actions({ character, capabilities = [], previews, availableActio
   };
 
   return <section className={styles.actions} aria-labelledby="actions-title">
-    <header className={styles.hero}><div><p className={styles.eyebrow}>MESA DE COMANDO</p><h1 id="actions-title">{title}</h1><p className={styles.subtitle}>{character.name || "Personagem sem nome"} · revisão explícita antes de qualquer gasto</p></div><div className={styles.availability} aria-label="Disponibilidade de ações"><span>Ações disponíveis</span><strong>{availableActions.length ? availableActions.join(" · ") : "Nenhuma informada"}</strong></div></header>
+    <header className={styles.hero}>
+      <div className={styles.heroCopy}>
+        <p className={styles.eyebrow}>MESA DE COMANDO · {character.name || "PERSONAGEM"}</p>
+        <h1 id="actions-title">{title}</h1>
+        <p className={styles.subtitle}>Grandes histórias nascem de pequenas decisões.</p>
+        <p className={styles.heroMotto}>ROLE. JÁ. NARE. SIGA EM FRENTE.</p>
+      </div>
+      <div className={styles.heroDie} aria-hidden="true"><svg viewBox="0 0 180 180"><path d="M90 10 158 50v80l-68 40-68-40V50L90 10Z"/><path d="M90 10v78m68-38L90 88l-68-38m68 38v82m0-82 68 42m-68-42-68 42"/><path d="m43 77 18-12 19 12-19 12-18-12Zm57-23 18-12 19 12-19 12-18-12Z"/><text x="90" y="119" textAnchor="middle">20</text></svg></div>
+      <div className={styles.availability} aria-label="Disponibilidade de ações"><span>Ações disponíveis</span><strong>{availableActions.length ? availableActions.join(" · ") : "Nenhuma informada"}</strong></div>
+    </header>
     {feedback ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
-    <div className={styles.layout}>
-      <section className={styles.listPanel} aria-labelledby="capabilities-title"><div className={styles.panelHeading}><div><p className={styles.eyebrow}>CAPACIDADES RESOLVIDAS</p><h2 id="capabilities-title">Escolha uma capacidade</h2></div><span className={styles.count}>{capabilities.length}</span></div>{capabilities.length === 0 ? <p className={styles.muted}>Nenhuma capacidade foi fornecida pelo resolvedor.</p> : <div className={styles.capabilityList}>{capabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>}</section>
-      {selected && selectedState ? <ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /> : <aside className={styles.emptyReview} aria-label="Revisão de capacidade"><span aria-hidden="true">◈</span><h2>Revisão aguardando seleção</h2><p>Escolha uma capacidade para conferir custo, efeitos, fonte e pendências antes de confirmar.</p></aside>}
-    </div>
+    <section className={styles.dicePanel} aria-labelledby="dice-title">
+      <div className={styles.panelHeading}><div><p className={styles.eyebrow}>QUE A SORTE TE ACOMPANHE</p><h2 id="dice-title">Dados</h2></div><span className={styles.diceMark} aria-hidden="true">✧</span></div>
+      <div className={styles.diceLayout}>
+        <div className={styles.lastRoll} aria-live="polite">
+          <span className={styles.lastRollLabel}>Último resultado</span>
+          <strong className={styles.rollValue}>{latestRoll?.total ?? "—"}</strong>
+          <span className={[styles.rollOutcome, criticalSuccess ? styles.criticalSuccess : "", criticalFailure ? styles.criticalFailure : ""].filter(Boolean).join(" ")}>{rollOutcome(latestRoll)}</span>
+        </div>
+        <div className={styles.diceControls}>
+          <div className={styles.diceChoices} role="group" aria-label="Escolha o dado">
+            {DICE_FACES.map((faces) => <button key={faces} className={[styles.dieChoice, selectedDie === faces ? styles.selectedDie : ""].filter(Boolean).join(" ")} type="button" aria-pressed={selectedDie === faces} onClick={() => setSelectedDie(faces)}><span className={styles.dieGlyph} aria-hidden="true">{faces}</span><span>d{faces}</span></button>)}
+          </div>
+          <button className={styles.rollAgain} type="button" disabled={!dice || dice.busy} onClick={() => dice?.onRoll(selectedDie)}><span aria-hidden="true">↻</span>{latestRoll ? "Rolar novamente" : "Rolar dado"}</button>
+        </div>
+      </div>
+    </section>
+    <section className={styles.quickPanel} aria-labelledby="capabilities-title">
+      <div className={styles.panelHeading}><div><p className={styles.eyebrow}>CAPACIDADES RESOLVIDAS</p><h2 id="capabilities-title">Ações rápidas</h2></div><span className={styles.count}>{capabilities.length}</span></div>
+      <p className={styles.quickIntro}>Escolha uma ação para revisar custos, efeitos e pendências antes de confirmar.</p>
+      {capabilities.length === 0 ? <p className={styles.muted}>Nenhuma capacidade foi fornecida pelo resolvedor.</p> : <div className={styles.capabilityList}>{capabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>}
+      {selected && selectedState ? <ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /> : <aside className={styles.emptyReview} aria-label="Revisão de capacidade"><span aria-hidden="true">◈</span><p>Selecione uma ação para conferir custo, efeitos e fonte antes de executar.</p></aside>}
+    </section>
+    <section className={styles.activityPanel} aria-labelledby="activity-title">
+      <div className={styles.panelHeading}><div><p className={styles.eyebrow}>REGISTRO DA SESSÃO</p><h2 id="activity-title">Atividade recente</h2></div><span className={styles.activityCaption}>Últimas rolagens</span></div>
+      {recentRolls.length ? <div className={styles.activityList}>{recentRolls.map((roll) => <article className={styles.activityItem} key={roll.id}><span className={styles.activityDie} aria-hidden="true">{roll.expression.faces}</span><div className={styles.activityCopy}><strong>{roll.expression.quantity}d{roll.expression.faces}</strong><span>{roll.rawDice.join(" + ") || "Rolagem registrada"}</span></div><strong className={styles.activityResult}>{roll.total}</strong></article>)}</div> : <p className={styles.emptyActivity}>Suas rolagens aparecem aqui depois do primeiro lance.</p>}
+    </section>
   </section>;
 }
 

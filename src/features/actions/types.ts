@@ -1,4 +1,5 @@
 import type { Character } from "@domain/contracts/character";
+import type { DiceRoll } from "@domain/contracts/dice";
 import type { CastPreview } from "@domain/contracts/definitions/spell";
 import type { CommandId, DefinitionRef, EntityId, Uuid } from "@domain/contracts/ids";
 import type { AvailableAction, RuleResult } from "@domain/contracts/rules";
@@ -6,6 +7,13 @@ import type { SourceRef } from "@domain/contracts/primitives";
 
 export type ActionCapabilityKind = "attack" | "damage" | "spell" | "resource" | "item" | "rest" | "concentration";
 export type ActionCapabilityStatus = "available" | "blocked" | "pending" | "unsupported";
+export type ActionsDieFaces = 4 | 6 | 8 | 20 | 100;
+
+export interface ActionsDice {
+  readonly history: readonly DiceRoll[];
+  readonly busy: boolean;
+  readonly onRoll: (faces: ActionsDieFaces) => void;
+}
 /**
  * Sinaliza que a `ReviewPanel` (Actions.tsx) precisa coletar um número do usuário antes de
  * habilitar a confirmação: "amount" pede uma quantidade livre (dano/cura manual, ver
@@ -72,6 +80,7 @@ export type ActionsStatus = "idle" | "loading" | "error";
 
 export interface ActionsProps {
   readonly character?: Character;
+  readonly dice?: ActionsDice;
   readonly capabilities?: readonly ActionCapability[];
   /** Optional lookup for callers that keep previews separate from capability metadata. */
   readonly previews?: ReadonlyMap<string, ActionPreview> | Readonly<Record<string, ActionPreview>>;

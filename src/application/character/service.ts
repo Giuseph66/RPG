@@ -122,6 +122,11 @@ export class CharacterApplicationService {
     return id === undefined ? this.store.hydrate() : this.store.hydrate(id);
   }
 
+  /** Read-only aggregate lookup for campaign views that summarize several characters. */
+  get(id: Uuid): Promise<Result<Character, AppError>> {
+    return this.repository.get(id);
+  }
+
   update(updater: (current: Character) => Character, immediate = false): Result<Character, AppError> {
     return this.store.update(updater, { immediate });
   }

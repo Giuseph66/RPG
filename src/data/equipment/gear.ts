@@ -156,6 +156,18 @@ const focus: readonly GearSpec[] = [
   { id: "holy-symbol", name: "Símbolo sagrado (à escolha)", valueGold: 5, weightGrams: 450, category: "focus", abstract: true },
 ];
 
+/** Concessão de antecedente → linha equivalente da tabela de equipamento (peso impresso). */
+const PRINTED_EQUIVALENT: Readonly<Record<string, string>> = {
+  "common-clothes": "clothes-common",
+  "dark-common-clothes": "clothes-common",
+  "travelers-clothes": "clothes-travelers",
+  "fine-clothes": "clothes-fine",
+  costume: "clothes-costume",
+  "winter-blanket": "blanket",
+  "scroll-case": "map-case",
+  "prayer-book": "book",
+};
+
 const backgroundGrants: readonly GearSpec[] = [
   ["prayer-book", "Livro de orações"], ["incense", "Incenso"], ["guild-letter", "Carta da guilda"], ["admirers-token", "Favor de um admirador"],
   ["costume", "Traje de artista"], ["con-tools", "Ferramentas de charlatão"], ["dark-common-clothes", "Roupas comuns escuras"], ["animal-trophy", "Troféu de animal"],
@@ -164,7 +176,13 @@ const backgroundGrants: readonly GearSpec[] = [
   ["rank-insignia", "Insígnia de patente"], ["trophy", "Troféu"], ["bone-dice", "Dados de osso"],
   ["scroll-case", "Porta-pergaminhos"],
   ["common-clothes", "Roupas comuns"], ["travelers-clothes", "Roupas de viajante"], ["fine-clothes", "Roupas finas"],
-].map(([id, name]) => ({ id, name, valueGold: 0, weightGrams: 0, abstract: true }));
+].map(([id, name]) => {
+  // Concessões que são o mesmo objeto de uma linha impressa herdam o peso dessa linha;
+  // as demais (cartas, lembranças, troféus…) não têm peso publicado no livro.
+  const printed = PRINTED_EQUIVALENT[id!];
+  const weightGrams = printed ? staticGear.find((entry) => entry.id === printed)?.weightGrams ?? 0 : 0;
+  return { id: id!, name: name!, valueGold: 0, weightGrams, abstract: true };
+});
 
 export const gear: readonly EquipmentDefinition[] = [
   ...staticGear.map(makeGear),

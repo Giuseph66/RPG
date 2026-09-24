@@ -80,6 +80,31 @@ async function setUp(inventory: readonly InventoryItem[], currency: Character["c
 }
 
 describe("createInventoryDispatcher", () => {
+  it("aplica add criando uma nova instância carregada", async () => {
+    const { characterService, fake, dispatch, errors } = await setUp([daggerItem()]);
+    const ropeRef: DefinitionRef = { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("hempen-rope") };
+
+    dispatch({ kind: "add", equipmentRef: ropeRef, quantity: 2 });
+    await characterService.save();
+
+    expect(errors).toHaveLength(0);
+    const added = fake.getStored().inventory.find((entry) => entry.equipmentRef.entityId === ropeRef.entityId);
+    expect(added).toEqual(expect.objectContaining({ quantity: 2, equippedState: "carried", notes: "" }));
+    expect(fake.getStored().inventory).toHaveLength(2);
+  });
+
+  it("aplica add somando na instância existente quando o item é empilhável", async () => {
+    const arrowsRef: DefinitionRef = { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("arrows") };
+    const arrowsId = asUuid("77777777-7777-4777-8777-777777777777");
+    const { characterService, fake, dispatch, errors } = await setUp([{ id: arrowsId, equipmentRef: arrowsRef, quantity: 20, equippedState: "carried", notes: "" }]);
+
+    dispatch({ kind: "add", equipmentRef: arrowsRef, quantity: 20 });
+    await characterService.save();
+
+    expect(errors).toHaveLength(0);
+    expect(fake.getStored().inventory).toEqual([expect.objectContaining({ id: arrowsId, quantity: 40 })]);
+  });
+
   it("aplica set-quantity e persiste a nova quantidade", async () => {
     const { characterService, fake, dispatch, errors } = await setUp([daggerItem({ quantity: 1 })]);
 

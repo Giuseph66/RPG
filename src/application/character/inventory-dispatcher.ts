@@ -16,12 +16,14 @@
  * próxima leitura da ficha — este dispatcher nunca recalcula derivados.
  */
 
-import { type Character } from "@domain/contracts/character";
+import { type Character, type InventoryItem } from "@domain/contracts/character";
 import { type AppError, ok, type Result } from "@domain/contracts/errors";
 import { type EquipmentDefinition } from "@domain/contracts/definitions/equipment";
-import { asCommandId, type CommandId } from "@domain/contracts/ids";
+import { asCommandId, asUuid, type CommandId } from "@domain/contracts/ids";
 import { findEquipment } from "@data/equipment";
 import {
+  addInventoryItem,
+  createInventoryItem,
   createInventoryState,
   equipInventoryItem,
   removeInventoryItem,
@@ -64,8 +66,30 @@ function ruleError(result: Exclude<RuleResult, { readonly status: "success" }>):
   return { code: "validation-error", field: first?.field ?? "consume-item", message: first?.message ?? "O comando de consumo foi rejeitado." };
 }
 
+function newItemId(): InventoryItem["id"] {
+  const random = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(16).padStart(8, "0").slice(-8)}-0000-4000-8000-${(++generatedCommandSequence).toString(16).padStart(12, "0")}`;
+  return asUuid(random);
+}
+
 function applyIntent(state: InventoryState, intent: InventoryIntent): Result<InventoryState, AppError> {
   switch (intent.kind) {
+    case "add": {
+      // Empilháveis (flechas, rações…) somam na instância carregada existente.
+      const stackable = findEquipment(String(intent.equipmentRef.entityId))?.stackable ?? false;
+      const existing = stackable
+        ? state.inventory.find((item) => item.equipmentRef.entityId === intent.equipmentRef.entityId && item.equippedState !== "equipped" && !item.customName)
+        : undefined;
+      if (existing) {
+        const result = setItemQuantity(state, String(existing.id), existing.quantity + intent.quantity);
+        return result.ok ? ok({ inventory: result.value.inventory, currency: state.currency }) : result;
+      }
+      const item = createInventoryItem({ id: newItemId(), equipmentRef: intent.equipmentRef, quantity: intent.quantity });
+      if (!item.ok) return item;
+      const result = addInventoryItem(state, item.value);
+      return result.ok ? ok({ inventory: result.value.inventory, currency: state.currency }) : result;
+    }
     case "set-quantity": {
       const result = setItemQuantity(state, String(intent.itemId), intent.quantity);
       return result.ok ? ok({ inventory: result.value.inventory, currency: state.currency }) : result;

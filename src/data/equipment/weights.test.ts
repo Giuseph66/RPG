@@ -54,3 +54,15 @@ describe("pesos do equipamento", () => {
     }
   });
 });
+
+describe("concessões de antecedente", () => {
+  it("herdam o peso impresso do objeto equivalente", () => {
+    const weight = (id: string) => Number(pack.value.equipment.get(id as never)?.weightGrams);
+    expect(weight("common-clothes")).toBe(weight("clothes-common"));
+    expect(weight("common-clothes")).toBe(1500);
+    expect(weight("travelers-clothes")).toBe(2000);
+    expect(weight("winter-blanket")).toBe(1500);
+    expect(weight("prayer-book")).toBe(2500);
+    expect(weight("dead-colleague-letter")).toBe(0);
+  });
+});

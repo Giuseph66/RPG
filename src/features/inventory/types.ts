@@ -17,6 +17,7 @@ export interface InventoryItemView {
 }
 
 export type InventoryIntent =
+  | { readonly kind: "add"; readonly equipmentRef: DefinitionRef; readonly quantity: number }
   | { readonly kind: "set-quantity"; readonly itemId: InventoryItem["id"]; readonly quantity: number }
   | { readonly kind: "set-currency"; readonly denomination: CoinDenomination; readonly amount: number }
   | { readonly kind: "equip"; readonly itemId: InventoryItem["id"] }
@@ -25,6 +26,24 @@ export type InventoryIntent =
   | { readonly kind: "consume"; readonly itemId: InventoryItem["id"]; readonly equipmentRef: DefinitionRef; readonly commandId?: CommandId };
 
 export type InventoryStatus = "idle" | "loading" | "error";
+
+/** Opção do catálogo para o seletor "Adicionar item"; resolvida pelo consumidor. */
+export interface InventoryCatalogOption {
+  readonly equipmentRef: DefinitionRef;
+  readonly name: string;
+  readonly category?: string;
+  readonly unitWeightGrams?: Grams | number;
+  readonly unitValueCp?: CopperPieces | number;
+}
+
+/** Carga carregada comparada à capacidade do livro (cap. 7): 7,5 kg × Força. */
+export interface InventoryCarrying {
+  readonly totalGrams: number;
+  readonly capacityGrams: number;
+  /** Limite da variante "Sobrecarga" (2,5 kg × Força), exibido como marca de referência. */
+  readonly encumberedGrams?: number;
+  readonly strengthScore: number;
+}
 
 export interface InventoryProps {
   /** Entries are already resolved by the consumer and keep their source order. */
@@ -36,4 +55,7 @@ export interface InventoryProps {
   readonly error?: unknown;
   readonly onIntent?: (intent: InventoryIntent) => void;
   readonly title?: string;
+  /** Itens do catálogo que podem ser adicionados; sem ele, o botão "Adicionar item" some. */
+  readonly catalog?: readonly InventoryCatalogOption[];
+  readonly carrying?: InventoryCarrying;
 }

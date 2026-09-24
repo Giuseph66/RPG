@@ -65,6 +65,7 @@ import type { SyncRuntimeSnapshot } from "@application/sync";
 import { type SessionAuthorizationPort } from "@application/session/authorization";
 import { asAccountId, asEntityId, type AccountId, type EntityId, type EntityType, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
+import { createPortraitService } from "./portrait-service";
 import { AppRouter } from "./router";
 
 /**
@@ -411,6 +412,13 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       })
     : undefined);
   const assets = createAssetSyncService(assetRepository, assetTransfer);
+  const portraits = createPortraitService({
+    assets,
+    outbox: createSyncOutboxService(gatedOutboxRepository),
+    cloudUid: () => auth?.currentSession()?.uid,
+    newId: () => idGenerator.uuid(),
+    now: () => clock.now(),
+  });
 
   try {
     const settings = await services.settings.hydrate();
@@ -501,7 +509,23 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     }
 
     const rulesetRef = { id: activePack.manifest.id, version: activePack.manifest.version };
-    const campaignDispatcher = createCampaignDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock, rulesetRef });
+    const campaignDispatcher = createCampaignDispatcher({
+      campaignService: services.campaign,
+      repository: campaignRepository,
+      idGenerator,
+      clock,
+      rulesetRef,
+      onCampaignCreated: async (campaignId) => {
+        const current = auth?.currentSession();
+        if (!current) return ok(undefined);
+        const actorId = asAccountId(current.uid);
+        const account = await membershipWithSync.ensureAccount({ actorId, email: current.email });
+        if (!account.ok) return err(appError.validation("account", account.error.message));
+        if (account.value.preferredCampaignRole !== "master") return ok(undefined);
+        const owner = await membershipWithSync.ensureCampaignOwner({ actorId, campaignId });
+        return owner.ok ? ok(undefined) : err(appError.validation("membership", owner.error.message));
+      },
+    });
     const campaignRecordDispatcher = createCampaignRecordDispatcher({ campaignService: services.campaign });
     const journalDispatcher = createJournalDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock });
     const backup = createBackupService({
@@ -528,6 +552,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       compendiumService,
       deriveCharacter: (character) => { const derived = deriveCharacter(character, activePack, STATIC_RULE_CONTEXT); return derived.ok ? derived.value : undefined; },
       resolveDefinitionName: (entityType, entityId) => definitionMaps[entityType]?.get(asEntityId(entityId))?.name,
+      portraits,
       diceOverlayController,
       actionDispatcher,
       inventoryDispatcher,

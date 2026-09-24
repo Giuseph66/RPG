@@ -14,7 +14,8 @@ function isAccount(value: unknown): value is Account {
   return typeof account.id === "string" &&
     (typeof account.email === "string" || account.email === null) &&
     Number.isInteger(account.schemaVersion) &&
-    typeof account.createdAt === "string" && typeof account.updatedAt === "string";
+    typeof account.createdAt === "string" && typeof account.updatedAt === "string" &&
+    (account.preferredCampaignRole === undefined || account.preferredCampaignRole === "master" || account.preferredCampaignRole === "player");
 }
 
 function isMembership(value: unknown): value is Membership {

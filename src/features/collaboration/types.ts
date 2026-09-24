@@ -12,6 +12,18 @@ export interface CollaborationCampaign {
 export interface CollaborationCharacter {
   readonly id: Uuid;
   readonly name: string;
+  readonly playerName?: string;
+  readonly className?: string;
+  readonly totalLevel?: number;
+  readonly hitPoints?: { readonly current: number; readonly temporary: number; readonly maximum?: number };
+  readonly armorClass?: number;
+  readonly initiative?: number;
+  readonly conditions?: readonly string[];
+  readonly concentration?: boolean;
+  readonly inspiration?: boolean;
+  readonly deathSaves?: { readonly successes: number; readonly failures: number };
+  readonly pendingResolutions?: number;
+  readonly resources?: { readonly available: number; readonly total: number };
   readonly campaignId?: Uuid;
   readonly revision: Revision;
 }
@@ -26,6 +38,7 @@ export interface CollaborationPanelProps {
   readonly activeCampaignId?: Uuid;
   readonly syncState?: CollaborationSyncState;
   readonly onOpenSession?: (campaignId: Uuid) => void;
+  readonly onOpenJourney?: () => void;
   readonly onLinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
   readonly onUnlinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
 }

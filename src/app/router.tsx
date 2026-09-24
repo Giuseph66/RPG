@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 import { AppShell, type AppShellProps } from "@components/layout/AppShell";
@@ -16,11 +16,14 @@ import type { DataManagementIntent } from "@features/data-management";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { Revision } from "@domain/contracts/versioning";
 import type { StoreStatus } from "@application/state";
-import type { ActionCapability } from "@features/actions";
+import type { ActionCapability, ActionsDice } from "@features/actions";
 import type { AccountSyncState } from "@features/account";
+import type { AccountCampaign } from "@features/account/types";
+import type { CollaborationCharacter } from "@features/collaboration/types";
 import type { CompendiumCategoryId, CompendiumDetail, CompendiumFilters } from "@application/compendium";
 import type { FeatureRegistry } from "./feature-registry";
 import { matchRoute, type RouteMatch } from "./routes";
+import { carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, spellOptionsFor } from "./character-route-data";
 
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
 const LazyCharacterSheet = lazy(() => import("@features/character/sheet").then((module) => ({ default: module.CharacterSheet })));
@@ -44,6 +47,18 @@ function RouteLoadingFallback() {
 /** Mesma constante de apresentação usada em `bootstrap.tsx` para derivar as capacidades; aqui só
  * informa à UI quais tipos de ação existem, sem decidir se o jogador pode agir agora. */
 const AVAILABLE_ACTION_KINDS = ["action", "bonus-action", "reaction", "free"] as const;
+const EMPTY_DICE_STATE = Object.freeze({
+  open: false,
+  purpose: "free" as const,
+  formula: "1d20",
+  mode: "normal" as const,
+  history: [] as const,
+  status: "idle" as const,
+  announcement: "",
+  awaitingPhysics: false,
+});
+const EMPTY_DICE_SUBSCRIBE = (_listener: () => void): (() => void) => () => undefined;
+const EMPTY_DICE_GET_SNAPSHOT = () => EMPTY_DICE_STATE;
 
 export interface AppRouterProps extends Omit<AppShellProps, "children" | "route"> {
   /** Route outlet owned by CORE-002 and the feature owners. */
@@ -191,7 +206,15 @@ function CharacterDetailRoute({ registry, character, pack, id }: { readonly regi
       consumable: definition?.consumable,
     };
   });
-  return <div><Sheet {...registry.character.bindSheetProps({ character: currentCharacter, status: character.status, error: character.errorMessage })} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency })} /></div>;
+  const sheetProps = registry.character.bindSheetProps({
+    character: currentCharacter,
+    status: character.status,
+    error: character.errorMessage,
+    equipmentInfo: (entityId) => equipmentInfo(pack, entityId),
+    spellOptions: spellOptionsFor(currentCharacter, pack),
+    conditionOptions: conditionOptionsFor(pack),
+  });
+  return <div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div>;
 }
 
 function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"] }) {
@@ -332,27 +355,56 @@ function DataManagementRoute({ registry, character, campaign }: { readonly regis
 }
 
 function AccountRoute({ registry, navigate, syncState, syncMessage, campaign }: { readonly registry: FeatureRegistry; readonly navigate: (to: string) => void; readonly syncState?: AccountSyncState; readonly syncMessage?: string; readonly campaign?: AppRouterProps["campaign"] }) {
-  const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
+  const [accountUid, setAccountUid] = useState<string | null>(() => registry.account.auth?.currentSession()?.uid ?? null);
+  const [campaigns, setCampaigns] = useState<readonly AccountCampaign[]>(campaign?.value ? [{ id: campaign.value.id, name: campaign.value.name }] : []);
+  const membership = registry.membership;
+  const auth = registry.account.auth;
+  const localActor = membership?.localActor?.();
+  const actorId = accountUid ? asAccountId(accountUid) : localActor?.accountId;
+  useEffect(() => {
+    if (!auth) return;
+    try {
+      return auth.observeSession((session) => setAccountUid(session?.uid ?? null));
+    } catch {
+      return undefined;
+    }
+  }, [auth]);
   useEffect(() => {
     let active = true;
     void registry.journey.service.list().then((result) => {
-      if (active && result.ok) setCampaigns(result.value);
+      if (!active || !result.ok) return;
+      void (async () => {
+        if (!membership || !actorId) {
+          setCampaigns(result.value.map((item) => ({ id: item.id, name: item.name })));
+          return;
+        }
+        const memberships = await Promise.all(result.value.map((item) => membership.listMemberships({ actorId, campaignId: item.id })));
+        if (!active) return;
+        const campaignsWithRoles = result.value.map((item, index) => {
+          const result = memberships[index];
+          const entries = result?.ok ? result.value : [];
+          const own = entries.find((entry) => entry.accountId === actorId && entry.status === "active");
+          const participantCount = entries.filter((entry) => entry.status === "active").length;
+          return { id: item.id, name: item.name, ...(own ? { role: own.role } : {}), ...(result?.ok ? { participantCount } : {}) };
+        });
+        setCampaigns(campaignsWithRoles);
+      })();
     });
     return () => { active = false; };
-  }, [registry.journey.service]);
+  }, [actorId, membership, registry.journey.service]);
   const Account = LazyAccountPanel;
+  const accountCampaigns = campaigns.map((item) => ({ ...item }));
   return <Account {...registry.account.bindProps({
     onBackToLocal: () => navigate("/character"),
-    campaigns: campaigns.map((item) => ({ id: item.id, name: item.name })),
     onOpenCollaboration: () => navigate("/collaboration"),
     onOpenSession: (campaignId) => navigate(`/session/${campaignId}`),
     onOpenSettings: () => navigate("/settings"),
-  })} {...(syncState ? { syncState } : {})} {...(syncMessage ? { syncMessage } : {})} />;
+  })} campaigns={accountCampaigns} {...(syncState ? { syncState } : {})} {...(syncMessage ? { syncMessage } : {})} />;
 }
 
 function CollaborationRoute({ registry, campaign, navigate }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void }) {
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
-  const [characters, setCharacters] = useState<readonly CharacterSummary[]>([]);
+  const [characters, setCharacters] = useState<readonly CollaborationCharacter[]>([]);
   useEffect(() => {
     let active = true;
     void registry.journey.service.list().then((result) => { if (active && result.ok) setCampaigns(result.value); });
@@ -361,9 +413,38 @@ function CollaborationRoute({ registry, campaign, navigate }: { readonly registr
   useEffect(() => {
     let active = true;
     if (!registry.character.list) { setCharacters([]); return () => { active = false; }; }
-    void registry.character.list().then((result) => { if (active && result.ok) setCharacters(result.value); });
+    void registry.character.list().then(async (result) => {
+      if (!active) return;
+      if (!result.ok) { setCharacters([]); return; }
+      const summaries = await Promise.all(result.value.map(async (summary): Promise<CollaborationCharacter> => {
+        const base = { id: summary.id, name: summary.name, campaignId: summary.campaignId, revision: summary.revision };
+        const loaded = await registry.character.service.get(summary.id);
+        if (!loaded.ok) return base;
+        const character = loaded.value;
+        const sheet = registry.character.bindSheetProps({ character });
+        const derived = sheet.derived;
+        const resourceTotal = derived?.resourceCapacities.reduce((total, resource) => total + resource.capacity.value, 0) ?? 0;
+        const resourceSpent = character.resources.reduce((total, resource) => total + resource.spent, 0);
+        const displayDefinition = (type: "class" | "condition", id: string) => sheet.resolveName?.(type, id) ?? id.replace(/[-_]/g, " ");
+        return {
+          ...base,
+          ...(character.playerName ? { playerName: character.playerName } : {}),
+          className: summary.classSummary.map((entry) => displayDefinition("class", entry.classId)).join(" / "),
+          totalLevel: summary.totalLevel,
+          hitPoints: { current: character.hp.current, temporary: character.hp.temp, ...(derived ? { maximum: derived.hitPointsMax.value } : {}) },
+          ...(derived ? { armorClass: derived.armorClass.value, initiative: derived.initiative.value } : {}),
+          conditions: character.conditions.map((condition) => displayDefinition("condition", condition.definitionRef.entityId)),
+          concentration: Boolean(character.concentration),
+          inspiration: character.inspiration,
+          deathSaves: { successes: character.deathSaves.successes, failures: character.deathSaves.failures },
+          pendingResolutions: character.pendingResolutions.length,
+          ...(resourceTotal > 0 ? { resources: { available: Math.max(0, resourceTotal - resourceSpent), total: resourceTotal } } : {}),
+        };
+      }));
+      if (active) setCharacters(summaries);
+    });
     return () => { active = false; };
-  }, [registry.character.list]);
+  }, [registry.character.bindSheetProps, registry.character.list, registry.character.service]);
   const Component = LazyCollaborationPanel;
   const session = registry.account.auth?.currentSession() ?? null;
   return <Component
@@ -373,6 +454,7 @@ function CollaborationRoute({ registry, campaign, navigate }: { readonly registr
     characters={characters}
     activeCampaignId={campaign?.value?.id}
     onOpenSession={(id) => navigate(`/session/${id}`)}
+    onOpenJourney={() => navigate("/journey")}
     onLinkCharacter={(characterId, campaignId, expectedRevision) => registry.character.service.linkToCampaign(characterId, campaignId, expectedRevision)}
     onUnlinkCharacter={(characterId, campaignId, expectedRevision) => registry.character.service.unlinkFromCampaign(characterId, campaignId, expectedRevision)}
   />;
@@ -492,6 +574,7 @@ function renderRegistryRoute(
   onCharacterCreated: AppRouterProps["onCharacterCreated"],
   syncState: AppRouterProps["syncState"],
   syncMessage: AppRouterProps["syncMessage"],
+  actionsDice: ActionsDice | undefined,
   navigate: (to: string) => void,
   replace: (to: string) => void,
 ): ReactNode | undefined {
@@ -508,7 +591,7 @@ function renderRegistryRoute(
   }
   if (match.kind === "actions") {
     const ActionPage = LazyActions;
-    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} />;
+    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} dice={actionsDice} />;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "journey") {
@@ -523,7 +606,7 @@ function renderRegistryRoute(
       status: campaignStatus(campaign?.status),
       error: campaign?.errorMessage,
     });
-    const content = <div><Journey {...campaignProps} /><Map {...registry.journey.bindMapProps({ markers: [] })} /><JournalRoute registry={registry} campaign={campaign} /></div>;
+    const content = <Journey {...campaignProps} mapPanel={<Map {...registry.journey.bindMapProps({ markers: [] })} />} journalPanel={<JournalRoute registry={registry} campaign={campaign} />} />;
     return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "compendium") {
@@ -567,13 +650,63 @@ export function useAppNavigation(initialPath?: string): AppNavigation {
 /** Small History API router: keeps the shell usable without adding a package. */
 export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <LazySettingsPanel store={shellProps.settingsStore} /> : undefined);
+  const accountAuth = registry?.account.auth;
+  const membership = registry?.membership;
+  const [accountSession, setAccountSession] = useState(() => accountAuth?.currentSession() ?? null);
+  const [isCampaignMaster, setIsCampaignMaster] = useState(false);
+  const localIdentity = membership?.localActor();
+  const actorId = accountSession ? asAccountId(accountSession.uid) : localIdentity?.accountId;
+  const activeCampaignId = campaign?.value?.id;
+
+  useEffect(() => {
+    if (!accountAuth) {
+      setAccountSession(null);
+      return;
+    }
+    setAccountSession(accountAuth.currentSession());
+    try {
+      return accountAuth.observeSession((session) => setAccountSession(session));
+    } catch {
+      return undefined;
+    }
+  }, [accountAuth]);
+
+  useEffect(() => {
+    let current = true;
+    setIsCampaignMaster(false);
+    if (!membership || !actorId || !activeCampaignId) return () => { current = false; };
+    void membership.listMemberships({ actorId, campaignId: activeCampaignId }).then((result) => {
+      if (!current || !result.ok) return;
+      const ownMembership = result.value.find((item) => item.accountId === actorId);
+      setIsCampaignMaster(ownMembership?.role === "master" && ownMembership.status === "active");
+    }).catch(() => {
+      if (current) setIsCampaignMaster(false);
+    });
+    return () => { current = false; };
+  }, [activeCampaignId, actorId, membership]);
+
+  const diceState = useSyncExternalStore(
+    diceOverlayController?.subscribe ?? EMPTY_DICE_SUBSCRIBE,
+    diceOverlayController?.getSnapshot ?? EMPTY_DICE_GET_SNAPSHOT,
+    diceOverlayController?.getSnapshot ?? EMPTY_DICE_GET_SNAPSHOT,
+  );
+  const actionsDice: ActionsDice | undefined = diceOverlayController ? {
+    history: diceState.history,
+    busy: diceState.status === "rolling" || diceState.status === "saving" || diceState.awaitingPhysics,
+    onRoll: (faces) => {
+      const characterId = character?.value?.id;
+      diceOverlayController.open({ source: "actions", ...(characterId ? { characterId } : {}), formula: `1d${faces}` });
+      void diceOverlayController.roll();
+    },
+  } : undefined;
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, actionsDice, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <LazySettingsPanel store={shellProps.settingsStore} /> : undefined);
 
   return (
     <AppShell
       {...shellProps}
       character={character}
       campaign={campaign}
+      isCampaignMaster={isCampaignMaster}
       diceOverlayController={diceOverlayController}
       route={navigation.match}
       navigate={navigation.navigate}

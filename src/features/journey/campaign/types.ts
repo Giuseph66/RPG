@@ -1,4 +1,5 @@
 import type { Campaign, NpcRecord, Quest } from "@domain/contracts/campaign";
+import type { ReactNode } from "react";
 
 export interface CampaignSummary {
   readonly id: string;
@@ -34,6 +35,7 @@ export interface CampaignRecordsProps {
   readonly npcs?: readonly NpcRecord[];
   readonly objectives?: readonly string[];
   readonly onIntent?: (intent: CampaignRecordIntent) => void;
+  readonly sections?: readonly ("objectives" | "quests" | "npcs")[];
 }
 
 export interface JourneyCampaignProps extends CampaignPanelProps {
@@ -41,4 +43,6 @@ export interface JourneyCampaignProps extends CampaignPanelProps {
   readonly quests?: readonly Quest[];
   readonly npcs?: readonly NpcRecord[];
   readonly onRecordIntent?: (intent: CampaignRecordIntent) => void;
+  readonly mapPanel?: ReactNode;
+  readonly journalPanel?: ReactNode;
 }
