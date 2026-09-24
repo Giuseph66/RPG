@@ -58,7 +58,7 @@ function applyIntent(campaign: Campaign, intent: CampaignRecordIntent, idGenerat
       const name = intent.name.trim();
       if (!name) return { ok: false, error: { code: "validation-error", field: "name", message: "Informe um nome para este registro." } };
       const now = clock.now();
-      const created = createNpc({ id: idGenerator.uuid(), kind: intent.recordKind, name, description: intent.description.trim(), linkedEntityIds: [], createdAt: now, updatedAt: now });
+      const created = createNpc({ id: idGenerator.uuid(), kind: intent.recordKind, name, description: intent.description.trim(), linkedEntityIds: [], ...(intent.characterRef ? { characterRef: intent.characterRef } : {}), createdAt: now, updatedAt: now });
       return created.ok ? { ok: true, value: { ...campaign, npcs: [...campaign.npcs, created.value] } } : created;
     }
     case "delete-npc": {

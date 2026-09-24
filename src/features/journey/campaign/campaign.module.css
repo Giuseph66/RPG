@@ -1,8 +1,33 @@
-.workspace { display: grid; gap: var(--spacing-lg); width: 100%; max-width: 90rem; margin: 0 auto; }
+.workspace { display: grid; gap: var(--spacing-lg); width: 100%; min-width: 0; }
+.workspace :global([role="tablist"]) { position: sticky; top: var(--app-bar-height); z-index: 4; gap: .2rem; padding: .45rem 0 .35rem; background: color-mix(in srgb, var(--color-background) 94%, transparent); backdrop-filter: blur(.6rem); scrollbar-width: thin; }
+.workspace :global([role="tab"]) { border-radius: var(--radius-control) var(--radius-control) 0 0; white-space: nowrap; }
+.workspace :global([role="tab"]:hover) { color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 9%, transparent); }
+.workspace :global([role="tab"][aria-selected="true"]) { background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)); }
 .overview { display: grid; gap: var(--spacing-lg); }
 .muted { margin: 0; color: var(--color-text-muted); }
 .panel, .records { display: grid; gap: var(--spacing-lg); padding: clamp(var(--spacing-lg), 3vw, var(--spacing-xl)); background: linear-gradient(145deg, var(--color-surface), var(--color-surface-warm)); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); box-shadow: var(--shadow-surface); }
 .heading, .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
+.heading { align-items: flex-start; }
+.campaignControls { display: flex; align-items: end; flex-wrap: wrap; justify-content: flex-end; gap: var(--spacing-sm); }
+.campaignControls :global(button) { display: inline-flex; align-items: center; gap: var(--spacing-xs); white-space: nowrap; }
+.campaignSelector { display: grid; gap: var(--spacing-xs); min-width: 13rem; color: var(--color-text-muted); font-size: .78rem; }
+.campaignSelector select { min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text); background: var(--color-background); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); font: 600 .9rem var(--typography-body-font-family); }
+.overviewMetrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--color-border-soft); border-bottom: 1px solid var(--color-border-soft); }
+.overviewMetrics > div { display: grid; gap: .35rem; min-width: 0; padding: var(--spacing-md); border-left: 1px solid var(--color-border-soft); }
+.overviewMetrics > div:first-child { border-left: 0; padding-left: 0; }
+.overviewMetrics span, .campaignFooter { color: var(--color-text-muted); font-size: .82rem; }
+.overviewMetrics strong { color: var(--color-text); font: 700 clamp(1.35rem, 2vw, 2rem) var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
+.activityLinks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-sm); }
+.activityLinks button { display: grid; grid-template-columns: 1fr auto; gap: .25rem var(--spacing-sm); min-width: 0; min-height: 4.5rem; padding: var(--spacing-sm) var(--spacing-md); color: var(--color-text); background: color-mix(in srgb, var(--color-background) 35%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); text-align: left; cursor: pointer; }
+.activityLinks button:hover, .activityLinks button:focus-visible { border-color: var(--color-primary); background: var(--color-surface-elevated); outline: none; }
+.activityLinks span { font-weight: 700; }
+.activityLinks strong { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--color-secondary); font: 700 1.5rem var(--typography-numeric-font-family); }
+.activityLinks small { color: var(--color-text-muted); }
+.campaignFooter { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); }
+.campaignFooter :global(button) { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.modalForm { display: grid; gap: var(--spacing-md); min-width: 0; }
+.modalForm > p { margin: 0; color: var(--color-text-muted); }
+.modalActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-sm); }
 .titleBlock { display: flex; align-items: flex-start; gap: var(--spacing-md); min-width: 0; }
 .titleIcon, .sectionIcon, .campaignMark { display: grid; flex: 0 0 auto; place-items: center; color: var(--color-secondary); }
 .titleIcon { width: 2.5rem; height: 2.5rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-surface-elevated); }
@@ -59,12 +84,21 @@
 .npcFilters button[aria-pressed="true"] { color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border-soft)); }
 .npcActions :global(button), .npcFormActions :global(button), .npcRowActions :global(button) { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-xs); }
 .npcForm { display: grid; gap: var(--spacing-md); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-background) 48%, var(--color-surface)); border: 1px solid var(--color-border-soft); border-left: 2px solid var(--color-primary); border-radius: var(--radius-control); }
+.npcDialog { max-width: min(44rem, 100%); }
+.npcDialog .npcForm { padding: 0; background: none; border: 0; }
 .npcFormFields { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(10rem, .6fr); gap: var(--spacing-md); }
-.npcFormFields > :last-child { grid-column: 1 / -1; }
+.npcFormFields > :nth-child(n + 3) { grid-column: 1 / -1; }
 .npcForm .field { display: grid; gap: var(--spacing-xs); color: var(--color-text); font-size: .84rem; font-weight: 650; }
 .npcForm input, .npcForm select, .npcForm textarea { width: 100%; box-sizing: border-box; min-height: var(--size-touch-target); padding: .65rem .8rem; color: var(--color-text); background: var(--color-background); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); font: inherit; }
 .npcForm textarea { min-height: 6rem; resize: vertical; }
 .npcHint { margin: 0; color: var(--color-text-muted); font-size: .76rem; }
+.npcGenerator { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface)); }
+.npcGenerator strong { color: var(--color-secondary); font-size: .9rem; }
+.npcGenerator p { margin: .2rem 0 0; color: var(--color-text-muted); font-size: .78rem; line-height: 1.45; }
+.npcGenerator .npcFormFields > :last-child { grid-column: auto; }
+.npcGenerator > :global(button) { justify-self: start; }
+.textAction { display: inline; width: fit-content; margin: 0; padding: 0; color: var(--color-secondary); background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
+.textAction:hover, .textAction:focus-visible { color: var(--color-text); outline-color: var(--color-focus); }
 .npcEmpty { display: grid; gap: .25rem; padding: var(--spacing-md); color: var(--color-text); background: color-mix(in srgb, var(--color-background) 35%, transparent); border: 1px dashed var(--color-border-soft); border-radius: var(--radius-control); }
 .npcEmpty small { color: var(--color-text-muted); }
 .recordList .npcRow { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: start; gap: var(--spacing-sm); }
@@ -72,4 +106,4 @@
 .npcRowActions { grid-column: 3; grid-row: 1; }
 .deleteConfirm { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-xs); margin-top: var(--spacing-sm); color: var(--color-danger); font-size: .78rem; }
 @media (max-width: 860px) { .records, .records[data-layout="single"] { grid-template-columns: 1fr; } }
-@media (max-width: 620px) { .createForm { grid-template-columns: 1fr; } .formHeading, .createForm > :last-child { grid-column: auto; } .heading { align-items: flex-start; flex-direction: column; } .panel, .records { padding: var(--spacing-md); } .campaignCard, .activeCampaign { align-items: stretch; flex-direction: column; } .campaignCard > :last-child, .activeCampaign > :last-child { align-self: flex-end; } .npcFormFields { grid-template-columns: 1fr; } .npcFormFields > :last-child { grid-column: auto; } .recordList .npcRow { grid-template-columns: 2rem minmax(0, 1fr); } .npcRowActions { grid-column: 2; grid-row: 2; justify-content: flex-start; } }
+@media (max-width: 620px) { .createForm { grid-template-columns: 1fr; } .formHeading, .createForm > :last-child { grid-column: auto; } .heading { align-items: flex-start; flex-direction: column; } .campaignControls { width: 100%; justify-content: stretch; } .campaignSelector { flex: 1 1 100%; } .campaignControls > :global(button) { flex: 1; justify-content: center; } .overviewMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .overviewMetrics > div:nth-child(3) { border-left: 0; padding-left: 0; } .overviewMetrics > div:nth-child(n + 3) { border-top: 1px solid var(--color-border-soft); } .activityLinks { grid-template-columns: 1fr; } .panel, .records { padding: var(--spacing-md); } .campaignCard, .activeCampaign { align-items: stretch; flex-direction: column; } .campaignCard > :last-child, .activeCampaign > :last-child { align-self: flex-end; } .npcFormFields { grid-template-columns: 1fr; } .npcFormFields > :last-child { grid-column: auto; } .recordList .npcRow { grid-template-columns: 2rem minmax(0, 1fr); } .npcRowActions { grid-column: 2; grid-row: 2; justify-content: flex-start; } }

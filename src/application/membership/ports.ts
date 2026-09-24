@@ -10,6 +10,7 @@ export interface MembershipRepository {
   getMembership(campaignId: Uuid, accountId: AccountId, context?: TransactionContext): Promise<Result<Membership, AppError>>;
   saveMembership(membership: Membership, context?: TransactionContext): Promise<Result<Membership, AppError>>;
   listMemberships(campaignId: Uuid, context?: TransactionContext): Promise<Result<readonly Membership[], AppError>>;
+  listMembershipsForAccount(accountId: AccountId, context?: TransactionContext): Promise<Result<readonly Membership[], AppError>>;
 }
 
 /** Implementação local mínima para testes, fallback e sessões sem rede. */
@@ -39,6 +40,9 @@ export function createMemoryMembershipRepository(
     },
     async listMemberships(campaignId) {
       return { ok: true, value: [...membershipMap.values()].filter((membership) => membership.campaignId === campaignId) };
+    },
+    async listMembershipsForAccount(accountId) {
+      return { ok: true, value: [...membershipMap.values()].filter((membership) => membership.accountId === accountId) };
     },
   };
 }

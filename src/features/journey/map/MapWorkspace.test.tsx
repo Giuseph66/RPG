@@ -82,9 +82,12 @@ describe("MapWorkspace", () => {
     const addPin = vi.fn().mockResolvedValue({ ok: true, value: { pin, revision: 1 } }) as unknown as NonNullable<MapWorkspaceProps["addPin"]>;
     const { container, unmount } = await mount(<MapWorkspace campaignId={campaignId} canManage listMaps={listMaps} getAsset={getAsset} addPin={addPin} />);
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Adicionar local"));
+    const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Marcar local"));
     expect(add).toBeDefined();
     await click(add!);
+    const canvas = container.querySelector('[role="application"] > div') as HTMLElement;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20, width: 200, height: 100, right: 210, bottom: 120, x: 10, y: 20, toJSON: () => ({}) } as DOMRect);
+    await fireEvent(canvas, new MouseEvent("click", { bubbles: true, clientX: 110, clientY: 70 }));
     const name = container.querySelector('input[maxlength="80"]') as HTMLInputElement;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(name, "Entrada do templo");
     await fireEvent(name, new Event("input", { bubbles: true }));

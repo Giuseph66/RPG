@@ -75,4 +75,16 @@ export class IndexedDbMembershipRepository {
       return ok(values);
     });
   }
+
+  async listMembershipsForAccount(accountId: AccountId, context?: TransactionContext): Promise<Result<readonly Membership[], AppError>> {
+    return runTransactionOrContext(this.db, [STORE_NAMES.memberships], "readonly", context, async (tx) => {
+      const raws = await requestToPromise(tx.objectStore(STORE_NAMES.memberships).index("accountId").getAll(accountId));
+      const values: Membership[] = [];
+      for (const [index, raw] of raws.entries()) {
+        if (!isMembership(raw)) return err(appError.corruptRecord(`${accountId}:row-${index}`));
+        values.push(raw);
+      }
+      return ok(values);
+    });
+  }
 }

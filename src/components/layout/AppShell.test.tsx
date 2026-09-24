@@ -29,11 +29,11 @@ describe("AppShell", () => {
     const onOpenDice = vi.fn();
     const mounted = await mount(<AppShell route={matchRoute("/")} navigate={vi.fn()} onOpenDice={onOpenDice} />);
     const navigation = mounted.container.querySelector('[aria-label="Destinos principais"]')!;
-    const destinations = navigation.firstElementChild?.querySelectorAll("button");
+    const destinations = navigation.querySelector("div")?.querySelectorAll("button");
     const diceButton = mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')!;
     expect(destinations).toHaveLength(5);
     expect(Array.from(destinations ?? []).map((item) => item.lastElementChild?.textContent)).toEqual(["Ficha", "Ações", "Jornada", "Regras", "Conta"]);
-    expect(navigation.firstElementChild?.contains(diceButton)).toBe(false);
+    expect(navigation.querySelector("div")?.contains(diceButton)).toBe(false);
     expect(mounted.container.textContent).toContain("Mesa de campanha");
     expect(mounted.container.textContent).toContain("Nenhum personagem");
     expect(mounted.container.querySelector('[aria-label="Abrir ajustes"]')).toBeTruthy();

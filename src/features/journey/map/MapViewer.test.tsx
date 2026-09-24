@@ -33,17 +33,17 @@ describe("MapViewer", () => {
     await unmount();
   });
 
-  it("uses the map coordinates on double click and keeps center placement available", async () => {
+  it("places a marker at the chosen image coordinate", async () => {
     const onAddMarker = vi.fn();
     const { container, unmount } = await mount(<MapViewer image={{ src: "map.png" }} markers={[]} onAddMarker={onAddMarker} />);
     const surface = container.querySelector('[role="application"]') as HTMLElement;
     const canvas = surface.firstElementChild as HTMLElement;
     vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20, width: 200, height: 100, right: 210, bottom: 120, x: 10, y: 20, toJSON: () => ({}) } as DOMRect);
-    await fireEvent(canvas, new MouseEvent("dblclick", { bubbles: true, clientX: 60, clientY: 95 }));
+    const mark = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Marcar local"))!;
+    await fireEvent(mark, new MouseEvent("click", { bubbles: true }));
+    await fireEvent(canvas, new MouseEvent("click", { bubbles: true, clientX: 60, clientY: 95 }));
     expect(onAddMarker).toHaveBeenLastCalledWith({ x: 0.25, y: 0.75 });
-    const center = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Adicionar local"))!;
-    await fireEvent(center, new MouseEvent("click", { bubbles: true }));
-    expect(onAddMarker).toHaveBeenLastCalledWith({ x: 0.5, y: 0.5 });
+    expect(mark.getAttribute("aria-pressed")).toBe("false");
     await unmount();
   });
 

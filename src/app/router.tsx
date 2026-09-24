@@ -3,13 +3,14 @@ import type { ReactNode } from "react";
 
 import { AppShell, type AppShellProps } from "@components/layout/AppShell";
 import { InlineStatus } from "@components/ui";
-import type { Character, CharacterDraft } from "@domain/contracts/character";
+import type { Character, CharacterDraft, ManualAdjustment } from "@domain/contracts/character";
+import { appError, err, ok } from "@domain/contracts/errors";
 import type { CharacterSummary } from "@domain/contracts/character";
 import type { DraftSummary } from "@features/character/selection";
 import type { Campaign } from "@domain/contracts/campaign";
 import type { JournalDraft, JournalDraftState } from "@domain/campaign/journal";
 import { createJournalDraft, draftFromJournalEntry } from "@domain/campaign/journal";
-import { asAccountId, asUuid, isUuid } from "@domain/contracts/ids";
+import { asAccountId, asIsoTimestamp, asUuid, isUuid } from "@domain/contracts/ids";
 import { parseBackupJson, serializeBackup } from "@application/transfer";
 import type { RecoveryRecordView } from "@application/transfer/types";
 import type { DataManagementIntent } from "@features/data-management";
@@ -19,11 +20,14 @@ import type { StoreStatus } from "@application/state";
 import type { ActionCapability, ActionsDice } from "@features/actions";
 import type { AccountSyncState } from "@features/account";
 import type { AccountCampaign } from "@features/account/types";
-import type { CollaborationCharacter } from "@features/collaboration/types";
+import type { CampaignAdjustmentTarget, CollaborationCharacter } from "@features/collaboration/types";
 import type { CompendiumCategoryId, CompendiumDetail, CompendiumFilters } from "@application/compendium";
 import type { FeatureRegistry } from "./feature-registry";
 import { matchRoute, type RouteMatch } from "./routes";
 import { createRuleLookup } from "./rule-lookup";
+import { generateNpcCharacter } from "@application/character/generate-npc-character";
+import { equipmentBundles } from "@data/equipment/bundles";
+import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
 import { carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, spellOptionsFor } from "./character-route-data";
 
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
@@ -400,13 +404,13 @@ function AccountRoute({ registry, navigate, syncState, syncMessage, campaign }: 
   const accountCampaigns = campaigns.map((item) => ({ ...item }));
   return <Account {...registry.account.bindProps({
     onBackToLocal: () => navigate("/character"),
-    onOpenCollaboration: () => navigate("/collaboration"),
+    onOpenCollaboration: () => navigate("/journey/participants"),
     onOpenSession: (campaignId) => navigate(`/session/${campaignId}`),
     onOpenSettings: () => navigate("/settings"),
   })} campaigns={accountCampaigns} {...(syncState ? { syncState } : {})} {...(syncMessage ? { syncMessage } : {})} />;
 }
 
-function CollaborationRoute({ registry, campaign, navigate }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void }) {
+function CollaborationRoute({ registry, campaign, navigate, view, pack }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void; readonly view?: "characters" | "participants"; readonly pack?: RulePack }) {
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
   const [characters, setCharacters] = useState<readonly CollaborationCharacter[]>([]);
   useEffect(() => {
@@ -430,6 +434,8 @@ function CollaborationRoute({ registry, campaign, navigate }: { readonly registr
         const resourceTotal = derived?.resourceCapacities.reduce((total, resource) => total + resource.capacity.value, 0) ?? 0;
         const resourceSpent = character.resources.reduce((total, resource) => total + resource.spent, 0);
         const displayDefinition = (type: "class" | "condition", id: string) => sheet.resolveName?.(type, id) ?? id.replace(/[-_]/g, " ");
+        const supportedTargets: readonly CampaignAdjustmentTarget[] = ["armor-class", "initiative", "attack-roll", "ability-check"];
+        const adjustments = character.manualAdjustments.flatMap((adjustment) => supportedTargets.includes(adjustment.target.kind as CampaignAdjustmentTarget) && adjustment.value.kind === "number" ? [{ id: adjustment.id, target: adjustment.target.kind as CampaignAdjustmentTarget, amount: adjustment.value.amount, reason: adjustment.reason }] : []);
         return {
           ...base,
           ...(character.playerName ? { playerName: character.playerName } : {}),
@@ -438,6 +444,8 @@ function CollaborationRoute({ registry, campaign, navigate }: { readonly registr
           hitPoints: { current: character.hp.current, temporary: character.hp.temp, ...(derived ? { maximum: derived.hitPointsMax.value } : {}) },
           ...(derived ? { armorClass: derived.armorClass.value, initiative: derived.initiative.value } : {}),
           conditions: character.conditions.map((condition) => displayDefinition("condition", condition.definitionRef.entityId)),
+          conditionIds: character.conditions.map((condition) => String(condition.definitionRef.entityId)),
+          adjustments,
           concentration: Boolean(character.concentration),
           inspiration: character.inspiration,
           deathSaves: { successes: character.deathSaves.successes, failures: character.deathSaves.failures },
@@ -457,11 +465,83 @@ function CollaborationRoute({ registry, campaign, navigate }: { readonly registr
     campaigns={campaigns.map((item) => ({ id: item.id, name: item.name }))}
     characters={characters}
     activeCampaignId={campaign?.value?.id}
+    view={view}
     onOpenSession={(id) => navigate(`/session/${id}`)}
     onOpenJourney={() => navigate("/journey")}
+    onOpenParticipants={() => navigate("/journey/participants")}
+    onCreateCharacter={() => navigate("/character/create")}
     onLinkCharacter={(characterId, campaignId, expectedRevision) => registry.character.service.linkToCampaign(characterId, campaignId, expectedRevision)}
     onUnlinkCharacter={(characterId, campaignId, expectedRevision) => registry.character.service.unlinkFromCampaign(characterId, campaignId, expectedRevision)}
+    conditionOptions={conditionOptionsFor(pack)}
+    onUpdateCharacter={async (characterId, expectedRevision, values) => {
+      const loaded = await registry.character.service.get(characterId);
+      if (!loaded.ok) return loaded;
+      const current = loaded.value;
+      if (current.revision !== expectedRevision) return err(appError.conflict(expectedRevision, current.revision));
+      const maximumHp = registry.character.bindSheetProps({ character: current }).derived?.hitPointsMax.value;
+      if (!Number.isInteger(values.hp) || values.hp < 0 || (maximumHp !== undefined && values.hp > maximumHp)) return err(appError.validation("hp", `Informe PV entre 0 e ${maximumHp ?? "o máximo da ficha"}.`));
+      if (!Number.isInteger(values.tempHp) || values.tempHp < 0) return err(appError.validation("tempHp", "PV temporários devem ser um número inteiro positivo."));
+      if (values.adjustments.some((adjustment) => !["armor-class", "initiative", "attack-roll", "ability-check"].includes(adjustment.target) || !Number.isInteger(adjustment.amount) || adjustment.amount === 0 || Math.abs(adjustment.amount) > 20 || !adjustment.reason.trim())) return err(appError.validation("adjustments", "Confira o destino, o valor e o motivo de cada ajuste."));
+      const existing = current.conditions.filter((condition) => values.conditionIds.includes(String(condition.definitionRef.entityId)));
+      const conditionOptions = conditionOptionsFor(pack);
+      const added = values.conditionIds.filter((id) => !existing.some((condition) => String(condition.definitionRef.entityId) === id)).flatMap((id) => {
+        const option = conditionOptions.find((entry) => String(entry.ref.entityId) === id);
+        return option ? [{ id: asUuid(crypto.randomUUID()), definitionRef: option.ref, origin: { kind: "table-decision" as const, description: "Aplicada pelo mestre" } }] : [];
+      });
+      const managedIds = new Set(values.adjustments.map((adjustment) => String(adjustment.id)));
+      const retained = current.manualAdjustments.filter((adjustment) => (!(["armor-class", "initiative", "attack-roll", "ability-check"].includes(adjustment.target.kind) && adjustment.value.kind === "number")) && !managedIds.has(String(adjustment.id)));
+      const manualAdjustments: ManualAdjustment[] = [...retained, ...values.adjustments.map((adjustment) => {
+        const previous = current.manualAdjustments.find((entry) => entry.id === adjustment.id);
+        return { id: adjustment.id, target: { kind: adjustment.target }, value: { kind: "number" as const, amount: adjustment.amount }, reason: adjustment.reason.trim(), createdAt: previous?.createdAt ?? asIsoTimestamp(new Date().toISOString()), ...(previous?.sourceRef ? { sourceRef: previous.sourceRef } : {}) };
+      })];
+      return registry.character.service.saveCharacter({ ...current, hp: { ...current.hp, current: values.hp, temp: values.tempHp }, conditions: [...existing, ...added], manualAdjustments }, expectedRevision);
+    }}
   />;
+}
+
+function JourneyRoute({ registry, campaign, isCampaignMaster, match, navigate, pack }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly isCampaignMaster: boolean; readonly match: RouteMatch; readonly navigate: (to: string) => void; readonly pack?: RulePack }) {
+  const activeCampaign = campaign?.value ?? undefined;
+  const [campaigns, setCampaigns] = useState<readonly Campaign[]>(activeCampaign ? [activeCampaign] : []);
+  const [availableCharacters, setAvailableCharacters] = useState<readonly CharacterSummary[]>([]);
+  const [activityStats, setActivityStats] = useState<{ readonly maps?: number; readonly journalEntries?: number; readonly sessions?: number }>({});
+  useEffect(() => {
+    let active = true;
+    void registry.journey.service.list().then((result) => { if (active && result.ok) setCampaigns(result.value); });
+    return () => { active = false; };
+  }, [registry.journey.service, activeCampaign?.id]);
+  useEffect(() => {
+    let active = true;
+    if (registry.character.list) void registry.character.list().then((result) => { if (active && result.ok) setAvailableCharacters(result.value); });
+    return () => { active = false; };
+  }, [registry.character.list]);
+  useEffect(() => {
+    if (!activeCampaign) { setActivityStats({}); return; }
+    let active = true;
+    void Promise.all([
+      registry.journey.service.listMaps(activeCampaign.id),
+      registry.journey.listJournalEntries?.(activeCampaign.id),
+      registry.session?.list(activeCampaign.id),
+    ]).then(([maps, journal, sessions]) => { if (active) setActivityStats({ ...(maps.ok ? { maps: maps.value.length } : {}), ...(journal?.ok ? { journalEntries: journal.value.length } : {}), ...(sessions?.ok ? { sessions: sessions.value.length } : {}) }); });
+    return () => { active = false; };
+  }, [activeCampaign?.id, registry.journey.service, registry.journey.listJournalEntries, registry.session]);
+  const Journey = LazyJourneyCampaign;
+  const Map = LazyMapWorkspace;
+  const campaignProps = registry.journey.bindCampaignProps({
+    campaign: activeCampaign,
+    campaigns: campaigns.map((item) => ({ id: String(item.id), name: item.name, description: item.description })),
+    activeCampaignId: activeCampaign ? String(activeCampaign.id) : undefined,
+    activeCampaignName: activeCampaign?.name,
+    status: campaignStatus(campaign?.status),
+    error: campaign?.errorMessage,
+  });
+  const sessionMatch = activeCampaign ? matchRoute(`/session/${activeCampaign.id}`) : undefined;
+  const content = <Journey {...campaignProps} activityStats={activityStats} availableCharacters={availableCharacters.filter((item) => !item.campaignId || item.campaignId === activeCampaign?.id).map((item) => ({ id: item.id, name: item.name }))} onCreateSheet={isCampaignMaster ? () => navigate("/character/create") : undefined} onOpenSheet={isCampaignMaster ? (id) => navigate(`/character/${id}`) : undefined} raceOptions={pack ? [...pack.races.values()].map(({ id, name }) => ({ id, name })) : []} classOptions={pack ? [...pack.classes.values()].map(({ id, name }) => ({ id, name })) : []} onGenerateSheet={isCampaignMaster && pack ? async (input) => {
+    const generated = generateNpcCharacter({ rulePack: pack, equipmentBundles, selectorOptions: RACE_CHOICE_ALLOWED_OPTIONS }, input);
+    if (!generated.ok) return generated;
+    const saved = await registry.character.service.saveCharacter(generated.value, generated.value.revision);
+    return saved.ok ? ok(generated.value.id) : saved;
+  } : undefined} requestedTabId={match.params.id} onTabChange={(id) => navigate(id === "overview" ? "/journey" : `/journey/${id}`)} mapPanel={<Map campaignId={activeCampaign?.id} canManage={isCampaignMaster} listMaps={(id) => registry.journey.service.listMaps(id)} getAsset={registry.journey.getLocalAsset} importMap={(input) => registry.journey.service.importMapAsset(input)} addPin={(input) => registry.journey.service.createMapPin(input)} updatePin={(mapId, pin, revision) => registry.journey.service.updateMapPin(mapId, pin, revision)} removePin={(mapId, pinId, revision) => registry.journey.service.removeMapPin(mapId, pinId, revision)} saveMap={(map, revision) => registry.journey.service.saveMap(map, revision)} deleteMap={(id, revision) => registry.journey.service.deleteMap(id, revision)} />} journalPanel={<JournalRoute registry={registry} campaign={campaign} />} sessionsPanel={sessionMatch ? <SessionRoute registry={registry} match={sessionMatch} campaign={campaign} /> : undefined} participantsPanel={<CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="participants" />} />;
+  return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
 }
 
 function SessionRoute({ registry, match, campaign }: { readonly registry: FeatureRegistry; readonly match: RouteMatch; readonly campaign: AppRouterProps["campaign"] }) {
@@ -475,16 +555,21 @@ function SessionRoute({ registry, match, campaign }: { readonly registry: Featur
       setCharacters([]);
       return () => { active = false; };
     }
-    void registry.character.list().then((result) => {
+    void registry.character.list().then(async (result) => {
       if (!active || !result.ok) return;
       const playerId = session ? asAccountId(session.uid) : registry.session?.localActor()?.accountId;
       if (!playerId) { setCharacters([]); return; }
-      setCharacters(result.value
-        .filter((character) => character.campaignId === activeCampaignId)
-        .map((character) => ({ id: character.id, name: character.name, playerId })));
+      const campaignCharacters = result.value.filter((character) => character.campaignId === activeCampaignId);
+      const options = await Promise.all(campaignCharacters.map(async (summary) => {
+        const loaded = await registry.character.service.get(summary.id);
+        if (!loaded.ok) return { id: summary.id, name: summary.name, playerId };
+        const derived = registry.character.bindSheetProps({ character: loaded.value }).derived;
+        return { id: summary.id, name: summary.name, playerId, initiative: derived?.initiative.value, hitPoints: { current: loaded.value.hp.current, maximum: derived?.hitPointsMax.value } };
+      }));
+      if (active) setCharacters(options);
     });
     return () => { active = false; };
-  }, [activeCampaignId, registry.character.list, registry.session, session]);
+  }, [activeCampaignId, registry.character.list, registry.character.service, registry.character.bindSheetProps, registry.session, session]);
   const Component = LazySessionPanel;
   const npcs = campaign?.value && campaign.value.id === activeCampaignId ? campaign.value.npcs : [];
   return <Component session={registry.session} authSession={session} campaignId={activeCampaignId} characters={characters} npcs={npcs} />;
@@ -592,7 +677,7 @@ function renderRegistryRoute(
       }
       return <PendingDestination title="Criação de personagem" reasons={registry.character.pendingDependencies.length ? registry.character.pendingDependencies : ["Catálogo e draft de criação não foram fornecidos nesta composição."]} />;
     }
-    if (!match.params.id) return <CharacterSelectionRoute registry={registry} navigate={navigate} />;
+    if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} /> : <CharacterSelectionRoute registry={registry} navigate={navigate} />;
     return <CharacterDetailRoute registry={registry} character={character} pack={pack} id={match.params.id} />;
   }
   if (match.kind === "actions") {
@@ -600,21 +685,7 @@ function renderRegistryRoute(
     const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} dice={actionsDice} />;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
-  if (match.kind === "journey") {
-    const Journey = LazyJourneyCampaign;
-    const Map = LazyMapWorkspace;
-    const activeCampaign = campaign?.value ?? undefined;
-    const campaignProps = registry.journey.bindCampaignProps({
-      campaign: activeCampaign,
-      campaigns: activeCampaign ? [{ id: String(activeCampaign.id), name: activeCampaign.name, description: activeCampaign.description }] : [],
-      activeCampaignId: activeCampaign ? String(activeCampaign.id) : undefined,
-      activeCampaignName: activeCampaign?.name,
-      status: campaignStatus(campaign?.status),
-      error: campaign?.errorMessage,
-    });
-    const content = <Journey {...campaignProps} mapPanel={<Map campaignId={activeCampaign?.id} canManage={isCampaignMaster} listMaps={(id) => registry.journey.service.listMaps(id)} getAsset={registry.journey.getLocalAsset} importMap={(input) => registry.journey.service.importMapAsset(input)} addPin={(input) => registry.journey.service.createMapPin(input)} updatePin={(mapId, pin, revision) => registry.journey.service.updateMapPin(mapId, pin, revision)} removePin={(mapId, pinId, revision) => registry.journey.service.removeMapPin(mapId, pinId, revision)} saveMap={(map, revision) => registry.journey.service.saveMap(map, revision)} deleteMap={(id, revision) => registry.journey.service.deleteMap(id, revision)} />} journalPanel={<JournalRoute registry={registry} campaign={campaign} />} />;
-    return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
-  }
+  if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} isCampaignMaster={isCampaignMaster} match={match} navigate={navigate} pack={pack} />;
   if (match.kind === "compendium") {
     return <CompendiumRoute registry={registry} />;
   }

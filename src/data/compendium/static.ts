@@ -23,6 +23,7 @@ import { PHB_ARMOR_DESCRIPTIONS } from "@data/correto/descricoes/armor";
 import { PHB_ATTRIBUTE_DESCRIPTIONS } from "@data/correto/descricoes/attributes";
 import { PHB_MOVEMENT_DESCRIPTIONS } from "@data/correto/descricoes/movement";
 import { PHB_PROGRESSION_DESCRIPTIONS } from "@data/correto/descricoes/progression";
+import { CLASS_ID_BY_PT_NAME, classProgressionText } from "./class-progression";
 import { PHB_REST_DESCRIPTIONS } from "@data/correto/descricoes/rest";
 import { PHB_SKILL_DESCRIPTIONS } from "@data/correto/descricoes/skills";
 import { PHB_WEAPON_DESCRIPTIONS } from "@data/correto/descricoes/weapons";
@@ -55,16 +56,53 @@ function bookBackedEntry(category: StaticCompendiumCategory, id: string, name: s
   return { kind: "static", category, ruleset, aliases, summary, definition: { kind: "book-rule", id, name, tags, sourceRefs, sourceHeading: book.sourceHeading, text: normalizeBookText(stripLeadingHeading(book.text, book.sourceHeading)) } };
 }
 
+const PAGE_NUMBER_LINE = /^\d{1,3}$/;
+const PARAGRAPH_END = /[.!?:]$/;
+/** Linhas "cheias" da coluna do PDF têm ~50+ caracteres; uma frase que termina antes disso fecha parágrafo. */
+const SHORT_LINE = 48;
+
+function isHeadingLine(line: string): boolean {
+  return line.length <= 60 && /[A-ZÀ-Ú]{3}/.test(line) && line === line.toLocaleUpperCase("pt-BR") && !/^[\d•]/.test(line);
+}
+
+/**
+ * Reflui o texto extraído do PDF: junta as quebras de linha da diagramação, remove os
+ * números de página soltos e preserva parágrafos, subtítulos em caixa alta e itens de lista
+ * (separados por linha em branco; o painel exibe com `white-space: pre-line`).
+ */
 function normalizeBookText(value: string): string {
   // U+F0B7 é o marcador de lista (Wingdings) que a extração do PDF preserva como glifo privado.
-  return value.replace(/\uF0B7/g, "•").replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+  const lines = value.replace(/\uF0B7/g, "•").split("\n").map((line) => line.replace(/\s+/g, " ").trim());
+  const paragraphs: string[] = [];
+  let current = "";
+  let previous = "";
+  const flush = () => { if (current) paragraphs.push(current); current = ""; };
+  lines.forEach((line, index) => {
+    if (!line) return;
+    const isolated = !lines[index - 1] || !lines[index + 1] || index === lines.length - 1;
+    if (PAGE_NUMBER_LINE.test(line) && isolated) return;
+    if (isHeadingLine(line)) { flush(); paragraphs.push(line); previous = line; return; }
+    if (line.startsWith("•") || (current && PARAGRAPH_END.test(previous) && previous.length < SHORT_LINE)) flush();
+    current = !current ? line : current.endsWith("-") ? `${current}${line}` : `${current} ${line}`;
+    previous = line;
+  });
+  flush();
+  return paragraphs.join("\n\n").trim();
 }
 
 /** A extração repete o título da seção como primeira linha do texto; o painel já exibe o título. */
-function stripLeadingHeading(text: string, sourceHeading: string): string {
+function stripLeadingHeading(raw: string, sourceHeading: string): string {
   const heading = sourceHeading.split(" · ").at(-1)?.trim() ?? sourceHeading;
+  // Algumas extrações começaram na primeira menção em minúsculas ("…e um descanso longo ao fim do
+  // dia."); quando o título da seção aparece depois como linha própria, a seção começa ali.
+  const marker = `\n${heading.toLocaleUpperCase("pt-BR")}\n`;
+  const text = /^[a-zà-ú]/.test(raw.trimStart()) && raw.includes(marker) ? raw.slice(raw.indexOf(marker) + 1) : raw;
   const trimmed = text.trimStart();
-  return heading && trimmed.toLocaleUpperCase("pt-BR").startsWith(heading.toLocaleUpperCase("pt-BR")) ? trimmed.slice(heading.length) : text;
+  // Só é título quando começa com maiúscula; "o bardo tece…" é frase, não o cabeçalho "O BARDO".
+  const startsUpper = /^[A-ZÀ-Ú]/.test(trimmed);
+  if (!heading || !startsUpper || !trimmed.toLocaleUpperCase("pt-BR").startsWith(heading.toLocaleUpperCase("pt-BR"))) return text;
+  // Títulos em linha ("Acrobacia. Um teste…") deixam a pontuação para trás.
+  return trimmed.slice(heading.length).replace(/^[\s.:—–-]+/, "");
 }
 
 const BOOK_SPELL_CLASS_NAMES: Readonly<Record<string, string>> = { bard: "Bardo", warlock: "Bruxo", cleric: "Clérigo", druid: "Druida", sorcerer: "Feiticeiro", wizard: "Mago", paladin: "Paladino", ranger: "Patrulheiro" };
@@ -180,7 +218,7 @@ function subsectionEntries(parent: BookPages, subsections: readonly { readonly s
  * entradas, e o bootstrap exclui os tipos equivalentes do pack para não duplicar resultados.
  */
 const BOOK_DESCRIPTION_SOURCES: readonly ExtractedBookRuleSource[] = [
-  { category: "progression", chapter: "Capítulo 3", tags: ["classe", "progressão", "tabela"], entries: PHB_PROGRESSION_DESCRIPTIONS.classProgressionTables.map((table) => ({ name: `Progressão · ${table.className}`, sourceHeading: table.sourceHeading, pdfPages: table.pdfPages, printedPages: table.printedPages, text: table.text })) },
+  { category: "progression", chapter: "Capítulo 3", tags: ["classe", "progressão", "tabela"], entries: PHB_PROGRESSION_DESCRIPTIONS.classProgressionTables.map((table) => ({ name: `Progressão · ${table.className}`, sourceHeading: table.sourceHeading, pdfPages: table.pdfPages, printedPages: table.printedPages, text: classProgressionText(CLASS_ID_BY_PT_NAME[table.className] ?? "") ?? table.text })) },
   { category: "progression", chapter: "Capítulo 6", tags: ["multiclasse", "progressão", "espaço de magia", "tabela"], entries: [{ name: "Multiclasse Para Conjurador: Espaço De Magia Por Nível", sourceHeading: PHB_PROGRESSION_DESCRIPTIONS.multiclassSpellSlotProgression.sourceHeading, pdfPages: [164, 164], printedPages: [165, 165], text: PHB_PROGRESSION_DESCRIPTIONS.multiclassSpellSlotProgression.text }] },
   { category: "rest", chapter: "Capítulo 8", tags: ["descanso", "regra"], entries: [PHB_REST_DESCRIPTIONS.overview] },
   { category: "movement", chapter: "Capítulo 8", tags: ["movimento", "viagem", "regra"], entries: subsectionEntries(PHB_MOVEMENT_DESCRIPTIONS.travelMovement, PHB_MOVEMENT_DESCRIPTIONS.travelSubsections.filter((subsection) => !FUSED_MOVEMENT_SUBSECTIONS.has(subsection.id))) },

@@ -29,6 +29,7 @@ describe("SessionPanel", () => {
   it("cria uma sessão com número e título", async () => {
     const service = fakeSession();
     const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} />);
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Nova sessão"))!, new MouseEvent("click", { bubbles: true }));
     const inputs = [...mounted.container.querySelectorAll("input")];
     const setValue = (element: HTMLInputElement, value: string) => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); };
     setValue(inputs[0], "4"); setValue(inputs[1], "A ponte");
@@ -41,6 +42,7 @@ describe("SessionPanel", () => {
     const service = fakeSession();
     Object.assign(service, { localActor: () => ({ source: "local" as const, accountId, email: null, displayName: "Jogador local" }) });
     const mounted = await mount(<SessionPanel session={service} campaignId={campaignId} />);
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Nova sessão"))!, new MouseEvent("click", { bubbles: true }));
     const inputs = [...mounted.container.querySelectorAll("input")];
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
     setter?.call(inputs[0], "5"); inputs[0].dispatchEvent(new Event("input", { bubbles: true }));

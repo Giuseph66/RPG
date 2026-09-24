@@ -111,4 +111,43 @@ describe("CollaborationPanel", () => {
     expect([...mounted.container.querySelectorAll("button")].some((item) => item.textContent?.includes("Vincular"))).toBe(false);
     await mounted.unmount();
   });
+
+  it("mostra somente a campanha ativa e permite ao mestre ajustar PV", async () => {
+    const membership = fakeMembership();
+    const character = { id: asUuid("00000000-0000-4000-8000-000000000021"), name: "Artemis", campaignId: campaign.id, revision: asRevision(2), hitPoints: { current: 8, temporary: 0, maximum: 12 } };
+    const other = { id: asUuid("00000000-0000-4000-8000-000000000022"), name: "Outro grupo", campaignId: asUuid("00000000-0000-4000-8000-000000000023"), revision: asRevision(1) };
+    const onUpdateCharacter = vi.fn(async () => ok(asRevision(3)));
+    const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[character, other]} onUpdateCharacter={onUpdateCharacter} />);
+    expect(mounted.container.textContent).toContain("Artemis");
+    expect(mounted.container.textContent).not.toContain("Outro grupo");
+    const edit = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Ajustar estado"))!;
+    await fireEvent(edit, new MouseEvent("click", { bubbles: true }));
+    const hp = mounted.container.querySelector('[role="dialog"] input[type="number"]') as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(hp, "6");
+    await fireEvent(hp, new Event("input", { bubbles: true }));
+    const save = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Salvar estado"))!;
+    await fireEvent(save, new MouseEvent("click", { bubbles: true }));
+    expect(onUpdateCharacter).toHaveBeenCalledWith(character.id, character.revision, { hp: 6, tempHp: 0, conditionIds: [], adjustments: [] });
+    expect(mounted.container.textContent).toContain("6 / 12");
+    await mounted.unmount();
+  });
+
+  it("aplica uma penalidade numérica com motivo à ficha da campanha", async () => {
+    const membership = fakeMembership();
+    const character = { id: asUuid("00000000-0000-4000-8000-000000000031"), name: "Iris", campaignId: campaign.id, revision: asRevision(1), hitPoints: { current: 10, temporary: 0, maximum: 10 }, armorClass: 15 };
+    const onUpdateCharacter = vi.fn(async () => ok(asRevision(2)));
+    const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[character]} onUpdateCharacter={onUpdateCharacter} />);
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Ajustar estado"))!, new MouseEvent("click", { bubbles: true }));
+    const amount = mounted.container.querySelector('input[min="-20"]') as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(amount, "-2");
+    await fireEvent(amount, new Event("input", { bubbles: true }));
+    const reason = mounted.container.querySelector('input[placeholder^="Ex.:"]') as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(reason, "Maldição");
+    await fireEvent(reason, new Event("input", { bubbles: true }));
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Adicionar ajuste"))!, new MouseEvent("click", { bubbles: true }));
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Salvar estado"))!, new MouseEvent("click", { bubbles: true }));
+    expect(onUpdateCharacter).toHaveBeenCalledWith(character.id, character.revision, expect.objectContaining({ adjustments: [expect.objectContaining({ target: "armor-class", amount: -2, reason: "Maldição" })] }));
+    expect(mounted.container.textContent).toContain("CA 13");
+    await mounted.unmount();
+  });
 });

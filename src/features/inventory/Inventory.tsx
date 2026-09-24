@@ -184,7 +184,7 @@ function CarryingPanel({ carrying }: { readonly carrying: InventoryCarrying }) {
       </div>
       {over
         ? <p className={styles.overLimit} role="alert">Acima da capacidade em {formatWeight(totalGrams - capacityGrams)}.</p>
-        : <p className={styles.muted}>Máximo {formatWeight(capacityGrams)} = Força {strengthScore} × 7,5 kg (Livro do Jogador, p. 176).</p>}
+        : <p className={styles.muted}>Máximo {formatWeight(capacityGrams)} = Força {strengthScore} × 2,5 kg (Livro do Jogador, p. 176).</p>}
     </section>
   );
 }

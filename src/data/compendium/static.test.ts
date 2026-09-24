@@ -61,3 +61,30 @@ describe("static compendium catalog", () => {
     }
   });
 });
+
+describe("textos do livro normalizados", () => {
+  const text = (category: string, name: string) => {
+    const item = STATIC_COMPENDIUM_ITEMS.find((entry) => entry.category === category && entry.definition.name === name);
+    return String((item?.definition as { readonly text?: string } | undefined)?.text ?? "");
+  };
+
+  it("separa Força, Destreza e Constituição sem vazar texto entre elas", () => {
+    expect(text("attributes", "Força")).toMatch(/usem Força, Destreza ou Constituição\.$/);
+    expect(text("attributes", "Destreza")).toMatch(/^A Destreza mede a agilidade/);
+    expect(text("attributes", "Destreza")).not.toContain("A Constituição mede");
+    expect(text("attributes", "Constituição")).toMatch(/^A Constituição mede a saúde/);
+  });
+
+  it("não deixa pontuação do título nem números de página no texto", () => {
+    expect(text("skills", "Acrobacia")).toMatch(/^Um teste de Destreza \(Acrobacia\)/);
+    expect(text("skills", "Furtividade")).not.toMatch(/\d{3}$/);
+    expect(text("attributes", "Força")).not.toMatch(/tarefas: \d{3}/);
+    expect(text("rest", "Descanso longo")).toMatch(/^Um descanso longo é um período/);
+  });
+
+  it("gera a tabela de progressão das classes a partir dos dados estruturados", () => {
+    const paladin = text("progression", "Progressão · Paladino");
+    expect(paladin).toContain("3º nível — Proficiência +2 — Saúde Divina, Juramento Sagrado");
+    expect(text("progression", "Progressão · Monge")).toContain("2º nível — Proficiência +2 — Chi, Movimento sem Armadura");
+  });
+});

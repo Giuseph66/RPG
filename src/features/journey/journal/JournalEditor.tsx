@@ -31,10 +31,10 @@ export function JournalEditor({ draft, status = "clean", error, links = [], onIn
       <InlineStatus tone={statusInfo.tone}>{error ?? statusInfo.text}</InlineStatus>
       <div className={styles.editorFields}>
         <Input label="Título" required value={draft.title} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { title: event.currentTarget.value } })} />
-        <label className={styles.field}><span className={styles.fieldLabel}>Notas da sessão</span><textarea aria-label="Notas da sessão" placeholder="O que aconteceu? O que ficou pendente? Quem apareceu?" value={draft.body} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { body: event.currentTarget.value } })} onKeyDown={onKeyDown} rows={12} /></label>
+        <label className={styles.field}><span className={styles.fieldLabel}>Notas da sessão</span><textarea aria-label="Notas da sessão" placeholder="O que aconteceu? O que ficou pendente? Quem apareceu?" value={draft.body} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { body: event.currentTarget.value } })} onKeyDown={onKeyDown} rows={8} /></label>
         <div className={styles.twoColumns}>
           <Input label="Sessão" type="number" min={1} step={1} value={draft.sessionNumber ?? ""} disabled={!onIntent || status === "saving"} onChange={(event) => { const value = event.currentTarget.value; send(onIntent, { kind: "update-draft", patch: { sessionNumber: value === "" ? undefined : Number(value) } }); }} />
-          <Input label="Tags" hint="Separe tags por vírgulas" value={draft.tags.join(", ")} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { tags: event.currentTarget.value.split(",").map((tag) => tag.trim()).filter(Boolean) } })} />
+          <Input label="Tags" placeholder="Ex.: pistas, combate" value={draft.tags.join(", ")} disabled={!onIntent || status === "saving"} onChange={(event) => send(onIntent, { kind: "update-draft", patch: { tags: event.currentTarget.value.split(",").map((tag) => tag.trim()).filter(Boolean) } })} />
         </div>
         <div className={styles.links}>
           <h3><LinkSimple size={18} aria-hidden="true" /> Referências</h3>

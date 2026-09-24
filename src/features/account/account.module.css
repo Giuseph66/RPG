@@ -1,9 +1,9 @@
 .panel {
   display: grid;
   gap: var(--spacing-section);
-  width: min(100%, 76rem);
-  margin: 0 auto;
-  padding: clamp(var(--spacing-lg), 4vw, var(--spacing-section)) clamp(var(--spacing-sm), 3vw, var(--spacing-xl));
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   background: transparent;
 }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--spacing-lg); }

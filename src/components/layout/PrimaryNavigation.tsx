@@ -14,12 +14,11 @@ export function PrimaryNavigation({ route, navigate, isCampaignMaster = false, o
   const active = primaryRouteFor(route.kind);
   return (
     <nav className={styles.navigation} aria-label="Destinos principais">
+      <p className={styles.navSectionLabel}>{isCampaignMaster ? "Mesa do mestre" : "Sua aventura"}</p>
       <div className={styles.navigationList}>
         {PRIMARY_NAV_ROUTES.map((item) => {
           const campaignCharacters = item.id === "character" && isCampaignMaster;
-          const selected = campaignCharacters
-            ? active === "character" || route.kind === "collaboration"
-            : active === item.id;
+          const selected = active === item.id;
           const label = campaignCharacters ? "Personagens" : item.label;
           const shortLabel = campaignCharacters ? "Personagens" : item.shortLabel;
           return (
@@ -28,7 +27,7 @@ export function PrimaryNavigation({ route, navigate, isCampaignMaster = false, o
               type="button"
               className={[styles.navItem, styles[`nav-${item.id}` as keyof typeof styles], selected ? styles.navItemActive : ""].filter(Boolean).join(" ")}
               aria-current={selected ? "page" : undefined}
-              onClick={() => navigate(campaignCharacters ? "/collaboration" : pathForRoute(item.id))}
+              onClick={() => navigate(pathForRoute(item.id))}
             >
               <span className={styles.navGlyph} aria-hidden="true">{item.id === "character" ? <GiPerson /> : item.id === "actions" ? <GiCrossedSwords /> : item.id === "journey" ? <GiScrollUnfurled /> : item.id === "compendium" ? <GiSpellBook /> : item.id === "account" ? <User weight="fill" /> : <GiPerson />}</span>
               <span className={styles.navLabel}>{label}</span>

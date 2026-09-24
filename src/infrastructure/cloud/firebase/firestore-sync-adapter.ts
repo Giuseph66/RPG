@@ -25,6 +25,7 @@ import {
   type Query,
   type Transaction,
   serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
 
 import {
@@ -268,6 +269,8 @@ function firestoreDocument(operation: SyncOperation, ownerUid: string, existing?
   if (operation.aggregateType === "account") document.uid = ownerUid;
   if (operation.aggregateType === "membership") {
     document.accountId = stringField(payload, "accountId") ?? stringField(payload, "uid") ?? operation.aggregateId;
+    const expiresAt = stringField(payload, "inviteExpiresAt");
+    if (expiresAt && !Number.isNaN(Date.parse(expiresAt))) document.inviteExpiresAt = Timestamp.fromDate(new Date(expiresAt));
   }
   return document;
 }

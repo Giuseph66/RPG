@@ -36,6 +36,7 @@ export interface MapViewerProps {
   readonly onAddMarker?: (coordinate: NormalizedCoordinate) => void;
   readonly onViewportChange?: (viewport: { readonly zoom: number; readonly offsetX: number; readonly offsetY: number }) => void;
   readonly className?: string;
+  readonly compactHeading?: boolean;
 }
 
 export function markerViewCoordinate(marker: MapMarkerView | MapMarker): NormalizedCoordinate {

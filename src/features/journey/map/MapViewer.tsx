@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, WheelEvent } from "react";
 
 import { Button } from "@components/ui";
@@ -49,13 +49,18 @@ export function MapViewer({
   onAddMarker,
   onViewportChange,
   className,
+  compactHeading = false,
 }: MapViewerProps) {
   const [viewport, setViewport] = useState<ViewportState>(initialViewport);
   const [isPanning, setIsPanning] = useState(false);
+  const [placingMarker, setPlacingMarker] = useState(false);
   const panStart = useRef<{ readonly x: number; readonly y: number; readonly offsetX: number; readonly offsetY: number } | null>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const source = image?.src ?? imageUrl;
   const title = map?.name ?? "Mapa da campanha";
+  const imageRatio = image?.width && image?.height ? image.width / image.height : undefined;
+  useEffect(() => { setViewport(initialViewport()); setPlacingMarker(false); }, [map?.id]);
 
   const updateViewport = useCallback((next: ViewportState) => {
     setViewport((previous) => {
@@ -68,14 +73,17 @@ export function MapViewer({
   const zoomBy = (amount: number) => updateViewport({ ...viewport, zoom: clampZoom(viewport.zoom + amount) });
   const resetViewport = () => updateViewport(initialViewport());
   const selectedMarker = selectedMarkerId === undefined ? undefined : markers.find((marker) => markerViewId(marker) === selectedMarkerId);
-  const focusSelectedMarker = () => {
-    if (!selectedMarker) return;
+  const focusMarker = (marker: NonNullable<MapViewerProps["markers"]>[number]) => {
     const surface = surfaceRef.current;
-    const coordinate = markerViewCoordinate(selectedMarker);
+    const canvas = canvasRef.current;
+    const coordinate = markerViewCoordinate(marker);
     const width = surface?.clientWidth ?? 0;
     const height = surface?.clientHeight ?? 0;
-    updateViewport({ ...viewport, offsetX: width / 2 - normalizeCoordinate(coordinate.x) * width * viewport.zoom, offsetY: height / 2 - normalizeCoordinate(coordinate.y) * height * viewport.zoom });
+    const canvasWidth = canvas?.offsetWidth ?? width;
+    const canvasHeight = canvas?.offsetHeight ?? height;
+    updateViewport({ ...viewport, offsetX: width / 2 - (width - canvasWidth) / 2 - normalizeCoordinate(coordinate.x) * canvasWidth * viewport.zoom, offsetY: height / 2 - (height - canvasHeight) / 2 - normalizeCoordinate(coordinate.y) * canvasHeight * viewport.zoom });
   };
+  const focusSelectedMarker = () => { if (selectedMarker) focusMarker(selectedMarker); };
 
   const onSurfaceKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const movement = 24;
@@ -97,7 +105,7 @@ export function MapViewer({
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || placingMarker) return;
     setIsPanning(true);
     event.currentTarget.setPointerCapture?.(event.pointerId);
     panStart.current = { x: event.clientX, y: event.clientY, offsetX: viewport.offsetX, offsetY: viewport.offsetY };
@@ -113,22 +121,23 @@ export function MapViewer({
   };
 
   const placeMarker = (event: MouseEvent<HTMLDivElement>) => {
-    if (!onAddMarker || !(event.target instanceof Element)) return;
+    if (!onAddMarker || !placingMarker || !(event.target instanceof Element)) return;
     const canvas = event.target.closest(`.${styles.canvas}`);
     const bounds = canvas?.getBoundingClientRect();
     if (!bounds?.width || !bounds.height) return;
     event.preventDefault();
     const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
     const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+    setPlacingMarker(false);
     onAddMarker({ x, y });
   };
 
-  const selectMarker = (id: string) => onMarkerSelect?.(id);
+  const selectMarker = (id: string) => { onMarkerSelect?.(id); const marker = markers.find((item) => markerViewId(item) === id); if (marker) focusMarker(marker); };
 
   return (
     <section id="journey-map" className={[styles.mapViewer, className ?? ""].filter(Boolean).join(" ")} aria-labelledby="map-viewer-title">
-      <div className={styles.heading}>
-        <div className={styles.titleBlock}><span className={styles.titleIcon} aria-hidden="true"><MapTrifold size={23} weight="duotone" /></span><div><p className={styles.eyebrow}>Jornada · cartografia</p><h1 id="map-viewer-title">{title}</h1></div></div>
+      <div className={[styles.heading, compactHeading ? styles.compactHeading : ""].filter(Boolean).join(" ")}>
+        {compactHeading ? <h2 id="map-viewer-title" className={styles.visuallyHidden}>{title}</h2> : <div className={styles.titleBlock}><span className={styles.titleIcon} aria-hidden="true"><MapTrifold size={23} weight="duotone" /></span><div><p className={styles.eyebrow}>Jornada · cartografia</p><h1 id="map-viewer-title">{title}</h1></div></div>}
         <div className={styles.controls} aria-label="Controles do mapa">
           <Button size="sm" variant="secondary" aria-label="Reduzir zoom" onClick={() => zoomBy(-ZOOM_STEP)}><Minus size={17} aria-hidden="true" /></Button>
           <span className={styles.zoomValue} aria-live="polite">{Math.round(viewport.zoom * 100)}%</span>
@@ -141,7 +150,7 @@ export function MapViewer({
         <div className={styles.mapColumn}>
           <div
             ref={surfaceRef}
-            className={[styles.surface, isPanning ? styles.panning : ""].filter(Boolean).join(" ")}
+            className={[styles.surface, isPanning ? styles.panning : "", placingMarker ? styles.placing : ""].filter(Boolean).join(" ")}
             role="application"
             aria-label={`${title}. Use as setas para mover, mais e menos para zoom.`}
             tabIndex={0}
@@ -150,15 +159,15 @@ export function MapViewer({
             onPointerMove={onPointerMove}
             onPointerUp={stopPanning}
             onPointerCancel={stopPanning}
-            onDoubleClick={placeMarker}
+            onClick={placeMarker}
             onWheel={onWheel}
           >
             {source ? (
-              <div className={styles.canvas} style={{ transform: `translate(${viewport.offsetX}px, ${viewport.offsetY}px) scale(${viewport.zoom})` }}>
+              <div ref={canvasRef} className={styles.canvas} style={{ ...imageRatio ? { aspectRatio: String(imageRatio), width: `min(100%, calc(72vh * ${imageRatio}))` } : {}, transform: `translate(${viewport.offsetX}px, ${viewport.offsetY}px) scale(${viewport.zoom})` }}>
                 <img className={styles.image} src={source} width={image?.width} height={image?.height} alt={image?.alt ?? imageAlt ?? `Imagem do mapa ${title}`} draggable={false} />
                 {markers.map((marker) => {
                   const id = markerViewId(marker);
-                  return <button key={id} type="button" className={[styles.marker, selectedMarkerId === id ? styles.selectedMarker : ""].filter(Boolean).join(" ")} style={markerCoordinateStyle(marker)} aria-label={`Local: ${markerViewLabel(marker)}`} aria-pressed={selectedMarkerId === id} onPointerDown={(event) => event.stopPropagation()} onClick={() => selectMarker(id)}><span aria-hidden="true">{marker.iconToken || "•"}</span></button>;
+                  return <button key={id} type="button" className={[styles.marker, selectedMarkerId === id ? styles.selectedMarker : ""].filter(Boolean).join(" ")} style={markerCoordinateStyle(marker)} aria-label={`Local: ${markerViewLabel(marker)}`} aria-pressed={selectedMarkerId === id} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); selectMarker(id); }}><span aria-hidden="true">{marker.iconToken || "•"}</span></button>;
                 })}
                 {groupPosition !== undefined ? (() => { const position = typeof groupPosition === "number" ? { x: groupPosition, y: groupPosition } : groupPosition; return <span className={styles.groupPosition} style={{ left: `${normalizeCoordinate(position.x) * 100}%`, top: `${normalizeCoordinate(position.y) * 100}%` }} aria-label="Posição do grupo" title="Posição do grupo">◎</span>; })() : null}
               </div>
@@ -167,7 +176,7 @@ export function MapViewer({
             )}
           </div>
           <div className={styles.mapActions}>
-            {onAddMarker ? <Button size="sm" variant="secondary" onClick={() => onAddMarker({ x: 0.5, y: 0.5 })}><MapPin size={17} aria-hidden="true" /> Adicionar local</Button> : null}
+            {onAddMarker ? <Button size="sm" variant={placingMarker ? "primary" : "secondary"} aria-pressed={placingMarker} onClick={() => setPlacingMarker((current) => !current)}><MapPin size={17} aria-hidden="true" /> {placingMarker ? "Clique no mapa" : "Marcar local"}</Button> : null}
             <Button size="sm" variant="ghost" aria-label="Voltar ao marcador" disabled={!selectedMarker} disabledReason={selectedMarker ? undefined : "Selecione um local para centralizá-lo."} onClick={focusSelectedMarker}><Crosshair size={17} aria-hidden="true" /> Voltar ao marcador</Button>
           </div>
         </div>
@@ -177,7 +186,7 @@ export function MapViewer({
           {markers.length === 0 ? <p className={styles.muted}>Nenhum local marcado ainda.</p> : <ul className={styles.markerList}>{markers.map((marker) => { const id = markerViewId(marker); const label = markerViewLabel(marker); return <li className={styles.markerRow} key={id}><button type="button" className={styles.markerListButton} aria-current={selectedMarkerId === id ? "true" : undefined} onClick={() => selectMarker(id)}><span className={styles.markerDot} aria-hidden="true"><MapPin size={18} weight="duotone" /></span><span>{label}</span></button>{onMarkerEdit || onMarkerRemove ? <div className={styles.markerTools}>{onMarkerEdit ? <button type="button" aria-label={`Renomear local ${label}`} onClick={() => onMarkerEdit(id)}><PencilSimple size={16} aria-hidden="true" /></button> : null}{onMarkerRemove ? <button type="button" aria-label={`Remover local ${label}`} onClick={() => onMarkerRemove(id)}><Trash size={16} aria-hidden="true" /></button> : null}</div> : null}</li>; })}</ul>}
         </aside>
       </div>
-      <p className={styles.help}>{onAddMarker ? "Arraste para mover. Dê um duplo clique no mapa para marcar um local, ou use o botão para marcar o centro." : "Arraste para mover. Use as setas, + e − com o mapa focado."}</p>
+      <p className={styles.help}>{placingMarker ? "Clique no ponto exato da imagem onde deseja marcar o local." : onAddMarker ? "Arraste para mover. Use Marcar local e clique no mapa para escolher a posição." : "Arraste para mover. Use as setas, + e − com o mapa focado."}</p>
     </section>
   );
 }

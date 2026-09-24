@@ -157,7 +157,7 @@ describe("AppRouter", () => {
       const collaboration = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Abrir colaboração"));
       expect(collaboration).toBeTruthy();
       await click(collaboration!);
-      expect(window.location.pathname).toBe("/collaboration");
+      expect(window.location.pathname).toBe("/journey/participants");
     } finally {
       window.history.replaceState({}, "", originalUrl);
       await mounted.unmount();

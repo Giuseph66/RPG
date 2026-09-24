@@ -211,8 +211,9 @@ export class MembershipService {
       if (!(owner.ok && isActiveMaster(owner.value, input.actorId))) return failure("membership-forbidden", "Somente um mestre ativo pode convidar jogadores.", input.campaignId, input.actorId);
       const existing = await this.options.repository.getMembership(input.campaignId, input.playerAccountId, context);
       if (existing.ok && existing.value.status === "active") return ok(existing.value);
-      if (existing.ok && existing.value.status === "invited" && !isExpired(existing.value, this.options.clock.now())) return ok(existing.value);
+      if (existing.ok && existing.value.status === "invited" && existing.value.inviteExpiresAt !== undefined && !isExpired(existing.value, this.options.clock.now())) return ok(existing.value);
       const now = this.options.clock.now();
+      const inviteExpiresAt = input.inviteExpiresAt ?? (new Date(Date.parse(now) + 7 * 24 * 60 * 60 * 1000).toISOString() as IsoTimestamp);
       const membership: Membership = {
         campaignId: input.campaignId,
         accountId: input.playerAccountId,
@@ -222,7 +223,7 @@ export class MembershipService {
         revision: existing.ok ? nextRevision(existing.value.revision) : asRevision(0),
         createdAt: existing.ok ? existing.value.createdAt : now,
         updatedAt: now,
-        ...(input.inviteExpiresAt === undefined ? {} : { inviteExpiresAt: input.inviteExpiresAt }),
+        inviteExpiresAt,
       };
       const saved = await this.options.repository.saveMembership(membership, context);
       if (!saved.ok) return failure("membership-unavailable", saved.error.message, input.campaignId, input.playerAccountId);
@@ -280,6 +281,14 @@ export class MembershipService {
     if (!all.ok) return failure("membership-unavailable", all.error.message, input.campaignId);
     if (isActiveMaster(own.value, input.actorId)) return ok(all.value);
     return ok(all.value.filter((membership) => membership.accountId === input.actorId));
+  }
+
+  async listReceivedInvitations(actorId: AccountId): Promise<MembershipResult<readonly Membership[]>> {
+    const actor = validActor(actorId);
+    if (!actor.ok) return actor;
+    const listed = await this.options.repository.listMembershipsForAccount(actorId);
+    if (!listed.ok) return failure("membership-unavailable", listed.error.message, undefined, actorId);
+    return ok(listed.value.filter((entry) => entry.role === "player" && entry.status === "invited" && !isExpired(entry, this.options.clock.now())));
   }
 }
 

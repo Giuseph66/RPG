@@ -1,4 +1,4 @@
-.appShell { --app-bar-height: 4.75rem; min-height: 100vh; background-color: var(--color-background); background-image: radial-gradient(ellipse at 82% 0%, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 54%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 91%, transparent), color-mix(in srgb, var(--color-background) 91%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat, repeat-y, repeat; background-position: center top; background-size: 100% 36rem, 100% 100vh, 34rem auto; background-attachment: scroll, scroll, scroll; }
+.appShell { --app-bar-height: 4.75rem; min-height: 100vh; background-color: var(--color-background); background-image: radial-gradient(ellipse at 78% 12%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 58%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 84%, transparent), color-mix(in srgb, var(--color-background) 92%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat, repeat-y, repeat; background-position: center top; background-size: 100% 42rem, 100% 100vh, 34rem auto; background-attachment: scroll, scroll, scroll; }
 .header { position: sticky; isolation: isolate; top: 0; z-index: var(--z-sticky); background-color: var(--color-background); background-image: radial-gradient(120% 180% at 3% 0, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 34%, transparent), color-mix(in srgb, var(--color-background) 74%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--color-primary) 12%, transparent), 0 10px 24px rgba(0, 0, 0, .45); }
 .headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); width: 100%; margin: 0; padding: max(var(--spacing-sm), env(safe-area-inset-top)) clamp(var(--spacing-lg), 2.4vw, 2.75rem) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
 .identityButton { display: flex; min-width: 0; align-items: center; gap: var(--spacing-md); padding: var(--spacing-xs); margin: calc(var(--spacing-xs) * -1); color: var(--color-text); background: none; border: 0; border-radius: var(--radius-control); text-align: left; cursor: pointer; }
@@ -19,6 +19,7 @@
 .shellBody { display: flex; width: 100%; min-height: calc(100vh - var(--app-bar-height)); margin: 0; }
 .navigation { position: sticky; top: var(--app-bar-height); align-self: flex-start; box-sizing: border-box; display: flex; flex: 0 0 15rem; flex-direction: column; width: 15rem; height: calc(100vh - var(--app-bar-height)); padding: var(--spacing-xl) var(--spacing-md); background-color: color-mix(in srgb, var(--color-background) 94%, transparent); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-background) 80%, transparent), color-mix(in srgb, var(--color-background) 92%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .navigationList { display: grid; gap: var(--spacing-xs); }
+.navSectionLabel { margin: 0 0 var(--spacing-sm); padding: 0 var(--spacing-md); color: var(--color-secondary); font-size: .68rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 .navItem, .navUtility { position: relative; display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-control); font-size: .9rem; font-weight: 600; text-align: left; cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
 .navItem:hover, .navUtility:hover { color: var(--color-text); }
 .navItem:active, .navUtility:active { transform: translateY(1px); }
@@ -37,7 +38,7 @@
 .navUtility { width: 100%; }
 .main { flex: 1; min-width: 0; padding: clamp(var(--spacing-lg), 3vw, 3rem) clamp(var(--spacing-lg), 3vw, 3.75rem); overflow-wrap: anywhere; }
 .utilityMain { padding-top: var(--spacing-xl); }
-.routeMount { width: 100%; max-width: 104rem; margin: 0 auto; }
+.routeMount { width: 100%; min-width: 0; }
 .routeContent, .stateContent { max-width: 48rem; }
 .routeHeadingAnchor { position: absolute; width: 0; height: 0; overflow: hidden; }
 .eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
@@ -55,6 +56,7 @@
   .shellBody { display: block; box-sizing: border-box; min-height: calc(100vh - var(--app-bar-height)); padding-bottom: calc(var(--size-nav-height) + var(--spacing-xl) + env(safe-area-inset-bottom)); }
   .navigation { position: fixed; top: auto; right: 0; bottom: 0; left: 0; z-index: var(--z-navigation); display: flex; box-sizing: border-box; flex-direction: row; align-self: auto; width: auto; height: calc(var(--size-nav-height) + env(safe-area-inset-bottom)); padding: var(--spacing-xs) var(--spacing-sm) env(safe-area-inset-bottom); background-color: var(--color-surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 55%, transparent), color-mix(in srgb, var(--color-surface) 90%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent); border-right: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .3); }
   .navigationList { display: grid; flex: 1; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; gap: 0; }
+  .navSectionLabel { display: none; }
   .navItem, .navUtility { flex: 1; min-width: 0; min-height: var(--size-touch-target); padding: .35rem var(--spacing-xs) .3rem; justify-content: center; flex-direction: column; gap: .16rem; border-radius: var(--radius-control); font-size: .72rem; line-height: 1; text-align: center; }
   .navItemActive { background: transparent; }
   .navItemActive::before { display: none; }
@@ -67,7 +69,7 @@
   .navLabel { display: none; }
   .navShortLabel { display: inline; }
   .navUtility { display: none; }
-  .navDice { position: absolute; z-index: 1; bottom: calc(env(safe-area-inset-bottom) + 4rem); left: 50%; width: 4.25rem; min-width: 4.25rem; min-height: 4.25rem; margin: 0; padding: 0; transform: translateX(-50%); color: var(--color-secondary); background: none; border: 0; border-radius: 50%; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); }
+  .navDice { position: absolute; z-index: 1; bottom: calc(env(safe-area-inset-bottom) + 2.75rem); left: 50%; width: 4.25rem; min-width: 4.25rem; min-height: 4.25rem; margin: 0; padding: 0; transform: translateX(-50%); color: var(--color-secondary); background: none; border: 0; border-radius: 50%; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); }
   .navDice:hover { color: var(--color-text); }
   .navDice:active { transform: translateX(-50%) translateY(1px) scale(.98); }
   .navDice:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }

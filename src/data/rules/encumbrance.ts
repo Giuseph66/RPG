@@ -34,7 +34,7 @@ export const COIN_WEIGHT_SOURCE_REF: SourceRef = {
 export const COIN_WEIGHT_GRAMS = 10;
 
 /** "Sua capacidade de carga máxima é igual a 7,5 vezes o seu valor de Força" (kg). */
-export const CARRYING_CAPACITY_GRAMS_PER_STRENGTH_POINT = 7_500;
+export const CARRYING_CAPACITY_GRAMS_PER_STRENGTH_POINT = 2_500;
 
 /** "…até duas vezes a sua capacidade de carga (ou 15 vezes o seu valor de Força)". */
 export const PUSH_DRAG_LIFT_MULTIPLIER = 2;

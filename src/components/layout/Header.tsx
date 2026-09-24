@@ -16,11 +16,11 @@ interface HeaderProps {
   readonly onSelectCharacter?: () => void;
 }
 
-function routeContext(route: RouteMatch, character?: Character, campaign?: SessionCampaign): string {
+function routeContext(route: RouteMatch, character?: Character, campaign?: SessionCampaign, campaignRole?: "master" | "player"): string {
   const campaignName = campaign?.value?.name;
   switch (route.kind) {
     case "journey": return campaignName ?? "Jornada";
-    case "character": return character?.name ?? "Ficha";
+    case "character": return campaignRole === "master" && !route.params.id && route.params.mode !== "create" ? "Personagens" : character?.name ?? "Ficha";
     case "actions": return character ? `Ações · ${character.name}` : "Ações";
     case "compendium": return "Regras";
     case "account": return "Conta";
@@ -35,7 +35,7 @@ function routeContext(route: RouteMatch, character?: Character, campaign?: Sessi
 
 export function Header({ session, campaign, campaignRole, route, navigate, onSelectCharacter }: HeaderProps) {
   const character = session?.value ?? undefined;
-  const context = routeContext(route, character, campaign);
+  const context = routeContext(route, character, campaign, campaignRole);
 
   return (
     <header className={styles.header} aria-label="Mesa de campanha">
@@ -44,7 +44,7 @@ export function Header({ session, campaign, campaignRole, route, navigate, onSel
           type="button"
           className={styles.identityButton}
           onClick={onSelectCharacter ?? (() => navigate("/character"))}
-          aria-label="Abrir ficha de personagem"
+          aria-label={campaignRole === "master" ? "Abrir personagens" : "Abrir ficha de personagem"}
         >
           <span className={styles.brandMark}><img className={styles.brandMarkImage} src={campaignSigil} alt="" /></span>
           <span className={styles.identityCopy}>
