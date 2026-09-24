@@ -83,6 +83,23 @@
   border-top-right-radius: 0;
 }
 
+/* Histórico aberto faz a folha rolar: rolagem por toque, sem barra visível nem rolagem lateral. */
+.surfaceSheet.surfaceSheet { overflow-x: hidden; scrollbar-width: none; }
+.surfaceSheet.surfaceSheet::-webkit-scrollbar { display: none; }
+.surfaceModal.surfaceModal > div:nth-child(2) { overflow-x: hidden; scrollbar-width: none; }
+.surfaceModal.surfaceModal > div:nth-child(2)::-webkit-scrollbar { display: none; }
+
+/* Corpo cresce para empurrar o rodapé até a base da tela, mesmo com pouco conteúdo. */
+.surfaceSheet > div:nth-child(3) { flex: 1 0 auto; }
+
+/* Botão "Rolar dados" fixo na base: a folha inteira rola, então o rodapé gruda embaixo
+ * sem faixa própria — mesmo fundo e contraste do modal. */
+.surfaceSheet > div:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+
 .content { display: flex; flex-direction: column; gap: var(--spacing-md); color: var(--color-text); }
 
 .tagline {
@@ -381,14 +398,43 @@
   cursor: pointer;
 }
 
+.historyCount { margin-left: .5rem; padding: 0 .4rem; color: var(--color-secondary); background: rgba(0, 0, 0, .35); border: 1px solid rgba(208, 171, 114, .3); border-radius: 999px; font-size: .7rem; }
 .historySummary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 .history { padding-top: var(--spacing-sm); }
-.history h3 { margin: 0 0 var(--spacing-sm); font-family: var(--typography-heading-font-family); font-size: .95rem; }
-.history ol { display: grid; gap: var(--spacing-xs); padding: 0; margin: 0; list-style: none; }
-.history li { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--size-touch-target); }
-.history li > span { display: grid; min-width: 0; }
-.history small { color: var(--color-text-muted); }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.historyEmpty { margin: 0; color: var(--color-text-muted); font-size: .88rem; font-style: italic; text-align: center; }
+.historyList { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.historyItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .6rem;
+  min-height: 3.4rem;
+  padding: .45rem .5rem .45rem .55rem;
+  background: linear-gradient(180deg, rgba(20, 24, 26, .85), rgba(10, 12, 13, .9));
+  border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
+  border-radius: 6px;
+}
+.historyItem:first-child { border-color: color-mix(in srgb, var(--color-secondary) 55%, transparent); }
+.historyGlyph { display: grid; place-items: center; width: 2.1rem; height: 2.1rem; color: var(--color-secondary); background: radial-gradient(circle at 50% 40%, rgba(60, 46, 32, .9), rgba(16, 13, 11, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 50%; font-size: 1.25rem; }
+.historyBody { display: grid; gap: .25rem; min-width: 0; }
+.historyHead { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; min-width: 0; }
+.historyFormula { color: var(--color-text); font-family: var(--typography-numeric-font-family); font-size: .98rem; letter-spacing: .02em; }
+.historyTag { padding: .05rem .4rem; color: var(--color-secondary); background: rgba(208, 171, 114, .08); border: 1px solid rgba(208, 171, 114, .3); border-radius: 999px; font-size: .66rem; letter-spacing: .04em; text-transform: uppercase; }
+.historyDice { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; min-width: 0; }
+.historyDie { display: inline-grid; place-items: center; min-width: 1.45rem; height: 1.45rem; padding: 0 .25rem; color: var(--color-text); background: rgba(0, 0, 0, .35); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 4px; font-family: var(--typography-numeric-font-family); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.historyDieDiscarded { color: var(--color-text-muted); text-decoration: line-through; opacity: .55; }
+.historyDieCrit { color: #0B0D0E; background: #7FB55A; border-color: #9CD072; font-weight: 700; }
+.historyDieFumble { color: #FFF; background: #B23A3A; border-color: #D05252; font-weight: 700; }
+.historyModifier { color: var(--color-text-muted); font-family: var(--typography-numeric-font-family); font-size: .8rem; }
+.historyTime { margin-left: auto; padding-left: .35rem; color: var(--color-text-muted); font-size: .68rem; white-space: nowrap; }
+.historyTotal { min-width: 2.2rem; color: var(--color-text); font-family: var(--typography-display-font-family); font-size: 1.45rem; font-weight: 700; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
+.historyItem:first-child .historyTotal { color: #F6DFAE; }
+.historyReroll { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; color: var(--color-secondary); background: none; border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); border-radius: 50%; cursor: pointer; }
+.historyReroll:hover { color: var(--color-text); border-color: var(--color-secondary); background: rgba(208, 171, 114, .1); }
+.historyReroll:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.historyReroll svg { width: 1.05rem; height: 1.05rem; }
 
 /* ------------------------------------------------------------------- CTA */
 
@@ -410,8 +456,9 @@
   .stageRune::before { animation: none; }
 }
 
-@media (max-width: 520px) {
-  .history li { align-items: flex-start; flex-direction: column; }
+@media (max-width: 360px) {
+  .historyItem { gap: .45rem; padding-inline: .4rem; }
+  .historyGlyph { width: 1.8rem; height: 1.8rem; font-size: 1.05rem; }
 }
 
 /*

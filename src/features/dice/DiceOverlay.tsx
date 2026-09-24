@@ -119,7 +119,7 @@ export function DiceOverlay({ controller, settingsStore }: DiceOverlayProps) {
       {state.persistenceError ? <InlineStatus tone="error" assertive>Resultado obtido, mas não foi possível salvar no histórico. Tente novamente.</InlineStatus> : null}
 
       <details className={styles.historyDisclosure}>
-        <summary className={styles.historySummary}>Histórico de rolagens</summary>
+        <summary className={styles.historySummary}>Histórico de rolagens{state.history.length > 0 ? <span className={styles.historyCount}>{Math.min(state.history.length, 20)}</span> : null}</summary>
         <DiceHistory entries={state.history} onReroll={(roll) => void controller.reroll(roll)} />
       </details>
 

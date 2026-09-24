@@ -12,6 +12,7 @@ import { join } from "node:path";
 import * as CANNON from "cannon-es";
 import { describe, expect, it } from "vitest";
 
+import { formaColisao } from "./colliderShape";
 import { lerDado } from "./readout";
 import {
   aplicarInerciaIsotropica,
@@ -187,5 +188,31 @@ describe("simularAlinhado — o dado assenta no valor pedido", () => {
 
     expect(r.simulacoes).toBe(1);
     expect(meta.values).toContain(r.valores[0]);
+  });
+});
+
+describe("simularAlinhado — moedas (d2)", () => {
+  it("quatro moedas assentam deitadas exibindo os valores pedidos", () => {
+    const meta = carregarMeta("d2");
+    const alvos = [2, 1, 1, 1];
+    for (let lance = 0; lance < 6; lance += 1) {
+      const world = montarMundo();
+      const dados = alvos.map(() => {
+        const corpo = new CANNON.Body({ mass: meta.mass, shape: formaColisao(meta), allowSleep: true, linearDamping: 0.06, angularDamping: 0.12 });
+        corpo.sleepSpeedLimit = 0.9;
+        corpo.sleepTimeLimit = 0.35;
+        aplicarInerciaIsotropica(corpo, meta);
+        world.addBody(corpo);
+        return { corpo, meta };
+      });
+      const random = rngSemente(500 + lance);
+      const poses = alvos.map((_, k) => sortearPose(random, k, alvos.length));
+      const r = simularAlinhado(world, dados, poses, alvos, OPCOES);
+      expect(r.alinhado).toBe(true);
+      dados.forEach((dado, k) => {
+        expect(valorFinal(dado)).toBe(alvos[k]);
+        expect(Math.abs(dado.corpo.quaternion.vmult(new CANNON.Vec3(0, 1, 0)).y)).toBeGreaterThan(0.9);
+      });
+    }
   });
 });

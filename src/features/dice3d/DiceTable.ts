@@ -22,7 +22,7 @@ import {
   type DieAppearance,
 } from "./appearance";
 import { CAMINHO_PADRAO, carregarDado } from "./assets";
-import { formaColisao } from "./colliderShape";
+import { adicionarFormasColisao } from "./colliderShape";
 import {
   PASSO,
   aplicarInerciaIsotropica,
@@ -453,12 +453,12 @@ export class DiceTable {
 
     const corpo = new CANNON.Body({
       mass: meta.mass,
-      shape: this.formaConvexa(meta),
       material: this.materialFisico,
       allowSleep: true,
       linearDamping: 0.06,
       angularDamping: 0.12,
     });
+    adicionarFormasColisao(corpo, meta);
     corpo.sleepSpeedLimit = 0.9;
     corpo.sleepTimeLimit = 0.35;
     aplicarInerciaIsotropica(corpo, meta);
@@ -480,15 +480,6 @@ export class DiceTable {
     });
     this.renderFrame();
     return slot;
-  }
-
-  /**
-   * Forma de colisão do dado. Casco convexo para os poliedros; esfera para os
-   * quase esféricos, onde o casco custaria O(V²) por par sem mudar a queda
-   * (ver `colliderShape.ts`).
-   */
-  private formaConvexa(meta: DieMeta): CANNON.Shape {
-    return formaColisao(meta);
   }
 
   /** Troca cor/textura/acabamento de um dado já na mesa. */
