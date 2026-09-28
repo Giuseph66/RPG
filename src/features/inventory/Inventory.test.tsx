@@ -124,7 +124,11 @@ describe("Inventory", () => {
     expect(container.querySelector('[role="meter"]')?.getAttribute("aria-valuetext")).toBe("1,5 kg de 105 kg");
     expect(container.textContent).not.toContain("Acima da capacidade");
     await rerender(<Inventory items={[item("sword", 1)]} currency={currency} carrying={{ totalGrams: 132500, capacityGrams: 105000, strengthScore: 14 }} />);
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Acima da capacidade em 27,5 kg.");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Acima da capacidade em 27,5 kg");
+    await rerender(<Inventory items={[item("sword", 1)]} currency={currency} carrying={{ totalGrams: 40000, capacityGrams: 105000, encumberedGrams: 35000, heavilyEncumberedGrams: 70000, strengthScore: 14 }} />);
+    expect(container.textContent).toContain("Sobrecarga: deslocamento −3 m.");
+    await rerender(<Inventory items={[item("sword", 1)]} currency={currency} carrying={{ totalGrams: 80000, capacityGrams: 105000, encumberedGrams: 35000, heavilyEncumberedGrams: 70000, strengthScore: 14 }} />);
+    expect(container.textContent).toContain("Sobrecarga pesada");
     await unmount();
   });
 

@@ -93,23 +93,40 @@ function shortRest(character: Character, input: RestInput): RuleResult {
   }
   const resourceRecovery = applyResourceRecovery(character, input);
   descriptions.push(...resourceRecovery.descriptions);
+  // Magia de Pacto (bruxo): os espaços voltam ao terminar um descanso curto ou longo.
+  const spellSlots = character.spellSlots.map((slot) => slot.kind === "pact" && slot.spent > 0 ? { ...slot, spent: 0 } : slot);
+  if (spellSlots.some((slot, index) => slot !== character.spellSlots[index])) descriptions.push("Espaços de Magia de Pacto recuperados.");
   const hpChanged = current !== character.hp.current;
-  const nextState: Character = { ...character, hp: { ...character.hp, current }, hitDiceSpent: spent, resources: resourceRecovery.resources };
+  const nextState: Character = { ...character, hp: { ...character.hp, current }, hitDiceSpent: spent, resources: resourceRecovery.resources, spellSlots };
   const effects: Effect[] = [];
   if (hpChanged) effects.push({ kind: "hp-changed", targetCharacterId: character.id, sourceRef: SOURCE, payload: { delta: current - character.hp.current, newCurrent: current, newTemp: character.hp.temp } });
   return success(character, nextState, effects, descriptions);
+}
+
+/** Sem escolha explícita, recupera primeiro os maiores dados (mais PV por dado gasto). */
+function defaultHitDiceRecovery(entries: readonly HitDiceSpentEntry[], recoverable: number): Record<string, number> {
+  let left = recoverable;
+  const chosen: Record<string, number> = {};
+  for (const entry of [...entries].filter((candidate) => candidate.spent > 0).sort((a, b) => b.hitDie - a.hitDie)) {
+    const count = Math.min(entry.spent, left);
+    if (count > 0) chosen[String(entry.classId)] = count;
+    left -= count;
+  }
+  return chosen;
 }
 
 function longRest(character: Character, input: RestInput): RuleResult {
   if (character.hp.current < 1) return reject("Descanso longo exige pelo menos 1 PV no início e não concede benefício.", "invalid-context");
   if (input.maximumHitPoints === undefined || !Number.isInteger(input.maximumHitPoints) || input.maximumHitPoints <= 0) return needsInput("Informe o máximo efetivo de PV para concluir a recuperação total do descanso longo.", character.id as Uuid);
   const totalSpent = character.hitDiceSpent.reduce((total, entry) => total + entry.spent, 0);
-  const recoverable = Math.floor(totalSpent / 2);
+  // "recupera uma quantidade de Dados de Vida gastos igual a metade da quantidade total de
+  // Dados de Vida do personagem" (p.188): metade do total (nível), limitado ao que foi gasto.
+  const totalHitDice = character.classes.reduce((total, entry) => total + entry.level, 0);
+  const recoverable = Math.min(totalSpent, Math.floor(totalHitDice / 2));
   const allocation = input.recoverHitDiceByClass;
-  if (recoverable > 0 && !allocation && new Set(character.hitDiceSpent.filter((entry) => entry.spent > 0).map((entry) => String(entry.classId))).size > 1) return needsInput("Escolha de quais classes recuperar Dados de Vida é necessária no descanso longo.", character.id as Uuid);
-  const chosen = allocation ?? Object.fromEntries(character.hitDiceSpent.filter((entry) => entry.spent > 0).map((entry) => [String(entry.classId), recoverable]));
+  const chosen = allocation ?? defaultHitDiceRecovery(character.hitDiceSpent, recoverable);
   const requested = Object.values(chosen).reduce((sum, count) => sum + count, 0);
-  if (!Number.isInteger(requested) || requested < 0 || requested > recoverable) return reject(`Recuperação de Dados de Vida excede floor(${totalSpent}/2) = ${recoverable}.`, "invalid-command");
+  if (!Number.isInteger(requested) || requested < 0 || requested > recoverable) return reject(`Recuperação de Dados de Vida excede metade do total (${recoverable}).`, "invalid-command");
   for (const entry of character.hitDiceSpent) {
     const count = chosen[String(entry.classId)] ?? 0;
     if (!Number.isInteger(count) || count < 0 || count > entry.spent) return reject(`Recuperação de Dados de Vida excede o gasto registrado para ${entry.classId}.`, "invalid-command");
@@ -119,9 +136,12 @@ function longRest(character: Character, input: RestInput): RuleResult {
   if (character.conditions.some((condition) => condition.definitionRef.entityId === "exhaustion" && (condition.severity ?? 0) > 0) && input.ateAndDrank === undefined) return needsInput("Informe se houve alimentação e hidratação adequadas para remover exaustão.", character.id as Uuid);
   const exhaustion = input.ateAndDrank !== true ? character.conditions : character.conditions.map((condition) => condition.definitionRef.entityId === "exhaustion" && (condition.severity ?? 0) > 0 ? { ...condition, severity: (condition.severity ?? 0) - 1 } : condition);
   const hp: Character["hp"] = { current: input.maximumHitPoints, temp: 0 };
-  const nextState: Character = { ...character, hp, hitDiceSpent, resources: resourceRecovery.resources, conditions: exhaustion };
+  // Conjuração (cap. 10): todos os espaços de magia gastos voltam ao terminar um descanso longo.
+  const spellSlots = character.spellSlots.map((slot) => slot.spent > 0 ? { ...slot, spent: 0 } : slot);
+  const slotsRecovered = spellSlots.some((slot, index) => slot !== character.spellSlots[index]);
+  const nextState: Character = { ...character, hp, hitDiceSpent, resources: resourceRecovery.resources, conditions: exhaustion, spellSlots };
   const effects: Effect[] = [{ kind: "hp-changed", targetCharacterId: character.id, sourceRef: SOURCE, payload: { delta: input.maximumHitPoints - character.hp.current, newCurrent: input.maximumHitPoints, newTemp: 0 } }];
-  return success(character, nextState, effects, ["Descanso longo recuperou todos os PV até o máximo efetivo e expirou PV temporários sem duração própria.", `Dados de Vida recuperados: ${requested} de no máximo ${recoverable} (arredondamento para baixo).`, ...(input.ateAndDrank === false ? ["Exaustão foi preservada sem alimentação e hidratação adequadas."] : ["Alimentação/hidratação permitiu remover um nível de exaustão, quando existente."]), ...resourceRecovery.descriptions]);
+  return success(character, nextState, effects, ["Descanso longo recuperou todos os PV até o máximo efetivo e expirou PV temporários sem duração própria.", `Dados de Vida recuperados: ${requested} de no máximo ${recoverable} (arredondamento para baixo).`, ...(slotsRecovered ? ["Espaços de magia gastos recuperados."] : []), ...(input.ateAndDrank === false ? ["Exaustão foi preservada sem alimentação e hidratação adequadas."] : ["Alimentação/hidratação permitiu remover um nível de exaustão, quando existente."]), ...resourceRecovery.descriptions]);
 }
 
 /** Conclui atomicamente um descanso; rolagens são sempre fornecidas pelo Dice Engine. */

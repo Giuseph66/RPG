@@ -52,6 +52,7 @@ function toSummary(character: Character): CharacterSummary {
     classSummary,
     totalLevel,
     campaignId: character.campaignId,
+    ownerUid: character.ownerUid,
     portraitAssetId: character.portraitAssetId,
     updatedAt: character.updatedAt,
     revision: character.revision,

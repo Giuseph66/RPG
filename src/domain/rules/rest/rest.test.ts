@@ -20,13 +20,28 @@ describe("rest rules", () => {
     if (result.status === "success") expect(result.nextState.hp.current).toBe(15);
   });
 
-  it("recupera floor(total gasto/2) e expira temporários no descanso longo", () => {
-    const character = { ...minimalCharacter, hp: { current: 4, temp: 5 }, hitDiceSpent: [{ classId: asEntityId("fighter"), hitDie: 10 as const, spent: 3 }] };
+  it("recupera Dados de Vida escolhidos e expira temporários no descanso longo", () => {
+    const character = { ...minimalCharacter, classes: minimalCharacter.classes.map((entry) => ({ ...entry, level: 4 })), hp: { current: 4, temp: 5 }, hitDiceSpent: [{ classId: asEntityId("fighter"), hitDie: 10 as const, spent: 3 }] };
     const result = resolveRest(character, { restKind: "long", maximumHitPoints: 10, recoverHitDiceByClass: { fighter: 1 }, ateAndDrank: true });
     expect(result.status).toBe("success");
     if (result.status === "success") {
       expect(result.nextState.hp).toEqual({ current: 10, temp: 0 });
       expect(result.nextState.hitDiceSpent[0].spent).toBe(2);
+    }
+  });
+
+  it("recupera até metade do total de Dados de Vida e todos os espaços de magia (p.188)", () => {
+    const character = {
+      ...minimalCharacter,
+      classes: minimalCharacter.classes.map((entry) => ({ ...entry, level: 8 })),
+      hitDiceSpent: [{ classId: asEntityId("fighter"), hitDie: 10 as const, spent: 6 }],
+      spellSlots: [{ poolId: asUuid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"), kind: "spellcasting" as const, slotLevel: 1, spent: 2 }],
+    };
+    const result = resolveRest(character, { restKind: "long", maximumHitPoints: 10, ateAndDrank: true });
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      expect(result.nextState.hitDiceSpent[0].spent).toBe(2);
+      expect(result.nextState.spellSlots[0].spent).toBe(0);
     }
   });
 

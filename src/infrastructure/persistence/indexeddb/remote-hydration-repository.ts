@@ -68,6 +68,7 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
       if (payload?.accountId === input.ownerUid && typeof payload.campaignId === "string") memberships.set(payload.campaignId, payload);
     }
     const allowedCampaigns = new Set([...memberships.entries()].filter(([, item]) => item.status === "active").map(([id]) => id));
+    const masterCampaigns = new Set([...memberships.entries()].filter(([, item]) => item.status === "active" && item.role === "master").map(([id]) => id));
     const pending = new Map(input.pending.filter((operation) => {
       const owner = (operation as SyncOperation & { readonly ownerUid?: unknown }).ownerUid;
       return owner === undefined || owner === input.ownerUid;
@@ -87,7 +88,7 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
         const payload = record(entry.payload);
         if (!payload || !validPayload(entry.aggregateType, payload)) return err(appError.validation("remote-pull", `Snapshot remoto inválido: ${entry.aggregateType}/${entry.aggregateId}.`));
         if (entry.aggregateType === "account" && entry.aggregateId !== input.ownerUid) { skipped += 1; continue; }
-        if (entry.aggregateType === "membership" && payload.accountId !== input.ownerUid) { skipped += 1; continue; }
+        if (entry.aggregateType === "membership" && payload.accountId !== input.ownerUid && !masterCampaigns.has(payload.campaignId as string)) { skipped += 1; continue; }
         const campaignId = entry.scope?.campaignId ?? (typeof payload.campaignId === "string" ? payload.campaignId : undefined);
         if (entry.aggregateType !== "account" && entry.aggregateType !== "membership" && campaignId !== undefined && !allowedCampaigns.has(campaignId)) { skipped += 1; continue; }
         if (entry.aggregateType === "character" && entry.scope?.ownerUid !== undefined && entry.scope.ownerUid !== input.ownerUid) { skipped += 1; continue; }
@@ -99,7 +100,14 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
           continue;
         }
         const current = await requestToPromise(tx.objectStore(store).get(localKey(entry.aggregateType, entry)));
-        if (current !== undefined && revision(current) >= entry.revision) { skipped += 1; continue; }
+        if (current !== undefined && revision(current) >= entry.revision) {
+          const currentRecord = record(current);
+          if (entry.aggregateType === "character" && currentRecord && revision(current) === entry.revision && typeof payload.ownerUid === "string" && currentRecord.ownerUid !== payload.ownerUid) {
+            await requestToPromise(tx.objectStore(store).put({ ...currentRecord, ownerUid: payload.ownerUid }));
+            applied += 1;
+          } else skipped += 1;
+          continue;
+        }
         await requestToPromise(tx.objectStore(store).put(payload));
         applied += 1;
       }

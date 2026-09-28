@@ -26,6 +26,9 @@ import type { RuleResult } from "@domain/contracts/rules";
 
 import type { ActionAttackRoll, ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionRollDice, ActionSourceRef, ActionSpellRoll, ActionsProps } from "./types";
 import { ABILITY_LABELS, SKILL_ABILITY, SKILL_LABELS } from "@features/character/sheet/mapping";
+import { LoadPanel, loadSpeedPenaltyCm, loadTier } from "./LoadPanel";
+import { RestPanel, type RestKind } from "./RestPanel";
+import { TurnPanel } from "./TurnPanel";
 import styles from "./actions.module.css";
 
 const KIND_LABELS: Record<ActionCapabilityKind, string> = {
@@ -168,7 +171,7 @@ function capabilityState(capability: ActionCapability, preview: ActionPreview | 
 }
 
 function CostList({ costs }: { readonly costs?: readonly ActionCost[] }) {
-  if (!costs?.length) return <p className={styles.muted}>Custo não informado pelo resolvedor.</p>;
+  if (!costs?.length) return <p className={styles.muted}>Sem custo.</p>;
   return <ul className={styles.costList}>{costs.map((cost, index) => <li key={`${cost.label}-${index}`}><span>{cost.label}</span><strong>{cost.value ?? (cost.remaining === undefined ? "—" : `${cost.remaining} restantes`)}</strong></li>)}</ul>;
 }
 
@@ -212,29 +215,29 @@ function isValidArmorClassInput(raw: string): boolean {
 function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitting, alreadySubmitted, hasHandler, inputValue, onInputChange }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly onConfirm: () => void; readonly onCancel: () => void; readonly submitting: boolean; readonly alreadySubmitted: boolean; readonly hasHandler: boolean; readonly inputValue: string; readonly onInputChange: (value: string) => void }) {
   const { details } = state;
   const missingRequiredInput = capability.inputKind === "target-armor-class" && !isValidArmorClassInput(inputValue);
-  const disabledReason = !hasHandler ? "Nenhum dispatcher foi conectado." : state.status === "blocked" || state.status === "unsupported" ? state.reasons.join(" ") : state.status === "pending" ? state.reasons.join(" ") : alreadySubmitted ? "Este commandId já foi enviado; aguarde a reconciliação." : missingRequiredInput ? "Informe a CA do alvo para habilitar a confirmação." : undefined;
+  const disabledReason = !hasHandler ? "A ficha não está pronta para salvar." : state.status === "blocked" || state.status === "unsupported" ? state.reasons.join(" ") : state.status === "pending" ? state.reasons.join(" ") : alreadySubmitted ? "Já enviado; aguarde a ficha atualizar." : missingRequiredInput ? "Informe a CA do alvo para habilitar a confirmação." : undefined;
   const disabled = Boolean(disabledReason) || submitting;
   return <section className={styles.review} aria-labelledby="action-review-title">
-    <div className={styles.reviewHeading}><div><p className={styles.eyebrow}>REVISÃO ANTES DO COMMIT</p><h2 id="action-review-title">{capability.label}</h2></div><Button variant="ghost" size="sm" onClick={onCancel}>Cancelar</Button></div>
+    <div className={styles.reviewHeading}><div><p className={styles.eyebrow}>CONFERIR ANTES DE APLICAR</p><h2 id="action-review-title">{capability.label}</h2></div><Button variant="ghost" size="sm" onClick={onCancel}>Cancelar</Button></div>
     {capability.description ? <p className={styles.description}>{capability.description}</p> : null}
     {capability.inputKind === "amount" ? <div className={styles.inputSection}><Input label="Quantidade" type="number" min={1} inputMode="numeric" value={inputValue} onChange={(event) => onInputChange(event.target.value)} hint={`Sem preenchimento, usa o valor padrão (${capability.inputDefault ?? 5}).`} /></div> : null}
     {capability.inputKind === "target-armor-class" ? <div className={styles.inputSection}><Input label="CA do alvo" type="number" min={0} inputMode="numeric" value={inputValue} onChange={(event) => onInputChange(event.target.value)} hint="Obrigatório: o motor não deriva a CA de um alvo desconhecido." /></div> : null}
     <div className={styles.reviewGrid}>
       <div><h3>Custo</h3><CostList costs={capability.costs ?? previewCosts(preview)} /></div>
-      <div><h3>Efeito previsto</h3>{capability.effectSummary?.length ? <ul className={styles.detailList}>{capability.effectSummary.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : details.effects.length ? <ul className={styles.detailList}>{details.effects.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : <p className={styles.muted}>Nenhum efeito estruturado foi recebido.</p>}</div>
+      <div><h3>Efeito previsto</h3>{capability.effectSummary?.length ? <ul className={styles.detailList}>{capability.effectSummary.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : details.effects.length ? <ul className={styles.detailList}>{details.effects.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : <p className={styles.muted}>Sem efeito automático na ficha.</p>}</div>
     </div>
     {details.explanations.length ? <div className={styles.explanations}><h3>Explicação</h3><ul className={styles.detailList}>{details.explanations.map((explanation, index) => <li key={`${explanation}-${index}`}>{explanation}</li>)}</ul></div> : null}
     {details.pending.length ? <InlineStatus tone="warning" assertive>{details.pending.join(" ")}</InlineStatus> : null}
     {state.reasons.length && state.status !== "available" ? <InlineStatus tone={state.status === "pending" ? "warning" : "error"} assertive>{state.reasons.join(" ")}</InlineStatus> : null}
     <div className={styles.provenance}><h3>Fonte</h3>{(capability.sourceRefs?.length || details.sources.length) ? <ul className={styles.detailList}>{[...(capability.sourceRefs ?? []), ...details.sources].filter((source): source is ActionSourceRef => Boolean(source)).map((source, index) => <li key={`${sourceLabel(source)}-${index}`}>{sourceLabel(source)}</li>)}</ul> : <p className={styles.muted}>Fonte não registrada.</p>}</div>
-    <div className={styles.confirmRow}><Button size="lg" disabled={disabled} disabledReason={disabledReason} busy={submitting} onClick={onConfirm}>Confirmar execução</Button><span className={styles.commandHint}>Comando {String(capability.commandId)}</span></div>
+    <div className={styles.confirmRow}><Button size="lg" disabled={disabled} disabledReason={disabledReason} busy={submitting} onClick={onConfirm}>Confirmar execução</Button></div>
   </section>;
 }
 
 function resultMessage(result: RuleResult): { readonly tone: "success" | "warning" | "error"; readonly message: string } {
-  if (result.status === "success") return { tone: "success", message: "Execução aceita pelo dispatcher." };
+  if (result.status === "success") return { tone: "success", message: "Aplicado na ficha." };
   if (result.status === "needsInput") return { tone: "warning", message: result.requests.map((request) => request.reason).join(" ") || "A execução precisa de uma decisão adicional." };
-  return { tone: "error", message: result.errors.map((error) => error.message).join(" ") || "O dispatcher rejeitou a execução." };
+  return { tone: "error", message: result.errors.map((error) => error.message).join(" ") || "Não foi possível aplicar na ficha." };
 }
 
 /** Uma prévia malformada não pode derrubar a página inteira: a revisão mostra um aviso no lugar. */
@@ -513,10 +516,11 @@ function groupOf(capability: ActionCapability): CapabilityGroup {
   return "spells";
 }
 
-export function Actions({ character, derived, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [] }: ActionsProps) {
+export function Actions({ character, derived, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [], restInfo, carrying, walkSpeedCm, onOpenInventory }: ActionsProps) {
   const [selectedId, setSelectedId] = useState<string>();
   const [openGroup, setOpenGroup] = useState<CapabilityGroup>();
   const [skillsOpen, setSkillsOpen] = useState(false);
+  const [restKind, setRestKind] = useState<RestKind>("short");
   const [feedback, setFeedback] = useState<{ readonly tone: "success" | "warning" | "error" | "info"; readonly message: string }>();
   const [submitting, setSubmitting] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -573,9 +577,9 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       const result: ActionCommitResult = onIntent(intent);
       const resolved = await result;
       if (resolved && "status" in resolved) setFeedback(resultMessage(resolved));
-      else setFeedback({ tone: "success", message: "Intent enviado ao dispatcher." });
+      else setFeedback({ tone: "success", message: "Aplicado na ficha." });
     } catch (cause) {
-      setFeedback({ tone: "error", message: cause instanceof Error ? cause.message : "O commit falhou; nenhum estado local foi aplicado." });
+      setFeedback({ tone: "error", message: cause instanceof Error ? cause.message : "Não foi possível salvar; nada mudou na ficha." });
     } finally {
       setSubmitting(false);
     }
@@ -597,13 +601,20 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       return;
     }
     if (id === "short-rest" || id === "long-rest") {
+      setRestKind(id === "short-rest" ? "short" : "long");
       setOpenGroup("rest");
-      setSelectedId(capabilities.find((capability) => capability.id === `rest:${id === "short-rest" ? "short" : "long"}`)?.id);
+      setSelectedId(undefined);
       return;
     }
     setOpenGroup(id === "attack" ? "attack" : "spells");
     setSelectedId(undefined);
   };
+
+  const skillCheck = (skill: Skill) => {
+    const entry = derived?.skills.find((candidate) => candidate.skill === skill);
+    if (entry) quickRoll(20, entry.modifier.value, "skill-check", `Teste de perícia (${SKILL_LABELS[skill]})`);
+  };
+  const tier = carrying ? loadTier(carrying) : undefined;
 
   const closeGroup = () => {
     setOpenGroup(undefined);
@@ -643,6 +654,14 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       </div>
     </Panel>
 
+    <Panel id="turn-title" title="Seu turno" tagline="Ação · bônus · reação · movimento">
+      <TurnPanel characterId={String(character.id)} walkSpeedCm={walkSpeedCm} speedPenaltyCm={tier ? loadSpeedPenaltyCm(tier) : 0} overCapacity={tier === "over"} onAttack={() => openQuickAction("attack")} onCast={() => openQuickAction("spells")} onSkillCheck={derived && dice?.roll ? skillCheck : undefined} />
+    </Panel>
+
+    {carrying ? <Panel id="load-title" title="Carga" tagline="Sobrecarga">
+      <LoadPanel carrying={carrying} onOpenInventory={onOpenInventory} />
+    </Panel> : null}
+
     <ActivityPanel dice={dice} />
 
     <SkillTestModal open={skillsOpen} onClose={() => setSkillsOpen(false)} derived={derived} onRoll={dice?.roll ? quickRoll : undefined} />
@@ -651,11 +670,12 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       {feedback ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
       {openGroup === "attack" ? <AttackRolls attacks={attackRolls} unequipped={unequippedWeapons} roll={dice?.roll ? quickRoll : undefined} /> : null}
       {openGroup === "spells" ? <SpellRolls spells={spellRolls} roll={dice?.roll ? quickRoll : undefined} /> : null}
+      {openGroup === "rest" ? <RestPanel key={restKind} character={character} info={restInfo} capabilities={groupCapabilities} initialKind={restKind} onIntent={onIntent} onDone={(outcome) => { setFeedback(outcome); setOpenGroup(undefined); }} /> : null}
       {openGroup !== "rest" && groupCapabilities.length ? <h3 className={styles.modalSubheading}>Aplicar na ficha</h3> : null}
-      {groupCapabilities.length === 0 ? (openGroup === "rest" ? <p className={styles.muted}>Nenhum descanso disponível.</p> : null) : (
+      {openGroup === "rest" || groupCapabilities.length === 0 ? null : (
         <div className={styles.capabilityList}>{groupCapabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>
       )}
-      {selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
+      {openGroup === "rest" ? null : selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
     </AppModal>
   </section>;
 }

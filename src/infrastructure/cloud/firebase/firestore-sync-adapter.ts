@@ -4,12 +4,14 @@
  * A operação é aplicada em uma transação Firestore com CAS. O documento remoto
  * só é escrito quando `remote.revision === operation.baseRevision`; divergências
  * retornam um snapshot serializável para a fila local marcar como conflito.
- * Assets carregam somente metadados: bytes nunca são enviados a este adapter.
+ * Assets carregam somente metadados. Retratos pequenos são sincronizados em
+ * documentos próprios do Firestore, com os bytes codificados em base64.
  */
 
 import {
   type AssetTransferPort,
 } from "@application/ports/asset-transfer";
+import { MAX_PORTRAIT_BASE64_LENGTH } from "@application/ports/portrait-store";
 import {
   collection,
   collectionGroup,
@@ -170,6 +172,10 @@ export function firestorePathForOperation(operation: SyncOperation, privateOwner
     }
     case "asset":
       return ok(`assets/${id}`);
+    case "portrait":
+      return /^[A-Za-z0-9_-]+$/.test(id)
+        ? ok(`portraits/${id}`)
+        : err(pathError("ID de retrato inválido."));
     default:
       return err(pathError(`Tipo de agregado não suportado: ${String(operation.aggregateType)}.`));
   }
@@ -306,11 +312,11 @@ function isoRemoteValue(value: unknown): JsonValue | undefined {
   return toJsonValue(value);
 }
 
-function pullPayload(raw: unknown, fallbackId: string): JsonValue | undefined {
+function pullPayload(raw: unknown, fallbackId: string): Record<string, JsonValue> | undefined {
   if (!isRecord(raw)) return undefined;
   const result: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(raw)) {
-    // These fields are transport metadata and must never become local domain data.
+    // Transport metadata is removed here; character ownership is restored from the trusted document separately.
     if (key === "ownerUid" || key === "operationId") continue;
     const normalized = isoRemoteValue(value);
     if (normalized !== undefined) result[key] = normalized;
@@ -548,6 +554,16 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
     if (operation.mutation === "upsert" && !isRecord(operation.payload)) {
       return err(pathError("Upsert remoto exige snapshot serializável."));
     }
+    if (operation.aggregateType === "portrait" && operation.mutation === "upsert") {
+      const payload = operation.payload as FirestoreData;
+      if (payload.id !== operation.aggregateId || typeof payload.data !== "string" ||
+        payload.data.length === 0 || payload.data.length > MAX_PORTRAIT_BASE64_LENGTH ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(payload.data) ||
+        (payload.mediaType !== "image/webp" && payload.mediaType !== "image/jpeg") ||
+        typeof payload.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(payload.sha256)) {
+        return err(pathError("Retrato inválido ou acima do limite do Firestore."));
+      }
+    }
     const path = firestorePathForOperation(operation, this.ownerUid);
     if (!path.ok) return path;
     const reference = this.deps.doc(this.firestore!, path.value);
@@ -571,7 +587,8 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
         if (operation.mutation === "delete" && !snapshot.exists() && operation.baseRevision > 0) {
           return { kind: "acked", remoteRevision: actual } satisfies RemoteSyncApplyResult;
         }
-        if (actual !== operation.baseRevision) return remoteConflict(operation, data);
+        const creatingRemoteDocument = operation.mutation === "upsert" && !snapshot.exists();
+        if (!creatingRemoteDocument && actual !== operation.baseRevision) return remoteConflict(operation, data);
 
         if (operation.mutation === "delete") {
           if (snapshot.exists()) transaction.delete(reference);
@@ -611,7 +628,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
       for (const item of privateCharacters.docs) {
         const id = documentId(item.ref.path);
         const payload = id === undefined ? undefined : pullPayload(item.data(), id);
-        if (id !== undefined && payload !== undefined) records.push(recordFromDoc("character", id, payload, { ownerUid: this.ownerUid as never }));
+        if (id !== undefined && payload !== undefined) records.push(recordFromDoc("character", id, { ...payload, ownerUid: stringField(item.data(), "ownerUid") ?? this.ownerUid }, { ownerUid: this.ownerUid as never }));
       }
 
       const membershipQuery = this.deps.query(
@@ -620,6 +637,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
       );
       const memberships = await this.deps.getDocs(membershipQuery);
       const activeCampaigns = new Set<string>();
+      const masterCampaigns = new Set<string>();
       for (const item of memberships.docs) {
         const campaignId = campaignIdFromMemberPath(item.ref.path);
         if (campaignId === undefined) continue;
@@ -630,9 +648,20 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
         const status = isRecord(payload) ? payload.status : undefined;
         const role = isRecord(payload) ? payload.role : undefined;
         if (status === "active" && (role === "master" || role === "player")) activeCampaigns.add(campaignId);
+        if (status === "active" && role === "master") masterCampaigns.add(campaignId);
       }
 
       for (const campaignId of [...activeCampaigns].sort()) {
+        if (masterCampaigns.has(campaignId)) {
+          const campaignMembers = await this.deps.getDocs(this.deps.collection(this.firestore!, `campaigns/${campaignId}/members`));
+          for (const item of campaignMembers.docs) {
+            const accountId = documentId(item.ref.path);
+            const payload = accountId === undefined ? undefined : pullPayload(item.data(), accountId);
+            if (accountId !== undefined && payload !== undefined) {
+              records.push(recordFromDoc("membership", `${campaignId}:${accountId}`, payload, { campaignId: campaignId as never, accountId: accountId as never }));
+            }
+          }
+        }
         const campaignReference = this.deps.doc(this.firestore!, `campaigns/${campaignId}`);
         const campaign = await this.deps.getDoc(campaignReference);
         if (campaign.exists()) {
@@ -649,7 +678,9 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           for (const item of documents.docs) {
             const id = documentId(item.ref.path);
             const payload = id === undefined ? undefined : pullPayload(item.data(), id);
-            if (id !== undefined && payload !== undefined) records.push(recordFromDoc(aggregateType, id, payload, { campaignId: campaignId as never }));
+            const ownerUid = aggregateType === "character" ? stringField(item.data(), "ownerUid") : undefined;
+            const ownedPayload = payload && ownerUid ? { ...payload, ownerUid } : payload;
+            if (id !== undefined && ownedPayload !== undefined) records.push(recordFromDoc(aggregateType, id, ownedPayload, { campaignId: campaignId as never }));
           }
         }
       }

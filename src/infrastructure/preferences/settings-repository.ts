@@ -26,6 +26,7 @@ function isSettings(value: unknown): value is AppSettings {
   const record = value as Record<string, unknown>;
   return (
     (record.activeCharacterId === undefined || typeof record.activeCharacterId === "string") &&
+    (record.activeCharacterIdsByAccount === undefined || (typeof record.activeCharacterIdsByAccount === "object" && record.activeCharacterIdsByAccount !== null && !Array.isArray(record.activeCharacterIdsByAccount) && Object.values(record.activeCharacterIdsByAccount).every((id) => typeof id === "string"))) &&
     isTheme(record.theme) &&
     (record.reducedMotion === undefined || typeof record.reducedMotion === "boolean") &&
     (record.diceFaceColor === undefined || isDiceColor(record.diceFaceColor)) &&

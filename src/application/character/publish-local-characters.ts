@@ -34,6 +34,7 @@ export async function publishLocalCharacters(options: PublishLocalCharactersOpti
 
     const character = await options.characters.get(summary.id);
     if (!character.ok) return character;
+    if (character.value.ownerUid && character.value.ownerUid !== options.ownerUid) continue;
     const payload = toJsonSnapshot(character.value);
     if (payload === undefined) return err(appError.validation("character", "A ficha local contém dados que não podem ser sincronizados."));
 

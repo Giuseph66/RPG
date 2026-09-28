@@ -55,10 +55,11 @@ export type SyncAggregateType =
   | "journal"
   | "map"
   | "asset"
+  | "portrait"
   | "session";
 
 const SYNC_AGGREGATE_TYPES: readonly SyncAggregateType[] = [
-  "account", "membership", "campaign", "campaign-cleanup", "character", "journal", "map", "asset", "session",
+  "account", "membership", "campaign", "campaign-cleanup", "character", "journal", "map", "asset", "portrait", "session",
 ];
 
 /** Referência explícita de um asset da campanha durante uma remoção remota. */

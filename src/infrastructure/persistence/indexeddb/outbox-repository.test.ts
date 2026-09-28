@@ -110,6 +110,18 @@ describe("IndexedDbOutboxRepository", () => {
     expect(conflict).toMatchObject({ status: "conflict", conflict: { remoteRevision: 1, message: "revisão divergente" } });
   });
 
+  it("lista conflitos apenas para inspeção explícita e permite reprocessá-los", async () => {
+    const repository = new IndexedDbOutboxRepository(db, clock);
+    const item = operation(1);
+    await repository.enqueue(item);
+    await repository.markSyncing(item.operationId);
+    await repository.markConflict(item.operationId, { remoteRevision: asRevision(1), message: "revisão divergente" });
+
+    expect(unwrap(await repository.listPending())).toEqual([]);
+    expect(unwrap(await repository.listPending({ includeConflicts: true }))).toMatchObject([{ status: "conflict" }]);
+    expect(unwrap(await repository.markSyncing(item.operationId))).toMatchObject({ status: "syncing", attempts: 2, conflict: undefined });
+  });
+
   it("faz enqueue no mesmo UoW e aborta junto com a transação local", async () => {
     const repository = new IndexedDbOutboxRepository(db, clock);
     const uow = new IndexedDbUnitOfWork(db);

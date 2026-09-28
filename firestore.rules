@@ -63,8 +63,9 @@ service cloud.firestore {
       allow delete: if false;
 
       match /characters/{characterId} {
-        allow read: if self(uid) && resource.data.ownerUid == uid &&
-          hasRecordIdentity(resource.data, characterId);
+        allow get: if self(uid) && (resource == null ||
+          (resource.data.ownerUid == uid && hasRecordIdentity(resource.data, characterId)));
+        allow list: if self(uid);
         allow create: if self(uid) && hasRecordIdentity(request.resource.data, characterId) &&
           request.resource.data.ownerUid == uid;
         allow update: if self(uid) && hasRecordIdentity(resource.data, characterId) &&
@@ -76,7 +77,8 @@ service cloud.firestore {
     }
 
     match /campaigns/{campaignId} {
-      allow read: if campaignMember(campaignId) && resource.data.id == campaignId;
+      allow read: if (signedIn() && resource == null) ||
+        (campaignMember(campaignId) && resource.data.id == campaignId);
       allow create: if signedIn() && hasRecordIdentity(request.resource.data, campaignId) &&
         request.resource.data.ownerUid == request.auth.uid;
       allow update: if campaignOwner(campaignId) && resource.data.id == campaignId &&
@@ -85,7 +87,8 @@ service cloud.firestore {
       allow delete: if campaignOwner(campaignId) && resource.data.id == campaignId;
 
       match /members/{memberUid} {
-        allow read: if campaignOwner(campaignId) || self(memberUid);
+        allow get: if campaignOwner(campaignId) || self(memberUid);
+        allow list: if campaignOwner(campaignId);
         // O proprietário também materializa seu vínculo de mestre. Nenhuma outra
         // conta pode criar um segundo mestre ou alterar a identidade do vínculo.
         allow create: if campaignOwner(campaignId) &&
@@ -125,7 +128,8 @@ service cloud.firestore {
       }
 
       match /characters/{characterId} {
-        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, characterId);
+        allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, characterId));
+        allow list: if campaignMember(campaignId);
         allow create: if activeMember(campaignId, request.auth.uid) &&
           hasCampaignRecordIdentity(request.resource.data, campaignId, characterId) &&
           request.resource.data.ownerUid == request.auth.uid;
@@ -140,7 +144,8 @@ service cloud.firestore {
       }
 
       match /journals/{journalId} {
-        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, journalId);
+        allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, journalId));
+        allow list: if campaignMember(campaignId);
         allow create: if activeMember(campaignId, request.auth.uid) &&
           hasCampaignRecordIdentity(request.resource.data, campaignId, journalId) &&
           request.resource.data.ownerUid == request.auth.uid;
@@ -155,7 +160,8 @@ service cloud.firestore {
       }
 
       match /maps/{mapId} {
-        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, mapId);
+        allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, mapId));
+        allow list: if campaignMember(campaignId);
         allow create: if campaignOwner(campaignId) &&
           hasCampaignRecordIdentity(request.resource.data, campaignId, mapId) &&
           request.resource.data.ownerUid == request.auth.uid;
@@ -170,7 +176,8 @@ service cloud.firestore {
       match /sessions/{sessionId} {
         // Session notes and attendance are campaign data. Active members can
         // read them; only the campaign master can mutate them.
-        allow read: if campaignMember(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, sessionId);
+        allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, sessionId));
+        allow list: if campaignMember(campaignId);
         allow create: if campaignOwner(campaignId) && hasIdentity(request.resource.data) &&
           request.resource.data.ownerUid == request.auth.uid &&
           request.resource.data.campaignId == campaignId && request.resource.data.id == sessionId;
@@ -184,9 +191,10 @@ service cloud.firestore {
     }
 
     match /assets/{assetId} {
-      allow read: if signedIn() && resource.data.id == assetId && assetPathMatches(resource.data, assetId) &&
-        (resource.data.ownerUid == request.auth.uid ||
-          (resource.data.campaignId is string && campaignMember(resource.data.campaignId)));
+      allow read: if signedIn() && (resource == null ||
+        (resource.data.id == assetId && assetPathMatches(resource.data, assetId) &&
+          (resource.data.ownerUid == request.auth.uid ||
+            (resource.data.campaignId is string && campaignMember(resource.data.campaignId)))));
       allow create: if signedIn() && hasIdentity(request.resource.data) &&
         request.resource.data.id == assetId && request.resource.data.ownerUid == request.auth.uid &&
         request.resource.data.hash is string && assetPathMatches(request.resource.data, assetId) &&
@@ -198,6 +206,32 @@ service cloud.firestore {
         protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data) &&
         (!('campaignId' in request.resource.data) || campaignMember(request.resource.data.campaignId));
       allow delete: if signedIn() && resource.data.id == assetId && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /{path=**}/members/{memberUid} {
+      allow list: if signedIn() && resource.data.accountId == request.auth.uid;
+    }
+
+    match /portraits/{portraitId} {
+      function validPortrait(data) {
+        return hasRecordIdentity(data, portraitId) && data.ownerUid == request.auth.uid &&
+          data.keys().hasOnly(['id', 'ownerUid', 'mediaType', 'sha256', 'width', 'height', 'data', 'createdAt', 'updatedAt', 'revision', 'schemaVersion', 'operationId']) &&
+          data.data is string && data.data.size() > 0 && data.data.size() <= 900000 &&
+          data.sha256 is string && data.sha256.matches('^[a-f0-9]{64}$') &&
+          data.mediaType in ['image/webp', 'image/jpeg'] &&
+          (!('width' in data) || (data.width is int && data.width > 0 && data.width <= 1024)) &&
+          (!('height' in data) || (data.height is int && data.height > 0 && data.height <= 1024));
+      }
+      allow get: if signedIn() && (resource == null ||
+        (resource.data.ownerUid == request.auth.uid && resource.data.id == portraitId));
+      allow list: if false;
+      allow create: if signedIn() && validPortrait(request.resource.data);
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid &&
+        validPortrait(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'operationId', 'revision']) &&
+        (revisionAdvances(resource.data, request.resource.data) ||
+          (!('revision' in resource.data) && request.resource.data.revision == 1));
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
 
     match /{document=**} { allow read, write: if false; }

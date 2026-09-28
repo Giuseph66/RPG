@@ -84,6 +84,8 @@ export interface AppRouterProps extends Omit<AppShellProps, "children" | "route"
   readonly createDraft?: () => CharacterDraft;
   readonly onCharacterCreated?: (character: Character, revision: Revision) => void;
   readonly syncMessage?: string;
+  readonly syncHydration?: object;
+  readonly onRefreshSync?: () => Promise<void>;
 }
 
 export interface AppNavigation {
@@ -161,14 +163,14 @@ function CreateCharacterRoute({
 }
 
 /**
- * Aba Ficha: abre direto o personagem ativo (a troca fica em Configurações). Sem ativo,
- * usa a ficha mais recente; só sem nenhuma ficha aparece a tela para criar personagem.
+ * Aba Ficha: abre a escolha da conta atual; no modo local, usa a ficha ativa ou a mais recente.
  */
-function CharacterHomeRoute({ registry, character, navigate, replace }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly navigate: (to: string) => void; readonly replace: (to: string) => void }) {
-  const activeId = character?.value?.id;
+function CharacterHomeRoute({ registry, character, navigate, replace, signedIn, accountCharacterId }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly navigate: (to: string) => void; readonly replace: (to: string) => void; readonly signedIn: boolean; readonly accountCharacterId?: Character["id"] }) {
+  const activeId = signedIn ? accountCharacterId : character?.value?.id;
   const [empty, setEmpty] = useState(false);
   useEffect(() => {
     if (activeId) { replace(`/character/${activeId}`); return undefined; }
+    if (signedIn) { setEmpty(true); return undefined; }
     const list = registry.character.list;
     if (!list) { setEmpty(true); return undefined; }
     let active = true;
@@ -179,7 +181,7 @@ function CharacterHomeRoute({ registry, character, navigate, replace }: { readon
       else setEmpty(true);
     });
     return () => { active = false; };
-  }, [activeId, registry.character.list, replace]);
+  }, [activeId, registry.character.list, replace, signedIn]);
   if (empty) return <CharacterSelectionRoute registry={registry} navigate={navigate} />;
   return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Abrindo a ficha ativa.</InlineStatus></section>;
 }
@@ -189,6 +191,7 @@ function CharacterSelectionRoute({ registry, navigate }: { readonly registry: Fe
   const [drafts, setDrafts] = useState<readonly DraftSummary[]>([]);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("idle");
   const [error, setError] = useState<unknown>();
+  const sessionUid = registry.account.auth?.currentSession()?.uid;
 
   useEffect(() => {
     let active = true;
@@ -205,12 +208,12 @@ function CharacterSelectionRoute({ registry, navigate }: { readonly registry: Fe
       const draftResult = registry.character.listDrafts ? await registry.character.listDrafts() : { ok: true as const, value: [] };
       if (!active) return;
       if (!draftResult.ok) { setError(draftResult.error); setStatus("error"); return; }
-      setCharacters(result.value);
+      setCharacters(result.value.filter((summary) => !sessionUid || !summary.ownerUid || summary.ownerUid === sessionUid));
       setDrafts(draftResult.value.map((draft) => ({ id: draft.id, name: draft.partial.name, currentStep: draft.currentStep, updatedAt: draft.updatedAt })));
       setStatus("idle");
     });
     return () => { active = false; };
-  }, [registry.character.list]);
+  }, [registry.character.list, sessionUid]);
 
   const Selection = LazyCharacterSelection;
   return <Selection {...registry.character.bindSelectionProps({ characters, drafts, status, error, onSelect: (id) => navigate(`/character/${id}`), onCreate: () => navigate("/character/create"), onResumeDraft: (id) => navigate(`/character/create/${id}`) })} />;
@@ -437,22 +440,23 @@ function AccountRoute({ registry, navigate, syncState, syncMessage, campaign }: 
   })} campaigns={accountCampaigns} {...(syncState ? { syncState } : {})} {...(syncMessage ? { syncMessage } : {})} />;
 }
 
-function CollaborationRoute({ registry, campaign, navigate, view, pack }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void; readonly view?: "characters" | "participants"; readonly pack?: RulePack }) {
+function CollaborationRoute({ registry, campaign, navigate, view, pack, syncState, syncMessage, syncHydration, onRefreshSync }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void; readonly view?: "characters" | "participants"; readonly pack?: RulePack; readonly syncState?: AccountSyncState; readonly syncMessage?: string; readonly syncHydration?: object; readonly onRefreshSync?: () => Promise<void> }) {
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
   const [characters, setCharacters] = useState<readonly CollaborationCharacter[]>([]);
   useEffect(() => {
     let active = true;
     void registry.journey.service.list().then((result) => { if (active && result.ok) setCampaigns(result.value); });
     return () => { active = false; };
-  }, [registry.journey.service]);
+  }, [registry.journey.service, syncHydration]);
   useEffect(() => {
     let active = true;
+    const portraitUrls: string[] = [];
     if (!registry.character.list) { setCharacters([]); return () => { active = false; }; }
     void registry.character.list().then(async (result) => {
       if (!active) return;
       if (!result.ok) { setCharacters([]); return; }
       const summaries = await Promise.all(result.value.map(async (summary): Promise<CollaborationCharacter> => {
-        const base = { id: summary.id, name: summary.name, campaignId: summary.campaignId, revision: summary.revision };
+        const base = { id: summary.id, name: summary.name, campaignId: summary.campaignId, ownerUid: summary.ownerUid, revision: summary.revision };
         const loaded = await registry.character.service.get(summary.id);
         if (!loaded.ok) return base;
         const character = loaded.value;
@@ -463,10 +467,17 @@ function CollaborationRoute({ registry, campaign, navigate, view, pack }: { read
         const displayDefinition = (type: "class" | "condition", id: string) => sheet.resolveName?.(type, id) ?? id.replace(/[-_]/g, " ");
         const supportedTargets: readonly CampaignAdjustmentTarget[] = ["armor-class", "initiative", "attack-roll", "ability-check"];
         const adjustments = character.manualAdjustments.flatMap((adjustment) => supportedTargets.includes(adjustment.target.kind as CampaignAdjustmentTarget) && adjustment.value.kind === "number" ? [{ id: adjustment.id, target: adjustment.target.kind as CampaignAdjustmentTarget, amount: adjustment.value.amount, reason: adjustment.reason }] : []);
+        const portraitUrl = character.portraitAssetId && sheet.portrait ? await sheet.portrait.load(character.portraitAssetId, character.portraitSha256).catch(() => undefined) : undefined;
+        if (portraitUrl?.startsWith("blob:")) {
+          if (active) portraitUrls.push(portraitUrl);
+          else URL.revokeObjectURL(portraitUrl);
+        }
         return {
           ...base,
           ...(character.playerName ? { playerName: character.playerName } : {}),
           className: summary.classSummary.map((entry) => displayDefinition("class", entry.classId)).join(" / "),
+          classId: summary.classSummary[0]?.classId,
+          ...(active && portraitUrl ? { portraitUrl } : {}),
           totalLevel: summary.totalLevel,
           hitPoints: { current: character.hp.current, temporary: character.hp.temp, ...(derived ? { maximum: derived.hitPointsMax.value } : {}) },
           ...(derived ? { armorClass: derived.armorClass.value, initiative: derived.initiative.value } : {}),
@@ -482,16 +493,21 @@ function CollaborationRoute({ registry, campaign, navigate, view, pack }: { read
       }));
       if (active) setCharacters(summaries);
     });
-    return () => { active = false; };
-  }, [registry.character.bindSheetProps, registry.character.list, registry.character.service]);
+    return () => { active = false; portraitUrls.forEach((url) => URL.revokeObjectURL(url)); };
+  }, [registry.character.bindSheetProps, registry.character.list, registry.character.service, syncHydration]);
   const Component = LazyCollaborationPanel;
   const session = registry.account.auth?.currentSession() ?? null;
   return <Component
     membership={registry.membership}
     session={session}
+    syncState={syncState}
+    syncMessage={syncMessage}
+    syncHydration={syncHydration}
+    onRefreshSync={onRefreshSync}
     campaigns={campaigns.map((item) => ({ id: item.id, name: item.name }))}
     characters={characters}
     activeCampaignId={campaign?.value?.id}
+    activeCharacterId={registry.character.service.store.selectedId}
     view={view}
     onOpenSession={(id) => navigate(`/session/${id}`)}
     onOpenJourney={() => navigate("/journey")}
@@ -691,6 +707,10 @@ function renderRegistryRoute(
   onCharacterCreated: AppRouterProps["onCharacterCreated"],
   syncState: AppRouterProps["syncState"],
   syncMessage: AppRouterProps["syncMessage"],
+  syncHydration: AppRouterProps["syncHydration"],
+  onRefreshSync: AppRouterProps["onRefreshSync"],
+  signedIn: boolean,
+  accountCharacterId: Character["id"] | undefined,
   actionsDice: ActionsDice | undefined,
   isCampaignMaster: boolean,
   navigate: (to: string) => void,
@@ -704,7 +724,7 @@ function renderRegistryRoute(
       }
       return <PendingDestination title="Criação de personagem" reasons={registry.character.pendingDependencies.length ? registry.character.pendingDependencies : ["Catálogo e draft de criação não foram fornecidos nesta composição."]} />;
     }
-    if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} /> : <CharacterHomeRoute registry={registry} character={character} navigate={navigate} replace={replace} />;
+    if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} /> : <CharacterHomeRoute registry={registry} character={character} navigate={navigate} replace={replace} signedIn={signedIn} accountCharacterId={accountCharacterId} />;
     return <CharacterDetailRoute registry={registry} character={character} pack={pack} id={match.params.id} />;
   }
   if (match.kind === "actions") {
@@ -717,7 +737,7 @@ function renderRegistryRoute(
   if (match.kind === "compendium") {
     return <CompendiumRoute registry={registry} />;
   }
-  if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} />;
+  if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
   if (match.kind === "session") return <SessionRoute registry={registry} match={match} campaign={campaign} />;
   if (match.kind === "data") return <DataManagementRoute registry={registry} character={character} campaign={campaign} />;
   if (match.kind === "account") return <AccountRoute registry={registry} navigate={navigate} syncState={syncState} syncMessage={syncMessage} campaign={campaign} />;
@@ -758,6 +778,7 @@ function SettingsRoute({ registry, store, character, navigate }: { readonly regi
   const [drafts, setDrafts] = useState<readonly SettingsDraftOption[]>([]);
   const list = registry?.character.list;
   const listDrafts = registry?.character.listDrafts;
+  const sessionUid = registry?.account.auth?.currentSession()?.uid;
   useEffect(() => {
     if (!listDrafts) return;
     let active = true;
@@ -777,29 +798,32 @@ function SettingsRoute({ registry, store, character, navigate }: { readonly regi
     let active = true;
     void list().then((result) => {
       if (!active || !result.ok) return;
-      setCharacters([...result.value].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).map((summary) => ({
+      setCharacters(result.value.filter((summary) => !sessionUid || !summary.ownerUid || summary.ownerUid === sessionUid).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).map((summary) => ({
         id: String(summary.id),
         name: summary.name || "Personagem sem nome",
         detail: summary.classSummary.map((entry) => `${resolveName?.("class", String(entry.classId)) ?? String(entry.classId)} ${entry.level}`).join(" / ") || undefined,
       })));
     });
     return () => { active = false; };
-  }, [list, resolveName]);
+  }, [list, resolveName, sessionUid]);
   const Panel = LazySettingsPanel;
   return <Panel store={store} characters={characters} activeCharacterId={character?.value?.id ? String(character.value.id) : undefined} onSelectCharacter={registry ? (id) => { void registry.character.service.select(asUuid(id)); } : undefined} onCreateCharacter={() => navigate("/character/create")} drafts={drafts} onResumeDraft={(id) => navigate(`/character/create/${id}`)} />;
 }
 
 /** Small History API router: keeps the shell usable without adding a package. */
-export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
+export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
   const accountAuth = registry?.account.auth;
   const membership = registry?.membership;
   const [accountSession, setAccountSession] = useState(() => accountAuth?.currentSession() ?? null);
-  const [isCampaignMaster, setIsCampaignMaster] = useState(false);
-  const [campaignRole, setCampaignRole] = useState<"master" | "player">();
+  const [roleResolution, setRoleResolution] = useState<{ readonly actorId: string; readonly campaignId: string; readonly syncHydration?: object; readonly role?: "master" | "player" }>();
   const localIdentity = membership?.localActor();
   const actorId = accountSession ? asAccountId(accountSession.uid) : localIdentity?.accountId;
   const activeCampaignId = campaign?.value?.id;
+  const roleMatches = Boolean(membership && actorId && activeCampaignId && roleResolution?.actorId === actorId && roleResolution.campaignId === activeCampaignId && roleResolution.syncHydration === syncHydration);
+  const roleReady = !membership || !actorId || !activeCampaignId || roleMatches;
+  const campaignRole = roleMatches ? roleResolution?.role : undefined;
+  const isCampaignMaster = campaignRole === "master";
 
   useEffect(() => {
     if (!accountAuth) {
@@ -816,20 +840,17 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
 
   useEffect(() => {
     let current = true;
-    setIsCampaignMaster(false);
-    setCampaignRole(undefined);
     if (!membership || !actorId || !activeCampaignId) return () => { current = false; };
     void membership.listMemberships({ actorId, campaignId: activeCampaignId }).then((result) => {
-      if (!current || !result.ok) return;
-      const ownMembership = result.value.find((item) => item.accountId === actorId);
+      if (!current) return;
+      const ownMembership = result.ok ? result.value.find((item) => item.accountId === actorId) : undefined;
       const activeRole = ownMembership?.status === "active" ? ownMembership.role : undefined;
-      setCampaignRole(activeRole === "master" || activeRole === "player" ? activeRole : undefined);
-      setIsCampaignMaster(activeRole === "master");
+      setRoleResolution({ actorId, campaignId: activeCampaignId, syncHydration, role: activeRole === "master" || activeRole === "player" ? activeRole : undefined });
     }).catch(() => {
-      if (current) setIsCampaignMaster(false);
+      if (current) setRoleResolution({ actorId, campaignId: activeCampaignId, syncHydration });
     });
     return () => { current = false; };
-  }, [activeCampaignId, actorId, membership]);
+  }, [activeCampaignId, actorId, membership, syncHydration]);
 
   const diceState = useSyncExternalStore(
     diceOverlayController?.subscribe ?? EMPTY_DICE_SUBSCRIBE,
@@ -862,7 +883,10 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
     rolling: diceState.status === "rolling" || diceState.awaitingPhysics,
     };
   }, [actionsDiceCommands, diceState.awaitingPhysics, diceState.history, diceState.result, diceState.status]);
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
+  const cloudHydrationPending = Boolean(accountSession && !syncHydration && (syncState === "pending" || syncState === "synced"));
+  const awaitingCharacterRole = navigation.match.kind === "character" && !navigation.match.params.id && !navigation.match.params.mode && (!roleReady || cloudHydrationPending);
+  const accountCharacterId = accountSession ? shellProps.settingsStore?.settings?.activeCharacterIdsByAccount?.[accountSession.uid] : undefined;
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
 
   return (
     <AppShell

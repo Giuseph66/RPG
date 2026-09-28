@@ -57,6 +57,7 @@ import type { AuthPort } from "@application/ports/auth-port";
 import type { AccountAvailability, AccountSyncState } from "@features/account";
 import { FirebaseAuthAdapter, createFirebaseAssetStorageAdapter, getFirebaseApp, getFirebaseConfigDiagnostic } from "@infrastructure/cloud/firebase";
 import type { AssetTransferPort } from "@application/ports/asset-transfer";
+import type { PortraitRemoteStore } from "@application/ports/portrait-store";
 import { getFirestoreClient, createFirebaseFirestoreSyncAdapter } from "@infrastructure/cloud/firebase";
 import { createSessionGatedOutboxRepository, createSyncOutboxService, createSyncRuntime, type SyncRuntime } from "@application/sync";
 import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityStorage, type MembershipService } from "@application/membership";
@@ -66,6 +67,7 @@ import { type SessionAuthorizationPort } from "@application/session/authorizatio
 import { asAccountId, asEntityId, type AccountId, type EntityId, type EntityType, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
 import { createPortraitService } from "./portrait-service";
+import { createFirestorePortraitStore } from "@infrastructure/cloud/firebase/portrait-store";
 import { AppRouter } from "./router";
 
 /**
@@ -107,6 +109,7 @@ export interface ApplicationRuntime {
   readonly authAvailability: AccountAvailability;
   /** Runtime sync is optional and remains local-only without Firebase config/session. */
   readonly sync?: SyncRuntime;
+  readonly dispose?: () => void;
 }
 
 export interface BootstrapProps {
@@ -388,6 +391,13 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     syncOutbox: createSyncOutboxService(gatedOutboxRepository),
     localIdentity,
   });
+  const localMembership = createMembershipService({
+    repository: membershipRepository,
+    clock,
+    idGenerator,
+    unitOfWork: new IndexedDbUnitOfWork(database),
+    localIdentity,
+  });
   const sessionAuthorization: SessionAuthorizationPort = {
     async getCampaignRole(campaignId, accountId: AccountId) {
       const membership = await membershipRepository.getMembership(campaignId, accountId);
@@ -412,46 +422,71 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       })
     : undefined);
   const assets = createAssetSyncService(assetRepository, assetTransfer);
+  let portraitStore: PortraitRemoteStore | undefined;
+  const portraitRemote: PortraitRemoteStore | undefined = firebaseApp ? {
+    get: (id) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id),
+  } : undefined;
   const portraits = createPortraitService({
     assets,
     outbox: createSyncOutboxService(gatedOutboxRepository),
+    ...(portraitRemote ? { remote: portraitRemote } : {}),
     cloudUid: () => auth?.currentSession()?.uid,
     newId: () => idGenerator.uuid(),
     now: () => clock.now(),
   });
+  let unsubscribePortraitAuth: (() => void) | undefined;
+  let unsubscribePortraitCharacter: (() => void) | undefined;
+  let unsubscribeCharacterAuth: (() => void) | undefined;
 
   try {
     const settings = await services.settings.hydrate();
     if (!settings.ok) throw new Error(settings.error.message);
 
-    if (settings.value.activeCharacterId !== undefined) {
+    const initialAccountUid = auth?.currentSession()?.uid;
+    const initialCharacterId = initialAccountUid ? settings.value.activeCharacterIdsByAccount?.[initialAccountUid] : settings.value.activeCharacterId;
+    if (initialCharacterId !== undefined) {
       // `select` (não `hydrate`) marca o ID como selecionado antes de buscar o agregado —
       // `AggregateStore.hydrate(id)` só publica o snapshot quando `this.selected === id`
       // (guarda contra corrida entre trocas de personagem); sem `select` primeiro, o
       // personagem ativo nunca é restaurado ao recarregar a página, mesmo com sucesso na
       // leitura. Bug pré-existente descoberto ao verificar o achado #1 de QA-004.
-      const character = await services.character.select(settings.value.activeCharacterId);
+      const character = await services.character.select(initialCharacterId);
       // Ficha apagada ou indisponível neste aparelho: segue sem personagem em vez de travar o boot.
-      if (!character.ok) void services.settings.update({ activeCharacterId: undefined });
+      if (!character.ok) {
+        if (initialAccountUid) {
+          const remaining = { ...settings.value.activeCharacterIdsByAccount };
+          delete remaining[initialAccountUid];
+          void services.settings.update({ activeCharacterIdsByAccount: remaining });
+        } else void services.settings.update({ activeCharacterId: undefined });
+      }
     }
 
     // Guarda o personagem ativo a cada troca (ficha aberta, seleção em Configurações), para
     // que recarregar a página volte ao mesmo personagem.
-    let persistedCharacterId = settings.value.activeCharacterId;
+    let persistedCharacterId = initialCharacterId;
     services.character.store.subscribe(() => {
       const id = services.character.store.getSnapshot().value?.id;
       if (!id || id === persistedCharacterId) return;
       persistedCharacterId = id;
-      void services.settings.update({ activeCharacterId: id });
+      const uid = auth?.currentSession()?.uid;
+      void services.settings.update(uid ? { activeCharacterIdsByAccount: { ...services.settings.store.settings?.activeCharacterIdsByAccount, [uid]: id } } : { activeCharacterId: id });
+    });
+    let selectedAccountUid = initialAccountUid;
+    unsubscribeCharacterAuth = auth?.observeSession((current) => {
+      if (current?.uid === selectedAccountUid) return;
+      selectedAccountUid = current?.uid;
+      const id = current ? services.settings.store.settings?.activeCharacterIdsByAccount?.[current.uid] : services.settings.store.settings?.activeCharacterId;
+      persistedCharacterId = id;
+      void services.character.select(id);
     });
 
     const campaigns = await services.campaign.list();
     if (!campaigns.ok) throw new Error(campaigns.error.message);
     // Every local campaign gets a device owner. This enables collaboration and
     // session records offline without pretending the device is a Firebase user.
-    await membershipWithSync.ensureAccount({ actorId: localIdentity.accountId, email: null, displayName: localIdentity.displayName });
+    await localMembership.ensureAccount({ actorId: localIdentity.accountId, email: null, displayName: localIdentity.displayName });
     for (const campaign of campaigns.value) {
-      await membershipWithSync.ensureCampaignOwner({ actorId: localIdentity.accountId, campaignId: campaign.id });
+      await localMembership.ensureCampaignOwner({ actorId: localIdentity.accountId, campaignId: campaign.id });
     }
     const campaignToRestore = chooseCampaignForRestore(campaigns.value);
     if (campaignToRestore) {
@@ -610,12 +645,32 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
         })
       : undefined;
 
-    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, auth, authAvailability, sync: syncRuntime, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
+    if (auth && portraitRemote) {
+      unsubscribePortraitCharacter = services.character.store.subscribe(() => {
+        const assetId = services.character.store.getSnapshot().value?.portraitAssetId;
+        if (assetId) void portraits.publishExisting(assetId);
+      });
+      unsubscribePortraitAuth = auth.observeSession((session) => {
+        if (!session) return;
+        void characterRepository.list().then(async (listed) => {
+          if (!listed.ok) return;
+          for (const summary of listed.value) {
+            const character = await characterRepository.get(summary.id);
+            if (character.ok && character.value.portraitAssetId) await portraits.publishExisting(character.value.portraitAssetId);
+          }
+        });
+      });
+    }
+
+    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, auth, authAvailability, sync: syncRuntime, dispose: () => { unsubscribeCharacterAuth?.(); unsubscribePortraitAuth?.(); unsubscribePortraitCharacter?.(); }, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
   } catch (cause) {
     services.character.dispose();
     services.campaign.dispose();
     services.settings.dispose();
     services.dice.dispose();
+    unsubscribeCharacterAuth?.();
+    unsubscribePortraitAuth?.();
+    unsubscribePortraitCharacter?.();
     syncRuntime?.dispose();
     database.close();
     throw cause;
@@ -708,6 +763,8 @@ function ReadyApplication({ services, diceOverlayController, registry, computeAc
         onCharacterCreated={onCharacterCreated}
         syncState={accountSyncState(syncSnapshot)}
         syncMessage={syncSnapshot.lastError?.message}
+        syncHydration={syncSnapshot.lastHydration}
+        onRefreshSync={sync ? async () => { await sync.run({ retryFailed: true, retryConflicts: true }); } : undefined}
         onRetryBoot={onRetryBoot}
       />
     </ApplicationServicesProvider>
@@ -731,6 +788,7 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
       (nextRuntime) => {
         openedRuntime = nextRuntime;
         if (!active) {
+          nextRuntime.dispose?.();
           nextRuntime.sync?.dispose();
           nextRuntime.services.character.dispose();
           nextRuntime.services.campaign.dispose();
@@ -752,6 +810,7 @@ export function Bootstrap({ initialPath, runtime: suppliedRuntime, pwaPlatform }
     return () => {
       active = false;
       if (openedRuntime) {
+        openedRuntime.dispose?.();
         openedRuntime.sync?.dispose();
         openedRuntime.services.character.dispose();
         openedRuntime.services.campaign.dispose();

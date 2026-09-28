@@ -12,8 +12,11 @@ export interface CollaborationCampaign {
 export interface CollaborationCharacter {
   readonly id: Uuid;
   readonly name: string;
+  readonly ownerUid?: string;
   readonly playerName?: string;
   readonly className?: string;
+  readonly classId?: string;
+  readonly portraitUrl?: string;
   readonly totalLevel?: number;
   readonly hitPoints?: { readonly current: number; readonly temporary: number; readonly maximum?: number };
   readonly armorClass?: number;
@@ -48,7 +51,9 @@ export interface CollaborationPanelProps {
   readonly campaigns?: readonly CollaborationCampaign[];
   readonly characters?: readonly CollaborationCharacter[];
   readonly activeCampaignId?: Uuid;
+  readonly activeCharacterId?: Uuid;
   readonly syncState?: CollaborationSyncState;
+  readonly syncMessage?: string;
   readonly syncHydration?: object;
   readonly onRefreshSync?: () => Promise<void>;
   readonly onOpenSession?: (campaignId: Uuid) => void;

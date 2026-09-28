@@ -118,6 +118,10 @@ export interface ActionIntent {
    * pedindo a CA em vez de inventar um valor.
    */
   readonly targetArmorClass?: number;
+  /** Descanso curto: quantos Dados de Vida gastar por classe (`classId` → quantidade). */
+  readonly hitDice?: Readonly<Record<string, number>>;
+  /** Descanso longo: comeu e bebeu (remove um nível de exaustão). */
+  readonly ateAndDrank?: boolean;
 }
 
 export type ActionCommitResult = void | RuleResult | Promise<void | RuleResult>;
@@ -137,6 +141,14 @@ export interface ActionsProps {
   readonly unequippedWeapons?: readonly string[];
   /** Magias com ataque, resistência e dados de efeito. */
   readonly spellRolls?: readonly ActionSpellRoll[];
+  /** O que cada descanso recupera, já resolvido do rule pack. */
+  readonly restInfo?: ActionRestInfo;
+  /** Peso carregado e Força, para a variação Sobrecarga (Livro do Jogador, p.178). */
+  readonly carrying?: ActionCarrying;
+  /** Deslocamento de caminhada em centímetros, para o movimento do turno. */
+  readonly walkSpeedCm?: number;
+  /** Leva ao inventário (painel de carga). */
+  readonly onOpenInventory?: () => void;
   readonly capabilities?: readonly ActionCapability[];
   /** Optional lookup for callers that keep previews separate from capability metadata. */
   readonly previews?: ReadonlyMap<string, ActionPreview> | Readonly<Record<string, ActionPreview>>;
@@ -149,6 +161,41 @@ export interface ActionsProps {
 }
 
 export type ActionPageProps = ActionsProps;
+
+export interface ActionRestHitDice {
+  readonly classId: string;
+  readonly className: string;
+  readonly faces: DiceFaces;
+  /** Dados de Vida ainda não gastos desta classe. */
+  readonly available: number;
+  /** Total da classe (= nível na classe). */
+  readonly total: number;
+}
+
+export interface ActionRestInfo {
+  readonly hitDice: readonly ActionRestHitDice[];
+  readonly constitutionModifier: number;
+  readonly maxHitPoints: number;
+  /** Dados de Vida que o descanso longo devolve (metade do total, limitado aos gastos). */
+  readonly longRestHitDice: number;
+  /** Recursos gastos que voltam em cada descanso (nome e quantidade). */
+  readonly shortRecovers: readonly string[];
+  readonly longRecovers: readonly string[];
+  readonly spentSpellSlots: number;
+  readonly spentPactSlots: number;
+  readonly exhaustion: number;
+}
+
+export interface ActionCarrying {
+  readonly totalGrams: number;
+  /** Capacidade máxima: 7,5 kg × Força (p.176). */
+  readonly capacityGrams: number;
+  /** Sobrecarga: 2,5 kg × Força. */
+  readonly encumberedGrams?: number;
+  /** Sobrecarga pesada: 5 kg × Força. */
+  readonly heavilyEncumberedGrams?: number;
+  readonly strengthScore: number;
+}
 
 export interface ActionPreviewDetails {
   readonly status?: RuleResult["status"];

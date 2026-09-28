@@ -21,6 +21,26 @@ function fakeMembership() {
 }
 
 describe("CollaborationPanel", () => {
+  it("não atribui Brom ao jogador quando a ficha dele é Teste", async () => {
+    const playerAccountId = asAccountId("8q5RwxbENyOYqGxGe4WIczdMM442");
+    const membership = {
+      listReceivedInvitations: vi.fn(async () => ok([])),
+      listMemberships: vi.fn(async () => ok([
+        { campaignId: campaign.id, accountId: asAccountId(session.uid), role: "master" as const, status: "active" as const },
+        { campaignId: campaign.id, accountId: playerAccountId, role: "player" as const, status: "active" as const },
+      ])),
+    } as unknown as MembershipService;
+    const characters = [
+      { id: asUuid("00000000-0000-4000-8000-000000000021"), name: "Brom", ownerUid: session.uid, campaignId: campaign.id, revision: asRevision(1) },
+      { id: asUuid("00000000-0000-4000-8000-000000000022"), name: "Teste", ownerUid: playerAccountId, campaignId: campaign.id, revision: asRevision(1) },
+    ];
+    const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} characters={characters} view="participants" />);
+    const player = [...mounted.container.querySelectorAll("li")].find((item) => item.textContent?.includes(playerAccountId));
+    expect(player?.textContent).toContain("Ficha: Teste");
+    expect(player?.textContent).not.toContain("Brom");
+    await mounted.unmount();
+  });
+
   it("explica a necessidade de conta no modo local", async () => {
     const mounted = await mount(<CollaborationPanel />);
     expect(mounted.container.textContent).toContain("Entre em uma conta");

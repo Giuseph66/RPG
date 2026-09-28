@@ -236,6 +236,7 @@ export interface Character {
   readonly createdAt: IsoTimestamp;
   readonly updatedAt: IsoTimestamp;
   readonly campaignId?: Uuid;
+  readonly ownerUid?: string;
 
   // Identidade
   readonly name: string;
@@ -304,6 +305,7 @@ export interface CharacterSummary {
   readonly classSummary: readonly CharacterClassSummary[];
   readonly totalLevel: number;
   readonly campaignId?: Uuid;
+  readonly ownerUid?: string;
   readonly portraitAssetId?: Uuid;
   readonly updatedAt: IsoTimestamp;
   readonly revision: Revision;

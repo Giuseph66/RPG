@@ -87,14 +87,17 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
       return rejected("O personagem ativo não corresponde ao comando desta capacidade; recarregue as capacidades antes de confirmar.");
     }
 
+    const choices = { ...(intent.hitDice ? { hitDice: intent.hitDice } : {}), ...(intent.ateAndDrank !== undefined ? { ateAndDrank: intent.ateAndDrank } : {}) };
+    const prepared = execution.prepare ? execution.prepare(choices, () => idGenerator.uuid()) : { command: execution.command, rollPlan: execution.rollPlan };
     const rolls = new Map<Uuid, DiceRoll>();
-    for (const planned of execution.rollPlan) {
+    for (const planned of prepared.rollPlan) {
       const rolled = rollExpression(planned.expression, rng, {
         id: planned.id,
         timestamp: clock.now(),
         purpose: planned.purpose,
         characterId: character.id,
-        commandId: execution.command.commandId,
+        commandId: prepared.command.commandId,
+        ...(planned.label ? { label: planned.label } : {}),
       });
       if (!rolled.ok) {
         return rejected(`Não foi possível gerar a rolagem exigida pelo comando: ${rolled.error.message}`);
@@ -104,7 +107,7 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
 
     let result: RuleResult;
     try {
-      result = execution.resolve({ character, rolls, value: intent.value, targetArmorClass: intent.targetArmorClass });
+      result = execution.resolve({ character, rolls, value: intent.value, targetArmorClass: intent.targetArmorClass, command: prepared.command, choices });
     } catch (cause) {
       return rejected(cause instanceof Error ? cause.message : "Falha inesperada ao resolver o comando de domínio.");
     }
@@ -118,16 +121,10 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
       );
     }
 
-    const committed = await characterService.commands.commit(execution.command, result, [...rolls.values()]);
+    const committed = await characterService.commands.commit(prepared.command, result, [...rolls.values()]);
     if (!committed.ok) {
       return rejected(`Falha ao persistir o comando: ${committed.error.message}`, result.sourceRefs);
     }
-    // idGenerator é injetado para simetria com o restante da camada de aplicação (todo Command
-    // novo nasce de um id gerado pela aplicação, nunca pelo domínio) — este dispatcher não cria
-    // Command novos (isso é responsabilidade de `deriveActionCapabilities`), então não há uso
-    // direto aqui além de deixar a dependência explícita no construtor para quem for estender
-    // este dispatcher com comandos gerados em tempo de despacho (ex.: retry com novo commandId).
-    void idGenerator;
     return committed.value.result;
   };
 }

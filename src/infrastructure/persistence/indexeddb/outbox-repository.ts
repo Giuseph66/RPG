@@ -104,8 +104,8 @@ export class IndexedDbOutboxRepository implements OutboxRepository {
       const valid = await this.validateRead(raw, operationIdOf(raw, index));
       if (!valid.ok) return valid;
       const operation = valid.value;
-      const retryable = operation.status === "failed" && operation.nextRetryAt !== undefined && operation.nextRetryAt <= now;
-      if (operation.status === "pending" || retryable) operations.push(operation);
+      const retryable = operation.status === "failed" && (options.includeFailed === true || (operation.nextRetryAt !== undefined && operation.nextRetryAt <= now));
+      if (operation.status === "pending" || retryable || (operation.status === "conflict" && options.includeConflicts === true)) operations.push(operation);
     }
     operations.sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.operationId.localeCompare(right.operationId));
     return ok(options.limit === undefined ? operations : operations.slice(0, options.limit));
@@ -114,7 +114,7 @@ export class IndexedDbOutboxRepository implements OutboxRepository {
   markSyncing(operationId: CommandId): Promise<Result<SyncOperation, AppError>> {
     return this.mutate(operationId, (operation) => {
       if (operation.status === "syncing") return operation;
-      if (operation.status !== "pending" && operation.status !== "failed") return appError.validation("status", "Somente operações pending ou failed podem iniciar sincronização.");
+      if (operation.status !== "pending" && operation.status !== "failed" && operation.status !== "conflict") return appError.validation("status", "Somente operações pending, failed ou conflict podem iniciar sincronização.");
       return {
         ...operation,
         status: "syncing",

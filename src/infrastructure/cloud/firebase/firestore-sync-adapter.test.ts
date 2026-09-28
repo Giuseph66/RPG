@@ -68,6 +68,7 @@ describe("firestorePathForOperation", () => {
     expect(pathOf(firestorePathForOperation(operation({ aggregateType: "session", aggregateId: sessionId, payload: { campaignId, id: sessionId } })))).toBe(`campaigns/${campaignId}/sessions/${sessionId}`);
     expect(pathOf(firestorePathForOperation(operation({ aggregateType: "session", aggregateId: `${campaignId}/${sessionId}` as never, mutation: "delete", scope: { campaignId }, payload: undefined })))).toBe(`campaigns/${campaignId}/sessions/${sessionId}`);
     expect(pathOf(firestorePathForOperation(operation({ aggregateType: "asset", aggregateId: characterId })))).toBe(`assets/${characterId}`);
+    expect(pathOf(firestorePathForOperation(operation({ aggregateType: "portrait", aggregateId: characterId })))).toBe(`portraits/${characterId}`);
   });
 
   it("recusa delete escopado sem campanha e não usa o owner autenticado como palpite", () => {
@@ -94,6 +95,23 @@ describe("FirebaseFirestoreSyncAdapter", () => {
     expect(fake.setCalls[0]).toMatchObject({
       path: `campaigns/${campaignId}`,
       data: { ownerUid: "master-1", operationId: "operation-1", revision: 1 },
+    });
+  });
+
+  it("publica ficha existente localmente quando o destino da campanha ainda não existe", async () => {
+    const fake = fakeFirestore();
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "character",
+      aggregateId: characterId,
+      baseRevision: asRevision(10),
+      payload: { id: characterId, campaignId, schemaVersion: 1, revision: 10, name: "Teste" },
+    }));
+
+    expect(result).toEqual({ ok: true, value: { kind: "acked", remoteRevision: 10 as Revision } });
+    expect(fake.setCalls[0]).toMatchObject({
+      path: `campaigns/${campaignId}/characters/${characterId}`,
+      data: { id: characterId, campaignId, ownerUid: "player-1", revision: 10 },
     });
   });
 
@@ -178,6 +196,23 @@ describe("FirebaseFirestoreSyncAdapter", () => {
       schemaVersion: 1,
     });
     expect(fake.setCalls[0]?.data).not.toHaveProperty("campaignId");
+  });
+
+  it("persiste retrato pequeno no Firestore com dono e hash", async () => {
+    const fake = fakeFirestore();
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "portrait",
+      aggregateId: characterId,
+      payload: { id: characterId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+    }));
+
+    expect(result.ok).toBe(true);
+    expect(fake.setCalls[0]).toMatchObject({
+      path: `portraits/${characterId}`,
+      data: { id: characterId, ownerUid: "u1", sha256: "a".repeat(64), data: "AQID", revision: 1 },
+    });
+    expect(fake.setCalls[0]?.data).not.toHaveProperty("storagePath");
   });
 
   it("preserva campaignId e deriva caminho de asset compartilhado", async () => {

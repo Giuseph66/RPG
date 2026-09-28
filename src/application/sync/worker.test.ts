@@ -36,7 +36,7 @@ function fakeOutbox(initial: readonly SyncOperation[]) {
   const outbox: OutboxRepository = {
     enqueue: async () => { throw new Error("unused"); },
     get: async (id) => ok(records.get(id)!),
-    listPending: async () => ok([...records.values()].filter((operation) => operation.status === "pending" || operation.status === "failed")),
+    listPending: async () => ok([...records.values()].filter((operation) => operation.status === "pending" || operation.status === "failed" || operation.status === "conflict")),
     markSyncing: async (id) => {
       const current = records.get(id)!;
       const next = { ...current, status: "syncing" as const, attempts: current.attempts + 1 };
@@ -131,6 +131,46 @@ describe("SyncWorker", () => {
     expect(store.records.get(first.operationId)?.nextRetryAt).toBe("2026-09-12T10:00:00.500Z");
     expect(store.records.get(second.operationId)?.status).toBe("pending");
     expect(store.records.get(other.operationId)?.status).toBe("acked");
+  });
+
+  it("mantém visíveis falhas anteriores até serem reenviadas ou confirmadas", async () => {
+    const failed = { ...makeOperation("failed"), status: "failed" as const, lastError: "Missing or insufficient permissions." };
+    const store = fakeOutbox([failed]);
+    const apply = vi.fn();
+    const adapter: RemoteSyncAdapter = { isAvailable: () => true, apply };
+
+    const result = await createSyncWorker({ outbox: store.outbox, adapter, clock }).run();
+
+    expect(result).toEqual({ ok: true, value: {
+      attempted: 0,
+      acked: 0,
+      conflicts: 0,
+      failed: 1,
+      skipped: 0,
+      unavailable: false,
+      lastErrorMessage: "Missing or insufficient permissions.",
+    } });
+    expect(apply).not.toHaveBeenCalled();
+    expect(store.records.get(failed.operationId)?.status).toBe("failed");
+  });
+
+  it("mantém conflitos visíveis e só os reprocessa por solicitação explícita", async () => {
+    const conflicted = {
+      ...makeOperation("conflicted"),
+      status: "conflict" as const,
+      conflict: { remoteRevision: asRevision(0), detectedAt: time, message: "revisão remota divergente" },
+    };
+    const store = fakeOutbox([conflicted]);
+    const apply = vi.fn(async () => ok({ kind: "acked" as const, remoteRevision: asRevision(10) }));
+    const adapter: RemoteSyncAdapter = { isAvailable: () => true, apply };
+
+    const unresolved = await createSyncWorker({ outbox: store.outbox, adapter, clock }).run();
+    expect(unresolved).toMatchObject({ ok: true, value: { attempted: 0, conflicts: 1, lastErrorMessage: "revisão remota divergente" } });
+    expect(apply).not.toHaveBeenCalled();
+
+    const retried = await createSyncWorker({ outbox: store.outbox, adapter, clock }).run({ retryConflicts: true });
+    expect(retried).toMatchObject({ ok: true, value: { attempted: 1, acked: 1, conflicts: 0 } });
+    expect(store.records.get(conflicted.operationId)?.status).toBe("acked");
   });
 
   it("não lista nem chama o adapter quando está offline ou Firebase indisponível", async () => {

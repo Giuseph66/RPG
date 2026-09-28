@@ -51,7 +51,7 @@
  *   requisição mínima; quando o preview também precisa de mais contexto que não temos
  *   (`previewCast` delega para `castSpell` internamente), fica `undefined` (campo opcional).
  * - "rest": duas capacidades fixas (curto/longo), sem seleção de Dados de Vida a recuperar
- *   (não modelado na intent) — `resolveRest` é chamado com `hitDiceSpent: []`.
+ *   escolhidos na intent (`hitDice`); `prepare` pré-aloca uma rolagem por dado.
  * - "concentration": só aparece quando `character.concentration` está ativo; sempre
  *   `reason: "voluntary"`.
  * - "resource" (recursos de personagem e features de classe não passivas): `Command.kind
@@ -81,7 +81,7 @@ import { type DiceExpression, type DicePurpose, type DiceRoll } from "@domain/co
 import { type Command, type RuleResult } from "@domain/contracts/rules";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { resolveCombatCommand, type CombatCommandContext } from "@domain/rules/combat";
-import { resolveRest, type RestInput } from "@domain/rules/rest";
+import { REST_RULE_SOURCE_REF, resolveRest, type RestInput } from "@domain/rules/rest";
 import { spendResource } from "@domain/rules/resources";
 import { castSpell, previewCast } from "@domain/spells";
 import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
@@ -98,6 +98,14 @@ export interface RollPlanRequest {
   readonly id: Uuid;
   readonly expression: DiceExpression;
   readonly purpose: DicePurpose;
+  /** Rótulo exibido no histórico de rolagens. */
+  readonly label?: string;
+}
+
+/** Escolhas do jogador que mudam o comando no momento do commit (ex.: Dados de Vida). */
+export interface ActionIntentChoices {
+  readonly hitDice?: Readonly<Record<string, number>>;
+  readonly ateAndDrank?: boolean;
 }
 
 /**
@@ -115,11 +123,18 @@ export interface ActionCapabilityExecution {
    * usam `value`; a capacidade "attack" usa `targetArmorClass`. Adicionar campos aqui é
    * compatível com chamadores existentes: são opcionais e vêm depois dos já usados.
    */
+  /**
+   * Opcional: remonta comando e rolagens a partir das escolhas da intent (descanso curto
+   * pré-aloca um id de rolagem por Dado de Vida escolhido). Sem ele, vale `command`/`rollPlan`.
+   */
+  readonly prepare?: (choices: ActionIntentChoices, newId: () => Uuid) => { readonly command: Command; readonly rollPlan: readonly RollPlanRequest[] };
   readonly resolve: (args: {
     readonly character: Character;
     readonly rolls: ReadonlyMap<Uuid, DiceRoll>;
     readonly value?: number;
     readonly targetArmorClass?: number;
+    readonly command?: Command;
+    readonly choices?: ActionIntentChoices;
   }) => RuleResult;
 }
 
@@ -434,6 +449,7 @@ function buildRestCapabilities(
   const executions: (readonly [string, ActionCapabilityExecution])[] = [];
   const resourceDefinitions = new Map<string, ResourceDefinition>([...pack.resources].map(([entityId, definition]) => [String(entityId), definition]));
 
+  const className = (classId: string) => pack.classes.get(classId as never)?.name ?? classId;
   for (const restKind of ["short", "long"] as const) {
     const commandId = idGenerator.commandId();
     const command: Command = {
@@ -450,17 +466,41 @@ function buildRestCapabilities(
       commandId,
       kind: "rest",
       label: restKind === "short" ? "Descanso curto" : "Descanso longo",
-      description: "Não recupera Dados de Vida escolhidos manualmente nesta versão (sem seleção na intent); recursos com gatilho compatível recuperam normalmente.",
+      description: restKind === "short"
+        ? "Pelo menos 1 hora. Gaste Dados de Vida para recuperar pontos de vida."
+        : "Pelo menos 8 horas. Recupera todos os pontos de vida, metade dos Dados de Vida e os espaços de magia.",
       status: "available",
       preview: resolveRest(character, restPreviewInput),
+      sourceRefs: [REST_RULE_SOURCE_REF],
     });
     executions.push([
       id,
       {
         command,
         rollPlan: [],
-        resolve: ({ character: liveCharacter }) => {
-          const input: RestInput = { restKind, hitDiceSpent: [], maximumHitPoints: derived.hitPointsMax.value, resourceDefinitions };
+        prepare: ({ hitDice }, newId) => {
+          if (restKind !== "short" || !hitDice) return { command, rollPlan: [] };
+          const rollPlan: RollPlanRequest[] = [];
+          const hitDiceSpent = character.hitDiceSpent.flatMap((entry) => {
+            const count = Math.max(0, Math.floor(hitDice[String(entry.classId)] ?? 0));
+            if (count === 0) return [];
+            const rollIds = Array.from({ length: count }, () => newId());
+            for (const rollId of rollIds) rollPlan.push({ id: rollId, expression: { quantity: 1, faces: entry.hitDie, modifier: 0 }, purpose: "healing", label: `Dado de Vida (${className(String(entry.classId))})` });
+            return [{ classId: entry.classId, count, rollIds }];
+          });
+          return { command: { ...command, payload: { restKind, hitDiceSpent } }, rollPlan };
+        },
+        resolve: ({ character: liveCharacter, rolls, command: prepared, choices }) => {
+          const payload = prepared?.kind === "rest" ? prepared.payload : command.payload as RestInput;
+          const input: RestInput = {
+            restKind,
+            hitDiceSpent: payload.hitDiceSpent,
+            hitDiceRolls: rolls,
+            constitutionModifier: derived.abilityScores.find((entry) => entry.ability === "con")?.modifier.value ?? 0,
+            maximumHitPoints: derived.hitPointsMax.value,
+            resourceDefinitions,
+            ...(choices?.ateAndDrank !== undefined ? { ateAndDrank: choices.ateAndDrank } : {}),
+          };
           return resolveRest(liveCharacter, input);
         },
       },

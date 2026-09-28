@@ -40,8 +40,10 @@ export interface InventoryCatalogOption {
 export interface InventoryCarrying {
   readonly totalGrams: number;
   readonly capacityGrams: number;
-  /** Limite da variante "Sobrecarga" (2,5 kg × Força), exibido como marca de referência. */
+  /** Variação "Sobrecarga" (p.178): acima de 2,5 kg × Força, deslocamento −3 m. */
   readonly encumberedGrams?: number;
+  /** Acima de 5 kg × Força: −6 m e desvantagem em FOR/DES/CON. */
+  readonly heavilyEncumberedGrams?: number;
   readonly strengthScore: number;
 }
 

@@ -7,11 +7,11 @@ import type { CharacterDerived } from "@domain/contracts/derived";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { DefinitionRef } from "@domain/contracts/ids";
 import type { InventoryCarrying, InventoryCatalogOption } from "@features/inventory";
-import type { ActionAttackRoll, ActionSpellRoll } from "@features/actions";
+import type { ActionAttackRoll, ActionRestInfo, ActionSpellRoll } from "@features/actions";
 import { DAMAGE_LABELS } from "@features/character/sheet/mapping";
 import { DICE_FACES, type Ability, type DiceFaces } from "@domain/contracts/primitives";
 import type { SheetEquipmentInfo, SheetSpellOption } from "@features/character/sheet";
-import { carryingCapacityGrams } from "@data/rules/encumbrance";
+import { carryingCapacityGrams, encumbranceThresholdsGrams } from "@data/rules/encumbrance";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
 
 /** Itens concretos do catálogo (sem escolhas abstratas como "símbolo sagrado à escolha"). */
@@ -34,7 +34,7 @@ export function equipmentInfo(pack: RulePack | undefined, entityId: string): She
   return definition ? { category: definition.category, weightGrams: Number(definition.weightGrams) } : undefined;
 }
 
-/** Peso total do inventário e capacidade do livro (7,5 kg × Força). */
+/** Peso total do inventário, capacidade do livro (7,5 kg × Força) e limiares da Sobrecarga. */
 export function carryingFor(character: Character, derived: CharacterDerived | undefined, pack: RulePack | undefined): InventoryCarrying | undefined {
   const strength = derived?.abilityScores.find((entry) => entry.ability === "str")?.score.value;
   if (strength === undefined || !pack) return undefined;
@@ -42,6 +42,7 @@ export function carryingFor(character: Character, derived: CharacterDerived | un
   return {
     totalGrams,
     capacityGrams: carryingCapacityGrams(strength),
+    ...encumbranceThresholdsGrams(strength),
     strengthScore: strength,
   };
 }
@@ -187,4 +188,40 @@ export function spellRollsFor(character: Character, derived: CharacterDerived | 
     }
   }
   return rolls.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+/**
+ * O que cada descanso devolve (cap. 8, p.188): Dados de Vida por classe, recursos gastos com
+ * gatilho de descanso curto/longo, espaços de magia e exaustão.
+ */
+export function restInfoFor(character: Character, derived: CharacterDerived | undefined, pack: RulePack | undefined): ActionRestInfo | undefined {
+  if (!derived || !pack) return undefined;
+  const hitDice = character.classes.map((entry) => {
+    const spent = character.hitDiceSpent.find((candidate) => candidate.classId === entry.classId);
+    const faces = spent?.hitDie ?? pack.classes.get(entry.classId)?.hitDie;
+    return faces ? { classId: String(entry.classId), className: pack.classes.get(entry.classId)?.name ?? String(entry.classId), faces, available: Math.max(0, entry.level - (spent?.spent ?? 0)), total: entry.level } : undefined;
+  }).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  const totalLevel = character.classes.reduce((sum, entry) => sum + entry.level, 0);
+  const spentHitDice = character.hitDiceSpent.reduce((sum, entry) => sum + entry.spent, 0);
+  const recovers = (trigger: "short-rest" | "long-rest") => character.resources.flatMap((resource) => {
+    const definition = pack.resources.get(resource.definitionRef.entityId);
+    if (!definition || resource.spent <= 0 || !definition.recoveryTriggers.some((candidate) => candidate.kind === trigger || (trigger === "long-rest" && candidate.kind === "short-rest"))) return [];
+    return [`${definition.name} (${resource.spent} ${resource.spent === 1 ? "uso" : "usos"})`];
+  });
+  return {
+    hitDice,
+    constitutionModifier: abilityModifier(derived, "con"),
+    maxHitPoints: derived.hitPointsMax.value,
+    longRestHitDice: Math.min(spentHitDice, Math.floor(totalLevel / 2)),
+    shortRecovers: recovers("short-rest"),
+    longRecovers: recovers("long-rest"),
+    spentSpellSlots: character.spellSlots.reduce((sum, slot) => sum + slot.spent, 0),
+    spentPactSlots: character.spellSlots.filter((slot) => slot.kind === "pact").reduce((sum, slot) => sum + slot.spent, 0),
+    exhaustion: character.conditions.filter((condition) => condition.definitionRef.entityId === "exhaustion").reduce((max, condition) => Math.max(max, condition.severity ?? 0), 0),
+  };
+}
+
+/** Deslocamento de caminhada derivado (já com condições e armadura), em centímetros. */
+export function walkSpeedFor(derived: CharacterDerived | undefined): number | undefined {
+  return derived?.speedsCm.find((entry) => entry.kind === "walk")?.value.value;
 }

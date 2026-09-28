@@ -7,6 +7,11 @@
       "indexes": [
         { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "portraits",
+      "fieldPath": "data",
+      "indexes": []
     }
   ]
 }

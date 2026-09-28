@@ -39,7 +39,7 @@ export interface SyncRuntime {
   /** Solicita uma drenagem após uma mutação autenticada. */
   notifyPending(): void;
   /** Drena agora; usado pelo runtime e por hosts que querem feedback explícito. */
-  run(): Promise<Result<SyncWorkerReport, AppError> | undefined>;
+  run(options?: { readonly retryFailed?: boolean; readonly retryConflicts?: boolean }): Promise<Result<SyncWorkerReport, AppError> | undefined>;
   dispose(): void;
 }
 
@@ -62,6 +62,8 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
   let scheduled: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<Result<SyncWorkerReport, AppError> | undefined> | undefined;
   let rerun = false;
+  let retryFailedOnRerun = false;
+  let retryConflictsOnRerun = false;
   const listeners = new Set<() => void>();
   const events = options.events ?? browserEvents();
   const online = options.isOnline ?? browserOnline;
@@ -83,11 +85,11 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     if (!active || !session || !worker || !online() || scheduled !== undefined) return;
     scheduled = setTimeout(() => {
       scheduled = undefined;
-      void run();
+      void run({ retryFailed: retryFailedOnRerun, retryConflicts: retryConflictsOnRerun });
     }, 0);
   }
 
-  async function run(): Promise<Result<SyncWorkerReport, AppError> | undefined> {
+  async function run(options: { readonly retryFailed?: boolean; readonly retryConflicts?: boolean } = {}): Promise<Result<SyncWorkerReport, AppError> | undefined> {
     if (!active || !session || !worker) return undefined;
     if (!online()) {
       publish({ state: "offline", uid: session.uid, lastReport: current.lastReport });
@@ -95,15 +97,21 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     }
     if (running) {
       rerun = true;
+      if (options.retryFailed) retryFailedOnRerun = true;
+      if (options.retryConflicts) retryConflictsOnRerun = true;
       return running;
     }
+    const retryFailed = options.retryFailed || retryFailedOnRerun;
+    const retryConflicts = options.retryConflicts || retryConflictsOnRerun;
+    retryFailedOnRerun = false;
+    retryConflictsOnRerun = false;
 
     const activeWorker = worker;
     const activePullWorker = pullWorker;
     publish({ state: "syncing", uid: session.uid, lastReport: current.lastReport, lastHydration: current.lastHydration });
     running = (async () => {
       const pulled = await activePullWorker?.run();
-      const pushed = await activeWorker!.run();
+      const pushed = await activeWorker!.run({ retryFailed, retryConflicts });
       if (pulled?.ok) current = { ...current, lastHydration: pulled.value };
       // A falha na leitura (por exemplo, um índice ausente) não pode impedir
       // que alterações locais já autenticadas sejam enviadas ao Firebase.

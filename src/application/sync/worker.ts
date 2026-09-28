@@ -64,29 +64,36 @@ function mergeReport(report: SyncWorkerReport, patch: Partial<SyncWorkerReport>)
 export class SyncWorker {
   constructor(private readonly options: SyncWorkerOptions) {}
 
-  async run(): Promise<Result<SyncWorkerReport, AppError>> {
+  async run(options: { readonly retryFailed?: boolean; readonly retryConflicts?: boolean } = {}): Promise<Result<SyncWorkerReport, AppError>> {
     const { adapter, outbox, clock } = this.options;
     if (this.options.isActive?.() === false) return ok(emptyReport(true));
     if (this.options.isOnline?.() === false) return ok(emptyReport(true));
     if (!adapter.isAvailable()) return ok(emptyReport(true));
 
-    const listed = await outbox.listPending({ limit: this.options.maxOperations });
+    const listed = await outbox.listPending({ includeFailed: true, includeConflicts: true, now: clock.now() });
     if (!listed.ok) return listed;
 
     const grouped = new Map<string, SyncOperation[]>();
     let skipped = 0;
-    for (const operation of listed.value) {
+    const owned = listed.value.filter((operation) => {
       const ownerUid = (operation as SyncOperation & { readonly ownerUid?: unknown }).ownerUid;
       if (this.options.ownerUid !== undefined && ownerUid !== this.options.ownerUid) {
         skipped += 1;
-        continue;
+        return false;
       }
-      // Uma fila eventualmente consistente pode devolver um registro já finalizado;
-      // jamais reenviar uma operação que já recebeu ack.
-      if (operation.status !== "pending" && operation.status !== "failed") {
-        skipped += 1;
-        continue;
-      }
+      return operation.status === "pending" || operation.status === "failed" || operation.status === "conflict";
+    });
+    const eligible = owned.filter((operation) => operation.status === "pending" ||
+      (operation.status === "failed" && (options.retryFailed || (operation.nextRetryAt !== undefined && operation.nextRetryAt <= clock.now()))) ||
+      (operation.status === "conflict" && options.retryConflicts === true));
+    const operations = this.options.maxOperations === undefined ? eligible : eligible.slice(0, this.options.maxOperations);
+    const processedIds = new Set(operations.map((operation) => operation.operationId));
+    const unresolvedFailures = owned.filter((operation) => operation.status === "failed" && !processedIds.has(operation.operationId));
+    const unresolvedConflicts = owned.filter((operation) => operation.status === "conflict" && !processedIds.has(operation.operationId));
+    const unresolved = [...unresolvedFailures, ...unresolvedConflicts].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const latestUnresolved = unresolved.at(-1);
+
+    for (const operation of operations) {
       const key = aggregateKey(operation);
       const current = grouped.get(key) ?? [];
       current.push(operation);
@@ -94,7 +101,16 @@ export class SyncWorker {
       grouped.set(key, current);
     }
 
-    let report = mergeReport(emptyReport(), { skipped });
+    let report = mergeReport(emptyReport(), {
+      skipped,
+      failed: unresolvedFailures.length,
+      conflicts: unresolvedConflicts.length,
+      ...(latestUnresolved
+        ? { lastErrorMessage: latestUnresolved.status === "conflict"
+          ? latestUnresolved.conflict?.message ?? "Há conflitos remotos não resolvidos."
+          : latestUnresolved.lastError ?? "Há operações anteriores que ainda não foram confirmadas pelo Firebase." }
+        : {}),
+    });
     const retryBaseMs = this.options.retryBaseMs ?? 1_000;
     for (const operations of grouped.values()) {
       for (const operation of operations) {

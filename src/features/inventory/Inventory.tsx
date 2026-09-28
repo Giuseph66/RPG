@@ -167,24 +167,38 @@ function ImpactPanel({ impact }: Pick<InventoryProps, "impact">) {
 
 /** Barra de carga: 7,5 kg × Força é o máximo do livro; acima disso fica em vermelho. */
 function CarryingPanel({ carrying }: { readonly carrying: InventoryCarrying }) {
-  const { totalGrams, capacityGrams, encumberedGrams, strengthScore } = carrying;
+  const { totalGrams, capacityGrams, encumberedGrams, heavilyEncumberedGrams, strengthScore } = carrying;
   const rule = useRuleHint();
   const over = totalGrams > capacityGrams;
+  const tier = over ? "over" : heavilyEncumberedGrams !== undefined && totalGrams > heavilyEncumberedGrams ? "heavy" : encumberedGrams !== undefined && totalGrams > encumberedGrams ? "encumbered" : "light";
   const percent = capacityGrams > 0 ? Math.min(100, (totalGrams / capacityGrams) * 100) : 100;
-  const markerPercent = encumberedGrams !== undefined && capacityGrams > 0 ? Math.min(100, (encumberedGrams / capacityGrams) * 100) : undefined;
+  const marker = (grams: number | undefined) => grams !== undefined && capacityGrams > 0 ? Math.min(100, (grams / capacityGrams) * 100) : undefined;
+  const encumberedPercent = marker(encumberedGrams);
+  const heavyPercent = marker(heavilyEncumberedGrams);
+  const status = tier === "over"
+    ? `Acima da capacidade em ${formatWeight(totalGrams - capacityGrams)}: só dá para empurrar ou arrastar (até ${formatWeight(capacityGrams * 2)}), com deslocamento de 1,5 m.`
+    : tier === "heavy" ? "Sobrecarga pesada: deslocamento −6 m e desvantagem em testes, ataques e resistências de Força, Destreza e Constituição."
+    : tier === "encumbered" ? "Sobrecarga: deslocamento −3 m."
+    : "Carga leve: sem penalidades.";
   return (
-    <section className={[styles.carryPanel, over ? styles.carryOver : ""].join(" ")} aria-labelledby="inventory-carry-title">
+    <section className={[styles.carryPanel, over ? styles.carryOver : ""].join(" ")} data-tier={tier} aria-labelledby="inventory-carry-title">
       <div className={styles.panelHeading}>
         <h2 {...rule({ category: "rules", title: "Usando Cada Habilidade" })} id="inventory-carry-title">Carga</h2>
         <span className={over ? styles.overLimit : styles.carryValue}><strong>{formatWeight(totalGrams)}</strong> / {formatWeight(capacityGrams)}</span>
       </div>
       <div className={styles.carryTrack} role="meter" aria-label="Peso carregado" aria-valuemin={0} aria-valuemax={capacityGrams} aria-valuenow={Math.min(totalGrams, capacityGrams)} aria-valuetext={`${formatWeight(totalGrams)} de ${formatWeight(capacityGrams)}${over ? ", acima da capacidade" : ""}`}>
         <span className={styles.carryFill} style={{ width: `${percent}%` }} />
-        {markerPercent !== undefined ? <span className={styles.carryMarker} style={{ left: `${markerPercent}%` }} title={`Sobrecarga (variante): ${formatWeight(encumberedGrams!)}`} /> : null}
+        {encumberedPercent !== undefined ? <span className={styles.carryMarker} style={{ left: `${encumberedPercent}%` }} title={`Sobrecarga: ${formatWeight(encumberedGrams!)}`} /> : null}
+        {heavyPercent !== undefined ? <span className={styles.carryMarker} style={{ left: `${heavyPercent}%` }} title={`Sobrecarga pesada: ${formatWeight(heavilyEncumberedGrams!)}`} /> : null}
       </div>
-      {over
-        ? <p className={styles.overLimit} role="alert">Acima da capacidade em {formatWeight(totalGrams - capacityGrams)}.</p>
-        : <p className={styles.muted}>Máximo {formatWeight(capacityGrams)} = Força {strengthScore} × 2,5 kg (Livro do Jogador, p. 176).</p>}
+      {encumberedGrams !== undefined && heavilyEncumberedGrams !== undefined ? <ol className={styles.carryScale} aria-label="Limites de carga">
+        <li data-active={tier === "light"}><span>Leve</span><small>até {formatWeight(encumberedGrams)}</small></li>
+        <li data-active={tier === "encumbered"}><span>Sobrecarga</span><small>−3 m</small></li>
+        <li data-active={tier === "heavy"}><span>Pesada</span><small>−6 m · desv.</small></li>
+        <li data-active={tier === "over"}><span>Máximo</span><small>{formatWeight(capacityGrams)}</small></li>
+      </ol> : null}
+      <p className={tier === "light" ? styles.muted : styles.overLimit} role={over ? "alert" : undefined}>{status}</p>
+      <p className={styles.muted}>Força {strengthScore}: sobrecarga acima de 2,5 kg × FOR, pesada acima de 5 kg × FOR, máximo 7,5 kg × FOR (Livro do Jogador, p. 176 e variação Sobrecarga, p. 178).</p>
     </section>
   );
 }

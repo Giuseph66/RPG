@@ -12,6 +12,7 @@ export type DiceColorHex = `#${string}`;
 
 export interface AppSettings {
   readonly activeCharacterId?: Uuid;
+  readonly activeCharacterIdsByAccount?: Readonly<Record<string, Uuid>>;
   readonly theme: ThemePreference;
   /** undefined = seguir preferência do sistema operacional; definido = override explícito. */
   readonly reducedMotion?: boolean;

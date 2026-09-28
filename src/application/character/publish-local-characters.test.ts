@@ -50,6 +50,13 @@ function outbox() {
 }
 
 describe("publishLocalCharacters", () => {
+  it("não publica a ficha de outra conta ao trocar de jogador", async () => {
+    const queue = outbox();
+    const characters = { ...repository(), get: async () => ok({ ...minimalCharacter, ownerUid: "master-user" }) } as CharacterRepository;
+    expect(await publishLocalCharacters({ characters, outbox: queue.value, ownerUid: asAccountId("player-user"), clock })).toMatchObject({ ok: true, value: 0 });
+    expect(queue.values.size).toBe(0);
+  });
+
   it("enfileira fichas locais privadas uma vez para a conta autenticada", async () => {
     const queue = outbox();
     const options = { characters: repository(), outbox: queue.value, ownerUid: asAccountId("firebase-user"), clock };

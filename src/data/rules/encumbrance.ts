@@ -34,7 +34,7 @@ export const COIN_WEIGHT_SOURCE_REF: SourceRef = {
 export const COIN_WEIGHT_GRAMS = 10;
 
 /** "Sua capacidade de carga máxima é igual a 7,5 vezes o seu valor de Força" (kg). */
-export const CARRYING_CAPACITY_GRAMS_PER_STRENGTH_POINT = 2_500;
+export const CARRYING_CAPACITY_GRAMS_PER_STRENGTH_POINT = 7_500;
 
 /** "…até duas vezes a sua capacidade de carga (ou 15 vezes o seu valor de Força)". */
 export const PUSH_DRAG_LIFT_MULTIPLIER = 2;
@@ -68,4 +68,12 @@ export function currencyWeightGrams(currency: Readonly<Record<string, number>>):
 /** Capacidade máxima de carga, em gramas, para um valor de Força. */
 export function carryingCapacityGrams(strengthScore: number): number {
   return strengthScore * CARRYING_CAPACITY_GRAMS_PER_STRENGTH_POINT;
+}
+
+/** Limiares da variação "Sobrecarga" (p.178) para um valor de Força, em gramas. */
+export function encumbranceThresholdsGrams(strengthScore: number): { readonly encumberedGrams: number; readonly heavilyEncumberedGrams: number } {
+  return {
+    encumberedGrams: strengthScore * ENCUMBRANCE_VARIANT_THRESHOLDS.encumberedGramsPerStrengthPoint,
+    heavilyEncumberedGrams: strengthScore * ENCUMBRANCE_VARIANT_THRESHOLDS.heavilyEncumberedGramsPerStrengthPoint,
+  };
 }

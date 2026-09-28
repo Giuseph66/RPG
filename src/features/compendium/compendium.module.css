@@ -85,7 +85,7 @@
 .orphans { margin-top:var(--spacing-sm); padding-left:1rem; list-style:disc; color:var(--color-warning); font-size:.8rem; }
 .page :where(input,select,textarea) { background:var(--color-background); border-color:var(--color-border-soft); color:var(--color-text); }
 .page :where(input,select,textarea):focus-visible { border-color:var(--color-focus); box-shadow:0 0 0 2px color-mix(in srgb,var(--color-focus) 35%,transparent); outline:none; }
-@media (max-width:640px) { .page{padding-inline:var(--spacing-sm);background-attachment:scroll} .search{align-items:stretch;flex-direction:column} .categories ul button{min-height:3.5rem;padding:var(--spacing-xs)} .categoryGlyph{width:1.9rem;height:1.9rem} }
+@media (max-width:640px) { .page{padding-inline:var(--spacing-sm);background-attachment:scroll} .search{align-items:stretch;flex-direction:column} .categories ul{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--spacing-xs)} .categories ul button{min-height:3.5rem;padding:var(--spacing-xs)} .categoryGlyph{width:1.9rem;height:1.9rem} .categoryLabel strong{font-size:.69rem;overflow-wrap:anywhere} }
 @media (orientation:portrait) { .page { background-color:transparent; background-image:none; } }
 
 /* Filtros ativos: as categorias podem estar recolhidas, então a seleção aparece nos resultados. */

@@ -10,6 +10,8 @@ export interface OutboxListOptions {
   readonly limit?: number;
   /** Momento usado para tornar falhas retryable elegíveis; default é o Clock do adapter. */
   readonly now?: IsoTimestamp;
+  readonly includeFailed?: boolean;
+  readonly includeConflicts?: boolean;
 }
 
 export interface SyncFailure {
