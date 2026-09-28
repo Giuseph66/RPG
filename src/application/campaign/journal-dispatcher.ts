@@ -36,7 +36,7 @@
 
 import { type JournalEntry } from "@domain/contracts/campaign";
 import { type AppError, appError } from "@domain/contracts/errors";
-import { type Uuid } from "@domain/contracts/ids";
+import { type AccountId, type Uuid } from "@domain/contracts/ids";
 import {
   createJournalDraft,
   createJournalEntry,
@@ -71,6 +71,8 @@ export interface JournalDispatcherOptions {
    * fornecido; sem `onError`, são silenciosamente ignorados.
    */
   readonly onError?: (error: AppError, intent: JournalIntent) => void;
+  /** Conta que escreve o registro; separa o diário de cada jogador do diário do mestre. */
+  readonly authorId?: () => AccountId | undefined;
 }
 
 /**
@@ -188,7 +190,8 @@ export function createJournalDispatcher(options: JournalDispatcherOptions): Jour
       fail(mapJournalError(created.error), intent);
       return;
     }
-    const saved = await campaignService.saveJournalEntry(created.value);
+    const authorId = options.authorId?.();
+    const saved = await campaignService.saveJournalEntry(authorId ? { ...created.value, authorId } : created.value);
     if (!saved.ok) {
       state = markDraftError(before, saved.error.message);
       fail(saved.error, intent);

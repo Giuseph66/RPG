@@ -3,7 +3,7 @@
  * 09-MODELO-DE-DADOS.md.
  */
 
-import { type IsoTimestamp, type RulesetRef, type Uuid } from "./ids";
+import { type AccountId, type IsoTimestamp, type RulesetRef, type Uuid } from "./ids";
 import { type AbilityGenerationMethod } from "./character";
 import { type GameTime } from "./primitives";
 import { type Revision } from "./versioning";
@@ -34,7 +34,7 @@ export interface Quest {
 export interface NpcRecord {
   readonly id: Uuid;
   /** Registros antigos sem tipo continuam sendo NPCs por compatibilidade. */
-  readonly kind?: "npc" | "enemy";
+  readonly kind?: "npc" | "enemy" | "animal" | "unknown";
   readonly name: string;
   readonly description: string;
   readonly linkedEntityIds: readonly Uuid[];
@@ -70,8 +70,28 @@ export interface JournalEntry {
   readonly gameDate?: GameTime;
   readonly linkedEntityIds: readonly Uuid[];
   readonly tags: readonly string[];
+  /** Conta que escreveu o registro. Jogadores só leem os próprios; o mestre lê todos. */
+  readonly authorId?: AccountId;
+  /** Revisão remota (CAS). Ausente em registros locais antigos. */
+  readonly revision?: Revision;
   readonly createdAt: IsoTimestamp;
   readonly updatedAt: IsoTimestamp;
+}
+
+/** Contas que podem ver um conteúdo da campanha; "*" libera para todos os jogadores. */
+export type CampaignAudience = readonly (AccountId | "*")[];
+
+/** Cópia da imagem do mapa confirmada no Cloud Storage. */
+export interface MapImageCloudRef {
+  readonly storagePath: string;
+  readonly sha256: string;
+  /** Dono dos bytes (mestre); exigido para validar o download. */
+  readonly ownerUid: string;
+  readonly mediaType: string;
+  readonly width?: number;
+  readonly height?: number;
+  readonly originalName: string;
+  readonly confirmedAt: IsoTimestamp;
 }
 
 export interface MapPin {
@@ -92,6 +112,9 @@ export interface MapRecord {
   readonly assetId: Uuid;
   readonly pins: readonly MapPin[];
   readonly groupPosition?: number;
+  /** Ausente: somente o mestre vê. */
+  readonly visibleTo?: CampaignAudience;
+  readonly image?: MapImageCloudRef;
   readonly revision: Revision;
 }
 
@@ -104,4 +127,6 @@ export interface Asset {
   readonly width?: number;
   readonly height?: number;
   readonly originalName: string;
+  /** Campanha dona dos bytes no Cloud Storage; ausente em assets locais antigos. */
+  readonly campaignId?: Uuid;
 }

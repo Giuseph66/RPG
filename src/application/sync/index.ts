@@ -65,7 +65,7 @@ export function createPendingSyncOperation(input: NewSyncOperation): Result<Sync
   if (input.aggregateId.trim().length === 0) return err(appError.validation("aggregateId", "Agregado deve ter um identificador."));
   if (input.mutation === "upsert" && input.payload === undefined) return err(appError.validation("payload", "Upsert exige snapshot serializável."));
   if (input.mutation === "delete" && input.payload !== undefined) return err(appError.validation("payload", "Delete não aceita snapshot."));
-  if (input.mutation === "delete" && (input.aggregateType === "character" || input.aggregateType === "journal" || input.aggregateType === "map" || input.aggregateType === "session") && input.scope?.campaignId === undefined && !(input.aggregateType === "character" && input.scope?.ownerUid !== undefined)) {
+  if (input.mutation === "delete" && (input.aggregateType === "character" || input.aggregateType === "journal" || input.aggregateType === "map" || input.aggregateType === "session" || input.aggregateType === "creature" || input.aggregateType === "sighting" || input.aggregateType === "guess") && input.scope?.campaignId === undefined && !(input.aggregateType === "character" && input.scope?.ownerUid !== undefined)) {
     return err(appError.validation("scope", `${input.aggregateType} delete exige escopo imutável.`));
   }
   if (input.payload !== undefined && !isJsonValue(input.payload)) return err(appError.validation("payload", "Snapshot contém valor não serializável."));

@@ -13,3 +13,4 @@ export * from "./transaction";
 export * from "./unit-of-work";
 export * from "./session-repository";
 export * from "./remote-hydration-repository";
+export * from "./journey-visibility-repository";

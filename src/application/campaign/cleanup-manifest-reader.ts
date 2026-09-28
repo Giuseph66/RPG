@@ -4,6 +4,7 @@ import { type CharacterRepository } from "@application/ports/character-repositor
 import { type SessionRepository } from "@application/ports/session-repository";
 import { type TransactionContext } from "@application/ports/unit-of-work";
 import { type MembershipRepository } from "@application/membership/ports";
+import { type JourneyVisibilityRepository } from "@application/ports/journey-visibility-repository";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { type Uuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
@@ -21,6 +22,8 @@ export interface LocalCampaignCleanupManifestReaderOptions {
   readonly memberships: Pick<MembershipRepository, "listMemberships">;
   readonly sessions: Pick<SessionRepository, "list">;
   readonly assets: Pick<AssetRepository, "get">;
+  /** Criaturas, avistamentos e palpites; opcional para composições anteriores. */
+  readonly journey?: Pick<JourneyVisibilityRepository, "list">;
   /** Firebase UID when signed in, otherwise the stable local device account. */
   readonly ownerUid: string | (() => string);
 }
@@ -69,6 +72,14 @@ export function createLocalCampaignCleanupManifestReader(
       if (!maps.ok) return maps;
       if (!memberships.ok) return memberships;
       if (!sessions.ok) return sessions;
+      const journeyIds: Record<"creature" | "sighting" | "guess", readonly string[]> = { creature: [], sighting: [], guess: [] };
+      if (options.journey) {
+        for (const kind of ["creature", "sighting", "guess"] as const) {
+          const listed = await options.journey.list(kind, campaignId, context);
+          if (!listed.ok) return listed;
+          journeyIds[kind] = uniqueStrings(listed.value.map((item) => item.id));
+        }
+      }
 
       const characterIds = uniqueStrings([
         ...campaign.value.characterIds,
@@ -109,6 +120,7 @@ export function createLocalCampaignCleanupManifestReader(
         journalIds,
         mapIds,
         sessionIds,
+        ...(options.journey ? { creatureIds: journeyIds.creature, sightingIds: journeyIds.sighting, guessIds: journeyIds.guess } : {}),
         assets,
       });
     },

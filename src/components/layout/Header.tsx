@@ -53,7 +53,7 @@ export function Header({ session, campaign, campaignRole, route, navigate, onSel
           </span>
         </button>
         <div className={styles.headerActions}>
-          {campaign?.value && campaignRole ? <span className={styles.roleBadge} data-role={campaignRole}>{campaignRole === "master" ? <Crown size={15} weight="duotone" aria-hidden="true" /> : <UsersThree size={15} weight="duotone" aria-hidden="true" />}{campaignRole === "master" ? "Mestre da campanha" : "Jogador"}</span> : null}
+          {campaign?.value && campaignRole ? <span className={styles.roleBadge} data-role={campaignRole} aria-label={campaignRole === "master" ? "Mestre da campanha" : "Jogador"} title={campaignRole === "master" ? "Mestre da campanha" : "Jogador"}>{campaignRole === "master" ? <Crown size={15} weight="duotone" aria-hidden="true" /> : <UsersThree size={15} weight="duotone" aria-hidden="true" />}</span> : null}
           <IconButton label="Abrir ajustes" icon={<Gear size={20} weight="duotone" />} variant="ghost" className={styles.headerSettingsButton} onClick={() => navigate("/settings")} />
         </div>
       </div>

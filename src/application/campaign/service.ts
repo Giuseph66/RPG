@@ -140,13 +140,17 @@ function createSyncCampaignRepository(repository: CampaignRepository, options: C
 
   const saveJournalEntry: CampaignRepository["saveJournalEntry"] = (entry) => runWrite(async (context) => {
     const saveMethod = repository.saveJournalEntry.bind(repository) as unknown as (value: import("@domain/contracts/campaign").JournalEntry, context?: TransactionContext) => Promise<Result<import("@domain/contracts/campaign").JournalEntry, AppError>>;
-    const saved = await saveMethod(entry, context);
+    // O documento remoto usa CAS; a revisão local acompanha cada gravação para que a
+    // segunda edição de um registro não seja recusada como conflito.
+    const previous = context === undefined ? undefined : await repository.getJournalEntry(entry.id, context);
+    const baseRevision = asRevision(previous?.ok ? previous.value.revision ?? 0 : 0);
+    const saved = await saveMethod({ ...entry, revision: asRevision(baseRevision + 1) }, context);
     if (!saved.ok) return saved;
     if (context === undefined) return saved;
     const createdAt = writeClock.now();
     const queued = await queue({
       operationId: writeIds.commandId(), aggregateType: "journal", aggregateId: entry.id,
-      mutation: "upsert", baseRevision: asRevision(0), payload: toJsonSnapshot(saved.value), createdAt,
+      mutation: "upsert", baseRevision, payload: toJsonSnapshot(saved.value), createdAt,
     }, context);
     return queued.ok ? saved : err(queued.error);
   }, supportsContext(repository.saveJournalEntry as (...args: never[]) => unknown, 2));
@@ -159,7 +163,7 @@ function createSyncCampaignRepository(repository: CampaignRepository, options: C
     if (!deleted.ok) return deleted;
     if (context === undefined) return deleted;
     const createdAt = writeClock.now();
-    const queued = await queue({ operationId: writeIds.commandId(), aggregateType: "journal", aggregateId: id, mutation: "delete", baseRevision: asRevision(0), scope: { campaignId: current.value.campaignId }, createdAt }, context);
+    const queued = await queue({ operationId: writeIds.commandId(), aggregateType: "journal", aggregateId: id, mutation: "delete", baseRevision: asRevision(current.value.revision ?? 0), scope: { campaignId: current.value.campaignId }, createdAt }, context);
     return queued.ok ? deleted : err(queued.error);
   }, supportsContext(repository.deleteJournalEntry as (...args: never[]) => unknown, 2));
 
@@ -292,14 +296,19 @@ function createSyncCampaignRepository(repository: CampaignRepository, options: C
       payload: toJsonSnapshot(input.map), createdAt,
     }, context);
     if (!mapQueued.ok) return err(mapQueued.error);
-    const assetQueued = await queue({
-      operationId: writeIds.commandId(), aggregateType: "asset", aggregateId: input.asset.id,
-      mutation: "upsert", baseRevision: asRevision(0),
-      payload: toJsonSnapshot({ id: input.asset.id, mediaType: input.asset.mediaType, hash: input.asset.hash, width: input.asset.width, height: input.asset.height, originalName: input.asset.originalName }),
-      createdAt,
-    }, context);
+    const assetQueued = await queueAssetMetadata(input.asset, input.map.campaignId, context);
     return assetQueued.ok ? imported : err(assetQueued.error);
   }, supportsContext(repository.importAtomic as (...args: never[]) => unknown, 2));
+
+  function queueAssetMetadata(asset: Asset, campaignId: Uuid, context: TransactionContext): Promise<Result<void, AppError>> {
+    // campaignId define o caminho `campaigns/{id}/assets/{assetId}` que jogadores podem ler.
+    return queue({
+      operationId: writeIds.commandId(), aggregateType: "asset", aggregateId: asset.id,
+      mutation: "upsert", baseRevision: asRevision(0), scope: { campaignId },
+      payload: toJsonSnapshot({ id: asset.id, campaignId, mediaType: asset.mediaType, hash: asset.hash, width: asset.width, height: asset.height, originalName: asset.originalName, size: asset.bytes.byteLength }),
+      createdAt: writeClock.now(),
+    }, context);
+  }
 
   return {
     get: (id, context) => repository.get(id, context),
@@ -435,7 +444,7 @@ export class CampaignApplicationService {
     const assetId = this.idGenerator.uuid();
     const mapId = this.idGenerator.uuid();
     return this.importMapWithAsset({
-      asset: { id: assetId, mediaType: input.mediaType, bytes: input.bytes, hash: input.hash, width: input.width, height: input.height, originalName: input.originalName },
+      asset: { id: assetId, mediaType: input.mediaType, bytes: input.bytes, hash: input.hash, width: input.width, height: input.height, originalName: input.originalName, campaignId: input.campaignId },
       map: { id: mapId, campaignId: input.campaignId, name: input.name.trim() || input.originalName, assetId, pins: [], revision: asRevision(0) },
     });
   }

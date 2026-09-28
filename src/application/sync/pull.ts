@@ -20,6 +20,8 @@ export interface RemoteHydrationReport {
   readonly applied: number;
   readonly skipped: number;
   readonly conflicts: readonly RemoteHydrationConflict[];
+  /** `tipo:id` dos registros gravados ou removidos neste aparelho. */
+  readonly touched?: readonly string[];
 }
 
 export interface RemoteHydrationPort {

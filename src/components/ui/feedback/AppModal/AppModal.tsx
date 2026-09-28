@@ -59,7 +59,7 @@ export function AppModal({
 
   if (!open) return null;
 
-  function handleBackdropMouseDown(event: MouseEvent<HTMLDivElement>) {
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
     if (!dismissOnBackdrop) return;
     if (event.target === event.currentTarget) {
       onClose();
@@ -67,7 +67,7 @@ export function AppModal({
   }
 
   return (
-    <div className={styles.backdrop} onMouseDown={handleBackdropMouseDown}>
+    <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div
         ref={containerRef}
         role="dialog"

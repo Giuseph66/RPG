@@ -45,3 +45,8 @@
 .editor:hover, .entryList:hover { border-color: color-mix(in srgb, var(--color-primary) 75%, var(--color-border-soft)); }
 @media (max-width: 760px) { .workspace { grid-template-columns: 1fr; } .editorWelcome { min-height: 20rem; } }
 @media (max-width: 560px) { .twoColumns { grid-template-columns: 1fr; } .editor, .entryList { padding: var(--spacing-md); } .editorHeading { align-items: flex-start; } .editorHeading > :last-child { flex: 0 0 auto; } }
+.authorFilter { display: flex; grid-column: 1 / -1; gap: .35rem; overflow-x: auto; scrollbar-width: none; }
+.authorFilter::-webkit-scrollbar { display: none; }
+.authorFilter button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .35rem; min-height: 2.25rem; padding: 0 .8rem; color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); font: 600 .8rem var(--typography-body-font-family); cursor: pointer; }
+.authorFilter button small { opacity: .75; font-variant-numeric: tabular-nums; }
+.authorFilter button[aria-pressed="true"] { color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)); border-color: var(--color-secondary); }

@@ -143,6 +143,34 @@ describe("SyncRuntime", () => {
     runtime.dispose();
   });
 
+  it("tempo real: hidrata o update do listener sem reler o remoto e gravação local só envia", async () => {
+    const auth = new FakeAuth();
+    const outbox = emptyOutbox();
+    let notifyRemote: ((update?: { readonly records: readonly never[] }) => void) | undefined;
+    const adapter: RemoteSyncAdapter = {
+      isAvailable: () => true,
+      apply: vi.fn(),
+      pull: vi.fn(async () => ({ ok: true as const, value: { records: [] } })),
+      subscribe: vi.fn((listener) => { notifyRemote = listener; return () => undefined; }),
+    };
+    const hydration = {
+      hydrate: vi.fn(async () => ({ ok: true as const, value: { received: 1, applied: 1, skipped: 0, conflicts: [], touched: ["sighting:k1__player"] } })),
+    };
+    const runtime = createSyncRuntime({ auth, outbox, clock, createAdapter: () => adapter, hydration, isOnline: () => true });
+    auth.setSession(session("player"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(adapter.pull).toHaveBeenCalledTimes(1);
+    const update = { records: [] };
+    notifyRemote?.(update);
+    await vi.waitFor(() => expect(hydration.hydrate).toHaveBeenCalledWith(expect.objectContaining({ pull: update })));
+    await vi.waitFor(() => expect(runtime.snapshot.lastHydration?.touched).toEqual(["sighting:k1__player"]));
+    runtime.notifyPending();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(adapter.pull).toHaveBeenCalledTimes(1);
+    expect(outbox.listPending).toHaveBeenCalled();
+    runtime.dispose();
+  });
+
   it("envia a fila mesmo quando a leitura remota falha", async () => {
     const auth = new FakeAuth();
     const outbox = emptyOutbox();

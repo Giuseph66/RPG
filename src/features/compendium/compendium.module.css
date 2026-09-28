@@ -95,3 +95,6 @@
 .filterChip strong { color:var(--color-text); font-weight:600; max-width:14rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .filterChip button { display:grid; place-items:center; width:1.35rem; height:1.35rem; padding:0; border:0; border-radius:50%; background:transparent; color:var(--color-text-muted); cursor:pointer; }
 .filterChip button:hover,.filterChip button:focus-visible { background:color-mix(in srgb,var(--color-primary) 18%,transparent); color:var(--color-primary); outline:none; }
+.page { background:none; }
+.page::before { content:""; position:fixed; z-index:-1; inset:var(--app-bar-height,4.75rem) 0 calc(var(--size-nav-height) + env(safe-area-inset-bottom)) 0; pointer-events:none; background-image:linear-gradient(180deg,color-mix(in srgb,var(--color-background) 12%,transparent),color-mix(in srgb,var(--color-background) 54%,transparent)),url("../../assets/art/textures/header-stone.webp"); background-position:center; background-size:cover; }
+@media (min-width:901px) { .page::before { inset:var(--app-bar-height,4.75rem) 0 0 15rem; } }

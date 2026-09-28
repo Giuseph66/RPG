@@ -289,13 +289,18 @@ export function validateRulePack(input: RulePackInput): Result<RulePack, readonl
     );
   }
 
+  /** Expande `any-of` para que as referências internas também sejam checadas. */
+  function flattenPrerequisite(prerequisite: Prerequisite): readonly Prerequisite[] {
+    return prerequisite.kind === "any-of" ? prerequisite.options.flatMap(flattenPrerequisite) : [prerequisite];
+  }
+
   function checkPrerequisites(
     entityType: EntityType,
     entityId: string,
     field: string,
     prerequisites: readonly Prerequisite[],
   ): void {
-    for (const prereq of prerequisites) {
+    for (const prereq of prerequisites.flatMap(flattenPrerequisite)) {
       if (prereq.kind === "has-feature") {
         if (prereq.featureRef.rulesetId !== manifest.id || !featuresById.has(prereq.featureRef.entityId)) {
           errors.push({

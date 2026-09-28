@@ -188,7 +188,7 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
     const now = this.clock.now();
     return runTransactionOrContext(
       this.db,
-      [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.assets, STORE_NAMES.characters],
+      [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.assets, STORE_NAMES.characters, STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses],
       "readwrite",
       context,
       async (tx) => {
@@ -249,6 +249,11 @@ export class IndexedDbCampaignRepository implements CampaignRepository {
         // compartilhado por outro mapa precisa sobreviver à exclusão desta campanha.
         for (const raw of rawJournalEntries) await requestToPromise(journalStore.delete((raw as JournalEntry).id));
         for (const raw of rawMaps) await requestToPromise(mapsStore.delete((raw as MapRecord).id));
+        for (const storeName of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses]) {
+          const journeyStore = tx.objectStore(storeName);
+          const keys = await requestToPromise(journeyStore.index("campaignId").getAllKeys(id));
+          for (const key of keys) await requestToPromise(journeyStore.delete(key));
+        }
         for (const assetId of deletedAssetIds) {
           if (!retainedAssetIds.has(assetId)) {
             await requestToPromise(tx.objectStore(STORE_NAMES.assets).delete(assetId));

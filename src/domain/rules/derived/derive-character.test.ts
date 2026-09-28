@@ -12,6 +12,7 @@ import { type ConditionDefinition } from "@domain/contracts/definitions/conditio
 import { deriveCharacter } from "./derive-character";
 import { abilityModifier, applyNumericModifiers, proficiencyBonusForLevel } from "../core/modifiers";
 import { races as publishedRaces } from "@data/races/races";
+import { findCondition } from "@data/conditions";
 
 const source: SourceRef = { sourceId: minimalCharacter.rulesetRef.id, chapter: "Teste", printedPage: 1, pdfPage: 1 };
 const ref = (entityId: string): DefinitionRef => ({ rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId(entityId) });
@@ -138,5 +139,25 @@ describe("deriveCharacter", () => {
     if (result.ok) {
       expect(result.value.abilityScores.find((entry) => entry.ability === "con")?.score.value).toBe(16);
     }
+  });
+
+  it("aplica somente os efeitos de exaustão até o nível atual, arredondando o máximo de PV para baixo", () => {
+    const exhaustion = findCondition("exhaustion");
+    expect(exhaustion).toBeDefined();
+    if (!exhaustion) return;
+    const exhaustionRef = { rulesetId: minimalCharacter.rulesetRef.id, entityId: exhaustion.id };
+    const withLevel = (severity: number) => character({ conditions: [{ id: "55555555-5555-4555-8555-555555555555" as never, definitionRef: exhaustionRef, origin: { kind: "environment", description: "teste" }, severity }] });
+    const derive = (subject: Character) => {
+      const result = deriveCharacter(subject, pack({ conditions: [exhaustion] }), context);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("derivação falhou");
+      return { hp: result.value.hitPointsMax.value, walk: result.value.speedsCm.find((entry) => entry.kind === "walk")?.value.value };
+    };
+    const base = derive(character());
+    expect(derive(withLevel(0))).toEqual(base);
+    expect(derive(withLevel(1))).toEqual(base);
+    expect(derive(withLevel(2))).toEqual({ hp: base.hp, walk: (base.walk ?? 0) / 2 });
+    expect(derive(withLevel(4))).toEqual({ hp: Math.floor(base.hp / 2), walk: (base.walk ?? 0) / 2 });
+    expect(derive(withLevel(5)).walk).toBe(0);
   });
 });

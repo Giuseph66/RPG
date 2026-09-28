@@ -1,0 +1,11543 @@
+{
+ "source": "https://www.dnd5eapi.co/api/2014",
+ "license": "SRD 5.1 (OGL 1.0a / CC-BY-4.0) via dnd5eapi.co",
+ "fetchedAt": "2026-09-28T19:22:51.537Z",
+ "abilityScores": [
+  "cha",
+  "con",
+  "dex",
+  "int",
+  "str",
+  "wis"
+ ],
+ "damageTypes": [
+  "acid",
+  "bludgeoning",
+  "cold",
+  "fire",
+  "force",
+  "lightning",
+  "necrotic",
+  "piercing",
+  "poison",
+  "psychic",
+  "radiant",
+  "slashing",
+  "thunder"
+ ],
+ "magicSchools": [
+  "abjuration",
+  "conjuration",
+  "divination",
+  "enchantment",
+  "evocation",
+  "illusion",
+  "necromancy",
+  "transmutation"
+ ],
+ "conditions": [
+  {
+   "index": "blinded",
+   "name": "Blinded",
+   "namePt": "Cego"
+  },
+  {
+   "index": "charmed",
+   "name": "Charmed",
+   "namePt": "Enfeitiçado"
+  },
+  {
+   "index": "deafened",
+   "name": "Deafened",
+   "namePt": "Surdo"
+  },
+  {
+   "index": "exhaustion",
+   "name": "Exhaustion",
+   "namePt": "Exaustão"
+  },
+  {
+   "index": "frightened",
+   "name": "Frightened",
+   "namePt": "Amedrontado"
+  },
+  {
+   "index": "grappled",
+   "name": "Grappled",
+   "namePt": "Agarrado"
+  },
+  {
+   "index": "incapacitated",
+   "name": "Incapacitated",
+   "namePt": "Incapacitado"
+  },
+  {
+   "index": "invisible",
+   "name": "Invisible",
+   "namePt": "Invisível"
+  },
+  {
+   "index": "paralyzed",
+   "name": "Paralyzed",
+   "namePt": "Paralisado"
+  },
+  {
+   "index": "petrified",
+   "name": "Petrified",
+   "namePt": "Petrificado"
+  },
+  {
+   "index": "poisoned",
+   "name": "Poisoned",
+   "namePt": "Envenenado"
+  },
+  {
+   "index": "prone",
+   "name": "Prone",
+   "namePt": "Caído"
+  },
+  {
+   "index": "restrained",
+   "name": "Restrained",
+   "namePt": "Impedido"
+  },
+  {
+   "index": "stunned",
+   "name": "Stunned",
+   "namePt": "Atordoado"
+  },
+  {
+   "index": "unconscious",
+   "name": "Unconscious",
+   "namePt": "Inconsciente"
+  }
+ ],
+ "skills": [
+  {
+   "index": "acrobatics",
+   "name": "Acrobatics",
+   "ability": "dex"
+  },
+  {
+   "index": "animal-handling",
+   "name": "Animal Handling",
+   "ability": "wis"
+  },
+  {
+   "index": "arcana",
+   "name": "Arcana",
+   "ability": "int"
+  },
+  {
+   "index": "athletics",
+   "name": "Athletics",
+   "ability": "str"
+  },
+  {
+   "index": "deception",
+   "name": "Deception",
+   "ability": "cha"
+  },
+  {
+   "index": "history",
+   "name": "History",
+   "ability": "int"
+  },
+  {
+   "index": "insight",
+   "name": "Insight",
+   "ability": "wis"
+  },
+  {
+   "index": "intimidation",
+   "name": "Intimidation",
+   "ability": "cha"
+  },
+  {
+   "index": "investigation",
+   "name": "Investigation",
+   "ability": "int"
+  },
+  {
+   "index": "medicine",
+   "name": "Medicine",
+   "ability": "wis"
+  },
+  {
+   "index": "nature",
+   "name": "Nature",
+   "ability": "int"
+  },
+  {
+   "index": "perception",
+   "name": "Perception",
+   "ability": "wis"
+  },
+  {
+   "index": "performance",
+   "name": "Performance",
+   "ability": "cha"
+  },
+  {
+   "index": "persuasion",
+   "name": "Persuasion",
+   "ability": "cha"
+  },
+  {
+   "index": "religion",
+   "name": "Religion",
+   "ability": "int"
+  },
+  {
+   "index": "sleight-of-hand",
+   "name": "Sleight of Hand",
+   "ability": "dex"
+  },
+  {
+   "index": "stealth",
+   "name": "Stealth",
+   "ability": "dex"
+  },
+  {
+   "index": "survival",
+   "name": "Survival",
+   "ability": "wis"
+  }
+ ],
+ "classes": [
+  {
+   "index": "barbarian",
+   "name": "Barbarian",
+   "hitDie": 12,
+   "savingThrows": [
+    "str",
+    "con"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "str",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false
+    }
+   ]
+  },
+  {
+   "index": "bard",
+   "name": "Bard",
+   "hitDie": 8,
+   "savingThrows": [
+    "dex",
+    "cha"
+   ],
+   "skillChoices": 3,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "cha",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "index": "cleric",
+   "name": "Cleric",
+   "hitDie": 8,
+   "savingThrows": [
+    "wis",
+    "cha"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 1,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "wis",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "index": "druid",
+   "name": "Druid",
+   "hitDie": 8,
+   "savingThrows": [
+    "int",
+    "wis"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 2,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "wis",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "index": "fighter",
+   "name": "Fighter",
+   "hitDie": 10,
+   "savingThrows": [
+    "str",
+    "con"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "any": [
+     {
+      "ability": "str",
+      "score": 13
+     },
+     {
+      "ability": "dex",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": true
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": true
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false
+    }
+   ]
+  },
+  {
+   "index": "monk",
+   "name": "Monk",
+   "hitDie": 8,
+   "savingThrows": [
+    "str",
+    "dex"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "dex",
+      "score": 13
+     },
+     {
+      "ability": "wis",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false
+    }
+   ]
+  },
+  {
+   "index": "paladin",
+   "name": "Paladin",
+   "hitDie": 10,
+   "savingThrows": [
+    "wis",
+    "cha"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "str",
+      "score": 13
+     },
+     {
+      "ability": "cha",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "index": "ranger",
+   "name": "Ranger",
+   "hitDie": 10,
+   "savingThrows": [
+    "str",
+    "dex"
+   ],
+   "skillChoices": 3,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "dex",
+      "score": 13
+     },
+     {
+      "ability": "wis",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "index": "rogue",
+   "name": "Rogue",
+   "hitDie": 8,
+   "savingThrows": [
+    "dex",
+    "int"
+   ],
+   "skillChoices": 4,
+   "subclassLevel": 3,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "dex",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": true
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false
+    }
+   ]
+  },
+  {
+   "index": "sorcerer",
+   "name": "Sorcerer",
+   "hitDie": 6,
+   "savingThrows": [
+    "con",
+    "cha"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 1,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "cha",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "index": "warlock",
+   "name": "Warlock",
+   "hitDie": 8,
+   "savingThrows": [
+    "wis",
+    "cha"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 1,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "cha",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "index": "wizard",
+   "name": "Wizard",
+   "hitDie": 6,
+   "savingThrows": [
+    "int",
+    "wis"
+   ],
+   "skillChoices": 2,
+   "subclassLevel": 2,
+   "multiclassPrerequisites": {
+    "all": [
+     {
+      "ability": "int",
+      "score": 13
+     }
+    ]
+   },
+   "levels": [
+    {
+     "level": 1,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 2,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 3,
+     "profBonus": 2,
+     "asi": false,
+     "slots": [
+      4,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 4,
+     "profBonus": 2,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 5,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 6,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 7,
+     "profBonus": 3,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 8,
+     "profBonus": 3,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 9,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      1,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 10,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 11,
+     "profBonus": 4,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 12,
+     "profBonus": 4,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 13,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 14,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      0,
+      0
+     ]
+    },
+    {
+     "level": 15,
+     "profBonus": 5,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 16,
+     "profBonus": 5,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0
+     ]
+    },
+    {
+     "level": 17,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 18,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 19,
+     "profBonus": 6,
+     "asi": true,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1
+     ]
+    },
+    {
+     "level": 20,
+     "profBonus": 6,
+     "asi": false,
+     "slots": [
+      4,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      1,
+      1
+     ]
+    }
+   ]
+  }
+ ],
+ "races": [
+  {
+   "index": "dragonborn",
+   "name": "Dragonborn",
+   "speedFt": 30,
+   "size": "medium",
+   "abilityBonuses": {
+    "str": 2,
+    "cha": 1
+   },
+   "subraces": []
+  },
+  {
+   "index": "dwarf",
+   "name": "Dwarf",
+   "speedFt": 25,
+   "size": "medium",
+   "abilityBonuses": {
+    "con": 2
+   },
+   "subraces": [
+    "hill-dwarf"
+   ]
+  },
+  {
+   "index": "elf",
+   "name": "Elf",
+   "speedFt": 30,
+   "size": "medium",
+   "abilityBonuses": {
+    "dex": 2
+   },
+   "subraces": [
+    "high-elf"
+   ]
+  },
+  {
+   "index": "gnome",
+   "name": "Gnome",
+   "speedFt": 25,
+   "size": "small",
+   "abilityBonuses": {
+    "int": 2
+   },
+   "subraces": [
+    "rock-gnome"
+   ]
+  },
+  {
+   "index": "half-elf",
+   "name": "Half-Elf",
+   "speedFt": 30,
+   "size": "medium",
+   "abilityBonuses": {
+    "cha": 2
+   },
+   "subraces": []
+  },
+  {
+   "index": "half-orc",
+   "name": "Half-Orc",
+   "speedFt": 30,
+   "size": "medium",
+   "abilityBonuses": {
+    "str": 2,
+    "con": 1
+   },
+   "subraces": []
+  },
+  {
+   "index": "halfling",
+   "name": "Halfling",
+   "speedFt": 25,
+   "size": "small",
+   "abilityBonuses": {
+    "dex": 2
+   },
+   "subraces": [
+    "lightfoot-halfling"
+   ]
+  },
+  {
+   "index": "human",
+   "name": "Human",
+   "speedFt": 30,
+   "size": "medium",
+   "abilityBonuses": {
+    "str": 1,
+    "dex": 1,
+    "con": 1,
+    "int": 1,
+    "wis": 1,
+    "cha": 1
+   },
+   "subraces": []
+  },
+  {
+   "index": "tiefling",
+   "name": "Tiefling",
+   "speedFt": 30,
+   "size": "medium",
+   "abilityBonuses": {
+    "int": 1,
+    "cha": 2
+   },
+   "subraces": []
+  }
+ ],
+ "subraces": [
+  {
+   "index": "high-elf",
+   "name": "High Elf",
+   "race": "elf",
+   "abilityBonuses": {
+    "int": 1
+   }
+  },
+  {
+   "index": "hill-dwarf",
+   "name": "Hill Dwarf",
+   "race": "dwarf",
+   "abilityBonuses": {
+    "wis": 1
+   }
+  },
+  {
+   "index": "lightfoot-halfling",
+   "name": "Lightfoot Halfling",
+   "race": "halfling",
+   "abilityBonuses": {
+    "cha": 1
+   }
+  },
+  {
+   "index": "rock-gnome",
+   "name": "Rock Gnome",
+   "race": "gnome",
+   "abilityBonuses": {
+    "con": 1
+   }
+  }
+ ],
+ "equipment": [
+  {
+   "index": "abacus",
+   "name": "Abacus",
+   "namePt": "Abacus",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 2
+  },
+  {
+   "index": "acid-vial",
+   "name": "Acid (vial)",
+   "namePt": "Acid (vial)",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 1
+  },
+  {
+   "index": "alchemists-fire-flask",
+   "name": "Alchemist's fire (flask)",
+   "namePt": "Alchemist's fire (flask)",
+   "category": "adventuring-gear",
+   "costGp": 50,
+   "weightLb": 1
+  },
+  {
+   "index": "alchemists-supplies",
+   "name": "Alchemist's Supplies",
+   "namePt": "Alchemist's Supplies",
+   "category": "tools",
+   "costGp": 50,
+   "weightLb": 8
+  },
+  {
+   "index": "alms-box",
+   "name": "Alms box",
+   "namePt": "Alms box",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "amulet",
+   "name": "Amulet",
+   "namePt": "Amulet",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 1
+  },
+  {
+   "index": "animal-feed-1-day",
+   "name": "Animal Feed (1 day)",
+   "namePt": "Animal Feed (1 day)",
+   "category": "mounts-and-vehicles",
+   "costGp": 0.05,
+   "weightLb": 10
+  },
+  {
+   "index": "antitoxin-vial",
+   "name": "Antitoxin (vial)",
+   "namePt": "Antitoxin (vial)",
+   "category": "adventuring-gear",
+   "costGp": 50,
+   "weightLb": 0
+  },
+  {
+   "index": "arrow",
+   "name": "Arrow",
+   "namePt": "Arrow",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 1
+  },
+  {
+   "index": "backpack",
+   "name": "Backpack",
+   "namePt": "Backpack",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 5
+  },
+  {
+   "index": "bagpipes",
+   "name": "Bagpipes",
+   "namePt": "Bagpipes",
+   "category": "tools",
+   "costGp": 30,
+   "weightLb": 6
+  },
+  {
+   "index": "ball-bearings-bag-of-1000",
+   "name": "Ball bearings (bag of 1,000)",
+   "namePt": "Ball bearings (bag of 1,000)",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 2
+  },
+  {
+   "index": "barding-breastplate",
+   "name": "Barding: Breastplate",
+   "namePt": "Barding: Breastplate",
+   "category": "mounts-and-vehicles",
+   "costGp": 1600,
+   "weightLb": 40
+  },
+  {
+   "index": "barding-chain-mail",
+   "name": "Barding: Chain mail",
+   "namePt": "Barding: Chain mail",
+   "category": "mounts-and-vehicles",
+   "costGp": 300,
+   "weightLb": 110
+  },
+  {
+   "index": "barding-chain-shirt",
+   "name": "Barding: Chain shirt",
+   "namePt": "Barding: Chain shirt",
+   "category": "mounts-and-vehicles",
+   "costGp": 200,
+   "weightLb": 40
+  },
+  {
+   "index": "barding-half-plate",
+   "name": "Barding: Half plate",
+   "namePt": "Barding: Half plate",
+   "category": "mounts-and-vehicles",
+   "costGp": 3000,
+   "weightLb": 80
+  },
+  {
+   "index": "barding-hide",
+   "name": "Barding: Hide",
+   "namePt": "Barding: Hide",
+   "category": "mounts-and-vehicles",
+   "costGp": 40,
+   "weightLb": 24
+  },
+  {
+   "index": "barding-leather",
+   "name": "Barding: Leather",
+   "namePt": "Barding: Leather",
+   "category": "mounts-and-vehicles",
+   "costGp": 40,
+   "weightLb": 20
+  },
+  {
+   "index": "barding-padded",
+   "name": "Barding: Padded",
+   "namePt": "Barding: Padded",
+   "category": "mounts-and-vehicles",
+   "costGp": 20,
+   "weightLb": 16
+  },
+  {
+   "index": "barding-plate",
+   "name": "Barding: Plate",
+   "namePt": "Barding: Plate",
+   "category": "mounts-and-vehicles",
+   "costGp": 6000,
+   "weightLb": 130
+  },
+  {
+   "index": "barding-ring-mail",
+   "name": "Barding: Ring mail",
+   "namePt": "Barding: Ring mail",
+   "category": "mounts-and-vehicles",
+   "costGp": 12,
+   "weightLb": 80
+  },
+  {
+   "index": "barding-scale-mail",
+   "name": "Barding: Scale mail",
+   "namePt": "Barding: Scale mail",
+   "category": "mounts-and-vehicles",
+   "costGp": 200,
+   "weightLb": 90
+  },
+  {
+   "index": "barding-splint",
+   "name": "Barding: Splint",
+   "namePt": "Barding: Splint",
+   "category": "mounts-and-vehicles",
+   "costGp": 800,
+   "weightLb": 120
+  },
+  {
+   "index": "barding-studded-leather",
+   "name": "Barding: Studded Leather",
+   "namePt": "Barding: Studded Leather",
+   "category": "mounts-and-vehicles",
+   "costGp": 180,
+   "weightLb": 26
+  },
+  {
+   "index": "barrel",
+   "name": "Barrel",
+   "namePt": "Barrel",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 70
+  },
+  {
+   "index": "basket",
+   "name": "Basket",
+   "namePt": "Basket",
+   "category": "adventuring-gear",
+   "costGp": 0.4,
+   "weightLb": 2
+  },
+  {
+   "index": "battleaxe",
+   "name": "Battleaxe",
+   "namePt": "Battleaxe",
+   "category": "weapon",
+   "costGp": 10,
+   "weightLb": 4,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "slashing",
+   "properties": [
+    "versatile"
+   ]
+  },
+  {
+   "index": "bedroll",
+   "name": "Bedroll",
+   "namePt": "Bedroll",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 7
+  },
+  {
+   "index": "bell",
+   "name": "Bell",
+   "namePt": "Bell",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 0
+  },
+  {
+   "index": "bit-and-bridle",
+   "name": "Bit and bridle",
+   "namePt": "Bit and bridle",
+   "category": "mounts-and-vehicles",
+   "costGp": 2,
+   "weightLb": 1
+  },
+  {
+   "index": "blanket",
+   "name": "Blanket",
+   "namePt": "Blanket",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 3
+  },
+  {
+   "index": "block-and-tackle",
+   "name": "Block and tackle",
+   "namePt": "Block and tackle",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 5
+  },
+  {
+   "index": "block-of-incense",
+   "name": "Block of incense",
+   "namePt": "Block of incense",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "blowgun",
+   "name": "Blowgun",
+   "namePt": "Blowgun",
+   "category": "weapon",
+   "costGp": 10,
+   "weightLb": 1,
+   "weaponCategory": "martial",
+   "weaponRange": "ranged",
+   "damageDice": "1",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 25,
+    "long": 100
+   },
+   "properties": [
+    "ammunition",
+    "loading"
+   ]
+  },
+  {
+   "index": "blowgun-needle",
+   "name": "Blowgun needle",
+   "namePt": "Blowgun needle",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 1
+  },
+  {
+   "index": "book",
+   "name": "Book",
+   "namePt": "Book",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 5
+  },
+  {
+   "index": "bottle-glass",
+   "name": "Bottle, glass",
+   "namePt": "Bottle, glass",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 2
+  },
+  {
+   "index": "breastplate",
+   "name": "Breastplate",
+   "namePt": "Breastplate",
+   "category": "armor",
+   "costGp": 400,
+   "weightLb": 20,
+   "armorCategory": "medium",
+   "baseArmorClass": 14,
+   "dexBonus": true,
+   "maxDexBonus": 2,
+   "stealthDisadvantage": false
+  },
+  {
+   "index": "brewers-supplies",
+   "name": "Brewer's Supplies",
+   "namePt": "Brewer's Supplies",
+   "category": "tools",
+   "costGp": 20,
+   "weightLb": 9
+  },
+  {
+   "index": "bucket",
+   "name": "Bucket",
+   "namePt": "Bucket",
+   "category": "adventuring-gear",
+   "costGp": 0.05,
+   "weightLb": 2
+  },
+  {
+   "index": "burglars-pack",
+   "name": "Burglar's Pack",
+   "namePt": "Burglar's Pack",
+   "category": "adventuring-gear",
+   "costGp": 16
+  },
+  {
+   "index": "calligraphers-supplies",
+   "name": "Calligrapher's Supplies",
+   "namePt": "Calligrapher's Supplies",
+   "category": "tools",
+   "costGp": 10,
+   "weightLb": 5
+  },
+  {
+   "index": "caltrops",
+   "name": "Caltrops",
+   "namePt": "Caltrops",
+   "category": "adventuring-gear",
+   "costGp": 0.05,
+   "weightLb": 2
+  },
+  {
+   "index": "camel",
+   "name": "Camel",
+   "namePt": "Camel",
+   "category": "mounts-and-vehicles",
+   "costGp": 50
+  },
+  {
+   "index": "candle",
+   "name": "Candle",
+   "namePt": "Candle",
+   "category": "adventuring-gear",
+   "costGp": 0.01,
+   "weightLb": 0
+  },
+  {
+   "index": "carpenters-tools",
+   "name": "Carpenter's Tools",
+   "namePt": "Carpenter's Tools",
+   "category": "tools",
+   "costGp": 8,
+   "weightLb": 6
+  },
+  {
+   "index": "carriage",
+   "name": "Carriage",
+   "namePt": "Carriage",
+   "category": "mounts-and-vehicles",
+   "costGp": 100,
+   "weightLb": 600
+  },
+  {
+   "index": "cart",
+   "name": "Cart",
+   "namePt": "Cart",
+   "category": "mounts-and-vehicles",
+   "costGp": 15,
+   "weightLb": 200
+  },
+  {
+   "index": "cartographers-tools",
+   "name": "Cartographer's Tools",
+   "namePt": "Cartographer's Tools",
+   "category": "tools",
+   "costGp": 15,
+   "weightLb": 6
+  },
+  {
+   "index": "case-crossbow-bolt",
+   "name": "Case, crossbow bolt",
+   "namePt": "Case, crossbow bolt",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 1
+  },
+  {
+   "index": "case-map-or-scroll",
+   "name": "Case, map or scroll",
+   "namePt": "Case, map or scroll",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 1
+  },
+  {
+   "index": "censer",
+   "name": "Censer",
+   "namePt": "Censer",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "chain-10-feet",
+   "name": "Chain (10 feet)",
+   "namePt": "Chain (10 feet)",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 10
+  },
+  {
+   "index": "chain-mail",
+   "name": "Chain Mail",
+   "namePt": "Chain Mail",
+   "category": "armor",
+   "costGp": 75,
+   "weightLb": 55,
+   "armorCategory": "heavy",
+   "baseArmorClass": 16,
+   "dexBonus": false,
+   "strMinimum": 13,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "chain-shirt",
+   "name": "Chain Shirt",
+   "namePt": "Chain Shirt",
+   "category": "armor",
+   "costGp": 50,
+   "weightLb": 20,
+   "armorCategory": "medium",
+   "baseArmorClass": 13,
+   "dexBonus": true,
+   "maxDexBonus": 2,
+   "stealthDisadvantage": false
+  },
+  {
+   "index": "chalk-1-piece",
+   "name": "Chalk (1 piece)",
+   "namePt": "Chalk (1 piece)",
+   "category": "adventuring-gear",
+   "costGp": 0.01,
+   "weightLb": 0
+  },
+  {
+   "index": "chariot",
+   "name": "Chariot",
+   "namePt": "Chariot",
+   "category": "mounts-and-vehicles",
+   "costGp": 250,
+   "weightLb": 100
+  },
+  {
+   "index": "chest",
+   "name": "Chest",
+   "namePt": "Chest",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 25
+  },
+  {
+   "index": "climbers-kit",
+   "name": "Climber's Kit",
+   "namePt": "Climber's Kit",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 12
+  },
+  {
+   "index": "clothes-common",
+   "name": "Clothes, common",
+   "namePt": "Clothes, common",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 3
+  },
+  {
+   "index": "clothes-costume",
+   "name": "Clothes, costume",
+   "namePt": "Clothes, costume",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 4
+  },
+  {
+   "index": "clothes-fine",
+   "name": "Clothes, fine",
+   "namePt": "Clothes, fine",
+   "category": "adventuring-gear",
+   "costGp": 15,
+   "weightLb": 6
+  },
+  {
+   "index": "clothes-travelers",
+   "name": "Clothes, traveler's",
+   "namePt": "Clothes, traveler's",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 4
+  },
+  {
+   "index": "club",
+   "name": "Club",
+   "namePt": "Club",
+   "category": "weapon",
+   "costGp": 0.1,
+   "weightLb": 2,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d4",
+   "damageType": "bludgeoning",
+   "properties": [
+    "light"
+   ]
+  },
+  {
+   "index": "cobblers-tools",
+   "name": "Cobbler's Tools",
+   "namePt": "Cobbler's Tools",
+   "category": "tools",
+   "costGp": 5,
+   "weightLb": 5
+  },
+  {
+   "index": "component-pouch",
+   "name": "Component pouch",
+   "namePt": "Component pouch",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 2
+  },
+  {
+   "index": "cooks-utensils",
+   "name": "Cook's utensils",
+   "namePt": "Cook's utensils",
+   "category": "tools",
+   "costGp": 1,
+   "weightLb": 8
+  },
+  {
+   "index": "crossbow-bolt",
+   "name": "Crossbow bolt",
+   "namePt": "Crossbow bolt",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 1.5
+  },
+  {
+   "index": "crossbow-hand",
+   "name": "Crossbow, hand",
+   "namePt": "Crossbow, hand",
+   "category": "weapon",
+   "costGp": 75,
+   "weightLb": 3,
+   "weaponCategory": "martial",
+   "weaponRange": "ranged",
+   "damageDice": "1d6",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 30,
+    "long": 120
+   },
+   "properties": [
+    "ammunition",
+    "light",
+    "loading"
+   ]
+  },
+  {
+   "index": "crossbow-heavy",
+   "name": "Crossbow, heavy",
+   "namePt": "Crossbow, heavy",
+   "category": "weapon",
+   "costGp": 50,
+   "weightLb": 18,
+   "weaponCategory": "martial",
+   "weaponRange": "ranged",
+   "damageDice": "1d10",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 100,
+    "long": 400
+   },
+   "properties": [
+    "ammunition",
+    "heavy",
+    "loading",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "crossbow-light",
+   "name": "Crossbow, light",
+   "namePt": "Crossbow, light",
+   "category": "weapon",
+   "costGp": 25,
+   "weightLb": 5,
+   "weaponCategory": "simple",
+   "weaponRange": "ranged",
+   "damageDice": "1d8",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 80,
+    "long": 320
+   },
+   "properties": [
+    "ammunition",
+    "loading",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "crowbar",
+   "name": "Crowbar",
+   "namePt": "Crowbar",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 5
+  },
+  {
+   "index": "crystal",
+   "name": "Crystal",
+   "namePt": "Crystal",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 1
+  },
+  {
+   "index": "dagger",
+   "name": "Dagger",
+   "namePt": "Dagger",
+   "category": "weapon",
+   "costGp": 2,
+   "weightLb": 1,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d4",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 20,
+    "long": 60
+   },
+   "properties": [
+    "finesse",
+    "light",
+    "thrown"
+   ]
+  },
+  {
+   "index": "dart",
+   "name": "Dart",
+   "namePt": "Dart",
+   "category": "weapon",
+   "costGp": 0.05,
+   "weightLb": 0.25,
+   "weaponCategory": "simple",
+   "weaponRange": "ranged",
+   "damageDice": "1d4",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 20,
+    "long": 60
+   },
+   "properties": [
+    "finesse",
+    "thrown"
+   ]
+  },
+  {
+   "index": "dice-set",
+   "name": "Dice Set",
+   "namePt": "Dice Set",
+   "category": "tools",
+   "costGp": 0.1,
+   "weightLb": 0
+  },
+  {
+   "index": "diplomats-pack",
+   "name": "Diplomat's Pack",
+   "namePt": "Diplomat's Pack",
+   "category": "adventuring-gear",
+   "costGp": 39
+  },
+  {
+   "index": "disguise-kit",
+   "name": "Disguise Kit",
+   "namePt": "Disguise Kit",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 3
+  },
+  {
+   "index": "donkey",
+   "name": "Donkey",
+   "namePt": "Donkey",
+   "category": "mounts-and-vehicles",
+   "costGp": 8
+  },
+  {
+   "index": "drum",
+   "name": "Drum",
+   "namePt": "Drum",
+   "category": "tools",
+   "costGp": 6,
+   "weightLb": 3
+  },
+  {
+   "index": "dulcimer",
+   "name": "Dulcimer",
+   "namePt": "Dulcimer",
+   "category": "tools",
+   "costGp": 25,
+   "weightLb": 10
+  },
+  {
+   "index": "dungeoneers-pack",
+   "name": "Dungeoneer's Pack",
+   "namePt": "Dungeoneer's Pack",
+   "category": "adventuring-gear",
+   "costGp": 12
+  },
+  {
+   "index": "elephant",
+   "name": "Elephant",
+   "namePt": "Elephant",
+   "category": "mounts-and-vehicles",
+   "costGp": 200
+  },
+  {
+   "index": "emblem",
+   "name": "Emblem",
+   "namePt": "Emblem",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 0
+  },
+  {
+   "index": "entertainers-pack",
+   "name": "Entertainer's Pack",
+   "namePt": "Entertainer's Pack",
+   "category": "adventuring-gear",
+   "costGp": 40
+  },
+  {
+   "index": "explorers-pack",
+   "name": "Explorer's Pack",
+   "namePt": "Explorer's Pack",
+   "category": "adventuring-gear",
+   "costGp": 10
+  },
+  {
+   "index": "fishing-tackle",
+   "name": "Fishing tackle",
+   "namePt": "Fishing tackle",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 4
+  },
+  {
+   "index": "flail",
+   "name": "Flail",
+   "namePt": "Flail",
+   "category": "weapon",
+   "costGp": 10,
+   "weightLb": 2,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "bludgeoning",
+   "properties": []
+  },
+  {
+   "index": "flask-or-tankard",
+   "name": "Flask or tankard",
+   "namePt": "Flask or tankard",
+   "category": "adventuring-gear",
+   "costGp": 0.02,
+   "weightLb": 1
+  },
+  {
+   "index": "flute",
+   "name": "Flute",
+   "namePt": "Flute",
+   "category": "tools",
+   "costGp": 2,
+   "weightLb": 1
+  },
+  {
+   "index": "forgery-kit",
+   "name": "Forgery Kit",
+   "namePt": "Forgery Kit",
+   "category": "adventuring-gear",
+   "costGp": 15,
+   "weightLb": 5
+  },
+  {
+   "index": "galley",
+   "name": "Galley",
+   "namePt": "Galley",
+   "category": "mounts-and-vehicles",
+   "costGp": 30000
+  },
+  {
+   "index": "glaive",
+   "name": "Glaive",
+   "namePt": "Glaive",
+   "category": "weapon",
+   "costGp": 20,
+   "weightLb": 6,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d10",
+   "damageType": "slashing",
+   "properties": [
+    "heavy",
+    "reach",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "glassblowers-tools",
+   "name": "Glassblower's Tools",
+   "namePt": "Glassblower's Tools",
+   "category": "tools",
+   "costGp": 30,
+   "weightLb": 5
+  },
+  {
+   "index": "grappling-hook",
+   "name": "Grappling hook",
+   "namePt": "Grappling hook",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 4
+  },
+  {
+   "index": "greataxe",
+   "name": "Greataxe",
+   "namePt": "Greataxe",
+   "category": "weapon",
+   "costGp": 30,
+   "weightLb": 7,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d12",
+   "damageType": "slashing",
+   "properties": [
+    "heavy",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "greatclub",
+   "name": "Greatclub",
+   "namePt": "Greatclub",
+   "category": "weapon",
+   "costGp": 0.2,
+   "weightLb": 10,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "bludgeoning",
+   "properties": [
+    "two-handed"
+   ]
+  },
+  {
+   "index": "greatsword",
+   "name": "Greatsword",
+   "namePt": "Greatsword",
+   "category": "weapon",
+   "costGp": 50,
+   "weightLb": 6,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "2d6",
+   "damageType": "slashing",
+   "properties": [
+    "heavy",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "halberd",
+   "name": "Halberd",
+   "namePt": "Halberd",
+   "category": "weapon",
+   "costGp": 20,
+   "weightLb": 6,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d10",
+   "damageType": "slashing",
+   "properties": [
+    "heavy",
+    "reach",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "half-plate-armor",
+   "name": "Half Plate Armor",
+   "namePt": "Half Plate Armor",
+   "category": "armor",
+   "costGp": 750,
+   "weightLb": 40,
+   "armorCategory": "medium",
+   "baseArmorClass": 15,
+   "dexBonus": true,
+   "maxDexBonus": 2,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "hammer",
+   "name": "Hammer",
+   "namePt": "Hammer",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 3
+  },
+  {
+   "index": "hammer-sledge",
+   "name": "Hammer, sledge",
+   "namePt": "Hammer, sledge",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 10
+  },
+  {
+   "index": "handaxe",
+   "name": "Handaxe",
+   "namePt": "Handaxe",
+   "category": "weapon",
+   "costGp": 5,
+   "weightLb": 2,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "slashing",
+   "rangeFt": {
+    "normal": 20,
+    "long": 60
+   },
+   "properties": [
+    "light",
+    "thrown"
+   ]
+  },
+  {
+   "index": "healers-kit",
+   "name": "Healer's Kit",
+   "namePt": "Healer's Kit",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 3
+  },
+  {
+   "index": "herbalism-kit",
+   "name": "Herbalism Kit",
+   "namePt": "Herbalism Kit",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 3
+  },
+  {
+   "index": "hide-armor",
+   "name": "Hide Armor",
+   "namePt": "Hide Armor",
+   "category": "armor",
+   "costGp": 10,
+   "weightLb": 12,
+   "armorCategory": "medium",
+   "baseArmorClass": 12,
+   "dexBonus": true,
+   "maxDexBonus": 2,
+   "stealthDisadvantage": false
+  },
+  {
+   "index": "holy-water-flask",
+   "name": "Holy water (flask)",
+   "namePt": "Holy water (flask)",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 1
+  },
+  {
+   "index": "horn",
+   "name": "Horn",
+   "namePt": "Horn",
+   "category": "tools",
+   "costGp": 3,
+   "weightLb": 2
+  },
+  {
+   "index": "horse-draft",
+   "name": "Horse, draft",
+   "namePt": "Horse, draft",
+   "category": "mounts-and-vehicles",
+   "costGp": 50
+  },
+  {
+   "index": "horse-riding",
+   "name": "Horse, riding",
+   "namePt": "Horse, riding",
+   "category": "mounts-and-vehicles",
+   "costGp": 75
+  },
+  {
+   "index": "hourglass",
+   "name": "Hourglass",
+   "namePt": "Hourglass",
+   "category": "adventuring-gear",
+   "costGp": 25,
+   "weightLb": 1
+  },
+  {
+   "index": "hunting-trap",
+   "name": "Hunting trap",
+   "namePt": "Hunting trap",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 25
+  },
+  {
+   "index": "ink-1-ounce-bottle",
+   "name": "Ink (1 ounce bottle)",
+   "namePt": "Ink (1 ounce bottle)",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 0
+  },
+  {
+   "index": "ink-pen",
+   "name": "Ink pen",
+   "namePt": "Ink pen",
+   "category": "adventuring-gear",
+   "costGp": 0.02,
+   "weightLb": 0
+  },
+  {
+   "index": "javelin",
+   "name": "Javelin",
+   "namePt": "Javelin",
+   "category": "weapon",
+   "costGp": 0.5,
+   "weightLb": 2,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 30,
+    "long": 120
+   },
+   "properties": [
+    "thrown"
+   ]
+  },
+  {
+   "index": "jewelers-tools",
+   "name": "Jeweler's Tools",
+   "namePt": "Jeweler's Tools",
+   "category": "tools",
+   "costGp": 25,
+   "weightLb": 2
+  },
+  {
+   "index": "jug-or-pitcher",
+   "name": "Jug or pitcher",
+   "namePt": "Jug or pitcher",
+   "category": "adventuring-gear",
+   "costGp": 0.02,
+   "weightLb": 4
+  },
+  {
+   "index": "keelboat",
+   "name": "Keelboat",
+   "namePt": "Keelboat",
+   "category": "mounts-and-vehicles",
+   "costGp": 3000
+  },
+  {
+   "index": "ladder-10-foot",
+   "name": "Ladder (10-foot)",
+   "namePt": "Ladder (10-foot)",
+   "category": "adventuring-gear",
+   "costGp": 0.1,
+   "weightLb": 25
+  },
+  {
+   "index": "lamp",
+   "name": "Lamp",
+   "namePt": "Lamp",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 1
+  },
+  {
+   "index": "lance",
+   "name": "Lance",
+   "namePt": "Lance",
+   "category": "weapon",
+   "costGp": 10,
+   "weightLb": 6,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d12",
+   "damageType": "piercing",
+   "properties": [
+    "reach",
+    "special"
+   ]
+  },
+  {
+   "index": "lantern-bullseye",
+   "name": "Lantern, bullseye",
+   "namePt": "Lantern, bullseye",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 2
+  },
+  {
+   "index": "lantern-hooded",
+   "name": "Lantern, hooded",
+   "namePt": "Lantern, hooded",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 2
+  },
+  {
+   "index": "leather-armor",
+   "name": "Leather Armor",
+   "namePt": "Leather Armor",
+   "category": "armor",
+   "costGp": 10,
+   "weightLb": 10,
+   "armorCategory": "light",
+   "baseArmorClass": 11,
+   "dexBonus": true,
+   "stealthDisadvantage": false
+  },
+  {
+   "index": "leatherworkers-tools",
+   "name": "Leatherworker's Tools",
+   "namePt": "Leatherworker's Tools",
+   "category": "tools",
+   "costGp": 5,
+   "weightLb": 5
+  },
+  {
+   "index": "light-hammer",
+   "name": "Light hammer",
+   "namePt": "Light hammer",
+   "category": "weapon",
+   "costGp": 2,
+   "weightLb": 2,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d4",
+   "damageType": "bludgeoning",
+   "rangeFt": {
+    "normal": 20,
+    "long": 60
+   },
+   "properties": [
+    "light",
+    "thrown"
+   ]
+  },
+  {
+   "index": "little-bag-of-sand",
+   "name": "Little bag of sand",
+   "namePt": "Little bag of sand",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "lock",
+   "name": "Lock",
+   "namePt": "Lock",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 1
+  },
+  {
+   "index": "longbow",
+   "name": "Longbow",
+   "namePt": "Longbow",
+   "category": "weapon",
+   "costGp": 50,
+   "weightLb": 2,
+   "weaponCategory": "martial",
+   "weaponRange": "ranged",
+   "damageDice": "1d8",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 150,
+    "long": 600
+   },
+   "properties": [
+    "ammunition",
+    "heavy",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "longship",
+   "name": "Longship",
+   "namePt": "Longship",
+   "category": "mounts-and-vehicles",
+   "costGp": 10000
+  },
+  {
+   "index": "longsword",
+   "name": "Longsword",
+   "namePt": "Longsword",
+   "category": "weapon",
+   "costGp": 15,
+   "weightLb": 3,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "slashing",
+   "properties": [
+    "versatile"
+   ]
+  },
+  {
+   "index": "lute",
+   "name": "Lute",
+   "namePt": "Lute",
+   "category": "tools",
+   "costGp": 35,
+   "weightLb": 2
+  },
+  {
+   "index": "lyre",
+   "name": "Lyre",
+   "namePt": "Lyre",
+   "category": "tools",
+   "costGp": 30,
+   "weightLb": 2
+  },
+  {
+   "index": "mace",
+   "name": "Mace",
+   "namePt": "Mace",
+   "category": "weapon",
+   "costGp": 5,
+   "weightLb": 4,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "bludgeoning",
+   "properties": []
+  },
+  {
+   "index": "magnifying-glass",
+   "name": "Magnifying glass",
+   "namePt": "Magnifying glass",
+   "category": "adventuring-gear",
+   "costGp": 100,
+   "weightLb": 0
+  },
+  {
+   "index": "manacles",
+   "name": "Manacles",
+   "namePt": "Manacles",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 6
+  },
+  {
+   "index": "masons-tools",
+   "name": "Mason's Tools",
+   "namePt": "Mason's Tools",
+   "category": "tools",
+   "costGp": 10,
+   "weightLb": 8
+  },
+  {
+   "index": "mastiff",
+   "name": "Mastiff",
+   "namePt": "Mastiff",
+   "category": "mounts-and-vehicles",
+   "costGp": 25
+  },
+  {
+   "index": "maul",
+   "name": "Maul",
+   "namePt": "Maul",
+   "category": "weapon",
+   "costGp": 10,
+   "weightLb": 10,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "2d6",
+   "damageType": "bludgeoning",
+   "properties": [
+    "heavy",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "mess-kit",
+   "name": "Mess Kit",
+   "namePt": "Mess Kit",
+   "category": "adventuring-gear",
+   "costGp": 0.2,
+   "weightLb": 1
+  },
+  {
+   "index": "mirror-steel",
+   "name": "Mirror, steel",
+   "namePt": "Mirror, steel",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 0.5
+  },
+  {
+   "index": "morningstar",
+   "name": "Morningstar",
+   "namePt": "Morningstar",
+   "category": "weapon",
+   "costGp": 15,
+   "weightLb": 4,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "piercing",
+   "properties": []
+  },
+  {
+   "index": "mule",
+   "name": "Mule",
+   "namePt": "Mule",
+   "category": "mounts-and-vehicles",
+   "costGp": 8
+  },
+  {
+   "index": "navigators-tools",
+   "name": "Navigator's Tools",
+   "namePt": "Navigator's Tools",
+   "category": "tools",
+   "costGp": 25,
+   "weightLb": 2
+  },
+  {
+   "index": "net",
+   "name": "Net",
+   "namePt": "Net",
+   "category": "weapon",
+   "costGp": 1,
+   "weightLb": 3,
+   "weaponCategory": "martial",
+   "weaponRange": "ranged",
+   "rangeFt": {
+    "normal": 5,
+    "long": 15
+   },
+   "properties": [
+    "thrown",
+    "special"
+   ]
+  },
+  {
+   "index": "oil-flask",
+   "name": "Oil (flask)",
+   "namePt": "Oil (flask)",
+   "category": "adventuring-gear",
+   "costGp": 0.1,
+   "weightLb": 1
+  },
+  {
+   "index": "orb",
+   "name": "Orb",
+   "namePt": "Orb",
+   "category": "adventuring-gear",
+   "costGp": 20,
+   "weightLb": 3
+  },
+  {
+   "index": "padded-armor",
+   "name": "Padded Armor",
+   "namePt": "Padded Armor",
+   "category": "armor",
+   "costGp": 5,
+   "weightLb": 8,
+   "armorCategory": "light",
+   "baseArmorClass": 11,
+   "dexBonus": true,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "painters-supplies",
+   "name": "Painter's Supplies",
+   "namePt": "Painter's Supplies",
+   "category": "tools",
+   "costGp": 10,
+   "weightLb": 5
+  },
+  {
+   "index": "pan-flute",
+   "name": "Pan flute",
+   "namePt": "Pan flute",
+   "category": "tools",
+   "costGp": 12,
+   "weightLb": 2
+  },
+  {
+   "index": "paper-one-sheet",
+   "name": "Paper (one sheet)",
+   "namePt": "Paper (one sheet)",
+   "category": "adventuring-gear",
+   "costGp": 0.2,
+   "weightLb": 0
+  },
+  {
+   "index": "parchment-one-sheet",
+   "name": "Parchment (one sheet)",
+   "namePt": "Parchment (one sheet)",
+   "category": "adventuring-gear",
+   "costGp": 0.1,
+   "weightLb": 0
+  },
+  {
+   "index": "perfume-vial",
+   "name": "Perfume (vial)",
+   "namePt": "Perfume (vial)",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 0
+  },
+  {
+   "index": "pick-miners",
+   "name": "Pick, miner's",
+   "namePt": "Pick, miner's",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 10
+  },
+  {
+   "index": "pike",
+   "name": "Pike",
+   "namePt": "Pike",
+   "category": "weapon",
+   "costGp": 5,
+   "weightLb": 18,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d10",
+   "damageType": "piercing",
+   "properties": [
+    "heavy",
+    "reach",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "piton",
+   "name": "Piton",
+   "namePt": "Piton",
+   "category": "adventuring-gear",
+   "costGp": 0.05,
+   "weightLb": 0.25
+  },
+  {
+   "index": "plate-armor",
+   "name": "Plate Armor",
+   "namePt": "Plate Armor",
+   "category": "armor",
+   "costGp": 1500,
+   "weightLb": 65,
+   "armorCategory": "heavy",
+   "baseArmorClass": 18,
+   "dexBonus": false,
+   "strMinimum": 15,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "playing-card-set",
+   "name": "Playing Card Set",
+   "namePt": "Playing Card Set",
+   "category": "tools",
+   "costGp": 0.5,
+   "weightLb": 0
+  },
+  {
+   "index": "poison-basic-vial",
+   "name": "Poison, basic (vial)",
+   "namePt": "Poison, basic (vial)",
+   "category": "adventuring-gear",
+   "costGp": 100,
+   "weightLb": 0
+  },
+  {
+   "index": "poisoners-kit",
+   "name": "Poisoner's Kit",
+   "namePt": "Poisoner's Kit",
+   "category": "adventuring-gear",
+   "costGp": 50,
+   "weightLb": 2
+  },
+  {
+   "index": "pole-10-foot",
+   "name": "Pole (10-foot)",
+   "namePt": "Pole (10-foot)",
+   "category": "adventuring-gear",
+   "costGp": 0.05,
+   "weightLb": 7
+  },
+  {
+   "index": "pony",
+   "name": "Pony",
+   "namePt": "Pony",
+   "category": "mounts-and-vehicles",
+   "costGp": 30
+  },
+  {
+   "index": "pot-iron",
+   "name": "Pot, iron",
+   "namePt": "Pot, iron",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 10
+  },
+  {
+   "index": "potters-tools",
+   "name": "Potter's Tools",
+   "namePt": "Potter's Tools",
+   "category": "tools",
+   "costGp": 10,
+   "weightLb": 3
+  },
+  {
+   "index": "pouch",
+   "name": "Pouch",
+   "namePt": "Pouch",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 1
+  },
+  {
+   "index": "priests-pack",
+   "name": "Priest's Pack",
+   "namePt": "Priest's Pack",
+   "category": "adventuring-gear",
+   "costGp": 19
+  },
+  {
+   "index": "quarterstaff",
+   "name": "Quarterstaff",
+   "namePt": "Quarterstaff",
+   "category": "weapon",
+   "costGp": 0.2,
+   "weightLb": 4,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "bludgeoning",
+   "properties": [
+    "versatile"
+   ]
+  },
+  {
+   "index": "quiver",
+   "name": "Quiver",
+   "namePt": "Quiver",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 1
+  },
+  {
+   "index": "ram-portable",
+   "name": "Ram, portable",
+   "namePt": "Ram, portable",
+   "category": "adventuring-gear",
+   "costGp": 4,
+   "weightLb": 35
+  },
+  {
+   "index": "rapier",
+   "name": "Rapier",
+   "namePt": "Rapier",
+   "category": "weapon",
+   "costGp": 25,
+   "weightLb": 2,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "piercing",
+   "properties": [
+    "finesse"
+   ]
+  },
+  {
+   "index": "rations-1-day",
+   "name": "Rations (1 day)",
+   "namePt": "Rations (1 day)",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 2
+  },
+  {
+   "index": "reliquary",
+   "name": "Reliquary",
+   "namePt": "Reliquary",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 2
+  },
+  {
+   "index": "ring-mail",
+   "name": "Ring Mail",
+   "namePt": "Ring Mail",
+   "category": "armor",
+   "costGp": 30,
+   "weightLb": 40,
+   "armorCategory": "heavy",
+   "baseArmorClass": 14,
+   "dexBonus": false,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "robes",
+   "name": "Robes",
+   "namePt": "Robes",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 4
+  },
+  {
+   "index": "rod",
+   "name": "Rod",
+   "namePt": "Rod",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 2
+  },
+  {
+   "index": "rope-hempen-50-feet",
+   "name": "Rope, hempen (50 feet)",
+   "namePt": "Rope, hempen (50 feet)",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 10
+  },
+  {
+   "index": "rope-silk-50-feet",
+   "name": "Rope, silk (50 feet)",
+   "namePt": "Rope, silk (50 feet)",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 5
+  },
+  {
+   "index": "rowboat",
+   "name": "Rowboat",
+   "namePt": "Rowboat",
+   "category": "mounts-and-vehicles",
+   "costGp": 50
+  },
+  {
+   "index": "sack",
+   "name": "Sack",
+   "namePt": "Sack",
+   "category": "adventuring-gear",
+   "costGp": 0.01,
+   "weightLb": 0.5
+  },
+  {
+   "index": "saddle-exotic",
+   "name": "Saddle, Exotic",
+   "namePt": "Saddle, Exotic",
+   "category": "mounts-and-vehicles",
+   "costGp": 60,
+   "weightLb": 50
+  },
+  {
+   "index": "saddle-military",
+   "name": "Saddle, Military",
+   "namePt": "Saddle, Military",
+   "category": "mounts-and-vehicles",
+   "costGp": 20,
+   "weightLb": 30
+  },
+  {
+   "index": "saddle-pack",
+   "name": "Saddle, Pack",
+   "namePt": "Saddle, Pack",
+   "category": "mounts-and-vehicles",
+   "costGp": 5,
+   "weightLb": 15
+  },
+  {
+   "index": "saddle-riding",
+   "name": "Saddle, Riding",
+   "namePt": "Saddle, Riding",
+   "category": "mounts-and-vehicles",
+   "costGp": 10,
+   "weightLb": 25
+  },
+  {
+   "index": "saddlebags",
+   "name": "Saddlebags",
+   "namePt": "Saddlebags",
+   "category": "mounts-and-vehicles",
+   "costGp": 4,
+   "weightLb": 8
+  },
+  {
+   "index": "sailing-ship",
+   "name": "Sailing ship",
+   "namePt": "Sailing ship",
+   "category": "mounts-and-vehicles",
+   "costGp": 10000
+  },
+  {
+   "index": "scale-mail",
+   "name": "Scale Mail",
+   "namePt": "Scale Mail",
+   "category": "armor",
+   "costGp": 50,
+   "weightLb": 45,
+   "armorCategory": "medium",
+   "baseArmorClass": 14,
+   "dexBonus": true,
+   "maxDexBonus": 2,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "scale-merchants",
+   "name": "Scale, merchant's",
+   "namePt": "Scale, merchant's",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 3
+  },
+  {
+   "index": "scholars-pack",
+   "name": "Scholar's Pack",
+   "namePt": "Scholar's Pack",
+   "category": "adventuring-gear",
+   "costGp": 40
+  },
+  {
+   "index": "scimitar",
+   "name": "Scimitar",
+   "namePt": "Scimitar",
+   "category": "weapon",
+   "costGp": 25,
+   "weightLb": 3,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "slashing",
+   "properties": [
+    "finesse",
+    "light"
+   ]
+  },
+  {
+   "index": "sealing-wax",
+   "name": "Sealing wax",
+   "namePt": "Sealing wax",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 0
+  },
+  {
+   "index": "shawm",
+   "name": "Shawm",
+   "namePt": "Shawm",
+   "category": "tools",
+   "costGp": 2,
+   "weightLb": 1
+  },
+  {
+   "index": "shield",
+   "name": "Shield",
+   "namePt": "Shield",
+   "category": "armor",
+   "costGp": 10,
+   "weightLb": 6,
+   "armorCategory": "shield",
+   "baseArmorClass": 2,
+   "dexBonus": false,
+   "stealthDisadvantage": false
+  },
+  {
+   "index": "shortbow",
+   "name": "Shortbow",
+   "namePt": "Shortbow",
+   "category": "weapon",
+   "costGp": 25,
+   "weightLb": 2,
+   "weaponCategory": "simple",
+   "weaponRange": "ranged",
+   "damageDice": "1d6",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 80,
+    "long": 320
+   },
+   "properties": [
+    "ammunition",
+    "two-handed"
+   ]
+  },
+  {
+   "index": "shortsword",
+   "name": "Shortsword",
+   "namePt": "Shortsword",
+   "category": "weapon",
+   "costGp": 10,
+   "weightLb": 2,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "piercing",
+   "properties": [
+    "finesse",
+    "light"
+   ]
+  },
+  {
+   "index": "shovel",
+   "name": "Shovel",
+   "namePt": "Shovel",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 5
+  },
+  {
+   "index": "sickle",
+   "name": "Sickle",
+   "namePt": "Sickle",
+   "category": "weapon",
+   "costGp": 1,
+   "weightLb": 2,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d4",
+   "damageType": "slashing",
+   "properties": [
+    "light"
+   ]
+  },
+  {
+   "index": "signal-whistle",
+   "name": "Signal whistle",
+   "namePt": "Signal whistle",
+   "category": "adventuring-gear",
+   "costGp": 0.05,
+   "weightLb": 0
+  },
+  {
+   "index": "signet-ring",
+   "name": "Signet ring",
+   "namePt": "Signet ring",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 0
+  },
+  {
+   "index": "sled",
+   "name": "Sled",
+   "namePt": "Sled",
+   "category": "mounts-and-vehicles",
+   "costGp": 20,
+   "weightLb": 300
+  },
+  {
+   "index": "sling",
+   "name": "Sling",
+   "namePt": "Sling",
+   "category": "weapon",
+   "costGp": 0.1,
+   "weightLb": 0,
+   "weaponCategory": "simple",
+   "weaponRange": "ranged",
+   "damageDice": "1d4",
+   "damageType": "bludgeoning",
+   "rangeFt": {
+    "normal": 30,
+    "long": 120
+   },
+   "properties": [
+    "ammunition"
+   ]
+  },
+  {
+   "index": "sling-bullet",
+   "name": "Sling bullet",
+   "namePt": "Sling bullet",
+   "category": "adventuring-gear",
+   "costGp": 0.04,
+   "weightLb": 1.5
+  },
+  {
+   "index": "small-knife",
+   "name": "Small knife",
+   "namePt": "Small knife",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "smiths-tools",
+   "name": "Smith's Tools",
+   "namePt": "Smith's Tools",
+   "category": "tools",
+   "costGp": 20,
+   "weightLb": 8
+  },
+  {
+   "index": "soap",
+   "name": "Soap",
+   "namePt": "Soap",
+   "category": "adventuring-gear",
+   "costGp": 0.02,
+   "weightLb": 0
+  },
+  {
+   "index": "spear",
+   "name": "Spear",
+   "namePt": "Spear",
+   "category": "weapon",
+   "costGp": 1,
+   "weightLb": 3,
+   "weaponCategory": "simple",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 20,
+    "long": 60
+   },
+   "properties": [
+    "thrown",
+    "versatile"
+   ]
+  },
+  {
+   "index": "spellbook",
+   "name": "Spellbook",
+   "namePt": "Spellbook",
+   "category": "adventuring-gear",
+   "costGp": 50,
+   "weightLb": 3
+  },
+  {
+   "index": "spike-iron",
+   "name": "Spike, iron",
+   "namePt": "Spike, iron",
+   "category": "adventuring-gear",
+   "costGp": 0.1,
+   "weightLb": 5
+  },
+  {
+   "index": "splint-armor",
+   "name": "Splint Armor",
+   "namePt": "Splint Armor",
+   "category": "armor",
+   "costGp": 200,
+   "weightLb": 60,
+   "armorCategory": "heavy",
+   "baseArmorClass": 17,
+   "dexBonus": false,
+   "strMinimum": 15,
+   "stealthDisadvantage": true
+  },
+  {
+   "index": "sprig-of-mistletoe",
+   "name": "Sprig of mistletoe",
+   "namePt": "Sprig of mistletoe",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 0
+  },
+  {
+   "index": "spyglass",
+   "name": "Spyglass",
+   "namePt": "Spyglass",
+   "category": "adventuring-gear",
+   "costGp": 1000,
+   "weightLb": 1
+  },
+  {
+   "index": "stabling-1-day",
+   "name": "Stabling (1 day)",
+   "namePt": "Stabling (1 day)",
+   "category": "mounts-and-vehicles",
+   "costGp": 0.5,
+   "weightLb": 0
+  },
+  {
+   "index": "staff",
+   "name": "Staff",
+   "namePt": "Staff",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 4
+  },
+  {
+   "index": "string-10-feet",
+   "name": "String (10 feet)",
+   "namePt": "String (10 feet)",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "studded-leather-armor",
+   "name": "Studded Leather Armor",
+   "namePt": "Studded Leather Armor",
+   "category": "armor",
+   "costGp": 45,
+   "weightLb": 13,
+   "armorCategory": "light",
+   "baseArmorClass": 12,
+   "dexBonus": true,
+   "stealthDisadvantage": false
+  },
+  {
+   "index": "tent-two-person",
+   "name": "Tent, two-person",
+   "namePt": "Tent, two-person",
+   "category": "adventuring-gear",
+   "costGp": 2,
+   "weightLb": 20
+  },
+  {
+   "index": "thieves-tools",
+   "name": "Thieves' Tools",
+   "namePt": "Thieves' Tools",
+   "category": "tools",
+   "costGp": 25,
+   "weightLb": 1
+  },
+  {
+   "index": "tinderbox",
+   "name": "Tinderbox",
+   "namePt": "Tinderbox",
+   "category": "adventuring-gear",
+   "costGp": 0.5,
+   "weightLb": 1
+  },
+  {
+   "index": "tinkers-tools",
+   "name": "Tinker's Tools",
+   "namePt": "Tinker's Tools",
+   "category": "tools",
+   "costGp": 50,
+   "weightLb": 10
+  },
+  {
+   "index": "torch",
+   "name": "Torch",
+   "namePt": "Torch",
+   "category": "adventuring-gear",
+   "costGp": 0.01,
+   "weightLb": 1
+  },
+  {
+   "index": "totem",
+   "name": "Totem",
+   "namePt": "Totem",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 0
+  },
+  {
+   "index": "trident",
+   "name": "Trident",
+   "namePt": "Trident",
+   "category": "weapon",
+   "costGp": 5,
+   "weightLb": 4,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d6",
+   "damageType": "piercing",
+   "rangeFt": {
+    "normal": 20,
+    "long": 60
+   },
+   "properties": [
+    "thrown",
+    "versatile"
+   ]
+  },
+  {
+   "index": "vestments",
+   "name": "Vestments",
+   "namePt": "Vestments",
+   "category": "adventuring-gear",
+   "costGp": 0,
+   "weightLb": 0
+  },
+  {
+   "index": "vial",
+   "name": "Vial",
+   "namePt": "Vial",
+   "category": "adventuring-gear",
+   "costGp": 1,
+   "weightLb": 0
+  },
+  {
+   "index": "viol",
+   "name": "Viol",
+   "namePt": "Viol",
+   "category": "tools",
+   "costGp": 30,
+   "weightLb": 1
+  },
+  {
+   "index": "wagon",
+   "name": "Wagon",
+   "namePt": "Wagon",
+   "category": "mounts-and-vehicles",
+   "costGp": 35,
+   "weightLb": 400
+  },
+  {
+   "index": "wand",
+   "name": "Wand",
+   "namePt": "Wand",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 1
+  },
+  {
+   "index": "war-pick",
+   "name": "War pick",
+   "namePt": "War pick",
+   "category": "weapon",
+   "costGp": 5,
+   "weightLb": 2,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "piercing",
+   "properties": []
+  },
+  {
+   "index": "warhammer",
+   "name": "Warhammer",
+   "namePt": "Warhammer",
+   "category": "weapon",
+   "costGp": 15,
+   "weightLb": 2,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d8",
+   "damageType": "bludgeoning",
+   "properties": [
+    "versatile"
+   ]
+  },
+  {
+   "index": "warhorse",
+   "name": "Warhorse",
+   "namePt": "Warhorse",
+   "category": "mounts-and-vehicles",
+   "costGp": 400
+  },
+  {
+   "index": "warship",
+   "name": "Warship",
+   "namePt": "Warship",
+   "category": "mounts-and-vehicles",
+   "costGp": 25000
+  },
+  {
+   "index": "waterskin",
+   "name": "Waterskin",
+   "namePt": "Waterskin",
+   "category": "adventuring-gear",
+   "costGp": 0.2,
+   "weightLb": 5
+  },
+  {
+   "index": "weavers-tools",
+   "name": "Weaver's Tools",
+   "namePt": "Weaver's Tools",
+   "category": "tools",
+   "costGp": 1,
+   "weightLb": 5
+  },
+  {
+   "index": "whetstone",
+   "name": "Whetstone",
+   "namePt": "Whetstone",
+   "category": "adventuring-gear",
+   "costGp": 0.01,
+   "weightLb": 1
+  },
+  {
+   "index": "whip",
+   "name": "Whip",
+   "namePt": "Whip",
+   "category": "weapon",
+   "costGp": 2,
+   "weightLb": 3,
+   "weaponCategory": "martial",
+   "weaponRange": "melee",
+   "damageDice": "1d4",
+   "damageType": "slashing",
+   "properties": [
+    "finesse",
+    "reach"
+   ]
+  },
+  {
+   "index": "woodcarvers-tools",
+   "name": "Woodcarver's Tools",
+   "namePt": "Woodcarver's Tools",
+   "category": "tools",
+   "costGp": 1,
+   "weightLb": 5
+  },
+  {
+   "index": "wooden-staff",
+   "name": "Wooden staff",
+   "namePt": "Wooden staff",
+   "category": "adventuring-gear",
+   "costGp": 5,
+   "weightLb": 4
+  },
+  {
+   "index": "yew-wand",
+   "name": "Yew wand",
+   "namePt": "Yew wand",
+   "category": "adventuring-gear",
+   "costGp": 10,
+   "weightLb": 1
+  }
+ ],
+ "spells": [
+  {
+   "index": "acid-arrow",
+   "name": "Acid Arrow",
+   "namePt": "Flecha Ácida",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "acid-splash",
+   "name": "Acid Splash",
+   "namePt": "Espirro Ácido",
+   "level": 0,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "aid",
+   "name": "Aid",
+   "namePt": "Ajuda",
+   "level": 2,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "alarm",
+   "name": "Alarm",
+   "namePt": "Alarme",
+   "level": 1,
+   "school": "abjuration",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "ranger",
+    "wizard"
+   ]
+  },
+  {
+   "index": "alter-self",
+   "name": "Alter Self",
+   "namePt": "Alterar-se",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "animal-friendship",
+   "name": "Animal Friendship",
+   "namePt": "Amizade Animal",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "animal-messenger",
+   "name": "Animal Messenger",
+   "namePt": "Mensageiro Animal",
+   "level": 2,
+   "school": "enchantment",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "animal-shapes",
+   "name": "Animal Shapes",
+   "namePt": "Formas Animais",
+   "level": 8,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "animate-dead",
+   "name": "Animate Dead",
+   "namePt": "Animar Mortos",
+   "level": 3,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "animate-objects",
+   "name": "Animate Objects",
+   "namePt": "Animar Objetos",
+   "level": 5,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "antilife-shell",
+   "name": "Antilife Shell",
+   "namePt": "Cúpula Antivida",
+   "level": 5,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "antimagic-field",
+   "name": "Antimagic Field",
+   "namePt": "Campo Antimagia",
+   "level": 8,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "antipathy-sympathy",
+   "name": "Antipathy/Sympathy",
+   "namePt": "Antipatia/Simpatia",
+   "level": 8,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "arcane-eye",
+   "name": "Arcane Eye",
+   "namePt": "Olho Arcano",
+   "level": 4,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "arcane-hand",
+   "name": "Arcane Hand",
+   "namePt": "Mão Arcana",
+   "level": 5,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "arcane-lock",
+   "name": "Arcane Lock",
+   "namePt": "Tranca Arcana",
+   "level": 2,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "arcane-sword",
+   "name": "Arcane Sword",
+   "namePt": "Espada Arcana",
+   "level": 7,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "arcanists-magic-aura",
+   "name": "Arcanist's Magic Aura",
+   "namePt": "Aura Mágica do Arcanista",
+   "level": 2,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "astral-projection",
+   "name": "Astral Projection",
+   "namePt": "Projeção Astral",
+   "level": 9,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "augury",
+   "name": "Augury",
+   "namePt": "Augúrio",
+   "level": 2,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "awaken",
+   "name": "Awaken",
+   "namePt": "Despertar",
+   "level": 5,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid"
+   ]
+  },
+  {
+   "index": "bane",
+   "name": "Bane",
+   "namePt": "Perdição",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric"
+   ]
+  },
+  {
+   "index": "banishment",
+   "name": "Banishment",
+   "namePt": "Banimento",
+   "level": 4,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "barkskin",
+   "name": "Barkskin",
+   "namePt": "Pele de Árvore",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "beacon-of-hope",
+   "name": "Beacon of Hope",
+   "namePt": "Sinal de Esperança",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "bestow-curse",
+   "name": "Bestow Curse",
+   "namePt": "Rogar Maldição",
+   "level": 3,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "black-tentacles",
+   "name": "Black Tentacles",
+   "namePt": "Tentáculos Negros",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "blade-barrier",
+   "name": "Blade Barrier",
+   "namePt": "Barreira de Lâminas",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "bless",
+   "name": "Bless",
+   "namePt": "Bênção",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "blight",
+   "name": "Blight",
+   "namePt": "Malogro",
+   "level": 4,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "blindness-deafness",
+   "name": "Blindness/Deafness",
+   "namePt": "Cegueira/Surdez",
+   "level": 2,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "blink",
+   "name": "Blink",
+   "namePt": "Piscar",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "blur",
+   "name": "Blur",
+   "namePt": "Nublar",
+   "level": 2,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "branding-smite",
+   "name": "Branding Smite",
+   "namePt": "Marca da Punição",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "paladin"
+   ]
+  },
+  {
+   "index": "burning-hands",
+   "name": "Burning Hands",
+   "namePt": "Mãos Flamejantes",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "call-lightning",
+   "name": "Call Lightning",
+   "namePt": "Convocar Relâmpagos",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "calm-emotions",
+   "name": "Calm Emotions",
+   "namePt": "Acalmar Emoções",
+   "level": 2,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric"
+   ]
+  },
+  {
+   "index": "chain-lightning",
+   "name": "Chain Lightning",
+   "namePt": "Corrente de Relâmpagos",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "charm-person",
+   "name": "Charm Person",
+   "namePt": "Enfeitiçar Pessoa",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "chill-touch",
+   "name": "Chill Touch",
+   "namePt": "Toque Arrepiante",
+   "level": 0,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "circle-of-death",
+   "name": "Circle of Death",
+   "namePt": "Círculo da Morte",
+   "level": 6,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "clairvoyance",
+   "name": "Clairvoyance",
+   "namePt": "Clarividência",
+   "level": 3,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "clone",
+   "name": "Clone",
+   "namePt": "Clone",
+   "level": 8,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "cloudkill",
+   "name": "Cloudkill",
+   "namePt": "Névoa Mortal",
+   "level": 5,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "color-spray",
+   "name": "Color Spray",
+   "namePt": "Leque Cromático",
+   "level": 1,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "command",
+   "name": "Command",
+   "namePt": "Comando",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "commune",
+   "name": "Commune",
+   "namePt": "Comunhão",
+   "level": 5,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "commune-with-nature",
+   "name": "Commune With Nature",
+   "namePt": "Comunhão com a Natureza",
+   "level": 5,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "comprehend-languages",
+   "name": "Comprehend Languages",
+   "namePt": "Compreender Idiomas",
+   "level": 1,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "compulsion",
+   "name": "Compulsion",
+   "namePt": "Compulsão",
+   "level": 4,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard"
+   ]
+  },
+  {
+   "index": "cone-of-cold",
+   "name": "Cone of Cold",
+   "namePt": "Cone de Frio",
+   "level": 5,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "confusion",
+   "name": "Confusion",
+   "namePt": "Confusão",
+   "level": 4,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "conjure-animals",
+   "name": "Conjure Animals",
+   "namePt": "Conjurar Animais",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "conjure-celestial",
+   "name": "Conjure Celestial",
+   "namePt": "Conjurar Celestial",
+   "level": 7,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "conjure-elemental",
+   "name": "Conjure Elemental",
+   "namePt": "Conjurar Elemental",
+   "level": 5,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "conjure-fey",
+   "name": "Conjure Fey",
+   "namePt": "Conjurar Fada",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "warlock"
+   ]
+  },
+  {
+   "index": "conjure-minor-elementals",
+   "name": "Conjure Minor Elementals",
+   "namePt": "Conjurar Elementais Menores",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "conjure-woodland-beings",
+   "name": "Conjure Woodland Beings",
+   "namePt": "Conjurar Seres da Floresta",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "contact-other-plane",
+   "name": "Contact Other Plane",
+   "namePt": "Contato Extraplanar",
+   "level": 5,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "contagion",
+   "name": "Contagion",
+   "namePt": "Praga",
+   "level": 5,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "contingency",
+   "name": "Contingency",
+   "namePt": "Contingência",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "continual-flame",
+   "name": "Continual Flame",
+   "namePt": "Chama Contínua",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "control-water",
+   "name": "Control Water",
+   "namePt": "Controlar a Água",
+   "level": 4,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "control-weather",
+   "name": "Control Weather",
+   "namePt": "Controlar o Clima",
+   "level": 8,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "counterspell",
+   "name": "Counterspell",
+   "namePt": "Contramágica",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "create-food-and-water",
+   "name": "Create Food and Water",
+   "namePt": "Criar Alimentos",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "paladin"
+   ]
+  },
+  {
+   "index": "create-or-destroy-water",
+   "name": "Create or Destroy Water",
+   "namePt": "Criar ou Destruir Água",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "create-undead",
+   "name": "Create Undead",
+   "namePt": "Criar Mortos-vivos",
+   "level": 6,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "creation",
+   "name": "Creation",
+   "namePt": "Criação",
+   "level": 5,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "cure-wounds",
+   "name": "Cure Wounds",
+   "namePt": "Curar Ferimentos",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger"
+   ]
+  },
+  {
+   "index": "dancing-lights",
+   "name": "Dancing Lights",
+   "namePt": "Globos de Luz",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "darkness",
+   "name": "Darkness",
+   "namePt": "Escuridão",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "darkvision",
+   "name": "Darkvision",
+   "namePt": "Visão no Escuro",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "daylight",
+   "name": "Daylight",
+   "namePt": "Luz do Dia",
+   "level": 3,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "death-ward",
+   "name": "Death Ward",
+   "namePt": "Proteção contra a Morte",
+   "level": 4,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "delayed-blast-fireball",
+   "name": "Delayed Blast Fireball",
+   "namePt": "Bola de Fogo Controlável",
+   "level": 7,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "demiplane",
+   "name": "Demiplane",
+   "namePt": "Semiplano",
+   "level": 8,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "S"
+   ],
+   "classes": [
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "detect-evil-and-good",
+   "name": "Detect Evil and Good",
+   "namePt": "Detectar o Bem e Mal",
+   "level": 1,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "detect-magic",
+   "name": "Detect Magic",
+   "namePt": "Detectar Magia",
+   "level": 1,
+   "school": "divination",
+   "ritual": true,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "detect-poison-and-disease",
+   "name": "Detect Poison and Disease",
+   "namePt": "Detectar Veneno e Doença",
+   "level": 1,
+   "school": "divination",
+   "ritual": true,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger"
+   ]
+  },
+  {
+   "index": "detect-thoughts",
+   "name": "Detect Thoughts",
+   "namePt": "Detectar Pensamentos",
+   "level": 2,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "dimension-door",
+   "name": "Dimension Door",
+   "namePt": "Porta Dimensional",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "disguise-self",
+   "name": "Disguise Self",
+   "namePt": "Disfarçar-se",
+   "level": 1,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "disintegrate",
+   "name": "Disintegrate",
+   "namePt": "Desintegrar",
+   "level": 6,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "dispel-evil-and-good",
+   "name": "Dispel Evil and Good",
+   "namePt": "Dissipar o Bem e Mal",
+   "level": 5,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "dispel-magic",
+   "name": "Dispel Magic",
+   "namePt": "Dissipar Magia",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "divination",
+   "name": "Divination",
+   "namePt": "Adivinhação",
+   "level": 4,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "divine-favor",
+   "name": "Divine Favor",
+   "namePt": "Auxílio Divino",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "paladin"
+   ]
+  },
+  {
+   "index": "divine-word",
+   "name": "Divine Word",
+   "namePt": "Palavra Divina",
+   "level": 7,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "dominate-beast",
+   "name": "Dominate Beast",
+   "namePt": "Dominar Besta",
+   "level": 4,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "dominate-monster",
+   "name": "Dominate Monster",
+   "namePt": "Dominar Monstro",
+   "level": 8,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "dominate-person",
+   "name": "Dominate Person",
+   "namePt": "Dominar Pessoa",
+   "level": 5,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "dream",
+   "name": "Dream",
+   "namePt": "Sonho",
+   "level": 5,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "druidcraft",
+   "name": "Druidcraft",
+   "namePt": "Druidismo",
+   "level": 0,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "earthquake",
+   "name": "Earthquake",
+   "namePt": "Terremoto",
+   "level": 8,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "eldritch-blast",
+   "name": "Eldritch Blast",
+   "namePt": "Rajada Mística",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "warlock"
+   ]
+  },
+  {
+   "index": "enhance-ability",
+   "name": "Enhance Ability",
+   "namePt": "Aprimorar Habilidade",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "enlarge-reduce",
+   "name": "Enlarge/Reduce",
+   "namePt": "Aumentar/Reduzir",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "entangle",
+   "name": "Entangle",
+   "namePt": "Constrição",
+   "level": 1,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "enthrall",
+   "name": "Enthrall",
+   "namePt": "Cativar",
+   "level": 2,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "warlock"
+   ]
+  },
+  {
+   "index": "etherealness",
+   "name": "Etherealness",
+   "namePt": "Forma Etérea",
+   "level": 7,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "expeditious-retreat",
+   "name": "Expeditious Retreat",
+   "namePt": "Recuo Acelerado",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "eyebite",
+   "name": "Eyebite",
+   "namePt": "Ataque Visual",
+   "level": 6,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "fabricate",
+   "name": "Fabricate",
+   "namePt": "Fabricar",
+   "level": 4,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "faerie-fire",
+   "name": "Faerie Fire",
+   "namePt": "Fogo das Fadas",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "faithful-hound",
+   "name": "Faithful Hound",
+   "namePt": "Cão Fiel",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "false-life",
+   "name": "False Life",
+   "namePt": "Vitalidade Falsa",
+   "level": 1,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "fear",
+   "name": "Fear",
+   "namePt": "Medo",
+   "level": 3,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "feather-fall",
+   "name": "Feather Fall",
+   "namePt": "Queda Suave",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "feeblemind",
+   "name": "Feeblemind",
+   "namePt": "Enfraquecer Intelecto",
+   "level": 8,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "find-familiar",
+   "name": "Find Familiar",
+   "namePt": "Convocar Familiar",
+   "level": 1,
+   "school": "conjuration",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "find-steed",
+   "name": "Find Steed",
+   "namePt": "Convocar Montaria",
+   "level": 2,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "paladin"
+   ]
+  },
+  {
+   "index": "find-the-path",
+   "name": "Find the Path",
+   "namePt": "Encontrar o Caminho",
+   "level": 6,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "find-traps",
+   "name": "Find Traps",
+   "namePt": "Encontrar Armadilhas",
+   "level": 2,
+   "school": "divination",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "finger-of-death",
+   "name": "Finger of Death",
+   "namePt": "Dedo da Morte",
+   "level": 7,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "fire-bolt",
+   "name": "Fire Bolt",
+   "namePt": "Raio de Fogo",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "fire-shield",
+   "name": "Fire Shield",
+   "namePt": "Escudo de Fogo",
+   "level": 4,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "fire-storm",
+   "name": "Fire Storm",
+   "namePt": "Tempestade de Fogo",
+   "level": 7,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "fireball",
+   "name": "Fireball",
+   "namePt": "Bola de Fogo",
+   "level": 3,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "flame-blade",
+   "name": "Flame Blade",
+   "namePt": "Lâmina Flamejante",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "flame-strike",
+   "name": "Flame Strike",
+   "namePt": "Coluna de Chamas",
+   "level": 5,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "flaming-sphere",
+   "name": "Flaming Sphere",
+   "namePt": "Esfera Flamejante",
+   "level": 2,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "flesh-to-stone",
+   "name": "Flesh to Stone",
+   "namePt": "Carne para Pedra",
+   "level": 6,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "floating-disk",
+   "name": "Floating Disk",
+   "namePt": "Disco Flutuante",
+   "level": 1,
+   "school": "conjuration",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "fly",
+   "name": "Fly",
+   "namePt": "Voo",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "fog-cloud",
+   "name": "Fog Cloud",
+   "namePt": "Névoa Obscurecente",
+   "level": 1,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "forbiddance",
+   "name": "Forbiddance",
+   "namePt": "Proibição",
+   "level": 6,
+   "school": "abjuration",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "forcecage",
+   "name": "Forcecage",
+   "namePt": "Prisão de Energia",
+   "level": 7,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "foresight",
+   "name": "Foresight",
+   "namePt": "Sexto Sentido",
+   "level": 9,
+   "school": "divination",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "freedom-of-movement",
+   "name": "Freedom of Movement",
+   "namePt": "Movimentação Livre",
+   "level": 4,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "freezing-sphere",
+   "name": "Freezing Sphere",
+   "namePt": "Esfera Congelante",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "gaseous-form",
+   "name": "Gaseous Form",
+   "namePt": "Forma Gasosa",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "gate",
+   "name": "Gate",
+   "namePt": "Portal",
+   "level": 9,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "geas",
+   "name": "Geas",
+   "namePt": "Missão",
+   "level": 5,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "wizard"
+   ]
+  },
+  {
+   "index": "gentle-repose",
+   "name": "Gentle Repose",
+   "namePt": "Repouso Tranquilo",
+   "level": 2,
+   "school": "necromancy",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "giant-insect",
+   "name": "Giant Insect",
+   "namePt": "Inseto Gigante",
+   "level": 4,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "glibness",
+   "name": "Glibness",
+   "namePt": "Loquacidade",
+   "level": 8,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "warlock"
+   ]
+  },
+  {
+   "index": "globe-of-invulnerability",
+   "name": "Globe of Invulnerability",
+   "namePt": "Globo de Invulnerabilidade",
+   "level": 6,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "glyph-of-warding",
+   "name": "Glyph of Warding",
+   "namePt": "Glifo de Vigilância",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "goodberry",
+   "name": "Goodberry",
+   "namePt": "Bom Fruto",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "grease",
+   "name": "Grease",
+   "namePt": "Área Escorregadia",
+   "level": 1,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "greater-invisibility",
+   "name": "Greater Invisibility",
+   "namePt": "Invisibilidade Maior",
+   "level": 4,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "greater-restoration",
+   "name": "Greater Restoration",
+   "namePt": "Restauração Maior",
+   "level": 5,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "guardian-of-faith",
+   "name": "Guardian of Faith",
+   "namePt": "Guardião da Fé",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "guards-and-wards",
+   "name": "Guards and Wards",
+   "namePt": "Proteger Fortaleza",
+   "level": 6,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "guidance",
+   "name": "Guidance",
+   "namePt": "Orientação",
+   "level": 0,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "guiding-bolt",
+   "name": "Guiding Bolt",
+   "namePt": "Raio Guiador",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "gust-of-wind",
+   "name": "Gust of Wind",
+   "namePt": "Lufada de Vento",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "hallow",
+   "name": "Hallow",
+   "namePt": "Consagrar",
+   "level": 5,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "hallucinatory-terrain",
+   "name": "Hallucinatory Terrain",
+   "namePt": "Terreno Alucinógeno",
+   "level": 4,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "harm",
+   "name": "Harm",
+   "namePt": "Doença Plena",
+   "level": 6,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "haste",
+   "name": "Haste",
+   "namePt": "Velocidade",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "heal",
+   "name": "Heal",
+   "namePt": "Cura Completa",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "healing-word",
+   "name": "Healing Word",
+   "namePt": "Palavra Curativa",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "heat-metal",
+   "name": "Heat Metal",
+   "namePt": "Esquentar Metal",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid"
+   ]
+  },
+  {
+   "index": "hellish-rebuke",
+   "name": "Hellish Rebuke",
+   "namePt": "Repreensão Infernal",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "warlock"
+   ]
+  },
+  {
+   "index": "heroes-feast",
+   "name": "Heroes' Feast",
+   "namePt": "Banquete de Heróis",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "heroism",
+   "name": "Heroism",
+   "namePt": "Heroísmo",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "paladin"
+   ]
+  },
+  {
+   "index": "hideous-laughter",
+   "name": "Hideous Laughter",
+   "namePt": "Riso Histérico",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "hold-monster",
+   "name": "Hold Monster",
+   "namePt": "Imobilizar Monstro",
+   "level": 5,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "hold-person",
+   "name": "Hold Person",
+   "namePt": "Imobilizar Pessoa",
+   "level": 2,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "holy-aura",
+   "name": "Holy Aura",
+   "namePt": "Aura Sagrada",
+   "level": 8,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "hunters-mark",
+   "name": "Hunter's Mark",
+   "namePt": "Marca do Caçador",
+   "level": 1,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "ranger"
+   ]
+  },
+  {
+   "index": "hypnotic-pattern",
+   "name": "Hypnotic Pattern",
+   "namePt": "Padrão Hipnótico",
+   "level": 3,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "ice-storm",
+   "name": "Ice Storm",
+   "namePt": "Tempestade de Gelo",
+   "level": 4,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "identify",
+   "name": "Identify",
+   "namePt": "Identificação",
+   "level": 1,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "illusory-script",
+   "name": "Illusory Script",
+   "namePt": "Escrita Ilusória",
+   "level": 1,
+   "school": "illusion",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "imprisonment",
+   "name": "Imprisonment",
+   "namePt": "Aprisionamento",
+   "level": 9,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "incendiary-cloud",
+   "name": "Incendiary Cloud",
+   "namePt": "Nuvem Incendiária",
+   "level": 8,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "inflict-wounds",
+   "name": "Inflict Wounds",
+   "namePt": "Infligir Ferimentos",
+   "level": 1,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "insect-plague",
+   "name": "Insect Plague",
+   "namePt": "Praga de Insetos",
+   "level": 5,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "instant-summons",
+   "name": "Instant Summons",
+   "namePt": "Invocação Instantânea",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "invisibility",
+   "name": "Invisibility",
+   "namePt": "Invisibilidade",
+   "level": 2,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "irresistible-dance",
+   "name": "Irresistible Dance",
+   "namePt": "Dança Irresistível",
+   "level": 6,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "jump",
+   "name": "Jump",
+   "namePt": "Salto",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "knock",
+   "name": "Knock",
+   "namePt": "Arrombar",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "legend-lore",
+   "name": "Legend Lore",
+   "namePt": "Conhecimento Lendário",
+   "level": 5,
+   "school": "divination",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "lesser-restoration",
+   "name": "Lesser Restoration",
+   "namePt": "Restauração Menor",
+   "level": 2,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger"
+   ]
+  },
+  {
+   "index": "levitate",
+   "name": "Levitate",
+   "namePt": "Levitação",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "light",
+   "name": "Light",
+   "namePt": "Luz",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "lightning-bolt",
+   "name": "Lightning Bolt",
+   "namePt": "Relâmpago",
+   "level": 3,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "locate-animals-or-plants",
+   "name": "Locate Animals or Plants",
+   "namePt": "Localizar Animais ou Plantas",
+   "level": 2,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "locate-creature",
+   "name": "Locate Creature",
+   "namePt": "Localizar Criatura",
+   "level": 4,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger",
+    "wizard"
+   ]
+  },
+  {
+   "index": "locate-object",
+   "name": "Locate Object",
+   "namePt": "Localizar Objeto",
+   "level": 2,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger",
+    "wizard"
+   ]
+  },
+  {
+   "index": "longstrider",
+   "name": "Longstrider",
+   "namePt": "Passos Longos",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mage-armor",
+   "name": "Mage Armor",
+   "namePt": "Armadura Arcana",
+   "level": 1,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mage-hand",
+   "name": "Mage Hand",
+   "namePt": "Mãos Mágicas",
+   "level": 0,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "magic-circle",
+   "name": "Magic Circle",
+   "namePt": "Círculo Mágico",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "magic-jar",
+   "name": "Magic Jar",
+   "namePt": "Recipiente Arcano",
+   "level": 6,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "magic-missile",
+   "name": "Magic Missile",
+   "namePt": "Mísseis Mágicos",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "magic-mouth",
+   "name": "Magic Mouth",
+   "namePt": "Boca Encantada",
+   "level": 2,
+   "school": "illusion",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "magic-weapon",
+   "name": "Magic Weapon",
+   "namePt": "Arma Mágica",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "paladin",
+    "wizard"
+   ]
+  },
+  {
+   "index": "magnificent-mansion",
+   "name": "Magnificent Mansion",
+   "namePt": "Mansão Magnífica",
+   "level": 7,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "major-image",
+   "name": "Major Image",
+   "namePt": "Imagem Maior",
+   "level": 3,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mass-cure-wounds",
+   "name": "Mass Cure Wounds",
+   "namePt": "Curar Ferimentos em Massa",
+   "level": 5,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "mass-heal",
+   "name": "Mass Heal",
+   "namePt": "Cura Completa em Massa",
+   "level": 9,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "mass-healing-word",
+   "name": "Mass Healing Word",
+   "namePt": "Palavra Curativa em Massa",
+   "level": 3,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "mass-suggestion",
+   "name": "Mass Suggestion",
+   "namePt": "Sugestão em Massa",
+   "level": 6,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "maze",
+   "name": "Maze",
+   "namePt": "Labirinto",
+   "level": 8,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "meld-into-stone",
+   "name": "Meld Into Stone",
+   "namePt": "Mesclar-se às Rochas",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "mending",
+   "name": "Mending",
+   "namePt": "Consertar",
+   "level": 0,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "bard",
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "message",
+   "name": "Message",
+   "namePt": "Mensagem",
+   "level": 0,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "meteor-swarm",
+   "name": "Meteor Swarm",
+   "namePt": "Chuva de Meteoros",
+   "level": 9,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mind-blank",
+   "name": "Mind Blank",
+   "namePt": "Limpar a Mente",
+   "level": 8,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "minor-illusion",
+   "name": "Minor Illusion",
+   "namePt": "Ilusão Menor",
+   "level": 0,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mirage-arcane",
+   "name": "Mirage Arcane",
+   "namePt": "Miragem",
+   "level": 7,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mirror-image",
+   "name": "Mirror Image",
+   "namePt": "Reflexos",
+   "level": 2,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "mislead",
+   "name": "Mislead",
+   "namePt": "Despistar",
+   "level": 5,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "misty-step",
+   "name": "Misty Step",
+   "namePt": "Passo Nebuloso",
+   "level": 2,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "modify-memory",
+   "name": "Modify Memory",
+   "namePt": "Modificar Memória",
+   "level": 5,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "moonbeam",
+   "name": "Moonbeam",
+   "namePt": "Raio Lunar",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "move-earth",
+   "name": "Move Earth",
+   "namePt": "Mover Terra",
+   "level": 6,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "nondetection",
+   "name": "Nondetection",
+   "namePt": "Dificultar Detecção",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "ranger",
+    "wizard"
+   ]
+  },
+  {
+   "index": "pass-without-trace",
+   "name": "Pass Without Trace",
+   "namePt": "Passos sem Pegadas",
+   "level": 2,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "passwall",
+   "name": "Passwall",
+   "namePt": "Criar Passagem",
+   "level": 5,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "phantasmal-killer",
+   "name": "Phantasmal Killer",
+   "namePt": "Assassino Fantasmagórico",
+   "level": 4,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "phantom-steed",
+   "name": "Phantom Steed",
+   "namePt": "Montaria Fantasmagórica",
+   "level": 3,
+   "school": "illusion",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "planar-ally",
+   "name": "Planar Ally",
+   "namePt": "Aliado Planar",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "planar-binding",
+   "name": "Planar Binding",
+   "namePt": "Âncora Planar",
+   "level": 5,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "plane-shift",
+   "name": "Plane Shift",
+   "namePt": "Viagem Planar",
+   "level": 7,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "plant-growth",
+   "name": "Plant Growth",
+   "namePt": "Ampliar Plantas",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "poison-spray",
+   "name": "Poison Spray",
+   "namePt": "Rajada de Veneno",
+   "level": 0,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard",
+    "druid"
+   ]
+  },
+  {
+   "index": "polymorph",
+   "name": "Polymorph",
+   "namePt": "Metamorfose",
+   "level": 4,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "power-word-kill",
+   "name": "Power Word Kill",
+   "namePt": "Palavra de Poder Matar",
+   "level": 9,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "power-word-stun",
+   "name": "Power Word Stun",
+   "namePt": "Palavra de Poder Atordoar",
+   "level": 8,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "prayer-of-healing",
+   "name": "Prayer of Healing",
+   "namePt": "Oração Curativa",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "prestidigitation",
+   "name": "Prestidigitation",
+   "namePt": "Prestidigitação",
+   "level": 0,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "prismatic-spray",
+   "name": "Prismatic Spray",
+   "namePt": "Rajada Prismática",
+   "level": 7,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "prismatic-wall",
+   "name": "Prismatic Wall",
+   "namePt": "Muralha Prismática",
+   "level": 9,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "private-sanctum",
+   "name": "Private Sanctum",
+   "namePt": "Santuário Particular",
+   "level": 4,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "produce-flame",
+   "name": "Produce Flame",
+   "namePt": "Criar Chamas",
+   "level": 0,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "programmed-illusion",
+   "name": "Programmed Illusion",
+   "namePt": "Ilusão Programada",
+   "level": 6,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "project-image",
+   "name": "Project Image",
+   "namePt": "Projetar Imagem",
+   "level": 7,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "protection-from-energy",
+   "name": "Protection From Energy",
+   "namePt": "Proteção contra Energia",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "protection-from-evil-and-good",
+   "name": "Protection from Evil and Good",
+   "namePt": "Proteção contra o Bem e Mal",
+   "level": 1,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "protection-from-poison",
+   "name": "Protection from Poison",
+   "namePt": "Proteção contra Veneno",
+   "level": 2,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "paladin",
+    "ranger"
+   ]
+  },
+  {
+   "index": "purify-food-and-drink",
+   "name": "Purify Food and Drink",
+   "namePt": "Purificar Alimentos",
+   "level": 1,
+   "school": "transmutation",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "paladin"
+   ]
+  },
+  {
+   "index": "raise-dead",
+   "name": "Raise Dead",
+   "namePt": "Reviver os Mortos",
+   "level": 5,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "ray-of-enfeeblement",
+   "name": "Ray of Enfeeblement",
+   "namePt": "Raio do Enfraquecimento",
+   "level": 2,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "ray-of-frost",
+   "name": "Ray of Frost",
+   "namePt": "Raio de Gelo",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "regenerate",
+   "name": "Regenerate",
+   "namePt": "Regeneração",
+   "level": 7,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "reincarnate",
+   "name": "Reincarnate",
+   "namePt": "Reencarnação",
+   "level": 5,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "remove-curse",
+   "name": "Remove Curse",
+   "namePt": "Remover Maldição",
+   "level": 3,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric",
+    "paladin",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "resilient-sphere",
+   "name": "Resilient Sphere",
+   "namePt": "Esfera Resiliente",
+   "level": 4,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "resistance",
+   "name": "Resistance",
+   "namePt": "Resistência",
+   "level": 0,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "resurrection",
+   "name": "Resurrection",
+   "namePt": "Ressurreição",
+   "level": 7,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric"
+   ]
+  },
+  {
+   "index": "reverse-gravity",
+   "name": "Reverse Gravity",
+   "namePt": "Inverter a Gravidade",
+   "level": 7,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "revivify",
+   "name": "Revivify",
+   "namePt": "Revivificar",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "rope-trick",
+   "name": "Rope Trick",
+   "namePt": "Truque de Corda",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "sacred-flame",
+   "name": "Sacred Flame",
+   "namePt": "Chama Sagrada",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "sanctuary",
+   "name": "Sanctuary",
+   "namePt": "Santuário",
+   "level": 1,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "scorching-ray",
+   "name": "Scorching Ray",
+   "namePt": "Raio Ardente",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "scrying",
+   "name": "Scrying",
+   "namePt": "Vidência",
+   "level": 5,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "druid",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "secret-chest",
+   "name": "Secret Chest",
+   "namePt": "Arca Secreta",
+   "level": 4,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "see-invisibility",
+   "name": "See Invisibility",
+   "namePt": "Ver o Invisível",
+   "level": 2,
+   "school": "divination",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "seeming",
+   "name": "Seeming",
+   "namePt": "Similaridade",
+   "level": 5,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "sending",
+   "name": "Sending",
+   "namePt": "Enviar Mensagem",
+   "level": 3,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "sequester",
+   "name": "Sequester",
+   "namePt": "Isolamento",
+   "level": 7,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "shapechange",
+   "name": "Shapechange",
+   "namePt": "Alterar Forma",
+   "level": 9,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "shatter",
+   "name": "Shatter",
+   "namePt": "Despedaçar",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "shield",
+   "name": "Shield",
+   "namePt": "Escudo Arcano",
+   "level": 1,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "shield-of-faith",
+   "name": "Shield of Faith",
+   "namePt": "Escudo da Fé",
+   "level": 1,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "paladin"
+   ]
+  },
+  {
+   "index": "shillelagh",
+   "name": "Shillelagh",
+   "namePt": "Bordão Místico",
+   "level": 0,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "shocking-grasp",
+   "name": "Shocking Grasp",
+   "namePt": "Toque Chocante",
+   "level": 0,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "silence",
+   "name": "Silence",
+   "namePt": "Silêncio",
+   "level": 2,
+   "school": "illusion",
+   "ritual": true,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "ranger"
+   ]
+  },
+  {
+   "index": "silent-image",
+   "name": "Silent Image",
+   "namePt": "Imagem Silenciosa",
+   "level": 1,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "simulacrum",
+   "name": "Simulacrum",
+   "namePt": "Simulacro",
+   "level": 7,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "sleep",
+   "name": "Sleep",
+   "namePt": "Sono",
+   "level": 1,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "sleet-storm",
+   "name": "Sleet Storm",
+   "namePt": "Nevasca",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "slow",
+   "name": "Slow",
+   "namePt": "Lentidão",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "spare-the-dying",
+   "name": "Spare the Dying",
+   "namePt": "Estabilizar",
+   "level": 0,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "speak-with-animals",
+   "name": "Speak with Animals",
+   "namePt": "Falar com Animais",
+   "level": 1,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "speak-with-dead",
+   "name": "Speak with Dead",
+   "namePt": "Falar com os Mortos",
+   "level": 3,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric"
+   ]
+  },
+  {
+   "index": "speak-with-plants",
+   "name": "Speak with Plants",
+   "namePt": "Falar com Plantas",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "spider-climb",
+   "name": "Spider Climb",
+   "namePt": "Patas de Aranha",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "spike-growth",
+   "name": "Spike Growth",
+   "namePt": "Crescer Espinhos",
+   "level": 2,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "spirit-guardians",
+   "name": "Spirit Guardians",
+   "namePt": "Espíritos Guardiões",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "spiritual-weapon",
+   "name": "Spiritual Weapon",
+   "namePt": "Arma Espiritual",
+   "level": 2,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "stinking-cloud",
+   "name": "Stinking Cloud",
+   "namePt": "Névoa Fétida",
+   "level": 3,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "stone-shape",
+   "name": "Stone Shape",
+   "namePt": "Moldar Rochas",
+   "level": 4,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "wizard"
+   ]
+  },
+  {
+   "index": "stoneskin",
+   "name": "Stoneskin",
+   "namePt": "Pele de Pedra",
+   "level": 4,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "storm-of-vengeance",
+   "name": "Storm of Vengeance",
+   "namePt": "Tempestade da Vingança",
+   "level": 9,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "suggestion",
+   "name": "Suggestion",
+   "namePt": "Sugestão",
+   "level": 2,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "sunbeam",
+   "name": "Sunbeam",
+   "namePt": "Raio Solar",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "sunburst",
+   "name": "Sunburst",
+   "namePt": "Explosão Solar",
+   "level": 8,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "symbol",
+   "name": "Symbol",
+   "namePt": "Símbolo",
+   "level": 7,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "wizard"
+   ]
+  },
+  {
+   "index": "telekinesis",
+   "name": "Telekinesis",
+   "namePt": "Telecinésia",
+   "level": 5,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "telepathic-bond",
+   "name": "Telepathic Bond",
+   "namePt": "Ligação Telepática",
+   "level": 5,
+   "school": "divination",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "teleport",
+   "name": "Teleport",
+   "namePt": "Teletransporte",
+   "level": 7,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "teleportation-circle",
+   "name": "Teleportation Circle",
+   "namePt": "Círculo de Teletransporte",
+   "level": 5,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "thaumaturgy",
+   "name": "Thaumaturgy",
+   "namePt": "Taumaturgia",
+   "level": 0,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "thunderwave",
+   "name": "Thunderwave",
+   "namePt": "Onda Trovejante",
+   "level": 1,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "time-stop",
+   "name": "Time Stop",
+   "namePt": "Parar o Tempo",
+   "level": 9,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "tiny-hut",
+   "name": "Tiny Hut",
+   "namePt": "Pequena Cabana",
+   "level": 3,
+   "school": "evocation",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "wizard"
+   ]
+  },
+  {
+   "index": "tongues",
+   "name": "Tongues",
+   "namePt": "Idiomas",
+   "level": 3,
+   "school": "divination",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "transport-via-plants",
+   "name": "Transport via Plants",
+   "namePt": "Teletransporte por Árvores",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "tree-stride",
+   "name": "Tree Stride",
+   "namePt": "Caminhar em Árvores",
+   "level": 5,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "true-polymorph",
+   "name": "True Polymorph",
+   "namePt": "Metamorfose Verdadeira",
+   "level": 9,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "true-resurrection",
+   "name": "True Resurrection",
+   "namePt": "Ressurreição Verdadeira",
+   "level": 9,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid"
+   ]
+  },
+  {
+   "index": "true-seeing",
+   "name": "True Seeing",
+   "namePt": "Visão da Verdade",
+   "level": 6,
+   "school": "divination",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "true-strike",
+   "name": "True Strike",
+   "namePt": "Ataque Certeiro",
+   "level": 0,
+   "school": "divination",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "sorcerer",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "unseen-servant",
+   "name": "Unseen Servant",
+   "namePt": "Servo Invisível",
+   "level": 1,
+   "school": "conjuration",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "bard",
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "vampiric-touch",
+   "name": "Vampiric Touch",
+   "namePt": "Toque Vampírico",
+   "level": 3,
+   "school": "necromancy",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "warlock",
+    "wizard"
+   ]
+  },
+  {
+   "index": "vicious-mockery",
+   "name": "Vicious Mockery",
+   "namePt": "Zombaria Viciosa",
+   "level": 0,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "bard"
+   ]
+  },
+  {
+   "index": "wall-of-fire",
+   "name": "Wall of Fire",
+   "namePt": "Muralha de Fogo",
+   "level": 4,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "wall-of-force",
+   "name": "Wall of Force",
+   "namePt": "Muralha de Energia",
+   "level": 5,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "wall-of-ice",
+   "name": "Wall of Ice",
+   "namePt": "Muralha de Gelo",
+   "level": 6,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "wall-of-stone",
+   "name": "Wall of Stone",
+   "namePt": "Muralha de Pedra",
+   "level": 5,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "wall-of-thorns",
+   "name": "Wall of Thorns",
+   "namePt": "Muralha de Espinhos",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "warding-bond",
+   "name": "Warding Bond",
+   "namePt": "Vínculo Protetor",
+   "level": 2,
+   "school": "abjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "water-breathing",
+   "name": "Water Breathing",
+   "namePt": "Respirar na Água",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger",
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "water-walk",
+   "name": "Water Walk",
+   "namePt": "Andar na Água",
+   "level": 3,
+   "school": "transmutation",
+   "ritual": true,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "cleric",
+    "druid",
+    "ranger",
+    "sorcerer"
+   ]
+  },
+  {
+   "index": "web",
+   "name": "Web",
+   "namePt": "Teia",
+   "level": 2,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "weird",
+   "name": "Weird",
+   "namePt": "Encarnação Fantasmagórica",
+   "level": 9,
+   "school": "illusion",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "wizard"
+   ]
+  },
+  {
+   "index": "wind-walk",
+   "name": "Wind Walk",
+   "namePt": "Caminhar no Vento",
+   "level": 6,
+   "school": "transmutation",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid"
+   ]
+  },
+  {
+   "index": "wind-wall",
+   "name": "Wind Wall",
+   "namePt": "Muralha de Vento",
+   "level": 3,
+   "school": "evocation",
+   "ritual": false,
+   "concentration": true,
+   "components": [
+    "V",
+    "S",
+    "M"
+   ],
+   "classes": [
+    "druid",
+    "ranger"
+   ]
+  },
+  {
+   "index": "wish",
+   "name": "Wish",
+   "namePt": "Desejo",
+   "level": 9,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "sorcerer",
+    "wizard"
+   ]
+  },
+  {
+   "index": "word-of-recall",
+   "name": "Word of Recall",
+   "namePt": "Palavra de Recordação",
+   "level": 6,
+   "school": "conjuration",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V"
+   ],
+   "classes": [
+    "cleric"
+   ]
+  },
+  {
+   "index": "zone-of-truth",
+   "name": "Zone of Truth",
+   "namePt": "Zona da Verdade",
+   "level": 2,
+   "school": "enchantment",
+   "ritual": false,
+   "concentration": false,
+   "components": [
+    "V",
+    "S"
+   ],
+   "classes": [
+    "bard",
+    "cleric",
+    "paladin"
+   ]
+  }
+ ]
+}

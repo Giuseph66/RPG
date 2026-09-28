@@ -46,6 +46,9 @@ service cloud.firestore {
           ? data.storagePath == 'campaigns/' + data.campaignId + '/assets/' + assetId
           : !('campaignId' in data) && data.storagePath == 'users/' + data.ownerUid + '/assets/' + assetId);
     }
+    function mapVisible(data) {
+      return request.auth.uid in data.visibleTo || '*' in data.visibleTo;
+    }
     function assetImmutableFieldsUnchanged(before, after) {
       return before.id == after.id && before.ownerUid == after.ownerUid &&
         before.createdAt == after.createdAt && before.hash == after.hash &&
@@ -143,9 +146,13 @@ service cloud.firestore {
           resource.data.ownerUid == request.auth.uid;
       }
 
+      // Cada conta tem o próprio diário. O mestre lê todos; um jogador só lê o seu.
       match /journals/{journalId} {
-        allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, journalId));
-        allow list: if campaignMember(campaignId);
+        allow get: if campaignMember(campaignId) && (resource == null ||
+          (hasCampaignRecordIdentity(resource.data, campaignId, journalId) &&
+            (campaignOwner(campaignId) || resource.data.ownerUid == request.auth.uid)));
+        allow list: if campaignOwner(campaignId) ||
+          (activeMember(campaignId, request.auth.uid) && resource.data.ownerUid == request.auth.uid);
         allow create: if activeMember(campaignId, request.auth.uid) &&
           hasCampaignRecordIdentity(request.resource.data, campaignId, journalId) &&
           request.resource.data.ownerUid == request.auth.uid;
@@ -156,12 +163,16 @@ service cloud.firestore {
           protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
         allow delete: if campaignMember(campaignId) &&
           hasCampaignRecordIdentity(resource.data, campaignId, journalId) &&
-          resource.data.ownerUid == request.auth.uid;
+          (resource.data.ownerUid == request.auth.uid || campaignOwner(campaignId));
       }
 
+      // Mapas começam privados do mestre; `visibleTo` libera contas específicas ou '*'.
       match /maps/{mapId} {
-        allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, mapId));
-        allow list: if campaignMember(campaignId);
+        allow get: if (campaignOwner(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, mapId))) ||
+          (activeMember(campaignId, request.auth.uid) && resource != null &&
+            hasCampaignRecordIdentity(resource.data, campaignId, mapId) && mapVisible(resource.data));
+        allow list: if campaignOwner(campaignId) ||
+          (activeMember(campaignId, request.auth.uid) && mapVisible(resource.data));
         allow create: if campaignOwner(campaignId) &&
           hasCampaignRecordIdentity(request.resource.data, campaignId, mapId) &&
           request.resource.data.ownerUid == request.auth.uid;
@@ -171,6 +182,63 @@ service cloud.firestore {
           protectedFieldsUnchanged(resource.data, request.resource.data) &&
           revisionAdvances(resource.data, request.resource.data);
         allow delete: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, mapId);
+      }
+
+      // Registro completo de criaturas: exclusivo do mestre.
+      match /creatures/{creatureId} {
+        allow read: if campaignOwner(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, creatureId));
+        allow create: if campaignOwner(campaignId) && hasCampaignRecordIdentity(request.resource.data, campaignId, creatureId) &&
+          request.resource.data.ownerUid == request.auth.uid;
+        allow update: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, creatureId) &&
+          hasCampaignRecordIdentity(request.resource.data, campaignId, creatureId) &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, creatureId);
+      }
+
+      // O que o mestre revelou de uma criatura para uma conta. O jogador só lê o próprio.
+      match /sightings/{sightingId} {
+        function sightingShape(data) {
+          return hasCampaignRecordIdentity(data, campaignId, sightingId) &&
+            data.accountId is string && data.creatureId is string &&
+            sightingId == data.creatureId + '__' + data.accountId &&
+            !('notes' in data.revealed) && !('reveals' in data);
+        }
+        allow get: if campaignMember(campaignId) && (resource == null ||
+          (hasCampaignRecordIdentity(resource.data, campaignId, sightingId) &&
+            (campaignOwner(campaignId) || resource.data.accountId == request.auth.uid)));
+        allow list: if campaignOwner(campaignId) ||
+          (activeMember(campaignId, request.auth.uid) && resource.data.accountId == request.auth.uid);
+        allow create: if campaignOwner(campaignId) && sightingShape(request.resource.data) &&
+          request.resource.data.ownerUid == request.auth.uid;
+        allow update: if campaignOwner(campaignId) && sightingShape(resource.data) && sightingShape(request.resource.data) &&
+          request.resource.data.accountId == resource.data.accountId &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, sightingId);
+      }
+
+      // Palpite de um jogador sobre uma criatura avistada; o mestre lê todos.
+      match /guesses/{guessId} {
+        function guessShape(data) {
+          return hasCampaignRecordIdentity(data, campaignId, guessId) &&
+            data.accountId is string && data.creatureId is string &&
+            guessId == data.creatureId + '__' + data.accountId &&
+            data.name is string && data.name.size() <= 80 && data.note is string && data.note.size() <= 800 &&
+            (!('fields' in data) || (data.fields is map &&
+              data.fields.keys().hasOnly(['appearance', 'race', 'hitPoints', 'armorClass', 'abilities'])));
+        }
+        allow get: if campaignMember(campaignId) && (resource == null ||
+          (hasCampaignRecordIdentity(resource.data, campaignId, guessId) &&
+            (campaignOwner(campaignId) || resource.data.accountId == request.auth.uid)));
+        allow list: if campaignOwner(campaignId) ||
+          (activeMember(campaignId, request.auth.uid) && resource.data.accountId == request.auth.uid);
+        allow create: if activeMember(campaignId, request.auth.uid) && guessShape(request.resource.data) &&
+          request.resource.data.accountId == request.auth.uid && request.resource.data.ownerUid == request.auth.uid &&
+          exists(/databases/$(database)/documents/campaigns/$(campaignId)/sightings/$(guessId));
+        allow update: if activeMember(campaignId, request.auth.uid) && guessShape(resource.data) && guessShape(request.resource.data) &&
+          resource.data.accountId == request.auth.uid && request.resource.data.accountId == request.auth.uid &&
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+        allow delete: if hasCampaignRecordIdentity(resource.data, campaignId, guessId) &&
+          (campaignOwner(campaignId) || (activeMember(campaignId, request.auth.uid) && resource.data.accountId == request.auth.uid));
       }
 
       match /sessions/{sessionId} {

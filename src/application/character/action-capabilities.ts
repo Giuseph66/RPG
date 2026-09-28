@@ -485,7 +485,7 @@ function buildRestCapabilities(
             const count = Math.max(0, Math.floor(hitDice[String(entry.classId)] ?? 0));
             if (count === 0) return [];
             const rollIds = Array.from({ length: count }, () => newId());
-            for (const rollId of rollIds) rollPlan.push({ id: rollId, expression: { quantity: 1, faces: entry.hitDie, modifier: 0 }, purpose: "healing", label: `Dado de Vida (${className(String(entry.classId))})` });
+            for (const rollId of rollIds) rollPlan.push({ id: rollId, expression: { quantity: 1, faces: entry.hitDie, modifier: 0, mode: "normal" }, purpose: "healing", label: `Dado de Vida (${className(String(entry.classId))})` });
             return [{ classId: entry.classId, count, rollIds }];
           });
           return { command: { ...command, payload: { restKind, hitDiceSpent } }, rollPlan };

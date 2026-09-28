@@ -1,3 +1,5 @@
+import type { CreatureService } from "@application/campaign/creature-service";
+import type { MapPublication } from "@application/campaign/map-publication";
 import type { ApplicationServices } from "@application/state";
 import type { CharacterApplicationService } from "@application/character";
 import type { CompendiumService } from "@application/compendium";
@@ -62,6 +64,10 @@ export interface FeatureRegistryDependencies {
   readonly listJournalEntries?: (campaignId: Uuid) => Promise<Result<readonly JournalEntry[], AppError>>;
   readonly getLocalAsset?: (assetId: Uuid) => Promise<Result<Asset, AppError>>;
   readonly journalDraftState?: () => JournalDraftState | undefined;
+  /** Criaturas privadas do mestre, revelações por jogador e palpites. */
+  readonly creatures?: CreatureService;
+  /** Envio da imagem do mapa ao Firebase e compartilhamento com jogadores. */
+  readonly mapPublication?: MapPublication;
   readonly dataManagement?: {
     readonly service: DataManagementService;
     readonly previewImport: (envelope: BackupEnvelope) => Promise<Result<ImportPreview, AppError>>;
@@ -105,6 +111,8 @@ export interface FeatureRegistry {
     readonly listJournalEntries?: (campaignId: Uuid) => Promise<Result<readonly JournalEntry[], AppError>>;
     readonly getLocalAsset?: (assetId: Uuid) => Promise<Result<Asset, AppError>>;
     readonly getJournalDraftState?: () => JournalDraftState | undefined;
+    readonly creatures?: CreatureService;
+    readonly mapPublication?: MapPublication;
   };
   readonly compendium: {
     readonly service: CompendiumService;
@@ -189,6 +197,8 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     listJournalEntries: dependencies.listJournalEntries,
     getLocalAsset: dependencies.getLocalAsset,
     getJournalDraftState: dependencies.journalDraftState,
+    ...(dependencies.creatures ? { creatures: dependencies.creatures } : {}),
+    ...(dependencies.mapPublication ? { mapPublication: dependencies.mapPublication } : {}),
   };
 
   const compendium = {

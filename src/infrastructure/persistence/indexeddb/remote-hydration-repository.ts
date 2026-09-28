@@ -4,6 +4,7 @@ import { type SyncOperation } from "@domain/contracts/cloud-sync";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { runTransaction, requestToPromise } from "./transaction";
 import { STORE_NAMES } from "./schema";
+import { isCreatureGuess, isCreatureRecord, isCreatureSighting } from "@domain/campaign/creatures";
 
 type RecordMap = Record<string, unknown>;
 
@@ -24,6 +25,9 @@ function validPayload(type: RemoteSyncPullRecord["aggregateType"], payload: unkn
   if (type === "campaign" || type === "character") return Number.isInteger(item.schemaVersion) && typeof item.revision === "number" && Number.isInteger(item.revision) && item.revision >= 0 && typeof item.createdAt === "string" && typeof item.updatedAt === "string";
   if (type === "journal") return typeof item.campaignId === "string" && typeof item.title === "string" && typeof item.body === "string";
   if (type === "map") return typeof item.campaignId === "string" && typeof item.assetId === "string" && Array.isArray(item.pins) && typeof item.revision === "number" && Number.isInteger(item.revision) && item.revision >= 0;
+  if (type === "creature") return isCreatureRecord(item);
+  if (type === "sighting") return isCreatureSighting(item);
+  if (type === "guess") return isCreatureGuess(item);
   if (type === "session") return typeof item.campaignId === "string" && Number.isInteger(item.schemaVersion) && typeof item.revision === "number" && Number.isInteger(item.revision) && item.revision >= 0 && typeof item.title === "string" && typeof item.notes === "string" && typeof item.summary === "string" && Array.isArray(item.attendance);
   return false;
 }
@@ -45,6 +49,9 @@ function storeName(type: RemoteSyncPullRecord["aggregateType"]): string | undefi
     case "journal": return STORE_NAMES.journalEntries;
     case "map": return STORE_NAMES.maps;
     case "session": return STORE_NAMES.sessions;
+    case "creature": return STORE_NAMES.creatures;
+    case "sighting": return STORE_NAMES.sightings;
+    case "guess": return STORE_NAMES.guesses;
     // Asset metadata alone cannot hydrate an Asset: bytes belong to Storage.
     default: return undefined;
   }
@@ -80,13 +87,19 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
     const conflicts: RemoteHydrationConflict[] = [];
     let applied = 0;
     let skipped = 0;
+    const touched: string[] = [];
 
     const result = await runTransaction(this.db, Object.values(STORE_NAMES), "readwrite", async (tx) => {
       for (const entry of ordered) {
         const store = storeName(entry.aggregateType);
         if (!store) { skipped += 1; continue; }
         const payload = record(entry.payload);
-        if (!payload || !validPayload(entry.aggregateType, payload)) return err(appError.validation("remote-pull", `Snapshot remoto inválido: ${entry.aggregateType}/${entry.aggregateId}.`));
+        // Um documento malformado não pode travar o resto da mesa; ele fica de fora.
+        if (!payload || !validPayload(entry.aggregateType, payload)) {
+          console.warn("[sync] Snapshot remoto ignorado por estar incompleto", { aggregateType: entry.aggregateType, aggregateId: entry.aggregateId });
+          skipped += 1;
+          continue;
+        }
         if (entry.aggregateType === "account" && entry.aggregateId !== input.ownerUid) { skipped += 1; continue; }
         if (entry.aggregateType === "membership" && payload.accountId !== input.ownerUid && !masterCampaigns.has(payload.campaignId as string)) { skipped += 1; continue; }
         const campaignId = entry.scope?.campaignId ?? (typeof payload.campaignId === "string" ? payload.campaignId : undefined);
@@ -105,15 +118,38 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
           if (entry.aggregateType === "character" && currentRecord && revision(current) === entry.revision && typeof payload.ownerUid === "string" && currentRecord.ownerUid !== payload.ownerUid) {
             await requestToPromise(tx.objectStore(store).put({ ...currentRecord, ownerUid: payload.ownerUid }));
             applied += 1;
+            touched.push(`${entry.aggregateType}:${entry.aggregateId}`);
           } else skipped += 1;
           continue;
         }
         await requestToPromise(tx.objectStore(store).put(payload));
         applied += 1;
+        touched.push(`${entry.aggregateType}:${entry.aggregateId}`);
+      }
+      // Em campanhas de jogador o pull é a lista autoritativa do que continua visível:
+      // mapas ocultados, criaturas escondidas e diários de outras contas saem deste aparelho.
+      const pulledIds = new Set(input.pull.records.map((entry) => `${entry.aggregateType}|${entry.aggregateId}`));
+      for (const visible of input.pull.visibleCampaigns ?? []) {
+        if (visible.role !== "player" || !allowedCampaigns.has(visible.campaignId)) continue;
+        for (const [type, store] of [["map", STORE_NAMES.maps], ["journal", STORE_NAMES.journalEntries], ["sighting", STORE_NAMES.sightings], ["guess", STORE_NAMES.guesses], ["creature", STORE_NAMES.creatures]] as const) {
+          if (visible.types && !visible.types.includes(type)) continue;
+          const local = await requestToPromise(tx.objectStore(store).index("campaignId").getAll(visible.campaignId)) as unknown[];
+          for (const raw of local) {
+            const item = record(raw);
+            const id = item?.id;
+            if (typeof id !== "string" || pulledIds.has(`${type}|${id}`)) continue;
+            // O que a própria conta escreveu e ainda não subiu nunca é descartado aqui.
+            if ((type === "journal" && item?.authorId === input.ownerUid) || (type === "guess" && item?.accountId === input.ownerUid)) continue;
+            if (pending.has(`${type}|${id}|${visible.campaignId}`) || pending.has(`${type}|${id}|`)) continue;
+            await requestToPromise(tx.objectStore(store).delete(id));
+            applied += 1;
+            touched.push(`${type}:${id}`);
+          }
+        }
       }
       return ok(undefined);
     });
     if (!result.ok) return result;
-    return ok({ received: input.pull.records.length, applied, skipped, conflicts });
+    return ok({ received: input.pull.records.length, applied, skipped, conflicts, ...(touched.length ? { touched } : {}) });
   }
 }

@@ -130,6 +130,10 @@ export function predicateApplies(
     case "always": return true;
     case "while-condition-active":
       return character.conditions.some((instance) => sameRef(instance.definitionRef, predicate.conditionRef));
+    case "min-condition-severity":
+      return character.conditions
+        .filter((instance) => sameRef(instance.definitionRef, predicate.conditionRef))
+        .reduce((total, instance) => total + (instance.severity ?? 0), 0) >= predicate.severity;
     case "while-wearing-armor-category": return equippedArmorCategories.has(predicate.armorCategory);
     case "while-not-wearing-armor": return !["light", "medium", "heavy"].some((kind) => equippedArmorCategories.has(kind));
     case "while-wielding-shield": return equippedArmorCategories.has("shield");
@@ -464,7 +468,7 @@ export function applyNumericModifiers(
     switch (applied.modifier.operator) {
       case "set-base": break;
       case "add": value += amount; contributions.push({ sourceRef: applied.modifier.sourceRef, amount, description: `${applied.scope}: soma` }); break;
-      case "multiply": value *= amount; contributions.push({ sourceRef: applied.modifier.sourceRef, amount, description: `${applied.scope}: multiplica` }); break;
+      case "multiply": value = Math.floor(value * amount); contributions.push({ sourceRef: applied.modifier.sourceRef, amount, description: `${applied.scope}: multiplica` }); break;
       case "set-minimum": value = Math.max(value, amount); contributions.push({ sourceRef: applied.modifier.sourceRef, amount, description: `${applied.scope}: mínimo` }); break;
       case "set-maximum": value = Math.min(value, amount); contributions.push({ sourceRef: applied.modifier.sourceRef, amount, description: `${applied.scope}: máximo` }); break;
       default: break;

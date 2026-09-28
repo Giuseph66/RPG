@@ -43,7 +43,7 @@ function weapon(spec: WeaponSpec): EquipmentDefinition {
 }
 
 const simpleMelee: readonly WeaponSpec[] = [
-  { id: "dagger", name: "Adaga", damage: { quantity: 1, faces: 4 }, damageType: "piercing", properties: ["finesse", "light", "thrown"], range: [6, 18], proficiency: "simple", weightGrams: 500, valueGold: 2 },
+  { id: "dagger", name: "Adaga", damage: { quantity: 1, faces: 4 }, damageType: "piercing", properties: ["finesse", "light", "thrown"], range: [6, 18], proficiency: "simple", weightGrams: 500, valueGold: 2, ability: { kind: "finesse", abilities: ["str", "dex"] } },
   { id: "javelin", name: "Azagaia", damage: { quantity: 1, faces: 6 }, damageType: "piercing", properties: ["thrown"], range: [9, 36], proficiency: "simple", weightGrams: 1000, valueGold: 0.5 },
   { id: "quarterstaff", name: "Bordão", damage: { quantity: 1, faces: 6 }, damageType: "bludgeoning", properties: ["versatile"], proficiency: "simple", weightGrams: 2000, valueGold: 0.2 },
   { id: "greatclub", name: "Clava Grande", damage: { quantity: 1, faces: 8 }, damageType: "bludgeoning", properties: ["heavy", "two-handed"], proficiency: "simple", weightGrams: 5000, valueGold: 0.2 },
@@ -58,7 +58,7 @@ const simpleMelee: readonly WeaponSpec[] = [
 const simpleRanged: readonly WeaponSpec[] = [
   { id: "shortbow", name: "Arco Curto", damage: { quantity: 1, faces: 6 }, damageType: "piercing", properties: ["ammunition", "two-handed"], range: [24, 96], proficiency: "simple", weightGrams: 1000, valueGold: 25 },
   { id: "light-crossbow", name: "Besta Leve", damage: { quantity: 1, faces: 8 }, damageType: "piercing", properties: ["ammunition", "loading", "two-handed"], range: [24, 96], proficiency: "simple", weightGrams: 2500, valueGold: 25 },
-  { id: "dart", name: "Dardo", damage: { quantity: 1, faces: 4 }, damageType: "piercing", properties: ["finesse", "thrown"], range: [6, 18], proficiency: "simple", weightGrams: 100, valueGold: 0.05 },
+  { id: "dart", name: "Dardo", damage: { quantity: 1, faces: 4 }, damageType: "piercing", properties: ["finesse", "thrown"], range: [6, 18], proficiency: "simple", weightGrams: 100, valueGold: 0.05, ability: { kind: "finesse", abilities: ["str", "dex"] } },
   { id: "sling", name: "Funda", damage: { quantity: 1, faces: 4 }, damageType: "bludgeoning", properties: ["ammunition"], range: [9, 36], proficiency: "simple", weightGrams: 0, valueGold: 0.1 },
 ];
 
@@ -88,9 +88,8 @@ const martialRanged: readonly WeaponSpec[] = [
   { id: "hand-crossbow", name: "Besta de Mão", damage: { quantity: 1, faces: 6 }, damageType: "piercing", properties: ["ammunition", "light", "loading"], range: [9, 36], proficiency: "martial", weightGrams: 1500, valueGold: 75 },
   { id: "heavy-crossbow", name: "Besta Pesada", damage: { quantity: 1, faces: 10 }, damageType: "piercing", properties: ["ammunition", "heavy", "loading", "two-handed"], range: [30, 120], proficiency: "martial", weightGrams: 4500, valueGold: 50 },
   { id: "net", name: "Rede", properties: ["special", "thrown"], range: [1.5, 4.5], proficiency: "martial", weightGrams: 1500, valueGold: 1 },
-  // A fonte informa dano fixo 1; o contrato atual aceita apenas DiceFormula, portanto a
-  // parcela fica pendente de extensão contratual e não é convertida silenciosamente em d4.
-  { id: "blowgun", name: "Zarabatana", properties: ["ammunition", "loading"], range: [7.5, 30], proficiency: "martial", weightGrams: 500, valueGold: 10 },
+  // Dano fixo 1 da fonte modelado como 1d1 (a única face que rola sempre 1), sem estender o contrato.
+  { id: "blowgun", name: "Zarabatana", damage: { quantity: 1, faces: 1 }, damageType: "piercing", properties: ["ammunition", "loading"], range: [7.5, 30], proficiency: "martial", weightGrams: 500, valueGold: 10 },
 ];
 
 /** As 37 linhas da tabela de armas descritas em equipamento/armas.md. */

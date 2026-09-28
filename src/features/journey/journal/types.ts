@@ -26,4 +26,6 @@ export interface JournalEntryListProps {
   readonly searchQuery?: string;
   readonly onSearch?: (query: string) => void;
   readonly onSelect?: (entryId: string) => void;
+  /** Quando o mestre lê diários de várias contas, identifica o autor de cada registro. */
+  readonly authorName?: (entry: JournalEntry) => string | undefined;
 }

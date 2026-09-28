@@ -100,7 +100,8 @@ describe("QA-001 — regras transversais determinísticas", () => {
       expect(short.nextState.hitDiceSpent[0].spent).toBe(1);
     }
 
-    const longCharacter = fixtureCharacter({ hp: { current: 4, temp: 5 }, hitDiceSpent: [{ classId: asEntityId("fighter"), hitDie: 10, spent: 3 }] });
+    // Descanso longo recupera floor(total de DV / 2) (descanso.md): nível 6 → até 3 dados; nível 1 daria 0.
+    const longCharacter = fixtureCharacter({ hp: { current: 4, temp: 5 }, classes: [{ classId: asEntityId("fighter"), level: 6, choices: [] }], hitDiceSpent: [{ classId: asEntityId("fighter"), hitDie: 10, spent: 3 }] });
     const long = resolveRest(longCharacter, {
       restKind: "long",
       durationHours: 8,

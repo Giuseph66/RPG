@@ -19,6 +19,8 @@ type ClassSpec = {
   levels: Record<number, string[]>;
   asi: number[];
   multiclassPrerequisites: { ability: "str" | "dex" | "int" | "wis" | "cha"; score: number }[];
+  /** `any`: basta um dos atributos listados (guerreiro: FOR 13 OU DES 13); padrão: todos. */
+  multiclassRequirement?: "any";
   proficiencies: string[];
   multiclassProficiencies: string[];
   spellcasting?: SpellcastingDescriptor;
@@ -85,9 +87,19 @@ const FULL_SLOTS: readonly (readonly number[])[] = [
 const HALF_SLOTS: readonly (readonly number[])[] = [
   [], [2], [3], [3], [4, 2], [4, 2], [4, 3], [4, 3], [4, 3, 2], [4, 3, 2], [4, 3, 3], [4, 3, 3], [4, 3, 3, 1], [4, 3, 3, 1], [4, 3, 3, 2], [4, 3, 3, 2], [4, 3, 3, 3, 1], [4, 3, 3, 3, 1], [4, 3, 3, 3, 2], [4, 3, 3, 3, 2],
 ];
-const PACT_SLOTS: readonly (readonly number[])[] = [[], [2], [2], [2], [2], [2], [2], [2], [2], [2], [3], [3], [3], [3], [3], [3], [4], [4], [4], [4]];
+/** Magia de Pacto (p.56): todos os espaços têm o mesmo círculo, que sobe com o nível (índice = círculo − 1). */
+const PACT_SLOTS: readonly (readonly number[])[] = [
+  [1], [2], [0, 2], [0, 2], [0, 0, 2], [0, 0, 2], [0, 0, 0, 2], [0, 0, 0, 2], [0, 0, 0, 0, 2], [0, 0, 0, 0, 2],
+  [0, 0, 0, 0, 3], [0, 0, 0, 0, 3], [0, 0, 0, 0, 3], [0, 0, 0, 0, 3], [0, 0, 0, 0, 3], [0, 0, 0, 0, 3],
+  [0, 0, 0, 0, 4], [0, 0, 0, 0, 4], [0, 0, 0, 0, 4], [0, 0, 0, 0, 4],
+];
 function spellSlots(profile: "full" | "half" | "pact", level: number): readonly number[] {
   return (profile === "full" ? FULL_SLOTS : profile === "half" ? HALF_SLOTS : PACT_SLOTS)[level - 1] ?? [];
+}
+
+function multiclassPrerequisites(spec: ClassSpec): ClassDefinition["multiclassPrerequisites"] {
+  const options = spec.multiclassPrerequisites.map((prerequisite) => ({ kind: "min-ability-score" as const, ...prerequisite }));
+  return spec.multiclassRequirement === "any" && options.length > 1 ? [{ kind: "any-of" as const, options }] : options;
 }
 
 function makeClass(spec: ClassSpec): ClassDefinition {
@@ -115,7 +127,7 @@ function makeClass(spec: ClassSpec): ClassDefinition {
     progression: progression(spec),
     subclassSelectionLevel: spec.subclassLevel,
     subclassIds: spec.subclasses.map(asEntityId),
-    multiclassPrerequisites: spec.multiclassPrerequisites.map((prerequisite) => ({ kind: "min-ability-score" as const, ...prerequisite })),
+    multiclassPrerequisites: multiclassPrerequisites(spec),
     multiclassProficiencies: spec.multiclassProficiencies.map(ref),
     ...(spec.spellcasting ? { spellcasting: spec.spellcasting } : {}),
   };
@@ -144,7 +156,7 @@ const specs: ClassSpec[] = [
   { id: "cleric", name: "Clérigo", page: 63, pdfPage: 62, hitDie: 8, primaryAbilities: ["wis"], saves: ["wis", "cha"], skillCount: 2, skillOptions: "any", subclassLevel: 1, subclasses: ["knowledge-domain", "life-domain", "light-domain", "nature-domain", "tempest-domain", "trickery-domain", "war-domain"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "wis", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield"], slotProfile: "full", spellcasting: fullSpellcasting("wis", "prepared"), levels: { 1: ["spellcasting", "divine-domain"], 2: ["channel-divinity"], 5: ["destroy-undead"], 10: ["divine-intervention"], 20: ["greater-divine-intervention"] } },
   { id: "druid", name: "Druida", page: 71, pdfPage: 70, hitDie: 8, primaryAbilities: ["wis"], saves: ["int", "wis"], skillCount: 2, skillOptions: "any", subclassLevel: 2, subclasses: ["circle-of-the-land", "circle-of-the-moon"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "wis", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.herbalism-kit"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield"], slotProfile: "full", spellcasting: fullSpellcasting("wis", "prepared"), levels: { 1: ["druidic", "spellcasting"], 2: ["wild-shape", "druid-circle"], 4: ["wild-shape-improvement"], 18: ["timeless-body", "beast-spells"], 20: ["archdruid"] } },
   { id: "sorcerer", name: "Feiticeiro", page: 77, pdfPage: 76, hitDie: 6, primaryAbilities: ["cha"], saves: ["con", "cha"], skillCount: 2, skillOptions: "any", subclassLevel: 1, subclasses: ["draconic-bloodline", "wild-magic"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "cha", score: 13 }], proficiencies: ["proficiency.dagger", "proficiency.dart", "proficiency.sling", "proficiency.quarterstaff", "proficiency.light-crossbow"], multiclassProficiencies: [], slotProfile: "full", spellcasting: fullSpellcasting("cha", "known"), levels: { 1: ["spellcasting", "sorcerous-origin"], 2: ["font-of-magic"], 3: ["metamagic"], 10: ["metamagic"], 20: ["sorcerous-restoration"] } },
-  { id: "fighter", name: "Guerreiro", page: 83, pdfPage: 82, hitDie: 10, primaryAbilities: ["str", "dex"], saves: ["str", "con"], skillCount: 2, skillOptions: "any", subclassLevel: 3, subclasses: ["champion", "battle-master", "eldritch-knight"], asi: [4, 6, 8, 12, 14, 16, 19], multiclassPrerequisites: [{ ability: "str", score: 13 }, { ability: "dex", score: 13 }], proficiencies: ["proficiency.all-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.martial-weapons"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.martial-weapons"], levels: { 1: ["fighting-style", "second-wind"], 2: ["action-surge"], 3: ["martial-archetype"], 5: ["extra-attack"], 9: ["indomitable"], 11: ["extra-attack"], 13: ["indomitable"], 17: ["action-surge", "indomitable"], 20: ["extra-attack"] } },
+  { id: "fighter", name: "Guerreiro", page: 83, pdfPage: 82, hitDie: 10, primaryAbilities: ["str", "dex"], saves: ["str", "con"], skillCount: 2, skillOptions: "any", subclassLevel: 3, subclasses: ["champion", "battle-master", "eldritch-knight"], asi: [4, 6, 8, 12, 14, 16, 19], multiclassPrerequisites: [{ ability: "str", score: 13 }, { ability: "dex", score: 13 }], multiclassRequirement: "any", proficiencies: ["proficiency.all-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.martial-weapons"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.martial-weapons"], levels: { 1: ["fighting-style", "second-wind"], 2: ["action-surge"], 3: ["martial-archetype"], 5: ["extra-attack"], 9: ["indomitable"], 11: ["extra-attack"], 13: ["indomitable"], 17: ["action-surge", "indomitable"], 20: ["extra-attack"] } },
   { id: "rogue", name: "Ladino", page: 89, pdfPage: 88, hitDie: 8, primaryAbilities: ["dex"], saves: ["dex", "int"], skillCount: 4, skillOptions: "any", subclassLevel: 3, subclasses: ["thief", "assassin", "arcane-trickster"], asi: [4, 8, 10, 12, 16, 19], multiclassPrerequisites: [{ ability: "dex", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.simple-weapons", "proficiency.hand-crossbow", "proficiency.rapier", "proficiency.shortsword", "proficiency.thieves-tools"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.thieves-tools"], levels: { 1: ["expertise", "sneak-attack", "thieves-cant"], 2: ["cunning-action"], 3: ["roguish-archetype"], 5: ["uncanny-dodge"], 7: ["evasion"], 11: ["reliable-talent"], 14: ["blindsense"], 15: ["slippery-mind"], 18: ["elusive"], 20: ["stroke-of-luck"] } },
   { id: "wizard", name: "Mago", page: 94, pdfPage: 93, hitDie: 6, primaryAbilities: ["int"], saves: ["int", "wis"], skillCount: 2, skillOptions: "any", subclassLevel: 2, subclasses: ["school-of-abjuration", "school-of-conjuration", "school-of-divination", "school-of-enchantment", "school-of-evocation", "school-of-illusion", "school-of-necromancy", "school-of-transmutation"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "int", score: 13 }], proficiencies: ["proficiency.dagger", "proficiency.dart", "proficiency.sling", "proficiency.quarterstaff", "proficiency.light-crossbow"], multiclassProficiencies: [], slotProfile: "full", spellcasting: fullSpellcasting("int", "spellbook-prepared"), levels: { 1: ["spellcasting", "arcane-recovery"], 2: ["arcane-tradition"], 18: ["spell-mastery"], 20: ["signature-spells"] } },
   { id: "monk", name: "Monge", page: 102, pdfPage: 101, hitDie: 8, primaryAbilities: ["dex", "wis"], saves: ["str", "dex"], skillCount: 2, skillOptions: "any", subclassLevel: 3, subclasses: ["way-of-the-open-hand", "way-of-shadow", "way-of-the-four-elements"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "dex", score: 13 }, { ability: "wis", score: 13 }], proficiencies: ["proficiency.simple-weapons", "proficiency.shortsword"], multiclassProficiencies: ["proficiency.simple-weapons", "proficiency.shortsword"], levels: { 1: ["unarmored-defense", "martial-arts"], 2: ["ki", "unarmored-movement"], 3: ["monastic-tradition", "deflect-missiles"], 5: ["extra-attack", "stunning-strike"], 7: ["evasion", "stillness-of-mind"], 10: ["purity-of-body"], 13: ["tongue-of-sun-and-moon"], 14: ["diamond-soul"], 15: ["timeless-body"], 18: ["empty-body"], 20: ["perfect-self"] } },

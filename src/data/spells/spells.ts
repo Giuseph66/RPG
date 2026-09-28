@@ -16,7 +16,7 @@ export const spells: readonly SpellDefinition[] = [
     sourceRefs: [spellSource(236, 235, "Curar Ferimentos")], level: 1, school: "evocation",
     castingTime: { kind: "action" }, range: { kind: "touch" },
     components: { verbal: true, somatic: true }, duration: instant, concentration: false, ritual: false,
-    classes: classes("bard", "cleric", "druid"),
+    classes: classes("bard", "cleric", "druid", "paladin", "ranger"),
     targetType: { type: "creature", count: 1, restrictions: ["não afeta mortos-vivos ou constructos"], visibilityRequired: false },
     attackType: "none", damage: [],
     // A habilidade vem da fonte de conjuração (bard=CAR, cleric/druid=SAB), não da magia.
@@ -42,7 +42,7 @@ export const spells: readonly SpellDefinition[] = [
     sourceRefs: [spellSource(239, 238, "Detectar Magia")], level: 1, school: "divination",
     castingTime: { kind: "action" }, range: { kind: "self" }, components: { verbal: true, somatic: true },
     duration: { kind: "minutes", amount: 10, unit: "minute", endTriggers: [] }, concentration: true, ritual: true,
-    classes: classes("bard", "cleric", "druid", "sorcerer", "wizard"),
+    classes: classes("bard", "cleric", "druid", "paladin", "ranger", "sorcerer", "wizard"),
     targetType: { type: "self", restrictions: [], visibilityRequired: false }, attackType: "none", damage: [], healing: [],
     higherLevels: { kind: "none" },
     effects: [{ kind: "narrative", description: "Detecta presença de magia e permite examinar a aura de uma criatura ou objeto visível." }],

@@ -4,13 +4,14 @@
  *
  * DATA-003 criou as stores da versão 1. CLOUD-001b acrescenta somente a store do outbox
  * na versão 2, sem reescrever nem tocar os dados já existentes. CLOUD-SESSION acrescenta
- * a store de sessões na versão 4.
+ * a store de sessões na versão 4. JOURNEY-VISIBILITY acrescenta criaturas, avistamentos e
+ * palpites na versão 5.
  * `applySchema` recebe `oldVersion` e decide o que criar; cada versão nova só acrescenta
  * stores/índices e preserva os blocos anteriores.
  */
 
 export const DB_NAME = "rpg-companion";
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export const STORE_NAMES = {
   characters: "characters",
@@ -28,6 +29,9 @@ export const STORE_NAMES = {
   accounts: "accounts",
   memberships: "memberships",
   sessions: "sessions",
+  creatures: "creatures",
+  sightings: "sightings",
+  guesses: "guesses",
 } as const;
 
 export type StoreName = (typeof STORE_NAMES)[keyof typeof STORE_NAMES];
@@ -138,7 +142,23 @@ const STORE_SPECS: readonly StoreSpec[] = [
       { name: "updatedAt", keyPath: "updatedAt" },
     ],
   },
+  ...([STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses] as const).map((name): StoreSpec => ({
+    name,
+    keyPath: "id",
+    indexes: [{ name: "campaignId", keyPath: "campaignId" }],
+  })),
 ];
+
+function createStore(db: IDBDatabase, name: StoreName): void {
+  const spec = STORE_SPECS.find((item) => item.name === name)!;
+  const store = db.objectStoreNames.contains(spec.name)
+    ? undefined
+    : db.createObjectStore(spec.name, { keyPath: spec.keyPath as string | string[] });
+  if (store === undefined) return;
+  for (const index of spec.indexes ?? []) {
+    if (!store.indexNames.contains(index.name)) store.createIndex(index.name, index.keyPath as string | string[], index.options);
+  }
+}
 
 /** Chamado em `onupgradeneeded`. Idempotente: não recria store/índice já existente. */
 export function applySchema(db: IDBDatabase, oldVersion: number): void {
@@ -194,5 +214,8 @@ export function applySchema(db: IDBDatabase, oldVersion: number): void {
         }
       }
     }
+  }
+  if (oldVersion < 5) {
+    for (const name of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses] as const) createStore(db, name);
   }
 }

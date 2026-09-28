@@ -14,16 +14,26 @@ export interface PublishLocalCharactersOptions {
 }
 
 /**
- * Migra fichas privadas criadas antes do login para a fila da conta escolhida.
- * O ID estável torna cliques repetidos em "Salvar perfil" idempotentes.
+ * Enfileira fichas locais sem dono remoto; fichas identificadas ou já pendentes ficam intactas.
+ * O ID estável torna chamadas repetidas idempotentes.
  */
 export async function publishLocalCharacters(options: PublishLocalCharactersOptions): Promise<Result<number, AppError>> {
   const listed = await options.characters.list();
   if (!listed.ok) return listed;
   console.info("[sync] Fichas locais encontradas para publicação", { total: listed.value.length });
+  const pending = await options.outbox.listPending({
+    now: options.clock.now(),
+    includeFailed: true,
+    includeConflicts: true,
+  });
+  if (!pending.ok) return pending;
+  const pendingCharacterIds = new Set(pending.value
+    .filter((operation) => operation.aggregateType === "character")
+    .map((operation) => String(operation.aggregateId)));
 
   let published = 0;
   for (const summary of listed.value) {
+    if (pendingCharacterIds.has(String(summary.id))) continue;
     const operationId = asCommandId(`character-backfill:${options.ownerUid}:${summary.id}`);
     const existing = await options.outbox.get(operationId);
     if (existing.ok) {
@@ -34,7 +44,7 @@ export async function publishLocalCharacters(options: PublishLocalCharactersOpti
 
     const character = await options.characters.get(summary.id);
     if (!character.ok) return character;
-    if (character.value.ownerUid && character.value.ownerUid !== options.ownerUid) continue;
+    if (character.value.ownerUid) continue;
     const payload = toJsonSnapshot(character.value);
     if (payload === undefined) return err(appError.validation("character", "A ficha local contém dados que não podem ser sincronizados."));
 

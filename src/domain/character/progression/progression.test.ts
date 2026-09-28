@@ -56,6 +56,25 @@ describe("progressão de personagem", () => {
     expect(!replay.ok && replay.error.some((entry) => entry.code === "already-applied")).toBe(true);
   });
 
+  it("multiclasse de guerreiro exige FOR 13 OU DES 13, não os dois", () => {
+    const wizardLevelOne = (scores: { str: number; dex: number }) => ({
+      ...minimalCharacter,
+      xp: 900,
+      classes: [{ classId: asEntityId("wizard"), level: 2, choices: [] }],
+      abilityGeneration: { ...minimalCharacter.abilityGeneration, baseScores: { ...minimalCharacter.abilityGeneration.baseScores, ...scores } },
+    });
+    const codes = (scores: { str: number; dex: number }) => {
+      const preview = buildLevelUpPreview(wizardLevelOne(scores), baseRequest, catalog);
+      return preview.ok ? preview.value.pending.map((entry) => entry.code) : preview.error.map((entry) => entry.code);
+    };
+    expect(codes({ str: 13, dex: 8 })).not.toContain("multiclass-prerequisite");
+    expect(codes({ str: 8, dex: 13 })).not.toContain("multiclass-prerequisite");
+    expect(codes({ str: 12, dex: 12 })).toContain("multiclass-prerequisite");
+    const rejected = buildLevelUpPreview(wizardLevelOne({ str: 12, dex: 12 }), baseRequest, catalog);
+    const message = JSON.stringify(rejected);
+    expect(message).toContain("FOR 13 ou DES 13");
+  });
+
   it("mantém XP monotônico e diagnostica ganho inválido", () => {
     const granted = grantExperience(minimalCharacter, 300);
     expect(granted.ok && granted.value.xp).toBe(300);

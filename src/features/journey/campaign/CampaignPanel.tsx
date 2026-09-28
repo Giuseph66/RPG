@@ -3,12 +3,19 @@ import { useState } from "react";
 import { AppModal, Button, InlineStatus, Input } from "@components/ui";
 import { Compass, Plus, Trash } from "@phosphor-icons/react";
 
-import type { CampaignIntent, CampaignPanelProps } from "./types";
+import type { CampaignIntent, CampaignPanelProps, JourneySectionId } from "./types";
 import styles from "./campaign.module.css";
 
 function send(onIntent: CampaignPanelProps["onIntent"], intent: CampaignIntent): void { onIntent?.(intent); }
 
-export function CampaignPanel({ campaigns, activeCampaignId, activeCampaignName, overviewStats, activityStats, onOpenSection, draftPending = false, status = "idle", error, onIntent, className }: CampaignPanelProps) {
+const SECTION_LINKS: Readonly<Record<JourneySectionId, { readonly label: string; readonly action: string; readonly stat: keyof NonNullable<CampaignPanelProps["activityStats"]> }>> = {
+  map: { label: "Mapas", action: "Abrir atlas →", stat: "maps" },
+  journal: { label: "Diário", action: "Ler registros →", stat: "journalEntries" },
+  sessions: { label: "Sessões", action: "Acompanhar mesa →", stat: "sessions" },
+  npcs: { label: "Elenco", action: "Ver criaturas →", stat: "creatures" },
+};
+
+export function CampaignPanel({ campaigns, activeCampaignId, activeCampaignName, overviewStats, activityStats, onOpenSection, metrics, sectionLinks = ["map", "journal", "sessions"], canDelete = true, eyebrow = "Jornada · visão geral", draftPending = false, status = "idle", error, onIntent, className }: CampaignPanelProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -31,7 +38,7 @@ export function CampaignPanel({ campaigns, activeCampaignId, activeCampaignName,
   return (
     <section className={[styles.panel, className ?? ""].filter(Boolean).join(" ")} aria-labelledby="campaign-panel-title">
       <div className={styles.heading}>
-        <div className={styles.titleBlock}><span className={styles.titleIcon} aria-hidden="true"><Compass size={22} weight="duotone" /></span><div><p className={styles.eyebrow}>Jornada · visão geral</p><h1 id="campaign-panel-title">{activeCampaignName || activeCampaign?.name || "Sua campanha começa aqui"}</h1><p className={styles.campaignDescription}>{activeCampaign?.description || (activeCampaignId ? "Acompanhe o que está acontecendo nesta campanha." : "Escolha uma campanha ou crie a próxima história da mesa.")}</p></div></div>
+        <div className={styles.titleBlock}><span className={styles.titleIcon} aria-hidden="true"><Compass size={22} weight="duotone" /></span><div><p className={styles.eyebrow}>{eyebrow}</p><h1 id="campaign-panel-title">{activeCampaignName || activeCampaign?.name || "Sua campanha começa aqui"}</h1><p className={styles.campaignDescription}>{activeCampaign?.description || (activeCampaignId ? "Acompanhe o que está acontecendo nesta campanha." : "Escolha uma campanha ou crie a próxima história da mesa.")}</p></div></div>
         <div className={styles.campaignControls}>
           {campaigns.length > 0 ? <label className={styles.campaignSelector}><span>Campanha ativa</span><select aria-label="Campanha ativa" value={activeCampaignId ?? ""} onChange={(event) => requestSelect(event.currentTarget.value)}><option value="" disabled>Escolha uma campanha</option>{campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select></label> : null}
           <Button onClick={() => setCreateOpen(true)} disabled={!onIntent}><Plus size={18} aria-hidden="true" /> Nova campanha</Button>
@@ -42,13 +49,15 @@ export function CampaignPanel({ campaigns, activeCampaignId, activeCampaignName,
       {draftPending ? <InlineStatus tone="warning">Há alterações pendentes. Trocar de campanha pedirá confirmação ao coordenador.</InlineStatus> : null}
       {activeCampaignId ? <>
         <div className={styles.overviewMetrics} aria-label="Resumo da campanha">
-          <div><span>Objetivos</span><strong>{overviewStats?.objectives ?? 0}</strong></div>
-          <div><span>Missões em andamento</span><strong>{overviewStats?.activeQuests ?? 0}</strong></div>
-          <div><span>NPCs</span><strong>{overviewStats?.npcs ?? 0}</strong></div>
-          <div><span>Ameaças</span><strong>{overviewStats?.enemies ?? 0}</strong></div>
+          {(metrics ?? [
+            { label: "Objetivos", value: overviewStats?.objectives ?? 0 },
+            { label: "Missões em andamento", value: overviewStats?.activeQuests ?? 0 },
+            { label: "NPCs", value: overviewStats?.npcs ?? 0 },
+            { label: "Ameaças", value: overviewStats?.enemies ?? 0 },
+          ]).map((metric) => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}
         </div>
-        <div className={styles.activityLinks} aria-label="Conteúdo da campanha"><button type="button" onClick={() => onOpenSection?.("map")}><span>Mapas</span><strong>{activityStats?.maps ?? "—"}</strong><small>Abrir atlas →</small></button><button type="button" onClick={() => onOpenSection?.("journal")}><span>Diário</span><strong>{activityStats?.journalEntries ?? "—"}</strong><small>Ler registros →</small></button><button type="button" onClick={() => onOpenSection?.("sessions")}><span>Sessões</span><strong>{activityStats?.sessions ?? "—"}</strong><small>Acompanhar mesa →</small></button></div>
-        <div className={styles.campaignFooter}><span>Campanha selecionada · {campaigns.length} {campaigns.length === 1 ? "campanha na mesa" : "campanhas na mesa"}</span>{activeCampaign ? <Button size="sm" variant="ghost" onClick={() => setDeleteId(activeCampaign.id)}><Trash size={16} aria-hidden="true" /> Excluir campanha</Button> : null}</div>
+        <div className={styles.activityLinks} aria-label="Conteúdo da campanha">{sectionLinks.map((id) => { const link = SECTION_LINKS[id]; return <button key={id} type="button" onClick={() => onOpenSection?.(id)}><span>{link.label}</span><strong>{activityStats?.[link.stat] ?? "—"}</strong><small>{link.action}</small></button>; })}</div>
+        <div className={styles.campaignFooter}><span>Campanha selecionada · {campaigns.length} {campaigns.length === 1 ? "campanha na mesa" : "campanhas na mesa"}</span>{activeCampaign && canDelete ? <Button size="sm" variant="ghost" onClick={() => setDeleteId(activeCampaign.id)}><Trash size={16} aria-hidden="true" /> Excluir campanha</Button> : null}</div>
       </> : <div className={styles.emptyCampaign}><Compass size={28} weight="duotone" aria-hidden="true" /><p><strong>Nenhuma campanha selecionada</strong><span>Crie uma campanha para reunir mapas, pessoas, sessões e memórias.</span></p></div>}
       <AppModal open={createOpen} title="Nova campanha" onClose={() => setCreateOpen(false)}>
         <form className={styles.modalForm} onSubmit={(event) => { event.preventDefault(); requestCreate(); }}>

@@ -1,7 +1,7 @@
 import { type AuthPort, type AuthSession } from "@application/ports/auth-port";
 import { type Clock } from "@application/ports/clock";
 import { type OutboxRepository } from "@application/ports/outbox-repository";
-import { type RemoteSyncAdapter } from "@application/ports/remote-sync-adapter";
+import { type RemoteSyncAdapter, type RemoteSyncPullResult } from "@application/ports/remote-sync-adapter";
 import { type AppError, type Result } from "@domain/contracts/errors";
 
 import { createRemotePullWorker, type RemoteHydrationPort, type RemoteHydrationReport } from "./pull";
@@ -31,6 +31,8 @@ export interface SyncRuntimeOptions {
   readonly events?: SyncRuntimeEventTarget;
   /** Opt-in pull; omitted means the runtime remains push-only/local-first. */
   readonly hydration?: RemoteHydrationPort;
+  /** Runs after remote data is hydrated and before queued local operations are pushed. */
+  readonly afterHydration?: () => Promise<void>;
 }
 
 export interface SyncRuntime {
@@ -81,15 +83,41 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     }
   }
 
-  function schedule(): void {
+  // Atualizações em tempo real são hidratadas em fila, sem reler o Firestore inteiro.
+  let remoteChain: Promise<void> = Promise.resolve();
+  function applyRemote(update: RemoteSyncPullResult, uid: string): void {
+    const hydration = options.hydration;
+    if (!hydration) return;
+    remoteChain = remoteChain.then(async () => {
+      if (!active || session?.uid !== uid) return;
+      const pending = await options.outbox.listPending();
+      if (!pending.ok) return;
+      const hydrated = await hydration.hydrate({ ownerUid: uid, pull: update, pending: pending.value, clock: options.clock });
+      if (!hydrated.ok) {
+        console.error("[sync] Atualização em tempo real não foi aplicada", { code: hydrated.error.code, message: hydrated.error.message });
+        return;
+      }
+      if (hydrated.value.applied > 0 && active && session?.uid === uid) publish({ ...current, lastHydration: hydrated.value });
+    }).catch((cause) => {
+      console.error("[sync] Atualização em tempo real falhou", { message: cause instanceof Error ? cause.message : String(cause) });
+    });
+  }
+
+  // Com os listeners de tempo real ativos, o remoto já chega sozinho: uma gravação local só
+  // precisa ser enviada. Reler todas as coleções a cada clique esgotaria a cota de leituras.
+  let pullRequested = false;
+  function schedule(pull = true): void {
+    if (pull || !unsubscribeRemote) pullRequested = true;
     if (!active || !session || !worker || !online() || scheduled !== undefined) return;
     scheduled = setTimeout(() => {
       scheduled = undefined;
-      void run({ retryFailed: retryFailedOnRerun, retryConflicts: retryConflictsOnRerun });
+      const withPull = pullRequested;
+      pullRequested = false;
+      void run({ retryFailed: retryFailedOnRerun, retryConflicts: retryConflictsOnRerun, pull: withPull });
     }, 0);
   }
 
-  async function run(options: { readonly retryFailed?: boolean; readonly retryConflicts?: boolean } = {}): Promise<Result<SyncWorkerReport, AppError> | undefined> {
+  async function run(request: { readonly retryFailed?: boolean; readonly retryConflicts?: boolean; readonly pull?: boolean } = {}): Promise<Result<SyncWorkerReport, AppError> | undefined> {
     if (!active || !session || !worker) return undefined;
     if (!online()) {
       publish({ state: "offline", uid: session.uid, lastReport: current.lastReport });
@@ -97,12 +125,13 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     }
     if (running) {
       rerun = true;
-      if (options.retryFailed) retryFailedOnRerun = true;
-      if (options.retryConflicts) retryConflictsOnRerun = true;
+      if (request.pull !== false) pullRequested = true;
+      if (request.retryFailed) retryFailedOnRerun = true;
+      if (request.retryConflicts) retryConflictsOnRerun = true;
       return running;
     }
-    const retryFailed = options.retryFailed || retryFailedOnRerun;
-    const retryConflicts = options.retryConflicts || retryConflictsOnRerun;
+    const retryFailed = request.retryFailed || retryFailedOnRerun;
+    const retryConflicts = request.retryConflicts || retryConflictsOnRerun;
     retryFailedOnRerun = false;
     retryConflictsOnRerun = false;
 
@@ -110,9 +139,16 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     const activePullWorker = pullWorker;
     publish({ state: "syncing", uid: session.uid, lastReport: current.lastReport, lastHydration: current.lastHydration });
     running = (async () => {
-      const pulled = await activePullWorker?.run();
+      const pulled = request.pull === false ? undefined : await activePullWorker?.run();
+      if (pulled?.ok) {
+        current = { ...current, lastHydration: pulled.value };
+        try {
+          await options.afterHydration?.();
+        } catch (cause) {
+          console.error("[sync] Pós-hidratação falhou", { message: cause instanceof Error ? cause.message : String(cause) });
+        }
+      }
       const pushed = await activeWorker!.run({ retryFailed, retryConflicts });
-      if (pulled?.ok) current = { ...current, lastHydration: pulled.value };
       // A falha na leitura (por exemplo, um índice ausente) não pode impedir
       // que alterações locais já autenticadas sejam enviadas ao Firebase.
       if (!pushed.ok) return pushed;
@@ -150,7 +186,7 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
       running = undefined;
       if (rerun) {
         rerun = false;
-        schedule();
+        schedule(false);
       }
     });
     return running;
@@ -196,7 +232,7 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
           isOnline: online,
           isActive: () => active && session?.uid === workerUid && online(),
         });
-        unsubscribeRemote = adapter.subscribe?.(schedule);
+        unsubscribeRemote = adapter.subscribe?.((update) => { if (update) applyRemote(update, workerUid); else schedule(); });
       }
       publish({ state: "ready", uid: next.uid });
       schedule();
@@ -230,7 +266,7 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    notifyPending: schedule,
+    notifyPending: () => schedule(false),
     run,
     dispose() {
       if (!active) return;

@@ -1,6 +1,6 @@
 import type { Character, ClassLevel, ProgressionHitPointGain } from "@domain/contracts/character";
 import { asUuid, isUuid, type EntityId } from "@domain/contracts/ids";
-import type { ChoiceDefinition, ChoiceSelection } from "@domain/contracts/primitives";
+import type { ChoiceDefinition, ChoiceSelection, Prerequisite } from "@domain/contracts/primitives";
 import type { ClassDefinition, SubclassDefinition } from "@domain/contracts/definitions/class";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import { err, ok } from "@domain/contracts/errors";
@@ -106,13 +106,30 @@ function validateHitPointGain(gain: ProgressionHitPointGain, classDefinition: Cl
   return [];
 }
 
+const ABILITY_LABEL: Readonly<Record<string, string>> = { str: "FOR", dex: "DES", con: "CON", int: "INT", wis: "SAB", cha: "CAR" };
+
+/** Só avalia requisitos de atributo; os demais tipos não bloqueiam a multiclasse aqui. */
+function abilityPrerequisiteMet(prerequisite: Prerequisite, scores: Character["abilityGeneration"]["baseScores"]): boolean {
+  if (prerequisite.kind === "min-ability-score") return scores[prerequisite.ability] >= prerequisite.score;
+  if (prerequisite.kind === "any-of") return prerequisite.options.some((option) => abilityPrerequisiteMet(option, scores));
+  return true;
+}
+
+function describePrerequisite(prerequisite: Prerequisite): string {
+  if (prerequisite.kind === "min-ability-score") return `${ABILITY_LABEL[prerequisite.ability] ?? prerequisite.ability} ${prerequisite.score}`;
+  if (prerequisite.kind === "any-of") return prerequisite.options.map(describePrerequisite).join(" ou ");
+  return "";
+}
+
 function validateMulticlass(character: Character, classDefinition: ClassDefinition, isNewClass: boolean): ProgressionIssue[] {
   if (!isNewClass) return [];
   const errors: ProgressionIssue[] = [];
+  const scores = character.abilityGeneration.baseScores;
   for (const prerequisite of classDefinition.multiclassPrerequisites) {
-    if (prerequisite.kind !== "min-ability-score") continue;
-    const score = character.abilityGeneration.baseScores[prerequisite.ability];
-    if (score < prerequisite.score) errors.push(issue("multiclass-prerequisite", `classes.${String(classDefinition.id)}`, `Multiclasse exige ${String(prerequisite.ability)} ${prerequisite.score}; personagem possui ${score}.`, classDefinition.sourceRefs));
+    if (abilityPrerequisiteMet(prerequisite, scores)) continue;
+    const options = prerequisite.kind === "any-of" ? prerequisite.options : [prerequisite];
+    const owned = options.flatMap((option) => (option.kind === "min-ability-score" ? [`${ABILITY_LABEL[option.ability] ?? option.ability} ${scores[option.ability]}`] : []));
+    errors.push(issue("multiclass-prerequisite", `classes.${String(classDefinition.id)}`, `Multiclasse exige ${describePrerequisite(prerequisite)}; personagem possui ${owned.join(" e ")}.`, classDefinition.sourceRefs));
   }
   return errors;
 }

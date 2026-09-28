@@ -22,26 +22,39 @@ const sectionText = (name: string): string => {
   return section.text;
 };
 
+/** "50 po" / "5 pp" / "2 pc" → peças de cobre (pp = peça de prata, pc = peça de cobre). */
+function copper(token: string): number | null {
+  const match = token.trim().match(/^([\d.,]+)\s*(po|pp|pc)$/);
+  if (!match) return null;
+  const amount = Number(match[1]!.replace(/\./g, "").replace(",", "."));
+  return Math.round(amount * { po: 100, pp: 10, pc: 1 }[match[2] as "po" | "pp" | "pc"]);
+}
+
 /** Peso por nome impresso, colhido das três tabelas (equipamento, ferramentas, armas, armaduras). */
 const BY_PRINTED_NAME = new Map<string, number | null>();
-const remember = (name: string, weight: number | null) => { if (!BY_PRINTED_NAME.has(name)) BY_PRINTED_NAME.set(name, weight); };
+const COST_BY_PRINTED_NAME = new Map<string, number | null>();
+const remember = (name: string, weight: number | null, cost?: string) => {
+  if (BY_PRINTED_NAME.has(name)) return;
+  BY_PRINTED_NAME.set(name, weight);
+  COST_BY_PRINTED_NAME.set(name, cost === undefined ? null : copper(cost));
+};
 
 for (const text of [sectionText("Equipamento De Aventura"), sectionText("Ferramentas")]) {
   for (const raw of text.split("\n")) {
     // "Nome  Custo  Peso"
     const row = raw.trim().match(/^(.+?)\s+([\d.,]+\s*(?:po|pp|pc))\s+(–|-|[\d.,]+\s*kg)$/);
-    if (row) remember(row[1]!.trim(), grams(row[3]!));
+    if (row) remember(row[1]!.trim(), grams(row[3]!), row[2]!);
   }
 }
 for (const raw of sectionText("Equipamento De Aventura").split("\n")) {
   // "Nome  Preço  Dano  Peso  Propriedades"
   const row = raw.trim().match(/^(.+?)\s+([\d.,]+\s*(?:po|pp|pc))\s+(?:\d+d\d+\s+\S+|1\s+perfurante|–)\s+(–|[\d.,]+\s*kg)\s+(.+)$/);
-  if (row) remember(row[1]!.trim(), grams(row[3]!));
+  if (row) remember(row[1]!.trim(), grams(row[3]!), row[2]!);
 }
 for (const raw of sectionText("Armaduras E Escudos").split("\n")) {
   // "Nome  Preço  CA…  Peso"
   const row = raw.trim().match(/^(.+?)\s+([\d.]+\s*po)\s+(.+?)\s+([\d.,]+\s*kg)$/);
-  if (row) remember(row[1]!.trim(), grams(row[4]!));
+  if (row) remember(row[1]!.trim(), grams(row[4]!), row[2]!);
 }
 
 /**
@@ -97,7 +110,7 @@ const PRINTED_NAME_BY_ID: Readonly<Record<string, string>> = {
   arrows: "Flechas (20)", "crossbow-bolts": "Virotes (20)", "sling-bullets": "Balas de Funda (20)",
   "blowgun-needles": "Zarabatana (50)",
   // Focos e símbolos (linhas sob um bloco da tabela)
-  "arcane-focus-staff": "Bastão", "arcane-focus-rod": "Cajado", "arcane-focus-crystal": "Cristal",
+  "arcane-focus-rod": "Bastão", "arcane-focus-staff": "Cajado", "arcane-focus-crystal": "Cristal",
   "arcane-focus-orb": "Orbe", "arcane-focus-wand": "Varinha",
   "druidic-focus-staff": "Cajado de madeira", "druidic-focus-sprig": "Ramo de visco",
   "druidic-focus-totem": "Totem", "druidic-focus-wand": "Varinha de teixo",
@@ -133,6 +146,13 @@ export const PHB_EQUIPMENT_WEIGHT_GRAMS: ReadonlyMap<string, number | null> = ne
 export function catalogWeightGrams(id: string): number | undefined {
   const weight = PHB_EQUIPMENT_WEIGHT_GRAMS.get(id);
   return weight === undefined ? undefined : weight ?? 0;
+}
+
+/** Preço impresso (peças de cobre) por id do rule pack; `undefined` quando não há linha impressa. */
+export function printedCostCp(id: string): number | undefined {
+  const printedName = PRINTED_NAME_BY_ID[id];
+  if (printedName === undefined) return undefined;
+  return COST_BY_PRINTED_NAME.get(printedName) ?? undefined;
 }
 
 /** Ids cuja tabela não informa peso; úteis para a UI não afirmar "0 g". */

@@ -46,6 +46,16 @@ export interface RemoteSyncPullRecord {
 
 export interface RemoteSyncPullResult {
   readonly records: readonly RemoteSyncPullRecord[];
+  /**
+   * Campanhas lidas por completo neste pull e o papel da conta nelas. Para jogadores, o
+   * pull é a lista autoritativa do que ainda é visível; o que sumiu foi ocultado pelo mestre.
+   */
+  readonly visibleCampaigns?: readonly {
+    readonly campaignId: string;
+    readonly role: "master" | "player";
+    /** Tipos com lista completa neste resultado; ausente = todos (pull completo). */
+    readonly types?: readonly RemoteSyncPullRecord["aggregateType"][];
+  }[];
   /** Cursor reservado para transports paginados; o pull atual é replay-safe sem cursor. */
   readonly cursor?: string;
 }
@@ -56,7 +66,11 @@ export interface RemoteSyncPullAdapter {
     { readonly ok: false; readonly error: RemoteSyncError }
   >;
   /** Listener de mudanças remotas. A callback só agenda novo pull. */
-  subscribe?(listener: () => void): () => void;
+  /**
+   * Listener de mudanças remotas. Sem argumento, agenda um pull completo; com `update`,
+   * entrega um pull parcial já montado (tempo real) para ser hidratado diretamente.
+   */
+  subscribe?(listener: (update?: RemoteSyncPullResult) => void): () => void;
 }
 
 export interface RemoteSyncAdapter {

@@ -141,8 +141,8 @@ const active: readonly GearSpec[] = [
 ];
 
 const focus: readonly GearSpec[] = [
-  { id: "arcane-focus-staff", name: "Foco arcano: bastão", valueGold: 10, weightGrams: 1000, category: "focus" },
-  { id: "arcane-focus-rod", name: "Foco arcano: cajado", valueGold: 5, weightGrams: 2000, category: "focus" },
+  { id: "arcane-focus-rod", name: "Foco arcano: bastão", valueGold: 10, weightGrams: 1000, category: "focus" },
+  { id: "arcane-focus-staff", name: "Foco arcano: cajado", valueGold: 5, weightGrams: 2000, category: "focus" },
   { id: "arcane-focus-crystal", name: "Foco arcano: cristal", valueGold: 10, weightGrams: 500, category: "focus" },
   { id: "arcane-focus-orb", name: "Foco arcano: orbe", valueGold: 20, weightGrams: 1500, category: "focus" },
   { id: "arcane-focus-wand", name: "Foco arcano: varinha", valueGold: 10, weightGrams: 500, category: "focus" },

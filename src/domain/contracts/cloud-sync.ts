@@ -56,10 +56,13 @@ export type SyncAggregateType =
   | "map"
   | "asset"
   | "portrait"
-  | "session";
+  | "session"
+  | "creature"
+  | "sighting"
+  | "guess";
 
 const SYNC_AGGREGATE_TYPES: readonly SyncAggregateType[] = [
-  "account", "membership", "campaign", "campaign-cleanup", "character", "journal", "map", "asset", "portrait", "session",
+  "account", "membership", "campaign", "campaign-cleanup", "character", "journal", "map", "asset", "portrait", "session", "creature", "sighting", "guess",
 ];
 
 /** Referência explícita de um asset da campanha durante uma remoção remota. */
@@ -84,6 +87,10 @@ export interface CampaignCleanupManifest {
   readonly journalIds: readonly string[];
   readonly mapIds: readonly string[];
   readonly sessionIds: readonly string[];
+  /** Ausentes em manifestos anteriores às criaturas. */
+  readonly creatureIds?: readonly string[];
+  readonly sightingIds?: readonly string[];
+  readonly guessIds?: readonly string[];
   readonly assets: readonly CampaignCleanupAsset[];
 }
 

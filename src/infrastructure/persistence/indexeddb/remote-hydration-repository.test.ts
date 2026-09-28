@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { asIsoTimestamp, asCommandId } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
@@ -39,7 +39,7 @@ describe("IndexedDbRemoteHydrationRepository", () => {
   it("hidrata membro e campanha, e reprocessamento vira skip idempotente", async () => {
     const repository = new IndexedDbRemoteHydrationRepository(db);
     const first = await repository.hydrate({ ownerUid: "player", pull: pull(), pending: [], clock });
-    expect(first).toEqual({ ok: true, value: { received: 2, applied: 2, skipped: 0, conflicts: [] } });
+    expect(first).toEqual({ ok: true, value: { received: 2, applied: 2, skipped: 0, conflicts: [], touched: ["membership:c1:player", "campaign:c1"] } });
     const second = await repository.hydrate({ ownerUid: "player", pull: pull(), pending: [], clock });
     expect(second).toEqual({ ok: true, value: { received: 2, applied: 0, skipped: 2, conflicts: [] } });
     const raw = await new Promise<unknown>((resolve, reject) => {
@@ -61,5 +61,52 @@ describe("IndexedDbRemoteHydrationRepository", () => {
       request.onerror = () => reject(request.error);
     });
     expect(raw).toBeUndefined();
+  });
+
+  it("em campanha de jogador, remove o que o mestre deixou de mostrar e preserva o que é da própria conta", async () => {
+    const repository = new IndexedDbRemoteHydrationRepository(db);
+    const put = (store: string, value: unknown) => new Promise<void>((resolve, reject) => {
+      const request = db.transaction([store], "readwrite").objectStore(store).put(value);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    const keys = (store: string) => new Promise<unknown[]>((resolve, reject) => {
+      const request = db.transaction([store], "readonly").objectStore(store).getAllKeys();
+      request.onsuccess = () => resolve(request.result as unknown[]);
+      request.onerror = () => reject(request.error);
+    });
+    await put(STORE_NAMES.maps, { id: "hidden-map", campaignId: "c1", assetId: "a1", pins: [], revision: 1 });
+    await put(STORE_NAMES.journalEntries, { id: "master-note", campaignId: "c1", title: "Plano", body: "", linkedEntityIds: [], tags: [], authorId: "master", createdAt: clock.now(), updatedAt: clock.now() });
+    await put(STORE_NAMES.journalEntries, { id: "own-note", campaignId: "c1", title: "Minha", body: "", linkedEntityIds: [], tags: [], authorId: "player", createdAt: clock.now(), updatedAt: clock.now() });
+    await put(STORE_NAMES.sightings, { id: "k1__player", campaignId: "c1", creatureId: "k1", accountId: "player", schemaVersion: 1, revision: 1, revealed: {}, createdAt: clock.now(), updatedAt: clock.now() });
+    const sighting = { id: "k2__player", campaignId: "c1", creatureId: "k2", accountId: "player", schemaVersion: 1, revision: 1, kind: "animal", revealed: { appearance: "Penas" }, createdAt: clock.now(), updatedAt: clock.now() };
+    const result = await repository.hydrate({ ownerUid: "player", pull: { ...pull(), records: [...pull().records, { aggregateType: "sighting", aggregateId: "k2__player", scope: { campaignId: "c1" as never }, revision: asRevision(1), payload: sighting }], visibleCampaigns: [{ campaignId: "c1", role: "player" }] }, pending: [], clock });
+    expect(result.ok).toBe(true);
+    expect(await keys(STORE_NAMES.maps)).toEqual([]);
+    expect(await keys(STORE_NAMES.journalEntries)).toEqual(["own-note"]);
+    expect(await keys(STORE_NAMES.sightings)).toEqual(["k2__player"]);
+  });
+
+  it("reconcilia só os tipos confirmados e ignora snapshot malformado sem travar o resto", async () => {
+    const repository = new IndexedDbRemoteHydrationRepository(db);
+    const put = (store: string, value: unknown) => new Promise<void>((resolve, reject) => {
+      const request = db.transaction([store], "readwrite").objectStore(store).put(value);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    const keys = (store: string) => new Promise<unknown[]>((resolve, reject) => {
+      const request = db.transaction([store], "readonly").objectStore(store).getAllKeys();
+      request.onsuccess = () => resolve(request.result as unknown[]);
+      request.onerror = () => reject(request.error);
+    });
+    await put(STORE_NAMES.maps, { id: "kept-map", campaignId: "c1", assetId: "a1", pins: [], revision: 1 });
+    await put(STORE_NAMES.sightings, { id: "k1__player", campaignId: "c1", creatureId: "k1", accountId: "player", schemaVersion: 1, revision: 1, revealed: {}, createdAt: clock.now(), updatedAt: clock.now() });
+    const broken = { aggregateType: "journal" as const, aggregateId: "broken", scope: { campaignId: "c1" as never }, revision: asRevision(1), payload: { id: "broken", campaignId: "c1" } };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const result = await repository.hydrate({ ownerUid: "player", pull: { records: [...pull().records, broken], visibleCampaigns: [{ campaignId: "c1", role: "player", types: ["sighting"] }] }, pending: [], clock });
+    warn.mockRestore();
+    expect(result.ok).toBe(true);
+    expect(await keys(STORE_NAMES.sightings)).toEqual([]);
+    expect(await keys(STORE_NAMES.maps)).toEqual(["kept-map"]);
   });
 });

@@ -156,6 +156,8 @@ export type Prerequisite =
   | { readonly kind: "has-proficiency"; readonly proficiencyRef: DefinitionRef }
   | { readonly kind: "has-feature"; readonly featureRef: DefinitionRef }
   | { readonly kind: "spellcasting-ability-present" }
+  /** Basta uma das alternativas (ex.: multiclasse de guerreiro exige FOR 13 OU DES 13). */
+  | { readonly kind: "any-of"; readonly options: readonly Prerequisite[] }
   | { readonly kind: "custom"; readonly description: string; readonly sourceRef: SourceRef };
 
 // ---------------------------------------------------------------------------
@@ -268,6 +270,8 @@ export type RuleModifierValue =
 export type RuleModifierPredicate =
   | { readonly kind: "always" }
   | { readonly kind: "while-condition-active"; readonly conditionRef: DefinitionRef }
+  /** Severidade somada das instâncias da condição ≥ `severity` (ex.: níveis de exaustão). */
+  | { readonly kind: "min-condition-severity"; readonly conditionRef: DefinitionRef; readonly severity: number }
   | { readonly kind: "while-wearing-armor-category"; readonly armorCategory: ArmorCategory }
   | { readonly kind: "while-not-wearing-armor" }
   | { readonly kind: "while-wielding-shield" }

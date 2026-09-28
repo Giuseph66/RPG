@@ -16,6 +16,7 @@ import {
   IndexedDbOutboxRepository,
   IndexedDbMembershipRepository,
   IndexedDbSessionRepository,
+  IndexedDbJourneyVisibilityRepository,
   IndexedDbRemoteHydrationRepository,
   CryptoIdGenerator,
   SystemClock,
@@ -38,6 +39,8 @@ import { createActionDispatcher } from "@application/character/action-dispatcher
 import { createInventoryDispatcher } from "@application/character/inventory-dispatcher";
 import { createCampaignDispatcher } from "@application/campaign/campaign-dispatcher";
 import { createLocalCampaignCleanupManifestReader } from "@application/campaign/cleanup-manifest-reader";
+import { createCreatureService } from "@application/campaign/creature-service";
+import { createMapPublication } from "@application/campaign/map-publication";
 import { createCampaignRecordDispatcher } from "@application/campaign/campaign-record-dispatcher";
 import { createJournalDispatcher } from "@application/campaign/journal-dispatcher";
 import { chooseCampaignForRestore } from "@application/campaign";
@@ -355,7 +358,9 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   const membershipRepository = new IndexedDbMembershipRepository(database);
   const sessionRepository = new IndexedDbSessionRepository(database, clock);
   const remoteHydration = new IndexedDbRemoteHydrationRepository(database);
+  const journeyRepository = new IndexedDbJourneyVisibilityRepository(database, clock);
   const cleanupManifestReader = createLocalCampaignCleanupManifestReader({
+    journey: journeyRepository,
     campaigns: campaignRepository,
     characters: characterRepository,
     memberships: membershipRepository,
@@ -364,6 +369,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     ownerUid: () => auth?.currentSession()?.uid ?? localIdentity.accountId,
   });
   let syncRuntime: SyncRuntime | undefined;
+  let characterBackfilledUid: string | undefined;
   const gatedOutboxRepository = createSessionGatedOutboxRepository(
     outboxRepository,
     { currentSession: () => auth?.currentSession() ?? null },
@@ -422,6 +428,26 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       })
     : undefined);
   const assets = createAssetSyncService(assetRepository, assetTransfer);
+  const creatures = createCreatureService({
+    repository: journeyRepository,
+    unitOfWork: new IndexedDbUnitOfWork(database),
+    syncOutbox: createSyncOutboxService(gatedOutboxRepository),
+    clock,
+    idGenerator,
+  });
+  const mapPublication = createMapPublication({
+    getLocalAsset: (id) => assets.getLocal(id),
+    saveLocalAsset: (asset) => assets.saveLocal(asset),
+    upload: (request) => assets.uploadRemote(request),
+    download: (reference) => assets.downloadRemote(reference),
+    cloudAvailable: () => Boolean(assetTransfer?.isAvailable()),
+    ownerUid: () => auth?.currentSession()?.uid,
+    enqueue: (operation) => createSyncOutboxService(gatedOutboxRepository).enqueue(operation),
+    flush: async () => { await syncRuntime?.run(); },
+    saveMap: (map, expectedRevision) => services.campaign.saveMap(map, expectedRevision),
+    clock,
+    idGenerator,
+  });
   let portraitStore: PortraitRemoteStore | undefined;
   const portraitRemote: PortraitRemoteStore | undefined = firebaseApp ? {
     get: (id) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id),
@@ -437,6 +463,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   let unsubscribePortraitAuth: (() => void) | undefined;
   let unsubscribePortraitCharacter: (() => void) | undefined;
   let unsubscribeCharacterAuth: (() => void) | undefined;
+  let unsubscribeLiveRefresh: (() => void) | undefined;
 
   try {
     const settings = await services.settings.hydrate();
@@ -573,7 +600,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       },
     });
     const campaignRecordDispatcher = createCampaignRecordDispatcher({ campaignService: services.campaign, idGenerator, clock });
-    const journalDispatcher = createJournalDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock });
+    const journalDispatcher = createJournalDispatcher({ campaignService: services.campaign, repository: campaignRepository, idGenerator, clock, authorId: () => { const uid = auth?.currentSession()?.uid; return uid ? asAccountId(uid) : localIdentity.accountId; } });
     const backup = createBackupService({
       characters: characterRepository,
       campaigns: campaignRepository,
@@ -610,6 +637,8 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       listCharacterDrafts: () => characterRepository.listDrafts(),
       listJournalEntries: (campaignId) => campaignRepository.listJournalEntries(campaignId),
       getLocalAsset: (assetId) => assets.getLocal(assetId),
+      creatures,
+      mapPublication,
       journalDraftState: () => journalDispatcher.getDraftState(),
       dataManagement: { service: dataManagement, previewImport: (envelope) => backup.previewImport(envelope) },
       auth,
@@ -642,8 +671,46 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
               return undefined;
             }
           },
+          afterHydration: async () => {
+            const current = auth?.currentSession();
+            if (!current || characterBackfilledUid === current.uid) return;
+            const published = await publishLocalCharacters({
+              characters: characterRepository,
+              outbox: gatedOutboxRepository,
+              ownerUid: asAccountId(current.uid),
+              clock,
+            });
+            if (!published.ok) {
+              console.error("[sync] Não foi possível publicar fichas locais", { message: published.error.message });
+              return;
+            }
+            if (auth?.currentSession()?.uid === current.uid) characterBackfilledUid = current.uid;
+          },
         })
       : undefined;
+
+    if (auth && firebaseApp) {
+      unsubscribeCharacterAuth = auth.observeSession((current) => {
+        if (!current) characterBackfilledUid = undefined;
+      });
+    }
+
+    // Tempo real: quando o mestre altera a campanha ou a ficha aberta em outro aparelho, a
+    // cópia em memória é relida — exceto se houver edição local pendente, que prevalece.
+    if (syncRuntime) {
+      const runtime = syncRuntime;
+      let seenHydration = runtime.snapshot.lastHydration;
+      unsubscribeLiveRefresh = runtime.subscribe(() => {
+        const hydration = runtime.snapshot.lastHydration;
+        if (!hydration || hydration === seenHydration) return;
+        seenHydration = hydration;
+        const touched = new Set(hydration.touched ?? []);
+        const campaignId = services.campaign.store.selectedId;
+        if (campaignId && touched.has(`campaign:${campaignId}`) && !PENDING_STORE_STATUSES.has(services.campaign.store.getSnapshot().status)) void services.campaign.hydrate(campaignId);
+        const characterId = services.character.store.selectedId;
+        if (characterId && touched.has(`character:${characterId}`) && !PENDING_STORE_STATUSES.has(services.character.store.getSnapshot().status)) void services.character.hydrate(characterId);
+      });
+    }
 
     if (auth && portraitRemote) {
       unsubscribePortraitCharacter = services.character.store.subscribe(() => {
@@ -662,7 +729,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       });
     }
 
-    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, auth, authAvailability, sync: syncRuntime, dispose: () => { unsubscribeCharacterAuth?.(); unsubscribePortraitAuth?.(); unsubscribePortraitCharacter?.(); }, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
+    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, auth, authAvailability, sync: syncRuntime, dispose: () => { unsubscribeCharacterAuth?.(); unsubscribePortraitAuth?.(); unsubscribePortraitCharacter?.(); unsubscribeLiveRefresh?.(); }, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
   } catch (cause) {
     services.character.dispose();
     services.campaign.dispose();

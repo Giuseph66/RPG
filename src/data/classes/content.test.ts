@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classes } from "./classes";
+import { equipment } from "@data/equipment";
 import { features, resources, FEATURE_PENDING_DECISIONS } from "./features";
 import { subclasses } from "@data/subclasses/subclasses";
 import { backgrounds } from "@data/backgrounds/backgrounds";
@@ -8,6 +9,41 @@ import { characterTemplates } from "@data/character-templates/templates";
 import { progression } from "@data/progression/progression";
 
 describe("catálogo DATA-005", () => {
+  it("Magia de Pacto do bruxo: círculo dos espaços sobe de 1º a 5º e a quantidade segue a tabela", () => {
+    const warlock = classes.find((entry) => entry.id === "warlock")!;
+    const at = (level: number) => warlock.progression[level - 1].spellSlotsGranted?.slotsByLevel ?? [];
+    expect(at(1)).toEqual([{ slotLevel: 1, count: 1 }]);
+    expect(at(2)).toEqual([{ slotLevel: 1, count: 2 }]);
+    expect(at(3)).toEqual([{ slotLevel: 2, count: 2 }]);
+    expect(at(5)).toEqual([{ slotLevel: 3, count: 2 }]);
+    expect(at(9)).toEqual([{ slotLevel: 5, count: 2 }]);
+    expect(at(11)).toEqual([{ slotLevel: 5, count: 3 }]);
+    expect(at(17)).toEqual([{ slotLevel: 5, count: 4 }]);
+    for (const level of [3, 4, 5, 6, 7, 8, 9, 10, 11, 20]) expect(at(level)).toHaveLength(1);
+  });
+
+  it("multiclasse: guerreiro aceita FOR 13 OU DES 13; monge/paladino/patrulheiro exigem os dois", () => {
+    const prerequisites = (id: string) => classes.find((entry) => entry.id === id)!.multiclassPrerequisites;
+    expect(prerequisites("fighter")).toEqual([{ kind: "any-of", options: [{ kind: "min-ability-score", ability: "str", score: 13 }, { kind: "min-ability-score", ability: "dex", score: 13 }] }]);
+    for (const id of ["monk", "paladin", "ranger"]) {
+      expect(prerequisites(id)).toHaveLength(2);
+      expect(prerequisites(id).every((entry) => entry.kind === "min-ability-score")).toBe(true);
+    }
+  });
+
+  it("publica o ID do foco arcano coerente com o nome (bastão x cajado)", () => {
+    const byId = (id: string) => equipment.find((entry) => entry.id === id)!;
+    expect(byId("arcane-focus-rod").name).toBe("Foco arcano: bastão");
+    expect(byId("arcane-focus-staff").name).toBe("Foco arcano: cajado");
+    expect(Number(byId("arcane-focus-rod").valueCp)).toBe(1000);
+    expect(Number(byId("arcane-focus-staff").valueCp)).toBe(500);
+  });
+
+  it("zarabatana causa dano fixo 1 perfurante (1d1)", () => {
+    const blowgun = equipment.find((entry) => entry.id === "blowgun")!;
+    expect(blowgun.weapon?.damageParts).toEqual([{ expression: { quantity: 1, faces: 1 }, damageType: "piercing" }]);
+  });
+
   it("publica as doze classes e uma progressão completa por nível", () => {
     expect(classes).toHaveLength(12);
     expect(new Set(classes.map((entry) => entry.id)).size).toBe(12);

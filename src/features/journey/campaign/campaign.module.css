@@ -1,5 +1,7 @@
-.workspace { display: grid; gap: var(--spacing-lg); width: 100%; min-width: 0; }
-.workspace :global([role="tablist"]) { position: sticky; top: var(--app-bar-height); z-index: 4; gap: .2rem; padding: .45rem 0 .35rem; background: color-mix(in srgb, var(--color-background) 94%, transparent); backdrop-filter: blur(.6rem); scrollbar-width: thin; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--spacing-lg); width: 100%; min-width: 0; }
+.workspace > * { min-width: 0; }
+.workspace :global([role="tablist"]) { position: sticky; top: var(--app-bar-height); z-index: 4; gap: .2rem; padding: .45rem 0 .35rem; background: color-mix(in srgb, var(--color-background) 94%, transparent); backdrop-filter: blur(.6rem); scrollbar-width: thin; max-width: 100%; overscroll-behavior-x: contain; }
+.workspace :global([role="tab"]) { flex: 0 0 auto; }
 .workspace :global([role="tab"]) { border-radius: var(--radius-control) var(--radius-control) 0 0; white-space: nowrap; }
 .workspace :global([role="tab"]:hover) { color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 9%, transparent); }
 .workspace :global([role="tab"][aria-selected="true"]) { background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)); }
@@ -17,7 +19,7 @@
 .overviewMetrics > div:first-child { border-left: 0; padding-left: 0; }
 .overviewMetrics span, .campaignFooter { color: var(--color-text-muted); font-size: .82rem; }
 .overviewMetrics strong { color: var(--color-text); font: 700 clamp(1.35rem, 2vw, 2rem) var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
-.activityLinks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-sm); }
+.activityLinks { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--spacing-sm); }
 .activityLinks button { display: grid; grid-template-columns: 1fr auto; gap: .25rem var(--spacing-sm); min-width: 0; min-height: 4.5rem; padding: var(--spacing-sm) var(--spacing-md); color: var(--color-text); background: color-mix(in srgb, var(--color-background) 35%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); text-align: left; cursor: pointer; }
 .activityLinks button:hover, .activityLinks button:focus-visible { border-color: var(--color-primary); background: var(--color-surface-elevated); outline: none; }
 .activityLinks span { font-weight: 700; }
@@ -107,3 +109,31 @@
 .deleteConfirm { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-xs); margin-top: var(--spacing-sm); color: var(--color-danger); font-size: .78rem; }
 @media (max-width: 860px) { .records, .records[data-layout="single"] { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .createForm { grid-template-columns: 1fr; } .formHeading, .createForm > :last-child { grid-column: auto; } .heading { align-items: flex-start; flex-direction: column; } .campaignControls { width: 100%; justify-content: stretch; } .campaignSelector { flex: 1 1 100%; } .campaignControls > :global(button) { flex: 1; justify-content: center; } .overviewMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .overviewMetrics > div:nth-child(3) { border-left: 0; padding-left: 0; } .overviewMetrics > div:nth-child(n + 3) { border-top: 1px solid var(--color-border-soft); } .activityLinks { grid-template-columns: 1fr; } .panel, .records { padding: var(--spacing-md); } .campaignCard, .activeCampaign { align-items: stretch; flex-direction: column; } .campaignCard > :last-child, .activeCampaign > :last-child { align-self: flex-end; } .npcFormFields { grid-template-columns: 1fr; } .npcFormFields > :last-child { grid-column: auto; } .recordList .npcRow { grid-template-columns: 2rem minmax(0, 1fr); } .npcRowActions { grid-column: 2; grid-row: 2; justify-content: flex-start; } }
+@media (max-width: 620px) { .workspace :global([role="tablist"]) { scrollbar-width: none; } .workspace :global([role="tablist"])::-webkit-scrollbar { display: none; } }
+.refreshBar { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
+.refreshLabel { flex: 1; min-width: 0; overflow: hidden; color: var(--color-text-muted); font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.roleTag { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .3rem; padding: .2rem .6rem; color: var(--color-secondary); border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent); border-radius: var(--radius-pill); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.roleTag[data-role="player"] { color: var(--color-magic); border-color: color-mix(in srgb, var(--color-magic) 50%, transparent); }
+.spinning { animation: journey-spin .9s linear infinite; }
+@keyframes journey-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }
+.journeys { display: grid; gap: var(--spacing-md); padding: clamp(var(--spacing-lg), 3vw, var(--spacing-xl)); background: linear-gradient(145deg, var(--color-surface), var(--color-surface-warm)); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); box-shadow: var(--shadow-surface); }
+.journeys ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--spacing-sm); margin: 0; padding: 0; list-style: none; }
+.journeys li { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-background) 40%, transparent); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
+.journeys li > div { display: grid; gap: 2px; min-width: 0; }
+.journeys li small { color: var(--color-text-muted); font-size: .8rem; }
+.journeys dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
+.journeys dl > div { display: grid; gap: 2px; }
+.journeys dt { color: var(--color-text-muted); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; }
+.journeys dd { margin: 0; font: 700 1.2rem var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
+.journeys li :global(button) { justify-self: start; display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+@media (max-width: 620px) { .refreshLabel { display: none; } .refreshBar { justify-content: space-between; } .journeys { padding: var(--spacing-md); } }
+/* O rótulo do Button envolve ícone e texto num <span>; com `svg { display: block }` global o ícone
+   ficava acima do texto. Na jornada, ícone e texto ficam na mesma linha. */
+.workspace :global(button) > span:has(> svg) { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.liveTag { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .35rem; color: var(--color-xp); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.liveDot { width: .5rem; height: .5rem; background: var(--color-xp); border-radius: 50%; box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-xp) 60%, transparent); animation: journey-live 2s ease-out infinite; }
+@keyframes journey-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-xp) 60%, transparent); } 70%, 100% { box-shadow: 0 0 0 .45rem transparent; } }
+.refreshNotice { color: var(--color-secondary); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .liveDot { animation: none; } }
+@media (max-width: 620px) { .refreshBar .refreshNotice { display: block; } }

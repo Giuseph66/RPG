@@ -61,8 +61,9 @@ export interface FirestoreSyncDeps {
   readonly collection: (firestore: Firestore, path: string) => unknown;
   readonly collectionGroup: (firestore: Firestore, id: string) => unknown;
   readonly query: (target: unknown, ...constraints: readonly unknown[]) => unknown;
-  readonly where: (field: string, op: "==", value: string) => unknown;
-  readonly onSnapshot: (target: unknown, next: () => void, error: (cause: unknown) => void) => () => void;
+  readonly where: (field: string, op: "==" | "array-contains", value: string) => unknown;
+  /** `next` recebe o snapshot (consulta ou documento); listeners antigos podem ignorá-lo. */
+  readonly onSnapshot: (target: unknown, next: (snapshot?: FirestoreListenSnapshot) => void, error: (cause: unknown) => void) => () => void;
 }
 
 interface FirestoreDocumentSnapshot {
@@ -79,6 +80,16 @@ interface FirestoreQuerySnapshot {
   readonly docs: readonly FirestoreQueryDocument[];
 }
 
+/** Snapshot entregue por um listener: consulta (`docs`) ou documento único (`exists`). */
+interface FirestoreListenSnapshot {
+  readonly docs?: readonly FirestoreQueryDocument[];
+  exists?(): boolean;
+  data?(): unknown;
+  readonly ref?: { readonly path?: string };
+  /** Dados vindos só do cache local ainda não confirmam o que sumiu no servidor. */
+  readonly metadata?: { readonly fromCache?: boolean };
+}
+
 const defaultDeps: FirestoreSyncDeps = {
   doc: (firestore, path) => doc(firestore, path),
   runTransaction: <T>(firestore: Firestore, updateFunction: (transaction: FirestoreTransaction) => Promise<T>) =>
@@ -89,7 +100,9 @@ const defaultDeps: FirestoreSyncDeps = {
   collectionGroup: (firestore, id) => collectionGroup(firestore, id),
   query: (target, ...constraints) => query(target as Query, ...(constraints as Parameters<typeof query>[1][])),
   where: (field, op, value) => where(field, op, value),
-  onSnapshot: (target, next, error) => onSnapshot(target as Query, next, error),
+  // Com cache persistente o primeiro snapshot vem do aparelho; sem metadados, a confirmação
+  // do servidor (quando nada mudou) nunca chegaria e o que sumiu remotamente ficaria aqui.
+  onSnapshot: (target, next, error) => onSnapshot(target as Query, { includeMetadataChanges: true }, next as never, error),
 };
 
 export interface FirebaseFirestoreSyncAdapterOptions {
@@ -169,6 +182,15 @@ export function firestorePathForOperation(operation: SyncOperation, privateOwner
       return campaignId && sessionId
         ? ok(`campaigns/${campaignId}/sessions/${sessionId}`)
         : err(pathError("Sessão exige campaignId no escopo e ID no snapshot."));
+    }
+    case "creature":
+    case "sighting":
+    case "guess": {
+      const campaignId = scopeField(operation, "campaignId") ?? (deleting ? undefined : stringField(operation.payload, "campaignId"));
+      const collectionName = operation.aggregateType === "creature" ? "creatures" : operation.aggregateType === "sighting" ? "sightings" : "guesses";
+      return campaignId && /^[A-Za-z0-9_-]+$/.test(id)
+        ? ok(`campaigns/${campaignId}/${collectionName}/${id}`)
+        : err(pathError(`${operation.aggregateType} exige campaignId no escopo e ID válido.`));
     }
     case "asset":
       return ok(`assets/${id}`);
@@ -381,12 +403,16 @@ function cleanupManifest(operation: SyncOperation): Result<CampaignCleanupManife
   const journalIds = stringArray(raw.journalIds);
   const mapIds = stringArray(raw.mapIds);
   const sessionIds = stringArray(raw.sessionIds);
+  const optionalIds = (value: unknown) => value === undefined ? [] : stringArray(value);
+  const creatureIds = optionalIds(raw.creatureIds);
+  const sightingIds = optionalIds(raw.sightingIds);
+  const guessIds = optionalIds(raw.guessIds);
   const assets = raw.assets;
   if (
     raw.schemaVersion !== 1 || campaignId === undefined || campaignId !== String(operation.aggregateId) ||
     typeof campaignRevision !== "number" || !Number.isInteger(campaignRevision) || campaignRevision < 0 ||
     memberAccountIds === undefined || characterIds === undefined || journalIds === undefined ||
-    mapIds === undefined || sessionIds === undefined || !Array.isArray(assets)
+    mapIds === undefined || sessionIds === undefined || creatureIds === undefined || sightingIds === undefined || guessIds === undefined || !Array.isArray(assets)
   ) return err(pathError("Manifesto de limpeza de campanha inválido."));
 
   const normalizedAssets: CampaignCleanupManifest["assets"][number][] = [];
@@ -410,11 +436,46 @@ function cleanupManifest(operation: SyncOperation): Result<CampaignCleanupManife
     }
     normalizedAssets.push({ assetId, ownerUid, campaignId, firestorePath, storagePath, sha256, ...(rawAsset.shared === true ? { shared: true } : {}) });
   }
-  return ok({ schemaVersion: 1, campaignId, campaignRevision: asRevision(campaignRevision), memberAccountIds, characterIds, journalIds, mapIds, sessionIds, assets: normalizedAssets });
+  return ok({ schemaVersion: 1, campaignId, campaignRevision: asRevision(campaignRevision), memberAccountIds, characterIds, journalIds, mapIds, sessionIds, creatureIds, sightingIds, guessIds, assets: normalizedAssets });
 }
 
 function cleanupPath(campaignId: string, collectionName: string, id: string): string {
   return `campaigns/${campaignId}/${collectionName}/${id}`;
+}
+
+type CampaignAggregate = RemoteSyncPullRecord["aggregateType"];
+
+/** Mantém a maior revisão de cada agregado e ordena de forma estável. */
+function uniqueRecords(records: readonly RemoteSyncPullRecord[]): RemoteSyncPullRecord[] {
+  const unique = new Map<string, RemoteSyncPullRecord>();
+  for (const record of records) {
+    const key = `${record.aggregateType}|${record.aggregateId}|${record.scope?.campaignId ?? record.scope?.ownerUid ?? ""}`;
+    const previous = unique.get(key);
+    if (!previous || record.revision > previous.revision) unique.set(key, record);
+  }
+  return [...unique.values()].sort((left, right) =>
+    left.aggregateType.localeCompare(right.aggregateType) || left.aggregateId.localeCompare(right.aggregateId),
+  );
+}
+
+/** Converte documentos de uma coleção da campanha no mesmo formato do pull. */
+function campaignRecords(aggregateType: CampaignAggregate, docs: readonly FirestoreQueryDocument[], campaignId: string): RemoteSyncPullRecord[] {
+  const records: RemoteSyncPullRecord[] = [];
+  for (const item of docs) {
+    const id = documentId(item.ref.path);
+    const payload = id === undefined ? undefined : pullPayload(item.data(), id);
+    if (id === undefined || payload === undefined) continue;
+    if (aggregateType === "membership") {
+      records.push(recordFromDoc("membership", `${campaignId}:${id}`, payload, { campaignId: campaignId as never, accountId: id as never }));
+      continue;
+    }
+    const ownerUid = aggregateType === "character" || aggregateType === "journal" ? stringField(item.data(), "ownerUid") : undefined;
+    const ownedPayload = ownerUid
+      ? aggregateType === "journal" ? { ...payload, authorId: payload.authorId ?? ownerUid } : { ...payload, ownerUid }
+      : payload;
+    records.push(recordFromDoc(aggregateType, id, ownedPayload, { campaignId: campaignId as never }));
+  }
+  return records;
 }
 
 /** Adapter injetável; não inicializa Firebase e não toca rede em modo indisponível. */
@@ -493,6 +554,9 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
       ...manifest.journalIds.map((id) => cleanupPath(manifest.campaignId, "journals", id)),
       ...manifest.mapIds.map((id) => cleanupPath(manifest.campaignId, "maps", id)),
       ...manifest.sessionIds.map((id) => cleanupPath(manifest.campaignId, "sessions", id)),
+      ...(manifest.sightingIds ?? []).map((id) => cleanupPath(manifest.campaignId, "sightings", id)),
+      ...(manifest.guessIds ?? []).map((id) => cleanupPath(manifest.campaignId, "guesses", id)),
+      ...(manifest.creatureIds ?? []).map((id) => cleanupPath(manifest.campaignId, "creatures", id)),
     ];
 
     // Each path is explicit and idempotent. This avoids implicit Firestore
@@ -606,6 +670,37 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
   }
 
   /**
+   * Fontes remotas de uma campanha para esta conta. Jogadores só podem consultar o que as
+   * regras liberam para a própria conta; a consulta carrega o mesmo filtro, senão o
+   * Firestore recusa a lista inteira. A chave identifica a fonte nos listeners.
+   */
+  private campaignSources(campaignId: string, master: boolean): readonly (readonly [string, CampaignAggregate, unknown])[] {
+    const base = (collectionName: string) => this.deps.collection(this.firestore!, `campaigns/${campaignId}/${collectionName}`);
+    const own = (collectionName: string, field: string) => this.deps.query(base(collectionName), this.deps.where(field, "==", this.ownerUid));
+    const shared = [
+      ["characters", "character", base("characters")],
+      ["sessions", "session", base("sessions")],
+    ] as const;
+    return master
+      ? [
+          ...shared,
+          ["journals", "journal", base("journals")],
+          ["maps", "map", base("maps")],
+          ["creatures", "creature", base("creatures")],
+          ["sightings", "sighting", base("sightings")],
+          ["guesses", "guess", base("guesses")],
+        ]
+      : [
+          ...shared,
+          ["journals", "journal", own("journals", "ownerUid")],
+          ["maps:own", "map", this.deps.query(base("maps"), this.deps.where("visibleTo", "array-contains", this.ownerUid))],
+          ["maps:all", "map", this.deps.query(base("maps"), this.deps.where("visibleTo", "array-contains", "*"))],
+          ["sightings", "sighting", own("sightings", "accountId")],
+          ["guesses", "guess", own("guesses", "accountId")],
+        ];
+  }
+
+  /**
    * Lê somente a conta atual, seus personagens privados e campanhas para as
    * quais existe vínculo. Convites entram pela collectionGroup de membros;
    * conteúdo de campanha só é lido para vínculos ativos (ou papel master).
@@ -668,53 +763,121 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           const payload = pullPayload(campaign.data(), campaignId);
           if (payload !== undefined) records.push(recordFromDoc("campaign", campaignId, payload));
         }
-        for (const [collectionName, aggregateType] of [
-          ["characters", "character"],
-          ["journals", "journal"],
-          ["maps", "map"],
-          ["sessions", "session"],
-        ] as const) {
-          const documents = await this.deps.getDocs(this.deps.collection(this.firestore!, `campaigns/${campaignId}/${collectionName}`));
-          for (const item of documents.docs) {
-            const id = documentId(item.ref.path);
-            const payload = id === undefined ? undefined : pullPayload(item.data(), id);
-            const ownerUid = aggregateType === "character" ? stringField(item.data(), "ownerUid") : undefined;
-            const ownedPayload = payload && ownerUid ? { ...payload, ownerUid } : payload;
-            if (id !== undefined && ownedPayload !== undefined) records.push(recordFromDoc(aggregateType, id, ownedPayload, { campaignId: campaignId as never }));
-          }
+        for (const [, aggregateType, target] of this.campaignSources(campaignId, masterCampaigns.has(campaignId))) {
+          const documents = await this.deps.getDocs(target);
+          records.push(...campaignRecords(aggregateType, documents.docs, campaignId));
         }
       }
 
-      const unique = new Map<string, RemoteSyncPullRecord>();
-      for (const record of records) {
-        const key = `${record.aggregateType}|${record.aggregateId}|${record.scope?.campaignId ?? record.scope?.ownerUid ?? ""}`;
-        const previous = unique.get(key);
-        if (!previous || record.revision > previous.revision) unique.set(key, record);
-      }
-      return ok({ records: [...unique.values()].sort((left, right) =>
-        left.aggregateType.localeCompare(right.aggregateType) || left.aggregateId.localeCompare(right.aggregateId),
-      ) });
+      return ok({ visibleCampaigns: [...activeCampaigns].map((campaignId) => ({ campaignId, role: masterCampaigns.has(campaignId) ? "master" as const : "player" as const })), records: uniqueRecords(records) });
     } catch (cause) {
       return err(remoteError(cause));
     }
   }
 
-  /** Escuta membros/personagens; uma mudança dispara novo pull completo e idempotente. */
-  subscribe(listener: () => void): () => void {
+  /**
+   * Tempo real. Cada campanha ativa ganha listeners com os mesmos filtros do pull; o SDK só
+   * baixa o que mudou, e cada mudança chega ao runtime como um pull parcial montado a partir
+   * dos snapshots, sem reler as coleções. Vínculos e personagens privados continuam pedindo
+   * um pull completo (convites trazem campanhas inteiras novas).
+   */
+  subscribe(listener: (update?: RemoteSyncPullResult) => void): () => void {
     if (!this.isAvailable()) return () => undefined;
     const errors = () => undefined;
+    const sources = new Map<string, { readonly records: readonly RemoteSyncPullRecord[]; readonly confirmed: boolean }>();
+    const campaigns = new Map<string, { readonly master: boolean; readonly keys: readonly string[]; readonly types: readonly (readonly [string, CampaignAggregate])[]; readonly stop: () => void }>();
+    let memberships: RemoteSyncPullRecord[] = [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let closed = false;
+
+    // Uma rajada de snapshots (ex.: o mestre revelando vários campos) vira uma única hidratação.
+    const emit = () => {
+      if (closed || timer !== undefined) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        if (closed) return;
+        const records = uniqueRecords([...memberships, ...[...sources.values()].flatMap((source) => source.records)]);
+        // Só reconcilia (remove o que sumiu) tipos cujas fontes já vieram do servidor.
+        const visibleCampaigns = [...campaigns.entries()].map(([campaignId, campaign]) => {
+          const byType = new Map<string, boolean>();
+          for (const [key, type] of campaign.types) byType.set(type, (byType.get(type) ?? true) && sources.get(key)?.confirmed === true);
+          return { campaignId, role: campaign.master ? "master" as const : "player" as const, types: [...byType.entries()].filter(([, confirmed]) => confirmed).map(([type]) => type as CampaignAggregate) };
+        }).filter((campaign) => campaign.types.length > 0);
+        listener({ records, visibleCampaigns });
+      }, 120);
+    };
+
+    const watch = (key: string, target: unknown, toRecords: (snapshot: FirestoreListenSnapshot) => RemoteSyncPullRecord[]) =>
+      this.deps.onSnapshot(target, (snapshot) => {
+        if (!snapshot) return;
+        const confirmed = snapshot.metadata?.fromCache !== true || sources.get(key)?.confirmed === true;
+        sources.set(key, { records: toRecords(snapshot), confirmed });
+        emit();
+      }, errors);
+
+    const watchCampaign = (campaignId: string, master: boolean) => {
+      const campaignRecord = (snapshot: FirestoreListenSnapshot) => {
+        const payload = snapshot.exists?.() ? pullPayload(snapshot.data?.(), campaignId) : undefined;
+        return payload ? [recordFromDoc("campaign", campaignId, payload)] : [];
+      };
+      const entries: (readonly [string, CampaignAggregate, unknown, (snapshot: FirestoreListenSnapshot) => RemoteSyncPullRecord[]])[] = [
+        [`${campaignId}:campaign`, "campaign", this.deps.doc(this.firestore!, `campaigns/${campaignId}`), campaignRecord],
+        ...(master ? [[`${campaignId}:members`, "membership", this.deps.collection(this.firestore!, `campaigns/${campaignId}/members`), (snapshot: FirestoreListenSnapshot) => campaignRecords("membership", snapshot.docs ?? [], campaignId)] as const] : []),
+        ...this.campaignSources(campaignId, master).map(([name, aggregateType, target]) => [`${campaignId}:${name}`, aggregateType, target, (snapshot: FirestoreListenSnapshot) => campaignRecords(aggregateType, snapshot.docs ?? [], campaignId)] as const),
+      ];
+      const stops = entries.map(([key, , target, toRecords]) => watch(key, target, toRecords));
+      campaigns.set(campaignId, { master, keys: entries.map(([key]) => key), types: entries.map(([key, type]) => [key, type] as const), stop: () => { for (const stop of stops) stop(); } });
+    };
+
+    const syncCampaigns = (active: ReadonlyMap<string, boolean>) => {
+      for (const [campaignId, campaign] of campaigns) {
+        if (active.get(campaignId) === campaign.master) continue;
+        campaign.stop();
+        for (const key of campaign.keys) sources.delete(key);
+        campaigns.delete(campaignId);
+      }
+      for (const [campaignId, master] of active) if (!campaigns.has(campaignId)) watchCampaign(campaignId, master);
+    };
+
+    let firstMembers = true;
+    let firstCharacters = true;
     const unsubs = [
-      this.deps.onSnapshot(this.deps.collection(this.firestore!, `users/${this.ownerUid}/characters`), listener, errors),
+      this.deps.onSnapshot(this.deps.collection(this.firestore!, `users/${this.ownerUid}/characters`), () => {
+        // O primeiro snapshot repete o pull inicial que o runtime já agendou.
+        if (firstCharacters) { firstCharacters = false; return; }
+        listener();
+      }, errors),
       this.deps.onSnapshot(
         this.deps.query(
           this.deps.collectionGroup(this.firestore!, "members"),
           this.deps.where("accountId", "==", this.ownerUid),
         ),
-        listener,
+        (snapshot) => {
+          const active = new Map<string, boolean>();
+          const next: RemoteSyncPullRecord[] = [];
+          for (const item of snapshot?.docs ?? []) {
+            const campaignId = campaignIdFromMemberPath(item.ref.path);
+            const payload = campaignId === undefined ? undefined : pullPayload(item.data(), this.ownerUid);
+            if (campaignId === undefined || payload === undefined) continue;
+            next.push(recordFromDoc("membership", `${campaignId}:${this.ownerUid}`, payload, { campaignId: campaignId as never, accountId: this.ownerUid as never }));
+            if (payload.status === "active" && (payload.role === "master" || payload.role === "player")) active.set(campaignId, payload.role === "master");
+          }
+          memberships = next;
+          syncCampaigns(active);
+          if (firstMembers) firstMembers = false;
+          else listener();
+        },
         errors,
       ),
     ];
-    return () => { for (const unsubscribe of unsubs) unsubscribe(); };
+    return () => {
+      closed = true;
+      if (timer !== undefined) clearTimeout(timer);
+      for (const unsubscribe of unsubs) unsubscribe();
+      for (const campaign of campaigns.values()) campaign.stop();
+      campaigns.clear();
+      sources.clear();
+    };
   }
 }
 

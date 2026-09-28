@@ -24,7 +24,7 @@ function EncounterBoard({ item, characters, npcs, busy, onSave }: {
   const encounter = item.encounter ?? { round: 1, combatants: [] };
   const options = useMemo(() => [
     ...characters.map((character) => ({ key: "character:" + character.id, entityType: "character" as const, entityId: character.id, name: character.name, label: "Personagem", initiative: character.initiative })),
-    ...npcs.map((npc) => ({ key: "npc:" + npc.id, entityType: "npc" as const, entityId: npc.id, name: npc.name, label: npc.kind === "enemy" ? "Ameaça" : "NPC", initiative: undefined })),
+    ...npcs.map((npc) => ({ key: "npc:" + npc.id, entityType: "npc" as const, entityId: npc.id, name: npc.name, label: npc.kind === "enemy" ? "Ameaça" : npc.kind === "animal" ? "Animal" : npc.kind === "unknown" ? "Criatura" : "NPC", initiative: undefined })),
   ], [characters, npcs]);
   const ordered = useMemo(() => [...encounter.combatants].sort((left, right) => right.initiative - left.initiative || encounterKey(left).localeCompare(encounterKey(right))), [encounter.combatants]);
   const next = () => {

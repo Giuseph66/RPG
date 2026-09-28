@@ -37,6 +37,10 @@ const strengthDexteritySaveFailures = (id: string) => [savingThrowFailure(id, "s
 const DAMAGE_TYPES: readonly DamageType[] = ["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing", "poison", "psychic", "radiant", "slashing", "thunder"];
 const allDamageResistances = (id: string): readonly RuleModifier[] => DAMAGE_TYPES.map((damageType) => ({ id: `${id}.${damageType}-resistance`, sourceRef: CONDITIONS_SOURCE_REF, target: { kind: "damage-roll" }, operator: "grant-resistance", value: { kind: "damage-type", damageType }, predicate: { kind: "always" }, stackingGroup: id }));
 
+/** Efeitos cumulativos de exaustão: cada um só vale a partir do nível que o introduz (p.292). */
+const atExhaustionLevel = (level: number, modifiers: readonly RuleModifier[]): readonly RuleModifier[] =>
+  modifiers.map((entry) => ({ ...entry, predicate: { kind: "min-condition-severity", conditionRef: ref("exhaustion"), severity: level } }));
+
 /** As 14 condições ordinárias da fonte, cada uma com efeitos consultáveis e fonte. */
 export const CONDITION_DEFINITIONS: readonly ConditionDefinition[] = [
   condition("grappled", "Agarrado", [modifier("grappled.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0")]),
@@ -53,7 +57,13 @@ export const CONDITION_DEFINITIONS: readonly ConditionDefinition[] = [
   condition("paralyzed", "Paralisado", [modifier("paralyzed.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "não move"), ...strengthDexteritySaveFailures("paralyzed")]),
   condition("petrified", "Petrificado", [modifier("petrified.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "não move"), ...strengthDexteritySaveFailures("petrified"), ...allDamageResistances("petrified")]),
   condition("deafened", "Surdo", []),
-  condition("exhaustion", "Exaustão", [abilityCheckDisadvantage("exhaustion.1"), modifier("exhaustion.2-speed-half", { kind: "speed", speedKind: "walk" }, "multiply", "deslocamento pela metade"), attackDisadvantage("exhaustion.3"), ...(["str", "dex", "con", "int", "wis", "cha"] as const).map((ability) => savingThrowDisadvantage("exhaustion.3", ability)), modifier("exhaustion.4.max-hp-half", { kind: "hit-points-max" }, "multiply", "máximo de PV pela metade"), modifier("exhaustion.5.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0")], "stack-severity", { min: 0, max: 6 }),
+  condition("exhaustion", "Exaustão", [
+    ...atExhaustionLevel(1, [abilityCheckDisadvantage("exhaustion.1")]),
+    ...atExhaustionLevel(2, [modifier("exhaustion.2-speed-half", { kind: "speed", speedKind: "walk" }, "multiply", "deslocamento pela metade")]),
+    ...atExhaustionLevel(3, [attackDisadvantage("exhaustion.3"), ...(["str", "dex", "con", "int", "wis", "cha"] as const).map((ability) => savingThrowDisadvantage("exhaustion.3", ability))]),
+    ...atExhaustionLevel(4, [modifier("exhaustion.4.max-hp-half", { kind: "hit-points-max" }, "multiply", "máximo de PV pela metade")]),
+    ...atExhaustionLevel(5, [modifier("exhaustion.5.speed-zero", { kind: "speed", speedKind: "walk" }, "set-maximum", "deslocamento 0")]),
+  ], "stack-severity", { min: 0, max: 6 }),
 ];
 
 export const conditions = CONDITION_DEFINITIONS;

@@ -7,10 +7,12 @@ import type { Character, CharacterDraft, ManualAdjustment } from "@domain/contra
 import { appError, err, ok } from "@domain/contracts/errors";
 import type { CharacterSummary } from "@domain/contracts/character";
 import type { DraftSummary } from "@features/character/selection";
-import type { Campaign } from "@domain/contracts/campaign";
+import type { Campaign, JournalEntry, MapRecord } from "@domain/contracts/campaign";
+import type { CreatureGuess, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
+import type { JourneyPlayer } from "@features/journey/creatures";
 import type { JournalDraft, JournalDraftState } from "@domain/campaign/journal";
 import { createJournalDraft, draftFromJournalEntry } from "@domain/campaign/journal";
-import { asAccountId, asIsoTimestamp, asUuid, isUuid } from "@domain/contracts/ids";
+import { asAccountId, asIsoTimestamp, asUuid, isUuid, type EntityId, type Uuid } from "@domain/contracts/ids";
 import { parseBackupJson, serializeBackup } from "@application/transfer";
 import type { RecoveryRecordView } from "@application/transfer/types";
 import type { DataManagementIntent } from "@features/data-management";
@@ -39,6 +41,8 @@ const LazyActions = lazy(() => import("@features/actions").then((module) => ({ d
 const LazyInventory = lazy(() => import("@features/inventory").then((module) => ({ default: module.Inventory })));
 const LazyJourneyCampaign = lazy(() => import("@features/journey/campaign").then((module) => ({ default: module.JourneyCampaign })));
 const LazyMapWorkspace = lazy(() => import("@features/journey/map").then((module) => ({ default: module.MapWorkspace })));
+const LazyCreatureBoard = lazy(() => import("@features/journey/creatures").then((module) => ({ default: module.CreatureBoard })));
+const LazyPlayerCreatureBoard = lazy(() => import("@features/journey/creatures").then((module) => ({ default: module.PlayerCreatureBoard })));
 const LazyJournalWorkspace = lazy(() => import("@features/journey/journal").then((module) => ({ default: module.JournalWorkspace })));
 const LazyCompendium = lazy(() => import("@features/compendium").then((module) => ({ default: module.Compendium })));
 const LazyRuleLookupProvider = lazy(() => import("@features/compendium").then((module) => ({ default: module.RuleLookupProvider })));
@@ -255,8 +259,12 @@ function CharacterDetailRoute({ registry, character, pack, id }: { readonly regi
   return <RuleProvider lookup={ruleLookup}><div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div></RuleProvider>;
 }
 
-function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"] }) {
+function JournalRoute({ registry, campaign, viewerId, role = "master", authors, authorFilter, refreshKey, onSaved }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly viewerId?: string; readonly role?: "master" | "player"; readonly authors?: readonly { readonly id: string; readonly name: string }[]; readonly authorFilter?: string; readonly refreshKey?: object; readonly onSaved?: () => void }) {
   const campaignId = campaign?.value?.id;
+  const listVisible = useCallback(async (id: Uuid) => {
+    const result = await registry.journey.listJournalEntries!(id);
+    return result.ok && role === "player" ? ok(result.value.filter((entry) => entry.authorId === viewerId)) : result;
+  }, [registry.journey.listJournalEntries, role, viewerId]);
   const [entries, setEntries] = useState<readonly import("@domain/contracts/campaign").JournalEntry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState<string>();
   const [draft, setDraft] = useState<JournalDraft>(() => createJournalDraft(campaignId ?? asUuid("00000000-0000-4000-8000-000000000000")));
@@ -275,11 +283,11 @@ function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegist
     }
     let active = true;
     setStatus("saving");
-    void registry.journey.listJournalEntries(campaignId).then((result) => {
+    void listVisible(campaignId).then((result) => {
       if (!active) return;
       if (!result.ok) { setError(result.error.message); setStatus("error"); return; }
       setEntries(result.value);
-      const first = result.value[0];
+      const first = result.value.find((entry) => !viewerId || (entry.authorId ?? viewerId) === viewerId);
       if (first) {
         const firstDraft = draftFromJournalEntry(first);
         const firstId = String(first.id);
@@ -292,7 +300,7 @@ function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegist
       setStatus("clean");
     });
     return () => { active = false; };
-  }, [campaignId, dispatchJournal, registry.journey.listJournalEntries]);
+  }, [campaignId, dispatchJournal, listVisible, refreshKey, registry.journey.listJournalEntries, viewerId]);
 
   const refreshFromDispatcher = useCallback(() => {
     const next = getState?.();
@@ -312,12 +320,12 @@ function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegist
         const next = refreshFromDispatcher();
         if (next?.status === "saving" && attempts < 30) { attempts += 1; window.setTimeout(poll, 25); return; }
         if (next?.status === "saved") {
-          void (campaignId && registry.journey.listJournalEntries ? registry.journey.listJournalEntries(campaignId).then((result) => { if (result.ok) setEntries(result.value); }) : undefined);
+          void (campaignId && registry.journey.listJournalEntries ? listVisible(campaignId).then((result) => { if (result.ok) setEntries(result.value); onSaved?.(); }) : undefined);
         }
       };
       window.setTimeout(poll, 0);
     }
-  }, [campaignId, draft, entries, getState, refreshFromDispatcher, registry.journey, selectedEntryId]);
+  }, [campaignId, draft, entries, getState, listVisible, onSaved, refreshFromDispatcher, registry.journey, selectedEntryId]);
 
   const onSelect = useCallback((id: string) => {
     const entry = entries.find((candidate) => String(candidate.id) === id);
@@ -332,7 +340,7 @@ function JournalRoute({ registry, campaign }: { readonly registry: FeatureRegist
   const onCreateEntry = useCallback(() => { if (campaignId) { dispatchJournal({ kind: "discard-draft" }, draft, entries, selectedEntryId); setSelectedEntryId(undefined); setDraft(createJournalDraft(campaignId)); setStatus("clean"); setError(undefined); } }, [campaignId, dispatchJournal, draft, entries, selectedEntryId]);
   const journal = registry.journey.bindJournalProps({ entries, selectedEntryId, onSelect, draft, status, error, onIntent, onCreateEntry, links: [] });
   const Journal = LazyJournalWorkspace;
-  return <div><JourneyStatus campaign={campaign} error={error} /><Journal {...journal} /></div>;
+  return <div><JourneyStatus campaign={campaign} error={error} /><Journal {...journal} {...(authors ? { authors } : {})} {...(authorFilter ? { authorFilter } : {})} /></div>;
 }
 
 function JourneyStatus({ campaign, error }: { readonly campaign: AppRouterProps["campaign"]; readonly error?: string }) {
@@ -542,48 +550,218 @@ function CollaborationRoute({ registry, campaign, navigate, view, pack, syncStat
   />;
 }
 
-function JourneyRoute({ registry, campaign, isCampaignMaster, match, navigate, pack }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly isCampaignMaster: boolean; readonly match: RouteMatch; readonly navigate: (to: string) => void; readonly pack?: RulePack }) {
+type JourneyRole = "master" | "player";
+
+interface JourneyData {
+  readonly players: readonly JourneyPlayer[];
+  readonly creatures: readonly CreatureRecord[];
+  readonly sightings: readonly CreatureSighting[];
+  readonly guesses: readonly CreatureGuess[];
+  readonly journal: readonly JournalEntry[];
+  readonly maps: number;
+  readonly sessions?: number;
+  readonly loaded: boolean;
+}
+
+const EMPTY_JOURNEY: JourneyData = { players: [], creatures: [], sightings: [], guesses: [], journal: [], maps: 0, loaded: false };
+
+/** Mapas que a conta pode ver: tudo para o mestre, só o liberado para o jogador. */
+function visibleMaps(maps: readonly MapRecord[], role: JourneyRole, viewerId?: string): readonly MapRecord[] {
+  if (role === "master") return maps;
+  return maps.filter((map) => (map.visibleTo ?? []).some((audience) => audience === "*" || audience === viewerId));
+}
+
+/** Novidade que vale anunciar para quem está na jornada, a partir do que a hidratação tocou. */
+function journeyNotice(touched: readonly string[], role: JourneyRole): string | undefined {
+  const has = (type: string) => touched.some((key) => key.startsWith(`${type}:`));
+  if (role === "player") {
+    if (has("sighting")) return "Novidade: o mestre revelou algo no Elenco.";
+    if (has("map")) return "Novidade: um mapa foi liberado ou atualizado.";
+    if (has("campaign")) return "Novidade: a campanha foi atualizada.";
+    return undefined;
+  }
+  if (has("guess")) return "Novidade: um jogador deixou um palpite.";
+  if (has("journal")) return "Novidade: um jogador escreveu no diário.";
+  if (has("membership")) return "Novidade: a mesa de jogadores mudou.";
+  return undefined;
+}
+
+function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack, syncHydration, onRefreshSync, live = false }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly campaignRole?: JourneyRole; readonly match: RouteMatch; readonly navigate: (to: string) => void; readonly pack?: RulePack; readonly syncHydration?: object; readonly onRefreshSync?: () => Promise<void>; readonly live?: boolean }) {
   const activeCampaign = campaign?.value ?? undefined;
+  const campaignId = activeCampaign?.id;
+  // Sem vínculo remoto a campanha é deste aparelho e quem a usa é o mestre.
+  const role: JourneyRole = campaignRole === "player" ? "player" : "master";
+  const master = role === "master";
+  const session = registry.account.auth?.currentSession() ?? null;
+  const viewerId = session ? asAccountId(session.uid) : registry.membership?.localActor()?.accountId;
+  const creaturesService = registry.journey.creatures;
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(activeCampaign ? [activeCampaign] : []);
   const [availableCharacters, setAvailableCharacters] = useState<readonly CharacterSummary[]>([]);
-  const [activityStats, setActivityStats] = useState<{ readonly maps?: number; readonly journalEntries?: number; readonly sessions?: number }>({});
+  const [data, setData] = useState<JourneyData>(EMPTY_JOURNEY);
+  const [version, setVersion] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date>();
+  const [journalAuthor, setJournalAuthor] = useState<string>();
+  const reload = useCallback(() => setVersion((value) => value + 1), []);
+  const [notice, setNotice] = useState<string>();
+  useEffect(() => {
+    const touched = (syncHydration as { readonly touched?: readonly string[] } | undefined)?.touched;
+    if (!touched?.length) return;
+    setRefreshedAt(new Date());
+    const next = journeyNotice(touched, role);
+    if (!next) return;
+    setNotice(next);
+    const timer = window.setTimeout(() => setNotice(undefined), 6000);
+    return () => window.clearTimeout(timer);
+  }, [role, syncHydration]);
+
   useEffect(() => {
     let active = true;
     void registry.journey.service.list().then((result) => { if (active && result.ok) setCampaigns(result.value); });
     return () => { active = false; };
-  }, [registry.journey.service, activeCampaign?.id]);
+  }, [registry.journey.service, campaignId, syncHydration]);
   useEffect(() => {
     let active = true;
     if (registry.character.list) void registry.character.list().then((result) => { if (active && result.ok) setAvailableCharacters(result.value); });
     return () => { active = false; };
-  }, [registry.character.list]);
+  }, [registry.character.list, syncHydration]);
+
   useEffect(() => {
-    if (!activeCampaign) { setActivityStats({}); return; }
+    if (!campaignId) { setData(EMPTY_JOURNEY); return; }
     let active = true;
-    void Promise.all([
-      registry.journey.service.listMaps(activeCampaign.id),
-      registry.journey.listJournalEntries?.(activeCampaign.id),
-      registry.session?.list(activeCampaign.id),
-    ]).then(([maps, journal, sessions]) => { if (active) setActivityStats({ ...(maps.ok ? { maps: maps.value.length } : {}), ...(journal?.ok ? { journalEntries: journal.value.length } : {}), ...(sessions?.ok ? { sessions: sessions.value.length } : {}) }); });
+    void (async () => {
+      const [memberships, characters, creatures, sightings, guesses, journal, maps, sessions] = await Promise.all([
+        master && registry.membership && viewerId ? registry.membership.listMemberships({ actorId: viewerId, campaignId }) : undefined,
+        registry.character.list?.(),
+        master ? creaturesService?.listCreatures(campaignId) : undefined,
+        master ? undefined : creaturesService?.listSightings(campaignId, viewerId),
+        creaturesService?.listGuesses(campaignId, master ? undefined : viewerId),
+        registry.journey.listJournalEntries?.(campaignId),
+        registry.journey.service.listMaps(campaignId),
+        master ? registry.session?.list(campaignId) : undefined,
+      ]);
+      if (!active) return;
+      const campaignCharacters = characters?.ok ? characters.value.filter((item) => item.campaignId === campaignId) : [];
+      const players: JourneyPlayer[] = (memberships?.ok ? memberships.value : [])
+        .filter((item) => item.role === "player" && item.status === "active")
+        .map((item) => {
+          const own = campaignCharacters.filter((character) => character.ownerUid === item.accountId);
+          const classes = own[0]?.classSummary.map((entry) => registry.character.bindSheetProps({}).resolveName?.("class", String(entry.classId)) ?? String(entry.classId)).join(" / ");
+          return { accountId: item.accountId, name: own.map((character) => character.name).join(" / ") || `Jogador ${String(item.accountId).slice(0, 6)}`, ...(classes ? { detail: classes } : {}) };
+        });
+      const entries = journal?.ok ? journal.value : [];
+      setData({
+        players,
+        creatures: creatures?.ok ? creatures.value : [],
+        sightings: sightings?.ok ? sightings.value : [],
+        guesses: guesses?.ok ? guesses.value : [],
+        // Jogador só lê o próprio diário, mesmo que algo antigo tenha ficado neste aparelho.
+        journal: master ? entries : entries.filter((entry) => entry.authorId === viewerId),
+        maps: maps.ok ? visibleMaps(maps.value, role, viewerId).length : 0,
+        ...(sessions?.ok ? { sessions: sessions.value.length } : {}),
+        loaded: true,
+      });
+    })();
     return () => { active = false; };
-  }, [activeCampaign?.id, registry.journey.service, registry.journey.listJournalEntries, registry.session]);
+  }, [campaignId, creaturesService, master, registry.character, registry.journey, registry.membership, registry.session, role, syncHydration, version, viewerId]);
+
+  // Registros antigos ficavam dentro do documento da campanha, legível por todos os membros.
+  // O mestre os move para a coleção privada de criaturas e limpa a campanha.
+  const legacyNpcs = activeCampaign?.npcs ?? [];
+  useEffect(() => {
+    if (!master || !campaignId || !creaturesService || legacyNpcs.length === 0) return;
+    let active = true;
+    void creaturesService.importLegacyNpcs(campaignId, legacyNpcs).then((result) => {
+      if (!active || !result.ok) return;
+      const cleared = registry.journey.service.update((current) => ({ ...current, npcs: [] }), true);
+      if (cleared.ok) void registry.journey.service.save().then(() => reload());
+    });
+    return () => { active = false; };
+  }, [campaignId, creaturesService, legacyNpcs.length, master, registry.journey.service, reload]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await onRefreshSync?.(); } finally {
+      setRefreshing(false);
+      setRefreshedAt(new Date());
+      reload();
+    }
+  }, [onRefreshSync, reload]);
+
   const Journey = LazyJourneyCampaign;
   const Map = LazyMapWorkspace;
+  const Creatures = LazyCreatureBoard;
+  const PlayerCreatures = LazyPlayerCreatureBoard;
   const campaignProps = registry.journey.bindCampaignProps({
     campaign: activeCampaign,
     campaigns: campaigns.map((item) => ({ id: String(item.id), name: item.name, description: item.description })),
-    activeCampaignId: activeCampaign ? String(activeCampaign.id) : undefined,
+    activeCampaignId: campaignId ? String(campaignId) : undefined,
     activeCampaignName: activeCampaign?.name,
     status: campaignStatus(campaign?.status),
     error: campaign?.errorMessage,
   });
-  const sessionMatch = activeCampaign ? matchRoute(`/session/${activeCampaign.id}`) : undefined;
-  const content = <Journey {...campaignProps} activityStats={activityStats} availableCharacters={availableCharacters.filter((item) => !item.campaignId || item.campaignId === activeCampaign?.id).map((item) => ({ id: item.id, name: item.name }))} onCreateSheet={isCampaignMaster ? () => navigate("/character/create") : undefined} onOpenSheet={isCampaignMaster ? (id) => navigate(`/character/${id}`) : undefined} raceOptions={pack ? [...pack.races.values()].map(({ id, name }) => ({ id, name })) : []} classOptions={pack ? [...pack.classes.values()].map(({ id, name }) => ({ id, name })) : []} onGenerateSheet={isCampaignMaster && pack ? async (input) => {
-    const generated = generateNpcCharacter({ rulePack: pack, equipmentBundles, selectorOptions: RACE_CHOICE_ALLOWED_OPTIONS }, input);
-    if (!generated.ok) return generated;
-    const saved = await registry.character.service.saveCharacter(generated.value, generated.value.revision);
-    return saved.ok ? ok(generated.value.id) : saved;
-  } : undefined} requestedTabId={match.params.id} onTabChange={(id) => navigate(id === "overview" ? "/journey" : `/journey/${id}`)} mapPanel={<Map campaignId={activeCampaign?.id} canManage={isCampaignMaster} listMaps={(id) => registry.journey.service.listMaps(id)} getAsset={registry.journey.getLocalAsset} importMap={(input) => registry.journey.service.importMapAsset(input)} addPin={(input) => registry.journey.service.createMapPin(input)} updatePin={(mapId, pin, revision) => registry.journey.service.updateMapPin(mapId, pin, revision)} removePin={(mapId, pinId, revision) => registry.journey.service.removeMapPin(mapId, pinId, revision)} saveMap={(map, revision) => registry.journey.service.saveMap(map, revision)} deleteMap={(id, revision) => registry.journey.service.deleteMap(id, revision)} />} journalPanel={<JournalRoute registry={registry} campaign={campaign} />} sessionsPanel={sessionMatch ? <SessionRoute registry={registry} match={sessionMatch} campaign={campaign} /> : undefined} participantsPanel={<CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="participants" />} />;
+  const sheetTools = master ? {
+    availableCharacters: availableCharacters.filter((item) => !item.campaignId || item.campaignId === campaignId).map((item) => ({ id: item.id, name: item.name })),
+    onCreateSheet: () => navigate("/character/create"),
+    onOpenSheet: (id: Uuid) => navigate(`/character/${id}`),
+    raceOptions: pack ? [...pack.races.values()].map(({ id, name }) => ({ id, name })) : [],
+    classOptions: pack ? [...pack.classes.values()].map(({ id, name }) => ({ id, name })) : [],
+    onGenerateSheet: pack ? async (input: { readonly name: string; readonly raceId: EntityId; readonly classId: EntityId }) => {
+      const generated = generateNpcCharacter({ rulePack: pack, equipmentBundles, selectorOptions: RACE_CHOICE_ALLOWED_OPTIONS }, input);
+      if (!generated.ok) return generated;
+      const saved = await registry.character.service.saveCharacter(generated.value, generated.value.revision);
+      return saved.ok ? ok(generated.value.id) : saved;
+    } : undefined,
+  } : {};
+  const mutate = <T,>(result: Promise<import("@domain/contracts/errors").Result<T, import("@domain/contracts/errors").AppError>>) => result.then((value) => { if (value.ok) reload(); return value; });
+  const creaturesPanel = !campaignId || !creaturesService ? undefined : master
+    ? <Creatures {...sheetTools} creatures={data.creatures} guesses={data.guesses} players={data.players} loading={!data.loaded} onCreate={(content) => mutate(creaturesService.create(campaignId, content))} onSave={(creature) => mutate(creaturesService.save(creature))} onDelete={(creature) => mutate(creaturesService.delete(creature))} />
+    : <PlayerCreatures sightings={data.sightings} guesses={data.guesses} loading={!data.loaded} onSaveGuess={viewerId ? (creatureId, guess) => mutate(creaturesService.saveGuess({ campaignId, creatureId, accountId: viewerId, ...guess })) : undefined} />;
+
+  const publication = registry.journey.mapPublication;
+  const mapPanel = <Map campaignId={campaignId} canManage={master}
+    listMaps={async (id) => { const result = await registry.journey.service.listMaps(id); return result.ok ? ok(visibleMaps(result.value, role, viewerId)) : result; }}
+    getAsset={registry.journey.getLocalAsset}
+    loadImage={publication ? (map) => publication.loadImage(map) : undefined}
+    importMap={master ? (input) => registry.journey.service.importMapAsset(input) : undefined}
+    addPin={master ? (input) => registry.journey.service.createMapPin(input) : undefined}
+    updatePin={master ? (mapId, pin, revision) => registry.journey.service.updateMapPin(mapId, pin, revision) : undefined}
+    removePin={master ? (mapId, pinId, revision) => registry.journey.service.removeMapPin(mapId, pinId, revision) : undefined}
+    saveMap={master ? (map, revision) => registry.journey.service.saveMap(map, revision) : undefined}
+    deleteMap={master ? (id, revision) => registry.journey.service.deleteMap(id, revision) : undefined}
+    publication={master && publication ? { canPublish: publication.canPublish(), publish: (map) => publication.publish(map), share: (map, audience) => publication.share(map, audience) } : undefined}
+    players={data.players} />;
+  const authors = master && viewerId ? [{ id: String(viewerId), name: "Mestre" }, ...data.players.map((player) => ({ id: String(player.accountId), name: player.name }))] : undefined;
+  const sessionMatch = campaignId && master ? matchRoute(`/session/${campaignId}`) : undefined;
+  const creatureCounts = { npc: 0, enemy: 0, animal: 0, unknown: 0 };
+  for (const creature of data.creatures) creatureCounts[creature.kind] += 1;
+  const objectives = activeCampaign?.objectives.length ?? 0;
+  const activeQuests = activeCampaign?.quests.filter((quest) => quest.status === "active").length ?? 0;
+  const metrics = master
+    ? [{ label: "Missões em andamento", value: activeQuests }, { label: "NPCs", value: creatureCounts.npc }, { label: "Ameaças", value: creatureCounts.enemy }, { label: "Animais e desconhecidos", value: creatureCounts.animal + creatureCounts.unknown }]
+    : [{ label: "Objetivos", value: objectives }, { label: "Missões em andamento", value: activeQuests }, { label: "Encontros", value: data.sightings.length }, { label: "Meus palpites", value: data.guesses.length }];
+  const playerJourneys = master ? data.players.map((player) => ({
+    accountId: String(player.accountId),
+    name: player.name,
+    ...(player.detail ? { detail: player.detail } : {}),
+    journalEntries: data.journal.filter((entry) => entry.authorId === player.accountId).length,
+    creaturesKnown: data.creatures.filter((creature) => creature.reveals.some((reveal) => reveal.accountId === player.accountId)).length,
+    guesses: data.guesses.filter((guess) => guess.accountId === player.accountId).length,
+  })) : undefined;
+  const refreshLabel = !onRefreshSync ? "Campanha salva neste aparelho." : refreshedAt ? `Atualizado às ${refreshedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : undefined;
+
+  const content = <Journey {...campaignProps} role={role}
+    activityStats={{ maps: data.maps, journalEntries: data.journal.filter((entry) => master ? (entry.authorId ?? viewerId) === viewerId : true).length, ...(data.sessions === undefined ? {} : { sessions: data.sessions }), creatures: master ? data.creatures.length : data.sightings.length }}
+    metrics={campaignId ? metrics : undefined}
+    playerJourneys={playerJourneys}
+    onOpenPlayerJourney={(accountId) => { setJournalAuthor(accountId); navigate("/journey/journal"); }}
+    refresh={campaignId ? { onRefresh: () => void refresh(), refreshing, live: live && Boolean(onRefreshSync), ...(notice ? { notice } : {}), ...(refreshLabel ? { label: refreshLabel } : {}) } : undefined}
+    requestedTabId={match.params.id} onTabChange={(id) => { if (id !== "journal") setJournalAuthor(undefined); navigate(id === "overview" ? "/journey" : `/journey/${id}`); }}
+    mapPanel={mapPanel}
+    journalPanel={<JournalRoute registry={registry} campaign={campaign} viewerId={viewerId ? String(viewerId) : undefined} role={role} authors={authors} authorFilter={journalAuthor} refreshKey={syncHydration} onSaved={reload} />}
+    creaturesPanel={creaturesPanel}
+    sessionsPanel={sessionMatch ? <SessionRoute registry={registry} match={sessionMatch} campaign={campaign} /> : undefined}
+    participantsPanel={master ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="participants" /> : undefined} />;
   return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
 }
 
@@ -614,7 +792,15 @@ function SessionRoute({ registry, match, campaign }: { readonly registry: Featur
     return () => { active = false; };
   }, [activeCampaignId, registry.character.list, registry.character.service, registry.character.bindSheetProps, registry.session, session]);
   const Component = LazySessionPanel;
-  const npcs = campaign?.value && campaign.value.id === activeCampaignId ? campaign.value.npcs : [];
+  const [creatures, setCreatures] = useState<readonly CreatureRecord[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (!activeCampaignId || !registry.journey.creatures) { setCreatures([]); return () => { active = false; }; }
+    void registry.journey.creatures.listCreatures(activeCampaignId).then((result) => { if (active && result.ok) setCreatures(result.value); });
+    return () => { active = false; };
+  }, [activeCampaignId, registry.journey.creatures]);
+  const legacy = campaign?.value && campaign.value.id === activeCampaignId ? campaign.value.npcs : [];
+  const npcs = [...legacy.filter((npc) => !creatures.some((creature) => creature.id === npc.id)), ...creatures.map((creature) => ({ id: creature.id, kind: creature.kind, name: creature.name, description: creature.description, linkedEntityIds: [], ...(creature.characterRef ? { characterRef: creature.characterRef } : {}), createdAt: creature.createdAt, updatedAt: creature.updatedAt }))];
   return <Component session={registry.session} authSession={session} campaignId={activeCampaignId} characters={characters} npcs={npcs} />;
 }
 
@@ -715,6 +901,7 @@ function renderRegistryRoute(
   isCampaignMaster: boolean,
   navigate: (to: string) => void,
   replace: (to: string) => void,
+  campaignRole?: "master" | "player",
 ): ReactNode | undefined {
   const currentCharacter = character?.value ?? undefined;
   if (match.kind === "character") {
@@ -733,7 +920,7 @@ function renderRegistryRoute(
     const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} />;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
-  if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} isCampaignMaster={isCampaignMaster} match={match} navigate={navigate} pack={pack} />;
+  if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} campaignRole={campaignRole} match={match} navigate={navigate} pack={pack} syncHydration={syncHydration} onRefreshSync={onRefreshSync} live={signedIn} />;
   if (match.kind === "compendium") {
     return <CompendiumRoute registry={registry} />;
   }
@@ -886,7 +1073,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   const cloudHydrationPending = Boolean(accountSession && !syncHydration && (syncState === "pending" || syncState === "synced"));
   const awaitingCharacterRole = navigation.match.kind === "character" && !navigation.match.params.id && !navigation.match.params.mode && (!roleReady || cloudHydrationPending);
   const accountCharacterId = accountSession ? shellProps.settingsStore?.settings?.activeCharacterIdsByAccount?.[accountSession.uid] : undefined;
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace, campaignRole) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
 
   return (
     <AppShell
