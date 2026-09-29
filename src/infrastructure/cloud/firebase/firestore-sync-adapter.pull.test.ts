@@ -115,12 +115,37 @@ describe("FirebaseFirestoreSyncAdapter.pull", () => {
       expect((updates.at(-1) as { visibleCampaigns: unknown[] }).visibleCampaigns).toEqual([{ campaignId: "c1", role: "player", types: expect.arrayContaining(["campaign", "character", "session", "journal", "map", "sighting", "guess"]) }]);
 
       callbacks.get("members|accountId=player")!({ docs: [] });
-      expect(updates.at(-1)).toBe("full-pull");
+      callbacks.get("members|accountId=player")!({ docs: [] });
+      await vi.advanceTimersByTimeAsync(1500);
+      // Eventos em rajada viram uma única leitura completa.
+      expect(updates.filter((update) => update === "full-pull")).toHaveLength(1);
       expect(stopped).toContain("campaigns/c1/sightings|accountId=player");
       stop();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("uma coleção recusada pelo Firebase (regras antigas) não derruba o restante do pull", async () => {
+    const remote = fakeRemote();
+    remote.docs["campaigns/c1/members/player"] = { ...remote.docs["campaigns/c1/members/player"]!, role: "master" };
+    const original = remote.deps.getDocs;
+    remote.deps.getDocs = vi.fn(async (target: { path: string }) => {
+      if (target.path.endsWith("/creatures")) throw Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
+      return original(target as never);
+    }) as never;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player", deps: remote.deps as never });
+    const result = await adapter.pull();
+    warn.mockRestore();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const ids = result.value.records.map((item) => `${item.aggregateType}:${item.aggregateId}`);
+    expect(ids).toEqual(expect.arrayContaining(["campaign:c1", "map:m3", "journal:j2"]));
+    expect(ids.some((id) => id.startsWith("creature:"))).toBe(false);
+    // O tipo recusado não entra na lista de reconciliação: sem leitura nada pode ser dado como removido.
+    expect(result.value.visibleCampaigns?.[0]?.types).not.toContain("creature");
+    expect(result.value.visibleCampaigns?.[0]?.types).toContain("map");
   });
 
   it("subscrição é encerrável e não registra listener quando indisponível", () => {

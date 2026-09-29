@@ -27,6 +27,12 @@ export interface AppModalProps {
   closeClassName?: string;
   /** Optional class for feature-specific title styling. */
   titleClassName?: string;
+  /**
+   * Companion card rendered beside the dialog (its own surface, own title and close control).
+   * It shares the dialog's focus trap and inert background, so both stay interactive together.
+   * Callers show the same content inline when there is no room for a second card.
+   */
+  aside?: { title: string; children: ReactNode; onClose?: () => void; className?: string };
 }
 
 /**
@@ -51,23 +57,26 @@ export function AppModal({
   leadingAction,
   closeClassName,
   titleClassName,
+  aside,
 }: AppModalProps) {
   const titleId = useId();
+  const asideTitleId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
-  useModalBehavior(containerRef, { open, onClose, initialFocusRef });
+  // Com um card ao lado, o foco e a inércia do fundo cobrem os dois; o foco inicial vai ao diálogo.
+  useModalBehavior(aside ? stageRef : containerRef, { open, onClose, initialFocusRef: initialFocusRef ?? (aside ? containerRef : undefined) });
 
   if (!open) return null;
 
   function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
     if (!dismissOnBackdrop) return;
-    if (event.target === event.currentTarget) {
+    if (event.target === event.currentTarget || event.target === stageRef.current) {
       onClose();
     }
   }
 
-  return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
+  const dialog = (
       <div
         ref={containerRef}
         role="dialog"
@@ -90,6 +99,22 @@ export function AppModal({
         <div className={styles.body}>{children}</div>
         {footer ? <div className={styles.footer}>{footer}</div> : null}
       </div>
+  );
+
+  return (
+    <div className={styles.backdrop} onClick={handleBackdropClick}>
+      {aside ? (
+        <div ref={stageRef} className={styles.stage}>
+          {dialog}
+          <aside aria-labelledby={asideTitleId} className={[styles.dialog, styles.aside, aside.className].filter(Boolean).join(" ")}>
+            <div className={styles.header}>
+              <h2 id={asideTitleId} className={styles.title}>{aside.title}</h2>
+              {aside.onClose ? <div className={styles.headerActions}><IconButton label={`Fechar ${aside.title}`} icon={<X size={20} weight="bold" />} onClick={aside.onClose} /></div> : null}
+            </div>
+            <div className={styles.body}>{aside.children}</div>
+          </aside>
+        </div>
+      ) : dialog}
     </div>
   );
 }

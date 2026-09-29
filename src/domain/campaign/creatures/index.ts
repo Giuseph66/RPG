@@ -298,3 +298,66 @@ export function isCreatureGuess(value: unknown): value is CreatureGuess {
     (item.fields === undefined || (typeof item.fields === "object" && item.fields !== null && !Array.isArray(item.fields))) &&
     typeof item.createdAt === "string" && typeof item.updatedAt === "string";
 }
+
+export type ComparisonVerdict = "match" | "close" | "differs";
+
+export interface CreatureComparison {
+  readonly field: CreatureField;
+  readonly label: string;
+  readonly revealed: string;
+  readonly guessed: string;
+  readonly verdict: ComparisonVerdict;
+}
+
+function normalize(value: string): string {
+  return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR").replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+}
+
+function firstNumber(value: string): number | undefined {
+  const found = /\d+/.exec(value);
+  return found ? Number(found[0]) : undefined;
+}
+
+function compareText(field: CreatureField, revealed: string, guessed: string): ComparisonVerdict {
+  const left = normalize(revealed);
+  const right = normalize(guessed);
+  if (left === right) return "match";
+  if (field === "hitPoints" || field === "armorClass") {
+    const a = firstNumber(revealed);
+    const b = firstNumber(guessed);
+    if (a !== undefined && b !== undefined) {
+      if (a === b) return "match";
+      // PV são estimativas; CA erra por pouco. Até ~20% (ou 1 ponto de CA) conta como perto.
+      const tolerance = field === "armorClass" ? 1 : Math.max(1, Math.round(a * 0.2));
+      return Math.abs(a - b) <= tolerance ? "close" : "differs";
+    }
+  }
+  if (left && right && (left.includes(right) || right.includes(left))) return "close";
+  // Palavras em comum (ex.: "lobo" x "lobo atroz") indicam palpite na direção certa.
+  const shared = left.split(" ").filter((word) => word.length > 2 && right.split(" ").includes(word));
+  return shared.length > 0 ? "close" : "differs";
+}
+
+/**
+ * Compara o que o mestre revelou com o palpite do jogador, campo a campo. Só entram campos
+ * que o mestre já revelou E que o jogador tentou adivinhar; o que ainda é mistério não vaza.
+ */
+export function compareGuess(
+  sighting: Pick<CreatureSighting, "kind" | "revealed">,
+  guess: Pick<CreatureGuess, "kind" | "name" | "note" | "fields"> | undefined,
+): readonly CreatureComparison[] {
+  if (!guess) return [];
+  const rows: CreatureComparison[] = [];
+  if (sighting.kind !== undefined && guess.kind !== undefined) {
+    rows.push({ field: "kind", label: CREATURE_FIELD_LABELS.kind, revealed: CREATURE_KIND_LABELS[sighting.kind], guessed: CREATURE_KIND_LABELS[guess.kind], verdict: sighting.kind === guess.kind ? "match" : "differs" });
+  }
+  const guessedText: Readonly<Partial<Record<CreatureTextField, string>>> = { name: guess.name, description: guess.note, ...guess.fields };
+  for (const field of CREATURE_FIELDS) {
+    if (field === "kind") continue;
+    const revealed = sighting.revealed[field];
+    const guessed = guessedText[field]?.trim();
+    if (!revealed || !guessed) continue;
+    rows.push({ field, label: CREATURE_FIELD_LABELS[field], revealed, guessed, verdict: compareText(field, revealed, guessed) });
+  }
+  return rows;
+}

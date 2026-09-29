@@ -11,6 +11,7 @@ interface HeaderProps {
   readonly session?: SessionCharacter;
   readonly campaign?: SessionCampaign;
   readonly campaignRole?: "master" | "player";
+  readonly connection?: "live" | "down";
   readonly route: RouteMatch;
   readonly navigate: (to: string) => void;
   readonly onSelectCharacter?: () => void;
@@ -33,7 +34,7 @@ function routeContext(route: RouteMatch, character?: Character, campaign?: Sessi
   }
 }
 
-export function Header({ session, campaign, campaignRole, route, navigate, onSelectCharacter }: HeaderProps) {
+export function Header({ session, campaign, campaignRole, connection, route, navigate, onSelectCharacter }: HeaderProps) {
   const character = session?.value ?? undefined;
   const context = routeContext(route, character, campaign, campaignRole);
 
@@ -53,7 +54,7 @@ export function Header({ session, campaign, campaignRole, route, navigate, onSel
           </span>
         </button>
         <div className={styles.headerActions}>
-          {campaign?.value && campaignRole ? <span className={styles.roleBadge} data-role={campaignRole} aria-label={campaignRole === "master" ? "Mestre da campanha" : "Jogador"} title={campaignRole === "master" ? "Mestre da campanha" : "Jogador"}>{campaignRole === "master" ? <Crown size={15} weight="duotone" aria-hidden="true" /> : <UsersThree size={15} weight="duotone" aria-hidden="true" />}</span> : null}
+          {campaign?.value && campaignRole ? <span className={styles.roleBadge} data-role={campaignRole} data-connection={connection} aria-label={`${campaignRole === "master" ? "Mestre da campanha" : "Jogador"}${connection === "live" ? " · ao vivo" : connection === "down" ? " · sem conexão" : ""}`} title={`${campaignRole === "master" ? "Mestre da campanha" : "Jogador"}${connection === "live" ? " · ao vivo" : connection === "down" ? " · sem conexão" : ""}`}>{campaignRole === "master" ? <Crown size={15} weight="duotone" aria-hidden="true" /> : <UsersThree size={15} weight="duotone" aria-hidden="true" />}</span> : null}
           <IconButton label="Abrir ajustes" icon={<Gear size={20} weight="duotone" />} variant="ghost" className={styles.headerSettingsButton} onClick={() => navigate("/settings")} />
         </div>
       </div>

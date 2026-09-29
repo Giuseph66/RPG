@@ -71,6 +71,10 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
   const online = options.isOnline ?? browserOnline;
 
   function publish(next: SyncRuntimeSnapshot): void {
+    // Repetir o mesmo estado (ex.: a mesma falha de leitura a cada nova tentativa) não avisa ninguém:
+    // cada aviso re-renderiza a aplicação inteira.
+    if (current.state === next.state && current.uid === next.uid && current.lastReport === next.lastReport && current.lastHydration === next.lastHydration
+      && current.lastError?.code === next.lastError?.code && current.lastError?.message === next.lastError?.message) return;
     current = Object.freeze(next);
     for (const listener of listeners) listener();
   }

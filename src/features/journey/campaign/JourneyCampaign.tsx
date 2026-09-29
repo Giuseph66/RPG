@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Tabs } from "@components/ui";
-import { ArrowsClockwise, BookOpen, ChatCircleDots, Eye } from "@phosphor-icons/react";
+import { BookOpen, Eye } from "@phosphor-icons/react";
 import { CampaignPanel } from "./CampaignPanel";
 import { CampaignRecords } from "./CampaignRecords";
 import type { JourneyCampaignProps, JourneySectionId } from "./types";
@@ -20,7 +20,7 @@ function PlayerJourneys({ journeys = [], onOpen }: { readonly journeys?: Journey
   </section>;
 }
 
-export function JourneyCampaign({ campaign, quests, onRecordIntent, mapPanel, journalPanel, sessionsPanel, participantsPanel, creaturesPanel, role, playerJourneys, onOpenPlayerJourney, refresh, requestedTabId, onTabChange, availableCharacters: _characters, onCreateSheet: _create, onOpenSheet: _open, raceOptions: _races, classOptions: _classes, onGenerateSheet: _generate, npcs: _npcs, ...panelProps }: JourneyCampaignProps) {
+export function JourneyCampaign({ campaign, quests, onRecordIntent, mapPanel, journalPanel, sessionsPanel, participantsPanel, creaturesPanel, role, playerJourneys, onOpenPlayerJourney, requestedTabId, onTabChange, availableCharacters: _characters, onCreateSheet: _create, onOpenSheet: _open, raceOptions: _races, classOptions: _classes, onGenerateSheet: _generate, npcs: _npcs, ...panelProps }: JourneyCampaignProps) {
   const player = role === "player";
   const allowed = (id: string) => !player || PLAYER_TABS.has(id);
   const initial = requestedTabId && allowed(requestedTabId) ? requestedTabId : "overview";
@@ -47,12 +47,6 @@ export function JourneyCampaign({ campaign, quests, onRecordIntent, mapPanel, jo
   ];
 
   return <div className={styles.workspace}>
-    {refresh ? <div className={styles.refreshBar}>
-      <span className={styles.roleTag} data-role={player ? "player" : "master"}>{player ? <><ChatCircleDots size={14} aria-hidden="true" /> Jogador</> : <><Eye size={14} aria-hidden="true" /> Mestre</>}</span>
-      {refresh.live ? <span className={styles.liveTag}><span className={styles.liveDot} aria-hidden="true" />Ao vivo</span> : null}
-      <span aria-live="polite" className={[styles.refreshLabel, refresh.notice ? styles.refreshNotice : ""].join(" ")}>{refresh.refreshing ? "Atualizando…" : refresh.notice ?? refresh.label ?? (refresh.live ? "Mudanças da mesa aparecem sozinhas." : "Toque em atualizar para buscar novidades da mesa.")}</span>
-      <Button size="sm" variant="ghost" disabled={refresh.refreshing} onClick={refresh.onRefresh}><ArrowsClockwise size={16} aria-hidden="true" className={refresh.refreshing ? styles.spinning : undefined} /> Atualizar</Button>
-    </div> : null}
     <Tabs label="Seções da jornada" tabs={tabs} activeId={activeTab} onChange={openTab} />
   </div>;
 }

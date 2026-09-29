@@ -1,3 +1,4 @@
+import { type AccountId } from "@domain/contracts/ids";
 import { createContext, createElement, useContext, type ReactNode } from "react";
 
 import { type CampaignRepository } from "@application/ports/campaign-repository";
@@ -28,6 +29,8 @@ export interface ApplicationDependencies {
   /** Outbox opcional: não muda o comportamento da composição local-only. */
   readonly outboxRepository?: OutboxRepository;
   readonly cleanupManifestReader?: CampaignCleanupManifestReader;
+  /** Conta conectada agora; permite excluir fichas privadas também na nuvem. */
+  readonly ownerUid?: () => AccountId | undefined;
 }
 
 export interface ApplicationServices {
@@ -51,6 +54,7 @@ export function createApplicationServices(
     character: createCharacterApplicationService({
       repository: dependencies.characterRepository,
       debounceMs: options.characterDebounceMs,
+      ...(dependencies.ownerUid ? { ownerUid: dependencies.ownerUid } : {}),
       ...(dependencies.clock
         ? {
             commandDependencies: {

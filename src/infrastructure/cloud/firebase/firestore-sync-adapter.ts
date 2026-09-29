@@ -63,7 +63,7 @@ export interface FirestoreSyncDeps {
   readonly query: (target: unknown, ...constraints: readonly unknown[]) => unknown;
   readonly where: (field: string, op: "==" | "array-contains", value: string) => unknown;
   /** `next` recebe o snapshot (consulta ou documento); listeners antigos podem ignorá-lo. */
-  readonly onSnapshot: (target: unknown, next: (snapshot?: FirestoreListenSnapshot) => void, error: (cause: unknown) => void) => () => void;
+  readonly onSnapshot: (target: unknown, next: (snapshot?: FirestoreListenSnapshot) => void, error: (cause: unknown) => void, options?: { readonly includeMetadataChanges?: boolean }) => () => void;
 }
 
 interface FirestoreDocumentSnapshot {
@@ -100,9 +100,12 @@ const defaultDeps: FirestoreSyncDeps = {
   collectionGroup: (firestore, id) => collectionGroup(firestore, id),
   query: (target, ...constraints) => query(target as Query, ...(constraints as Parameters<typeof query>[1][])),
   where: (field, op, value) => where(field, op, value),
-  // Com cache persistente o primeiro snapshot vem do aparelho; sem metadados, a confirmação
-  // do servidor (quando nada mudou) nunca chegaria e o que sumiu remotamente ficaria aqui.
-  onSnapshot: (target, next, error) => onSnapshot(target as Query, { includeMetadataChanges: true }, next as never, error),
+  // Só as fontes da campanha pedem metadados: com cache persistente o primeiro snapshot vem do
+  // aparelho, e sem eles a confirmação do servidor (quando nada mudou) nunca chegaria. Os demais
+  // listeners não podem pedir: cada mudança de metadado dispararia um pull completo.
+  onSnapshot: (target, next, error, options) => options?.includeMetadataChanges
+    ? onSnapshot(target as Query, { includeMetadataChanges: true }, next as never, error)
+    : onSnapshot(target as Query, next as never, error),
 };
 
 export interface FirebaseFirestoreSyncAdapterOptions {
@@ -485,6 +488,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
   private readonly availability: () => boolean;
   private readonly deps: FirestoreSyncDeps;
   private readonly assetStorage?: AssetTransferPort;
+  private lastSkippedWarning = "";
 
   constructor(options: FirebaseFirestoreSyncAdapterOptions);
   constructor(firestore: Firestore | null | undefined, ownerUid: string, deps?: Partial<FirestoreSyncDeps>);
@@ -712,6 +716,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
 
     try {
       const records: RemoteSyncPullRecord[] = [];
+      const skipped = new Set<string>();
       const userReference = this.deps.doc(this.firestore!, `users/${this.ownerUid}`);
       const user = await this.deps.getDoc(userReference);
       if (user.exists()) {
@@ -764,12 +769,32 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           if (payload !== undefined) records.push(recordFromDoc("campaign", campaignId, payload));
         }
         for (const [, aggregateType, target] of this.campaignSources(campaignId, masterCampaigns.has(campaignId))) {
-          const documents = await this.deps.getDocs(target);
-          records.push(...campaignRecords(aggregateType, documents.docs, campaignId));
+          // Uma coleção que o Firebase recusa (regras ainda não publicadas) não pode derrubar o resto da mesa.
+          try {
+            const documents = await this.deps.getDocs(target);
+            records.push(...campaignRecords(aggregateType, documents.docs, campaignId));
+          } catch (cause) {
+            if (errorCode(cause).replace(/^firestore\//, "") !== "permission-denied") throw cause;
+            skipped.add(`${campaignId}:${aggregateType}`);
+          }
         }
       }
 
-      return ok({ visibleCampaigns: [...activeCampaigns].map((campaignId) => ({ campaignId, role: masterCampaigns.has(campaignId) ? "master" as const : "player" as const })), records: uniqueRecords(records) });
+      const warning = [...skipped].sort().join(",");
+      if (warning && warning !== this.lastSkippedWarning) {
+        this.lastSkippedWarning = warning;
+        console.warn("[sync] Coleções da campanha recusadas pelo Firebase (publique as regras do Firestore)", { recusadas: [...skipped] });
+      }
+      const ALL_TYPES = ["campaign", "character", "session", "journal", "map", "sighting", "guess", "creature"] as const;
+      return ok({
+        visibleCampaigns: [...activeCampaigns].map((campaignId) => ({
+          campaignId,
+          role: masterCampaigns.has(campaignId) ? "master" as const : "player" as const,
+          // Tipos recusados ficam de fora da limpeza: sem leitura, nada pode ser dado como removido.
+          ...(skipped.size ? { types: ALL_TYPES.filter((type) => !skipped.has(`${campaignId}:${type}`)) } : {}),
+        })),
+        records: uniqueRecords(records),
+      });
     } catch (cause) {
       return err(remoteError(cause));
     }
@@ -813,7 +838,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
         const confirmed = snapshot.metadata?.fromCache !== true || sources.get(key)?.confirmed === true;
         sources.set(key, { records: toRecords(snapshot), confirmed });
         emit();
-      }, errors);
+      }, errors, { includeMetadataChanges: true });
 
     const watchCampaign = (campaignId: string, master: boolean) => {
       const campaignRecord = (snapshot: FirestoreListenSnapshot) => {
@@ -841,11 +866,17 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
 
     let firstMembers = true;
     let firstCharacters = true;
+    // Vários eventos seguidos (ex.: excluir várias fichas) pedem uma única leitura completa.
+    let fullPullTimer: ReturnType<typeof setTimeout> | undefined;
+    const requestFullPull = () => {
+      if (closed || fullPullTimer !== undefined) return;
+      fullPullTimer = setTimeout(() => { fullPullTimer = undefined; if (!closed) listener(); }, 1200);
+    };
     const unsubs = [
       this.deps.onSnapshot(this.deps.collection(this.firestore!, `users/${this.ownerUid}/characters`), () => {
         // O primeiro snapshot repete o pull inicial que o runtime já agendou.
         if (firstCharacters) { firstCharacters = false; return; }
-        listener();
+        requestFullPull();
       }, errors),
       this.deps.onSnapshot(
         this.deps.query(
@@ -865,7 +896,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           memberships = next;
           syncCampaigns(active);
           if (firstMembers) firstMembers = false;
-          else listener();
+          else requestFullPull();
         },
         errors,
       ),
@@ -873,6 +904,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
     return () => {
       closed = true;
       if (timer !== undefined) clearTimeout(timer);
+      if (fullPullTimer !== undefined) clearTimeout(fullPullTimer);
       for (const unsubscribe of unsubs) unsubscribe();
       for (const campaign of campaigns.values()) campaign.stop();
       campaigns.clear();

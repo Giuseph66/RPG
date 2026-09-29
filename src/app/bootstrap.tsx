@@ -376,6 +376,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     { onEnqueued: () => syncRuntime?.notifyPending() },
   );
   const services = createApplicationServices({
+    ownerUid: () => { const uid = auth?.currentSession()?.uid; return uid ? asAccountId(uid) : undefined; },
     characterRepository,
     campaignRepository,
     settingsRepository: new LocalStorageSettingsRepository(options.settingsStorage),

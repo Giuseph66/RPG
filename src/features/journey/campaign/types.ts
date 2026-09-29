@@ -34,17 +34,6 @@ export interface PlayerJourneySummary {
   readonly guesses: number;
 }
 
-export interface JourneyRefresh {
-  readonly onRefresh: () => void;
-  readonly refreshing: boolean;
-  /** Texto curto, ex.: "Atualizado às 15:40". */
-  readonly label?: string;
-  /** Listeners do Firebase ativos: mudanças da mesa chegam sozinhas. */
-  readonly live?: boolean;
-  /** Aviso momentâneo da última novidade recebida. */
-  readonly notice?: string;
-}
-
 export interface CampaignPanelProps {
   readonly campaigns: readonly CampaignSummary[];
   readonly activeCampaignId?: string;
@@ -82,7 +71,7 @@ export interface CampaignRecordsProps {
   readonly onOpenSheet?: (id: Uuid) => void;
   readonly raceOptions?: readonly { readonly id: EntityId; readonly name: string }[];
   readonly classOptions?: readonly { readonly id: EntityId; readonly name: string }[];
-  readonly onGenerateSheet?: (input: { readonly name: string; readonly raceId: EntityId; readonly classId: EntityId }) => Promise<Result<Uuid>>;
+  readonly onGenerateSheet?: (input: { readonly name: string; readonly raceId: EntityId; readonly classId?: EntityId }) => Promise<Result<Uuid>>;
 }
 
 export interface JourneyCampaignProps extends CampaignPanelProps {
@@ -105,7 +94,6 @@ export interface JourneyCampaignProps extends CampaignPanelProps {
   readonly role?: "master" | "player";
   readonly playerJourneys?: readonly PlayerJourneySummary[];
   readonly onOpenPlayerJourney?: (accountId: string) => void;
-  readonly refresh?: JourneyRefresh;
   readonly requestedTabId?: string;
   readonly onTabChange?: (id: string) => void;
 }

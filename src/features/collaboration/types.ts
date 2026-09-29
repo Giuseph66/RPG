@@ -61,6 +61,10 @@ export interface CollaborationPanelProps {
   readonly onOpenParticipants?: () => void;
   readonly onCreateCharacter?: () => void;
   readonly onLinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
+  /** Abre a ficha completa para editar (qualquer ficha que exista neste aparelho). */
+  readonly onOpenCharacter?: (characterId: Uuid) => void;
+  /** Exclui a ficha deste aparelho; a confirmação é pedida pelo painel. */
+  readonly onDeleteCharacter?: (character: CollaborationCharacter) => Promise<Result<void, AppError>>;
   readonly onUnlinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
   readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
   readonly onUpdateCharacter?: (characterId: Uuid, expectedRevision: Revision, values: { readonly hp: number; readonly tempHp: number; readonly conditionIds: readonly string[]; readonly adjustments: readonly CampaignCharacterAdjustment[] }) => Promise<Result<Revision, AppError>>;

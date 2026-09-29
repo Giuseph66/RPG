@@ -90,3 +90,17 @@
   justify-content: flex-end;
   gap: var(--spacing-sm);
 }
+
+/* O palco só agrupa diálogo e card lateral (foco e inércia); não interfere no layout. */
+.stage { display: contents; }
+
+/* Card lateral: ancorado no topo da borda direita e crescendo para baixo só até o conteúdo acabar,
+   sem deslocar o diálogo centralizado. O espaço abaixo dele continua sendo o fundo (clicar fecha). */
+.aside {
+  position: absolute;
+  top: max(var(--spacing-lg), env(safe-area-inset-top));
+  right: max(var(--spacing-lg), env(safe-area-inset-right));
+  width: 22rem;
+  max-width: calc(100vw - 2 * var(--spacing-lg));
+  max-height: calc(100dvh - max(var(--spacing-lg), env(safe-area-inset-top)) - max(var(--spacing-lg), env(safe-area-inset-bottom)));
+}

@@ -389,3 +389,10 @@
   .masterStats li > span:not([class]) { font-size: .74rem; white-space: normal; line-height: 1.2; }
   .masterPanelTitle { font-size: 1.3rem; }
 }
+
+/* Gerir fichas: editar e excluir em qualquer ficha do painel do mestre */
+.sheetActions { display: flex; gap: .5rem; margin-top: .5rem; }
+.sheetActions button { flex: 1; min-height: 2.5rem; color: #F6DFAE; background: transparent; border: 1px solid rgba(208, 171, 114, .45); border-radius: var(--radius-control); font: 700 .8rem var(--typography-label-font-family); cursor: pointer; }
+.sheetActions button:hover, .sheetActions button:focus-visible { background: rgba(208, 171, 114, .12); outline: none; }
+.sheetActions button[data-danger="true"], .linkButton[data-danger="true"] { flex: 0 0 auto; color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 55%, transparent); }
+.linkActions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; margin-left: auto; }

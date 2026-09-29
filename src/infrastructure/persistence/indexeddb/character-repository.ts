@@ -53,6 +53,7 @@ function toSummary(character: Character): CharacterSummary {
     totalLevel,
     campaignId: character.campaignId,
     ownerUid: character.ownerUid,
+    ...(character.castSheet ? { castSheet: true as const } : {}),
     portraitAssetId: character.portraitAssetId,
     updatedAt: character.updatedAt,
     revision: character.revision,

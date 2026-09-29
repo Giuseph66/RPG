@@ -32,6 +32,8 @@ function validPayload(type: RemoteSyncPullRecord["aggregateType"], payload: unkn
   return false;
 }
 
+const TOMBSTONE_WINDOW_MS = 15 * 60 * 1000;
+
 function pendingKey(operation: SyncOperation): string {
   return `${operation.aggregateType}|${operation.aggregateId}|${operation.scope?.campaignId ?? operation.scope?.ownerUid ?? ""}`;
 }
@@ -89,8 +91,14 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
     let skipped = 0;
     const touched: string[] = [];
 
+    // Lápides: uma exclusão local recente (já enviada ou não) vence uma leitura remota que começou
+    // antes dela terminar. Sem isso, a ficha excluída "ressuscita" neste aparelho.
+    const cutoff = new Date(Date.parse(input.clock.now()) - TOMBSTONE_WINDOW_MS).toISOString();
     const result = await runTransaction(this.db, Object.values(STORE_NAMES), "readwrite", async (tx) => {
+      const recent = await requestToPromise(tx.objectStore(STORE_NAMES.outbox).index("createdAt").getAll(IDBKeyRange.lowerBound(cutoff))) as SyncOperation[];
+      const tombstones = new Set(recent.filter((operation) => operation.mutation === "delete" && operation.status !== "failed").map(pendingKey));
       for (const entry of ordered) {
+        if (tombstones.has(pullKey(entry))) { skipped += 1; continue; }
         const store = storeName(entry.aggregateType);
         if (!store) { skipped += 1; continue; }
         const payload = record(entry.payload);

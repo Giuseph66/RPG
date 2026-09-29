@@ -13,13 +13,16 @@ import { CharacterCommandService, type CharacterCommandServiceDependencies } fro
 export interface CharacterApplicationServiceOptions {
   readonly repository: CharacterRepository;
   readonly debounceMs?: number;
-  readonly ownerUid?: AccountId;
+  readonly ownerUid?: OwnerUid;
   readonly commandDependencies?: Omit<CharacterCommandServiceDependencies, "characterRepository">;
 }
 
+/** Conta dona das fichas privadas; função quando a sessão muda (login/logout) durante o uso. */
+type OwnerUid = AccountId | (() => AccountId | undefined);
+
 interface CharacterSyncOptions {
   /** Namespace immutable for private-character deletes. */
-  readonly ownerUid?: AccountId;
+  readonly ownerUid?: OwnerUid;
   readonly syncOutbox?: SyncOutboxService;
   readonly unitOfWork?: UnitOfWork;
   readonly clock?: import("@application/ports/clock").Clock;
@@ -32,7 +35,7 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
   const outbox = syncOutbox;
   const writeClock = clock;
   const writeIds = idGenerator;
-  const ownerUid = options.ownerUid;
+  const resolveOwner = (): AccountId | undefined => typeof options.ownerUid === "function" ? options.ownerUid() : options.ownerUid;
 
   async function enqueue(
     operation: Parameters<SyncOutboxService["enqueue"]>[0],
@@ -63,17 +66,21 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
   }
 
   async function remove(id: Character["id"], expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>> {
+    // A leitura acontece ANTES da transação: dentro do UnitOfWork, uma leitura fora do contexto
+    // deixaria a transação sem requisição pendente e ela se encerraria sozinha.
+    const current = await repository.get(id);
+    if (!current.ok) return current;
+    const owner = resolveOwner();
+    const scope = current.value.campaignId !== undefined
+      ? { campaignId: current.value.campaignId }
+      : owner !== undefined
+        ? { ownerUid: owner }
+        : undefined;
     const commit = async (transaction?: TransactionContext) => {
-      const current = await repository.get(id);
-      if (!current.ok) return current;
-      const scope = current.value.campaignId !== undefined
-        ? { campaignId: current.value.campaignId }
-        : ownerUid !== undefined
-          ? { ownerUid }
-          : undefined;
-      if (scope === undefined) return err(appError.validation("scope", "Delete de personagem exige campaignId ou ownerUid."));
       const deleted = await repository.delete(id, expectedRevision, transaction);
       if (!deleted.ok) return deleted;
+      // Sem conta conectada e sem campanha, a ficha nunca foi enviada: só a cópia local existe.
+      if (scope === undefined) return deleted;
       const createdAt = writeClock.now();
       const queued = await enqueue({
         operationId: writeIds.commandId(),
@@ -108,7 +115,7 @@ export class CharacterApplicationService {
   readonly commands?: CharacterCommandService;
   private readonly writeRepository: CharacterRepository;
 
-  constructor(private readonly repository: CharacterRepository, debounceMs = 500, commandDependencies?: Omit<CharacterCommandServiceDependencies, "characterRepository">, ownerUid?: AccountId) {
+  constructor(private readonly repository: CharacterRepository, debounceMs = 500, commandDependencies?: Omit<CharacterCommandServiceDependencies, "characterRepository">, ownerUid?: OwnerUid) {
     this.writeRepository = withCharacterSync(repository, { ...commandDependencies, ownerUid });
     this.store = createCharacterStore(this.writeRepository, { debounceMs });
     if (commandDependencies) this.commands = new CharacterCommandService({ ...commandDependencies, characterRepository: repository });

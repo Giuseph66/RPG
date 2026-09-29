@@ -25,6 +25,17 @@ function diceController() {
 }
 
 describe("AppShell", () => {
+  it("mostra a conexão em tempo real como borda do selo de papel no cabeçalho", async () => {
+    const campaign = { value: { id: asUuid("00000000-0000-4000-8000-0000000000c1"), name: "Mesa" } } as never;
+    for (const [connection, label] of [["live", "Jogador · ao vivo"], ["down", "Jogador · sem conexão"], [undefined, "Jogador"]] as const) {
+      const mounted = await mount(<AppShell route={matchRoute("/journey")} navigate={vi.fn()} onOpenDice={vi.fn()} campaign={campaign} campaignRole="player" connection={connection} />);
+      const badge = mounted.container.querySelector("header [data-role='player']")!;
+      expect(badge.getAttribute("data-connection")).toBe(connection ?? null);
+      expect(badge.getAttribute("aria-label")).toBe(label);
+      await mounted.unmount();
+    }
+  });
+
   it("renders the primary destinations, global dice action, and empty-character state", async () => {
     const onOpenDice = vi.fn();
     const mounted = await mount(<AppShell route={matchRoute("/")} navigate={vi.fn()} onOpenDice={onOpenDice} />);

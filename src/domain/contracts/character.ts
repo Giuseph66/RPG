@@ -237,6 +237,11 @@ export interface Character {
   readonly updatedAt: IsoTimestamp;
   readonly campaignId?: Uuid;
   readonly ownerUid?: string;
+  /**
+   * Ficha de personagem secundário (NPC, ameaça, animal) criada ou vinculada pelo mestre no Elenco.
+   * Ela só aparece no Elenco: fica fora das listas de personagens, do grupo e das configurações.
+   */
+  readonly castSheet?: true;
 
   // Identidade
   readonly name: string;
@@ -306,6 +311,7 @@ export interface CharacterSummary {
   readonly totalLevel: number;
   readonly campaignId?: Uuid;
   readonly ownerUid?: string;
+  readonly castSheet?: true;
   readonly portraitAssetId?: Uuid;
   readonly updatedAt: IsoTimestamp;
   readonly revision: Revision;

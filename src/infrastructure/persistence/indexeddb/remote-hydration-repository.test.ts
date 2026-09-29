@@ -109,4 +109,23 @@ describe("IndexedDbRemoteHydrationRepository", () => {
     expect(await keys(STORE_NAMES.sightings)).toEqual([]);
     expect(await keys(STORE_NAMES.maps)).toEqual(["kept-map"]);
   });
+
+  it("uma exclusão local recente vence uma leitura remota atrasada (a ficha não ressuscita)", async () => {
+    const repository = new IndexedDbRemoteHydrationRepository(db);
+    const deleteOp = { ...operation(), operationId: asCommandId("local-delete"), aggregateType: "character" as const, aggregateId: "ficha-1" as never, mutation: "delete" as const, payload: undefined, scope: { ownerUid: "player" as never }, status: "acked" as const, dedupeKey: "local-delete|character|ficha-1|delete|1|::player" };
+    await new Promise<void>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.outbox], "readwrite").objectStore(STORE_NAMES.outbox).put(deleteOp);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    const stale = { aggregateType: "character" as const, aggregateId: "ficha-1", scope: { ownerUid: "player" as never }, revision: asRevision(2), payload: { id: "ficha-1", schemaVersion: 1, revision: 2, name: "Excluída", createdAt: clock.now(), updatedAt: clock.now() } };
+    const result = await repository.hydrate({ ownerUid: "player", pull: { records: [stale] }, pending: [], clock });
+    expect(result).toMatchObject({ ok: true, value: { applied: 0, skipped: 1 } });
+    const stored = await new Promise<unknown>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.characters], "readonly").objectStore(STORE_NAMES.characters).get("ficha-1");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    expect(stored).toBeUndefined();
+  });
 });

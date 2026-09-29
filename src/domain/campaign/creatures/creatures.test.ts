@@ -5,6 +5,7 @@ import { asRevision } from "@domain/contracts/versioning";
 
 import {
   CREATURE_SCHEMA_VERSION,
+  compareGuess,
   creatureFromLegacyNpc,
   playerView,
   projectSighting,
@@ -84,5 +85,25 @@ describe("revelações de criaturas", () => {
     expect(validateCreatureContent({ ...wolf(), name: "  " }).ok).toBe(false);
     expect(validateCreatureContent({ ...wolf(), hitPoints: "x".repeat(41) }).ok).toBe(false);
     expect(validateCreatureContent(wolf())).toMatchObject({ ok: true });
+  });
+
+  describe("compareGuess", () => {
+    const revealed = { kind: "enemy" as const, revealed: { name: "Lobo atroz", race: "Lobo atroz", hitPoints: "37 (5d10+10)", armorClass: "14", appearance: "Vulto enorme" } };
+
+    it("só compara o que o mestre revelou e o jogador tentou adivinhar", () => {
+      const rows = compareGuess(revealed, { kind: "enemy", name: "", note: "Quer caçar", fields: { hitPoints: "uns 30", abilities: "mordida" } });
+      expect(rows.map((row) => [row.field, row.verdict])).toEqual([["kind", "match"], ["hitPoints", "close"]]);
+    });
+
+    it("classifica acerto, perto e diferente", () => {
+      const rows = compareGuess(revealed, { kind: "animal", name: "lobo atroz", note: "", fields: { race: "Lobo", armorClass: "20", appearance: "Um vulto enorme" } });
+      const by = Object.fromEntries(rows.map((row) => [row.field, row.verdict]));
+      expect(by).toEqual({ kind: "differs", name: "match", race: "close", appearance: "close", armorClass: "differs" });
+    });
+
+    it("sem palpite ou sem revelação não compara nada", () => {
+      expect(compareGuess(revealed, undefined)).toEqual([]);
+      expect(compareGuess({ revealed: {} }, { kind: "enemy", name: "Lobo", note: "", fields: { hitPoints: "30" } })).toEqual([]);
+    });
   });
 });

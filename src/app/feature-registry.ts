@@ -90,6 +90,8 @@ export interface FeatureRegistry {
     readonly bindCreationProps: (props: Omit<CreationProps, "service">) => CreationProps;
     readonly bindProgressionProps: (props: CharacterProgressionProps) => CharacterProgressionProps;
     readonly list?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
+    /** Inclui as fichas de elenco; só o Elenco da Jornada usa. */
+    readonly listAll?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
     readonly listDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
   };
   readonly actions: {
@@ -165,7 +167,11 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     }),
     bindCreationProps: (props: Omit<CreationProps, "service">): CreationProps => ({ ...props, ...(dependencies.creationService ? { service: dependencies.creationService } : {}) }),
     bindProgressionProps: (props: CharacterProgressionProps): CharacterProgressionProps => props,
-    list: dependencies.listCharacters,
+    // Fichas de elenco (NPCs, ameaças, animais) ficam só no Elenco: as listas gerais não as veem.
+    list: dependencies.listCharacters
+      ? async () => { const listed = await dependencies.listCharacters!(); return listed.ok ? { ok: true as const, value: listed.value.filter((summary) => !summary.castSheet) } : listed; }
+      : undefined,
+    listAll: dependencies.listCharacters,
     listDrafts: dependencies.listCharacterDrafts,
   };
 

@@ -22,4 +22,18 @@ describe("geração de ficha para NPCs e ameaças", () => {
     }
     expect(failures).toEqual([]);
   });
+
+  it("gera a ficha só com a raça, usando a base neutra, e a marca como ficha de elenco", () => {
+    const failures: string[] = [];
+    for (const race of catalog.rulePack.races.values()) {
+      const result = generateNpcCharacter(catalog, { name: "Aldeão", raceId: race.id });
+      if (!result.ok) failures.push(`${race.id}: ${result.error.message}`);
+      else {
+        expect(result.value.raceRef.entityId).toBe(race.id);
+        expect(result.value.classes[0]?.classId).toBe("fighter");
+        expect(result.value.castSheet).toBe(true);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
 });

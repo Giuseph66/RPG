@@ -3,7 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { asAccountId, asUuid } from "@domain/contracts/ids";
 import type { Membership } from "@domain/contracts/cloud-sync";
 import { ArrowsClockwise, GiCrossedSwords, GiPerson, WifiSlash } from "@assets/icons";
-import { AppModal, Button, CampaignSigil, InlineStatus, Input, SectionCard } from "@components/ui";
+import { AppModal, Button, CampaignSigil, ConfirmModal, InlineStatus, Input, SectionCard } from "@components/ui";
 import { Plus } from "@phosphor-icons/react";
 import { artworkForClass } from "@assets/art/fantasy";
 import { GiBrain, GiBrokenHeart, GiDeathSkull, GiHazardSign, GiHearts, GiLinkedRings, GiPoisonBottle, GiQuillInk, GiRun, GiShield, GiSkullCrossedBones, GiSparkles, GiThreeFriends } from "react-icons/gi";
@@ -119,7 +119,7 @@ function DeathSaveMarks({ label, count, tone }: { readonly label: string; readon
   </span>;
 }
 
-function CharacterCard({ character, onEdit }: { readonly character: CollaborationCharacter; readonly onEdit?: () => void }) {
+function CharacterCard({ character, onEdit, onOpen, onDelete }: { readonly character: CollaborationCharacter; readonly onEdit?: () => void; readonly onOpen?: () => void; readonly onDelete?: () => void }) {
   const status = vitality(character);
   const hp = character.hitPoints;
   const maximum = hp?.maximum;
@@ -181,10 +181,14 @@ function CharacterCard({ character, onEdit }: { readonly character: Collaboratio
     </div>
 
     {onEdit ? <button type="button" className={styles.cardAction} onClick={onEdit}><GiQuillInk aria-hidden="true" /> Ajustar estado</button> : null}
+    {onOpen || onDelete ? <div className={styles.sheetActions}>
+      {onOpen ? <button type="button" onClick={onOpen}>Editar ficha</button> : null}
+      {onDelete ? <button type="button" data-danger="true" onClick={onDelete}>Excluir</button> : null}
+    </div> : null}
   </li>;
 }
 
-export function CollaborationPanel({ membership, session, campaigns = [], characters = [], activeCampaignId, activeCharacterId, syncState = "local", syncMessage, syncHydration, onRefreshSync, onOpenSession, onOpenJourney, onOpenParticipants, onCreateCharacter, onLinkCharacter, onUnlinkCharacter, conditionOptions = [], onUpdateCharacter, view }: CollaborationPanelProps) {
+export function CollaborationPanel({ membership, session, campaigns = [], characters = [], activeCampaignId, activeCharacterId, syncState = "local", syncMessage, syncHydration, onRefreshSync, onOpenSession, onOpenJourney, onOpenParticipants, onCreateCharacter, onLinkCharacter, onUnlinkCharacter, onOpenCharacter, onDeleteCharacter, conditionOptions = [], onUpdateCharacter, view }: CollaborationPanelProps) {
   const localActor = membership?.localActor?.();
   const actorId = session ? asAccountId(session.uid) : localActor?.accountId;
   const localActorId = localActor?.accountId;
@@ -197,6 +201,10 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
   const [message, setMessage] = useState<string>();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<CollaborationCharacter>();
+  // Ficha de jogador é dele: o mestre ajusta PV e condições, mas não edita nem exclui a ficha.
+  const ownsSheet = (character: CollaborationCharacter) => !character.ownerUid || character.ownerUid === actorId || character.ownerUid === localActorId;
+  const [deletingCharacter, setDeletingCharacter] = useState<CollaborationCharacter>();
+  const [deleteError, setDeleteError] = useState<string>();
   const [editingError, setEditingError] = useState<string>();
   const [hpValue, setHpValue] = useState(0);
   const [tempHpValue, setTempHpValue] = useState(0);
@@ -382,7 +390,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
             <span className={styles.masterPanelTagline}>{partyCharacters.length} {partyCharacters.length === 1 ? "aventureiro" : "aventureiros"} na jornada</span>
           </div>
           <span className={styles.masterPanelRule} aria-hidden="true" />
-          {partyCharacters.length ? <ul className={styles.characterGrid}>{partyCharacters.map((character) => <CharacterCard key={String(character.id)} character={character} onEdit={onUpdateCharacter ? () => openCharacterEdit(character) : undefined} />)}</ul> : <div className={styles.masterEmpty}><GiThreeFriends aria-hidden="true" /><p>Nenhuma ficha vinculada a {selectedCampaign.name}. Vincule um personagem local abaixo para acompanhar o grupo.</p></div>}
+          {partyCharacters.length ? <ul className={styles.characterGrid}>{partyCharacters.map((character) => <CharacterCard key={String(character.id)} character={character} onEdit={onUpdateCharacter ? () => openCharacterEdit(character) : undefined} onOpen={onOpenCharacter && ownsSheet(character) ? () => onOpenCharacter(character.id) : undefined} onDelete={onDeleteCharacter && ownsSheet(character) ? () => { setDeleteError(undefined); setDeletingCharacter(character); } : undefined} />)}</ul> : <div className={styles.masterEmpty}><GiThreeFriends aria-hidden="true" /><p>Nenhuma ficha vinculada a {selectedCampaign.name}. Vincule um personagem local abaixo para acompanhar o grupo.</p></div>}
         </section>
 
         {onLinkCharacter || onUnlinkCharacter ? <section className={styles.masterPanel} aria-labelledby="campaign-link-title">
@@ -396,11 +404,16 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
           {unlinkedCharacters.length ? <ul className={styles.linkList}>{unlinkedCharacters.map((character) => <li key={String(character.id)}>
             <span className={styles.linkInitials} aria-hidden="true">{character.portraitUrl ? <img src={character.portraitUrl} alt="" /> : characterInitials(character.name)}</span>
             <span className={styles.linkCopy}><strong>{character.name || "Personagem sem nome"}</strong><small>{character.className || "Classe não informada"}{character.totalLevel ? ` · Nível ${character.totalLevel}` : ""}</small></span>
-            {onLinkCharacter ? <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void linkCharacter(character)}><GiLinkedRings aria-hidden="true" /> Vincular</button> : null}
+            <span className={styles.linkActions}>
+              {onOpenCharacter && ownsSheet(character) ? <button type="button" className={styles.linkButton} onClick={() => onOpenCharacter(character.id)}><GiQuillInk aria-hidden="true" /> Editar</button> : null}
+              {onLinkCharacter ? <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void linkCharacter(character)}><GiLinkedRings aria-hidden="true" /> Vincular</button> : null}
+              {onDeleteCharacter && ownsSheet(character) ? <button type="button" className={styles.linkButton} data-danger="true" disabled={busy} onClick={() => { setDeleteError(undefined); setDeletingCharacter(character); }}>Excluir</button> : null}
+            </span>
           </li>)}</ul> : <p className={styles.masterMuted}>Não há fichas locais sem campanha.</p>}
         </section> : null}
       </>}
 
+      <ConfirmModal open={Boolean(deletingCharacter)} title="Excluir ficha" targetName={deletingCharacter?.name || "Personagem sem nome"} description={`${deleteError ? `${deleteError} ` : ""}Esta ação apaga a ficha (atributos, PV, equipamento) deste aparelho e não pode ser desfeita.`} confirmLabel="Excluir ficha" destructive busy={busy} onClose={() => { if (!busy) setDeletingCharacter(undefined); }} onConfirm={() => { const target = deletingCharacter; if (!target || !onDeleteCharacter) return; setBusy(true); void onDeleteCharacter(target).then((result) => { setBusy(false); if (result.ok) setDeletingCharacter(undefined); else setDeleteError(result.error.message); }); }} />
       <AppModal open={Boolean(editingCharacter)} title={`Estado de ${editingCharacter?.name ?? "personagem"}`} onClose={() => setEditingCharacter(undefined)}>
         <div className={styles.vitalsForm}>
           {editingError ? <InlineStatus tone="error" assertive>{editingError}</InlineStatus> : null}

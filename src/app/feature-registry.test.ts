@@ -34,6 +34,16 @@ describe("feature registry", () => {
     expect(registry.actions.bindProps({}).onIntent).toBe(actionDispatcher);
   });
 
+  it("esconde fichas de elenco das listas gerais e as entrega só em listAll", async () => {
+    const summary = (id: string, castSheet?: true) => ({ id, name: id, classSummary: [], totalLevel: 1, updatedAt: "2026-01-01T00:00:00.000Z", revision: 1, ...(castSheet ? { castSheet } : {}) }) as never;
+    const listCharacters = vi.fn(async () => ({ ok: true as const, value: [summary("jogador"), summary("lobo", true)] }));
+    const registry = createFeatureRegistry({ services: services(), compendiumService: catalog, listCharacters });
+    const general = await registry.character.list!();
+    const all = await registry.character.listAll!();
+    expect(general.ok && general.value.map((item) => item.id)).toEqual(["jogador"]);
+    expect(all.ok && all.value.map((item) => item.id)).toEqual(["jogador", "lobo"]);
+  });
+
   it("liga seleção/retry ao serviço injetado sem esconder dispatcher pendente", () => {
     const injected = services();
     const registry = createFeatureRegistry({ services: injected, compendiumService: catalog });

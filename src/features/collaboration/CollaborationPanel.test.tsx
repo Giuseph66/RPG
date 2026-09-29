@@ -132,6 +132,32 @@ describe("CollaborationPanel", () => {
     await mounted.unmount();
   });
 
+  it("o mestre edita e exclui qualquer ficha, com confirmação antes de apagar", async () => {
+    const membership = fakeMembership();
+    const inGroup = { id: asUuid("00000000-0000-4000-8000-000000000031"), name: "Artemis", campaignId: campaign.id, revision: asRevision(2), hitPoints: { current: 8, temporary: 0, maximum: 12 } };
+    const loose = { id: asUuid("00000000-0000-4000-8000-000000000032"), name: "Solta", revision: asRevision(1) };
+    const onOpenCharacter = vi.fn();
+    const onDeleteCharacter = vi.fn(async () => ok(undefined));
+    const playerSheet = { id: asUuid("00000000-0000-4000-8000-000000000033"), name: "DoJogador", ownerUid: "outro-jogador", campaignId: campaign.id, revision: asRevision(1), hitPoints: { current: 5, temporary: 0, maximum: 9 } };
+    const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[inGroup, loose, playerSheet]} onLinkCharacter={vi.fn()} onOpenCharacter={onOpenCharacter} onDeleteCharacter={onDeleteCharacter} />);
+    const buttons = (text: string) => [...mounted.container.querySelectorAll("button")].filter((item) => item.textContent?.trim().endsWith(text));
+    // Só as fichas do próprio mestre têm editar/excluir; a de um jogador não.
+    expect(buttons("Editar ficha")).toHaveLength(1);
+    expect(mounted.container.textContent).toContain("DoJogador");
+    await fireEvent(buttons("Editar ficha")[0]!, new MouseEvent("click", { bubbles: true }));
+    expect(onOpenCharacter).toHaveBeenCalledWith(inGroup.id);
+    await fireEvent(buttons("Editar")[0]!, new MouseEvent("click", { bubbles: true }));
+    expect(onOpenCharacter).toHaveBeenCalledWith(loose.id);
+    // Excluir a ficha solta: primeiro só pergunta.
+    await fireEvent(buttons("Excluir").at(-1)!, new MouseEvent("click", { bubbles: true }));
+    expect(onDeleteCharacter).not.toHaveBeenCalled();
+    const dialog = document.body.querySelector('[role="dialog"]')!;
+    expect(dialog.textContent).toContain("Solta");
+    await fireEvent([...dialog.querySelectorAll("button")].find((item) => item.textContent === "Excluir ficha")!, new MouseEvent("click", { bubbles: true }));
+    await vi.waitFor(() => expect(onDeleteCharacter).toHaveBeenCalledWith(expect.objectContaining({ id: loose.id })));
+    await mounted.unmount();
+  });
+
   it("mostra somente a campanha ativa e permite ao mestre ajustar PV", async () => {
     const membership = fakeMembership();
     const character = { id: asUuid("00000000-0000-4000-8000-000000000021"), name: "Artemis", campaignId: campaign.id, revision: asRevision(2), hitPoints: { current: 8, temporary: 0, maximum: 12 } };

@@ -5,6 +5,9 @@ import { asEntityId, asIsoTimestamp, asUuid, type DefinitionRef, type EntityId, 
 import type { Ability, ChoiceDefinition, ChoiceSelection } from "@domain/contracts/primitives";
 import { createCharacterDraft, materializeCharacter, type CreationCatalog } from "@domain/character/creation";
 
+/** Base neutra para criaturas sem classe: o motor de regras exige uma classe para PV e perícias. */
+export const DEFAULT_CAST_CLASS = "fighter";
+
 const abilities: readonly Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
 const skillIds = ["acrobatics", "animal-handling", "arcana", "athletics", "deception", "history", "insight", "intimidation", "investigation", "medicine", "nature", "perception", "performance", "persuasion", "religion", "sleight-of-hand", "stealth", "survival"];
 const languageIds = ["elvish", "dwarvish", "halfling", "gnomish", "orc", "draconic", "infernal", "celestial"];
@@ -14,7 +17,8 @@ const skillSet = new Set(skillIds);
 export interface GenerateNpcCharacterInput {
   readonly name: string;
   readonly raceId: EntityId;
-  readonly classId: EntityId;
+  /** Sem classe, a ficha usa a base neutra do Guerreiro; o mestre ajusta na própria ficha. */
+  readonly classId?: EntityId;
   readonly id?: Uuid;
   readonly now?: ReturnType<typeof asIsoTimestamp>;
 }
@@ -60,9 +64,9 @@ function choicesFor(choice: ChoiceDefinition, catalog: GenerateNpcCatalog, usedP
 export function generateNpcCharacter(catalog: GenerateNpcCatalog, input: GenerateNpcCharacterInput): Result<Character> {
   const pack: RulePack = catalog.rulePack;
   const race = pack.races.get(input.raceId);
-  const characterClass = pack.classes.get(input.classId);
+  const characterClass = pack.classes.get(input.classId ?? asEntityId(DEFAULT_CAST_CLASS));
   if (!input.name.trim()) return err(appError.validation("name", "Informe o nome antes de gerar a ficha."));
-  if (!race || !characterClass) return err(appError.validation("raceOrClass", "Escolha uma raça e uma classe publicadas nas regras."));
+  if (!race || !characterClass) return err(appError.validation("raceOrClass", "Escolha uma raça publicada nas regras."));
   const now = input.now ?? asIsoTimestamp(new Date().toISOString());
   const ref = (id: EntityId): DefinitionRef => ({ rulesetId: pack.manifest.id, entityId: id });
   const subraces = race.subraceIds.length ? race.subraceIds.flatMap((id) => { const entry = pack.subraces.get(id); return entry ? [entry] : []; }) : [undefined];
@@ -113,7 +117,7 @@ export function generateNpcCharacter(catalog: GenerateNpcCatalog, input: Generat
     });
     if (!draft.ok) return draft;
     const materialized = materializeCharacter(catalog, draft.value, { now, idGenerator: () => asUuid(crypto.randomUUID()) });
-    if (materialized.ok) return ok(materialized.value.character);
+    if (materialized.ok) return ok({ ...materialized.value.character, castSheet: true as const });
     lastProblem = materialized.error[0]?.message ?? lastProblem;
   }
   return err(appError.validation("npc", `Não foi possível gerar esta ficha automaticamente: ${lastProblem}`));

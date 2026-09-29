@@ -10,12 +10,15 @@ export interface JourneyPlayer {
 }
 
 export interface CreatureSheetTools {
-  readonly availableCharacters?: readonly { readonly id: Uuid; readonly name: string }[];
+  readonly availableCharacters?: readonly { readonly id: Uuid; readonly name: string; /** Ex.: "Elfo Bruxo 3" — distingue fichas com o mesmo nome. */ readonly detail?: string }[];
   readonly onCreateSheet?: () => void;
   readonly onOpenSheet?: (id: Uuid) => void;
   readonly raceOptions?: readonly { readonly id: EntityId; readonly name: string }[];
   readonly classOptions?: readonly { readonly id: EntityId; readonly name: string }[];
-  readonly onGenerateSheet?: (input: { readonly name: string; readonly raceId: EntityId; readonly classId: EntityId }) => Promise<Result<Uuid>>;
+  /** `classId` é opcional: sem classe a ficha nasce com a base neutra e é ajustada depois. */
+  readonly onGenerateSheet?: (input: { readonly name: string; readonly raceId: EntityId; readonly classId?: EntityId }) => Promise<Result<Uuid>>;
+  /** Exclui a ficha ligada à criatura e devolve a criatura já sem o vínculo. */
+  readonly onDeleteSheet?: (creature: CreatureRecord) => Promise<Result<CreatureRecord, AppError>>;
 }
 
 export interface CreatureBoardProps extends CreatureSheetTools {
