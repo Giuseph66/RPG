@@ -55,10 +55,16 @@ export type PortraitUploadResult =
   | { readonly ok: true; readonly assetId: NonNullable<Character["portraitAssetId"]>; readonly sha256: string }
   | { readonly ok: false; readonly message: string };
 
+/** Onde o personagem vive: permite ao mestre baixar o retrato de outro jogador da cópia da campanha. */
+export interface SheetPortraitContext {
+  readonly campaignId?: string;
+  readonly ownerUid?: string;
+}
+
 /** Retrato do personagem: carrega os bytes (local ou nuvem) e envia uma nova imagem. */
 export interface SheetPortrait {
   /** Resolve uma URL exibível para o asset; `undefined` quando não há cópia disponível. */
-  readonly load: (assetId: NonNullable<Character["portraitAssetId"]>, sha256?: string) => Promise<string | undefined>;
+  readonly load: (assetId: NonNullable<Character["portraitAssetId"]>, sha256?: string, context?: SheetPortraitContext) => Promise<string | undefined>;
   readonly upload?: (file: File) => Promise<PortraitUploadResult>;
 }
 

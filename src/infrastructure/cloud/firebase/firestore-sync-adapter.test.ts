@@ -215,6 +215,20 @@ describe("FirebaseFirestoreSyncAdapter", () => {
     expect(fake.setCalls[0]?.data).not.toHaveProperty("storagePath");
   });
 
+  it("grava a cópia do retrato dentro da campanha para o mestre ler", async () => {
+    const fake = fakeFirestore();
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "portrait",
+      aggregateId: characterId,
+      scope: { campaignId },
+      payload: { id: characterId, campaignId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+    }));
+
+    expect(result.ok).toBe(true);
+    expect(fake.setCalls[0]).toMatchObject({ path: `campaigns/${campaignId}/portraits/${characterId}`, data: { ownerUid: "u1", campaignId } });
+  });
+
   it("preserva campaignId e deriva caminho de asset compartilhado", async () => {
     const fake = fakeFirestore();
     const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "master-1", deps: fake.deps as never });

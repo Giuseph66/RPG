@@ -4,9 +4,9 @@ import type { PortraitRemoteStore } from "@application/ports/portrait-store";
 
 export function createFirestorePortraitStore(firestore: Firestore): PortraitRemoteStore {
   return {
-    async get(id) {
+    async get(id, campaignId) {
       try {
-        const snapshot = await getDoc(doc(firestore, "portraits", id));
+        const snapshot = await getDoc(campaignId ? doc(firestore, "campaigns", campaignId, "portraits", id) : doc(firestore, "portraits", id));
         if (!snapshot.exists()) return undefined;
         const value = snapshot.data();
         if (value.id !== id || typeof value.data !== "string" || typeof value.mediaType !== "string" || typeof value.sha256 !== "string" || typeof value.ownerUid !== "string") return undefined;

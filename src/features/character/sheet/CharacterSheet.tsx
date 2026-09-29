@@ -232,13 +232,15 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const [conditionToAdd, setConditionToAdd] = useState("");
   const [portraitUrl, setPortraitUrl] = useState<string>();
   const draftPortraitId = "portraitAssetId" in draft ? draft.portraitAssetId : character?.portraitAssetId;
+  const portraitCampaignId = character?.campaignId ? String(character.campaignId) : undefined;
+  const portraitOwnerUid = character?.ownerUid;
   const draftPortraitSha = "portraitSha256" in draft ? draft.portraitSha256 : character?.portraitSha256;
 
   useEffect(() => {
     if (!draftPortraitId || !portrait) { setPortraitUrl(undefined); return; }
     let active = true;
     let loaded: string | undefined;
-    void portrait.load(draftPortraitId, draftPortraitSha).then((url) => {
+    void portrait.load(draftPortraitId, draftPortraitSha, { ...(portraitCampaignId ? { campaignId: portraitCampaignId } : {}), ...(portraitOwnerUid ? { ownerUid: portraitOwnerUid } : {}) }).then((url) => {
       loaded = url;
       if (active) setPortraitUrl(url);
       else if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
@@ -247,7 +249,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
       active = false;
       if (loaded?.startsWith("blob:")) URL.revokeObjectURL(loaded);
     };
-  }, [draftPortraitId, draftPortraitSha, portrait]);
+  }, [draftPortraitId, draftPortraitSha, portrait, portraitCampaignId, portraitOwnerUid]);
 
   useEffect(() => {
     setDraft({});

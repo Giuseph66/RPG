@@ -475,7 +475,7 @@ function CollaborationRoute({ registry, campaign, navigate, view, pack, syncStat
         const displayDefinition = (type: "class" | "condition", id: string) => sheet.resolveName?.(type, id) ?? id.replace(/[-_]/g, " ");
         const supportedTargets: readonly CampaignAdjustmentTarget[] = ["armor-class", "initiative", "attack-roll", "ability-check"];
         const adjustments = character.manualAdjustments.flatMap((adjustment) => supportedTargets.includes(adjustment.target.kind as CampaignAdjustmentTarget) && adjustment.value.kind === "number" ? [{ id: adjustment.id, target: adjustment.target.kind as CampaignAdjustmentTarget, amount: adjustment.value.amount, reason: adjustment.reason }] : []);
-        const portraitUrl = character.portraitAssetId && sheet.portrait ? await sheet.portrait.load(character.portraitAssetId, character.portraitSha256).catch(() => undefined) : undefined;
+        const portraitUrl = character.portraitAssetId && sheet.portrait ? await sheet.portrait.load(character.portraitAssetId, character.portraitSha256, { ...(character.campaignId ? { campaignId: String(character.campaignId) } : {}), ...(character.ownerUid ? { ownerUid: character.ownerUid } : {}) }).catch(() => undefined) : undefined;
         if (portraitUrl?.startsWith("blob:")) {
           if (active) portraitUrls.push(portraitUrl);
           else URL.revokeObjectURL(portraitUrl);

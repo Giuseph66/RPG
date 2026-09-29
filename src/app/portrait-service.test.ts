@@ -63,6 +63,37 @@ describe("createPortraitService (Firestore)", () => {
     expect([...assets.store.get(id)!.bytes]).toEqual([...bytes]);
   });
 
+  it("mestre baixa da cópia da campanha o retrato de outro jogador e não o republica", async () => {
+    const hash = await sha256(bytes);
+    const assets = fakeAssets();
+    const record: PortraitRecord = { id, ownerUid: "uid-jogador", mediaType: "image/webp", sha256: hash, data: btoa(String.fromCharCode(...bytes)) };
+    const get = vi.fn(async (_key: string, campaignId?: string) => campaignId === "camp-1" ? record : undefined);
+    const outbox = fakeOutbox();
+    const service = createPortraitService({ assets: assets.service, remote: { get }, outbox, cloudUid: () => "uid-mestre", newId: () => id, now });
+    expect(await service.load(id, hash, { campaignId: "camp-1", ownerUid: "uid-jogador" })).toMatch(/^blob:/);
+    expect(get).not.toHaveBeenCalledWith(id);
+    expect(await service.load(id, hash, { campaignId: "camp-1", ownerUid: "uid-jogador" })).toMatch(/^blob:/);
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("recusa a cópia da campanha quando o dono não é o esperado", async () => {
+    const hash = await sha256(bytes);
+    const assets = fakeAssets();
+    const record: PortraitRecord = { id, ownerUid: "intruso", mediaType: "image/webp", sha256: hash, data: btoa(String.fromCharCode(...bytes)) };
+    const service = createPortraitService({ assets: assets.service, remote: { get: vi.fn(async () => record) }, cloudUid: () => "uid-mestre", newId: () => id, now });
+    expect(await service.load(id, hash, { campaignId: "camp-1", ownerUid: "uid-jogador" })).toBeUndefined();
+  });
+
+  it("dono envia também a cópia da campanha quando o personagem está vinculado", async () => {
+    const hash = await sha256(bytes);
+    const assets = fakeAssets({ id, bytes, hash, mediaType: "image/webp", originalName: "r.webp" });
+    const outbox = fakeOutbox();
+    const service = createPortraitService({ assets: assets.service, remote: fakeRemote(), outbox, cloudUid: () => "uid-1", newId: () => id, now });
+    await service.publishExisting(id, "camp-1");
+    expect(outbox.enqueue).toHaveBeenCalledWith(expect.objectContaining({ aggregateType: "portrait", scope: { campaignId: "camp-1" }, payload: expect.objectContaining({ campaignId: "camp-1", sha256: hash }) }));
+    expect(outbox.enqueue).toHaveBeenCalledWith(expect.not.objectContaining({ scope: expect.anything() }));
+  });
+
   it("recusa bytes que não batem com o hash da ficha", async () => {
     const hash = await sha256(bytes);
     const assets = fakeAssets();

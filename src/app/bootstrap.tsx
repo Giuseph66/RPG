@@ -451,7 +451,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   });
   let portraitStore: PortraitRemoteStore | undefined;
   const portraitRemote: PortraitRemoteStore | undefined = firebaseApp ? {
-    get: (id) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id),
+    get: (id, campaignId) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id, campaignId),
   } : undefined;
   const portraits = createPortraitService({
     assets,
@@ -715,8 +715,8 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
 
     if (auth && portraitRemote) {
       unsubscribePortraitCharacter = services.character.store.subscribe(() => {
-        const assetId = services.character.store.getSnapshot().value?.portraitAssetId;
-        if (assetId) void portraits.publishExisting(assetId);
+        const current = services.character.store.getSnapshot().value;
+        if (current?.portraitAssetId) void portraits.publishExisting(current.portraitAssetId, current.campaignId);
       });
       unsubscribePortraitAuth = auth.observeSession((session) => {
         if (!session) return;
@@ -724,7 +724,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
           if (!listed.ok) return;
           for (const summary of listed.value) {
             const character = await characterRepository.get(summary.id);
-            if (character.ok && character.value.portraitAssetId) await portraits.publishExisting(character.value.portraitAssetId);
+            if (character.ok && character.value.portraitAssetId) await portraits.publishExisting(character.value.portraitAssetId, character.value.campaignId);
           }
         });
       });

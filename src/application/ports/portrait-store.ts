@@ -10,5 +10,6 @@ export interface PortraitRecord {
 }
 
 export interface PortraitRemoteStore {
-  get(id: string): Promise<PortraitRecord | undefined>;
+  /** Sem `campaignId`, lê a cópia privada do dono; com ele, a cópia da campanha (legível pelos membros). */
+  get(id: string, campaignId?: string): Promise<PortraitRecord | undefined>;
 }

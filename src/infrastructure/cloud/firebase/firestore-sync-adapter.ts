@@ -197,10 +197,12 @@ export function firestorePathForOperation(operation: SyncOperation, privateOwner
     }
     case "asset":
       return ok(`assets/${id}`);
-    case "portrait":
-      return /^[A-Za-z0-9_-]+$/.test(id)
-        ? ok(`portraits/${id}`)
-        : err(pathError("ID de retrato inválido."));
+    case "portrait": {
+      if (!/^[A-Za-z0-9_-]+$/.test(id)) return err(pathError("ID de retrato inválido."));
+      // Cópia da campanha: os membros (mestre incluso) leem o retrato do jogador daqui.
+      const campaignId = scopeField(operation, "campaignId");
+      return ok(campaignId ? `campaigns/${campaignId}/portraits/${id}` : `portraits/${id}`);
+    }
     default:
       return err(pathError(`Tipo de agregado não suportado: ${String(operation.aggregateType)}.`));
   }

@@ -146,6 +146,27 @@ service cloud.firestore {
           resource.data.ownerUid == request.auth.uid;
       }
 
+      // Cópia do retrato do personagem para a campanha: o mestre e o grupo veem a imagem do jogador.
+      match /portraits/{portraitId} {
+        function validCampaignPortrait(data) {
+          return hasCampaignRecordIdentity(data, campaignId, portraitId) && data.ownerUid == request.auth.uid &&
+            data.keys().hasOnly(['id', 'ownerUid', 'campaignId', 'mediaType', 'sha256', 'width', 'height', 'data', 'createdAt', 'updatedAt', 'revision', 'schemaVersion', 'operationId']) &&
+            data.data is string && data.data.size() > 0 && data.data.size() <= 900000 &&
+            data.sha256 is string && data.sha256.matches('^[a-f0-9]{64}$') &&
+            data.mediaType in ['image/webp', 'image/jpeg'] &&
+            (!('width' in data) || (data.width is int && data.width > 0 && data.width <= 1024)) &&
+            (!('height' in data) || (data.height is int && data.height > 0 && data.height <= 1024));
+        }
+        allow get: if campaignMember(campaignId);
+        allow list: if false;
+        allow create: if campaignMember(campaignId) && validCampaignPortrait(request.resource.data);
+        allow update: if campaignMember(campaignId) && resource.data.ownerUid == request.auth.uid &&
+          validCampaignPortrait(request.resource.data) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'operationId', 'revision']) &&
+          revisionAdvances(resource.data, request.resource.data);
+        allow delete: if campaignMember(campaignId) && resource.data.ownerUid == request.auth.uid;
+      }
+
       // Cada conta tem o próprio diário. O mestre lê todos; um jogador só lê o seu.
       match /journals/{journalId} {
         allow get: if campaignMember(campaignId) && (resource == null ||

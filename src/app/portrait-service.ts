@@ -81,25 +81,29 @@ function toUrl(asset: Pick<Asset, "bytes" | "mediaType">): string {
   return URL.createObjectURL(new Blob([copy.buffer], { type: asset.mediaType }));
 }
 
-export function createPortraitService(options: PortraitServiceOptions): SheetPortrait & { publishExisting(assetId: Uuid): Promise<void> } {
+export function createPortraitService(options: PortraitServiceOptions): SheetPortrait & { publishExisting(assetId: Uuid, campaignId?: string): Promise<void> } {
   const { assets, outbox, remote, cloudUid, newId, now } = options;
   const queued = new Set<string>();
   const inFlight = new Set<string>();
 
-  async function publish(asset: Asset, uid: string): Promise<void> {
+  async function enqueueCopy(asset: Asset, uid: string, campaignId?: string): Promise<void> {
     if (!remote || !outbox || asset.bytes.byteLength > MAX_PORTRAIT_BYTES) return;
-    const key = `${uid}:${asset.id}`;
+    const key = `${uid}:${asset.id}${campaignId ? `:${campaignId}` : ""}`;
     if (queued.has(key) || inFlight.has(key)) return;
     inFlight.add(key);
     try {
+      // A cópia da campanha é criada uma única vez; reenviar sobre um documento existente gera conflito de revisão.
+      if (campaignId && (await remote.get(asset.id, campaignId))?.sha256 === asset.hash) { queued.add(key); return; }
       const result = await outbox.enqueue({
-        operationId: asCommandId(`portrait:${uid}:${asset.id}`),
+        operationId: asCommandId(`portrait:${uid}:${asset.id}${campaignId ? `:${campaignId}` : ""}`),
         aggregateType: "portrait",
         aggregateId: asset.id,
         mutation: "upsert",
         baseRevision: asRevision(0),
+        ...(campaignId ? { scope: { campaignId: campaignId as Uuid } } : {}),
         payload: {
           id: asset.id,
+          ...(campaignId ? { campaignId } : {}),
           sha256: asset.hash,
           mediaType: asset.mediaType,
           ...(asset.width ? { width: asset.width } : {}),
@@ -118,29 +122,39 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
     }
   }
 
+  /** Envia a cópia privada e, quando o personagem está numa campanha, a cópia que o mestre lê. */
+  async function publish(asset: Asset, uid: string, campaignId?: string): Promise<void> {
+    await enqueueCopy(asset, uid);
+    if (campaignId) await enqueueCopy(asset, uid, campaignId);
+  }
+
   return {
-    async publishExisting(assetId) {
+    async publishExisting(assetId, campaignId) {
       const uid = cloudUid();
       if (!uid) return;
       const local = await assets.getLocal(assetId);
-      if (local.ok) await publish(local.value, uid);
+      if (local.ok) await publish(local.value, uid, campaignId);
     },
-    async load(assetId, sha256) {
+    async load(assetId, sha256, context) {
       const local = await assets.getLocal(assetId);
       const uid = cloudUid();
+      // Só o dono publica: o mestre que baixou o retrato de um jogador não o reenvia como se fosse dele.
+      const owned = uid !== undefined && (context?.ownerUid === undefined || context.ownerUid === uid);
       if (local.ok && (!sha256 || local.value.hash === sha256)) {
-        if (uid) void publish(local.value, uid);
+        if (uid && owned) void publish(local.value, uid, context?.campaignId);
         return toUrl(local.value);
       }
       if (!uid || !remote || !sha256) return undefined;
-      const record = await remote.get(assetId);
-      if (!record || record.ownerUid !== uid || record.sha256 !== sha256 ||
+      const expectedOwner = context?.ownerUid ?? uid;
+      let record = owned ? await remote.get(assetId) : undefined;
+      if (!record && context?.campaignId) record = await remote.get(assetId, context.campaignId);
+      if (!record || record.ownerUid !== expectedOwner || record.sha256 !== sha256 ||
         !/^image\/(webp|jpeg)$/.test(record.mediaType)) return undefined;
       const bytes = fromBase64(record.data);
       if (!bytes || await sha256Hex(bytes) !== sha256) return undefined;
       const asset: Asset = { id: assetId, bytes, hash: sha256, mediaType: record.mediaType, originalName: `portrait-${assetId}` };
       await assets.saveLocal(asset);
-      queued.add(`${uid}:${assetId}`);
+      if (owned) queued.add(`${uid}:${assetId}`);
       return toUrl(asset);
     },
     async upload(file) {
@@ -156,7 +170,7 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
       const saved = await assets.saveLocal(asset);
       if (!saved.ok) return { ok: false, message: saved.error.message };
       const uid = cloudUid();
-      if (uid) void publish(asset, uid);
+      if (uid) void publish(asset, uid, undefined);
       return { ok: true, assetId: asset.id, sha256: hash };
     },
   };
