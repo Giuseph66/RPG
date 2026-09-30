@@ -125,6 +125,23 @@ describe("integração local + outbox", () => {
     expect(harness.operations[0]).toMatchObject({ aggregateType: "character", mutation: "upsert", aggregateId: minimalCharacter.id });
   });
 
+  it("avisa o histórico da mesa com a versão anterior e a gravada", async () => {
+    const harness = makeHarness({ ...minimalCharacter, hp: { current: 10, temp: 0 } });
+    const committed: Array<readonly [Character | undefined, Character]> = [];
+    const service = createCharacterApplicationService({
+      repository: harness.repository,
+      debounceMs: 0,
+      commandDependencies: { clock, idGenerator, unitOfWork: harness.unitOfWork, syncOutbox: harness.outbox, onCommitted: (previous, next) => committed.push([previous, next]) },
+    });
+
+    await service.saveCharacter({ ...harness.getStored(), hp: { current: 4, temp: 0 } }, harness.getStored().revision);
+    const { command, result } = successfulCommand(harness.getStored());
+    await service.commands!.commit(command, result);
+
+    expect(committed.map(([previous, next]) => [previous?.hp.current, next.hp.current])).toEqual([[10, 4], [4, 5]]);
+    expect(committed[1]?.[1].revision).toBe(harness.getStored().revision);
+  });
+
   it("emite delete de personagem com namespace imutável", async () => {
     const character = { ...minimalCharacter, campaignId: asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb") };
     const harness = makeHarness(character);

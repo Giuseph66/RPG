@@ -1,5 +1,5 @@
 import { type Account, type CampaignRole, type Membership, type SyncScope } from "@domain/contracts/cloud-sync";
-import { type AccountId, asAccountId, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
+import { type AccountId, asAccountId, asIsoTimestamp, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
 import { err, ok, type MembershipError, type Result } from "@domain/contracts/errors";
 import { asRevision, type Revision } from "@domain/contracts/versioning";
 import { type Clock } from "@application/ports/clock";
@@ -8,7 +8,7 @@ import { type TransactionContext, type UnitOfWork } from "@application/ports/uni
 import { type SyncOutboxService } from "@application/sync";
 import { toJsonSnapshot } from "@application/sync";
 
-import { type MembershipRepository, membershipKey } from "./ports";
+import { type MembershipRepository, type PlayerInviteLinkStore, membershipKey } from "./ports";
 import { type LocalIdentity } from "./identity";
 
 export type MembershipResult<T> = Result<T, MembershipError>;
@@ -35,6 +35,25 @@ export interface IssueInviteInput {
   readonly inviteExpiresAt?: IsoTimestamp;
 }
 
+export interface CreatePlayerInviteLinkInput {
+  readonly actorId: AccountId;
+  readonly campaignId: Uuid;
+  readonly inviteExpiresAt?: IsoTimestamp;
+}
+
+export interface AcceptPlayerInviteLinkInput {
+  readonly accountId: AccountId;
+  readonly campaignId: Uuid;
+  readonly token: string;
+}
+
+export interface PlayerInviteLink {
+  readonly campaignId: Uuid;
+  /** Segredo de 256 bits para compor o link; persistimos somente seu hash. */
+  readonly token: string;
+  readonly expiresAt: IsoTimestamp;
+}
+
 export interface MembershipActionInput {
   readonly actorId: AccountId;
   readonly campaignId: Uuid;
@@ -54,6 +73,19 @@ export interface MembershipServiceOptions {
   readonly syncOutbox?: SyncOutboxService;
   readonly unitOfWork?: UnitOfWork;
   readonly localIdentity?: LocalIdentity;
+  readonly inviteLinkStore?: PlayerInviteLinkStore;
+}
+
+function newInviteToken(): string | undefined {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues || !cryptoApi.subtle) return undefined;
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function inviteTokenHash(token: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function failure(code: MembershipError["code"], message: string, campaignId?: Uuid, accountId?: AccountId): MembershipResult<never> {
@@ -229,6 +261,54 @@ export class MembershipService {
       if (!saved.ok) return failure("membership-unavailable", saved.error.message, input.campaignId, input.playerAccountId);
       const queued = await this.queue("membership", asAccountId(membershipKey(input.campaignId, input.playerAccountId)), "upsert", existing.ok ? existing.value.revision : asRevision(0), membership, now, context, { campaignId: input.campaignId, accountId: input.playerAccountId });
       return queued.ok ? ok(membership) : queued;
+    });
+  }
+
+  async createPlayerInviteLink(input: CreatePlayerInviteLinkInput): Promise<MembershipResult<PlayerInviteLink>> {
+    const actor = validActor(input.actorId);
+    if (!actor.ok) return actor;
+    if (!this.options.inviteLinkStore) return failure("membership-unavailable", "Convites por link exigem Firebase configurado e conexão.", input.campaignId, input.actorId);
+    const owner = await this.options.repository.getMembership(input.campaignId, input.actorId);
+    if (!(owner.ok && isActiveMaster(owner.value, input.actorId))) {
+      return failure("membership-forbidden", "Somente o mestre ativo pode criar um link de convite.", input.campaignId, input.actorId);
+    }
+    const token = newInviteToken();
+    if (!token) return failure("membership-unavailable", "Este navegador não oferece geração segura de convites.", input.campaignId, input.actorId);
+    const now = this.options.clock.now();
+    const expiresAt = input.inviteExpiresAt ?? asIsoTimestamp(new Date(Date.parse(now) + 7 * 24 * 60 * 60 * 1000).toISOString());
+    if (expiresAt <= now) return failure("membership-validation", "O convite deve expirar no futuro.", input.campaignId, input.actorId);
+    let tokenHash: string;
+    try {
+      tokenHash = await inviteTokenHash(token);
+    } catch {
+      return failure("membership-unavailable", "Não foi possível proteger o link de convite.", input.campaignId, input.actorId);
+    }
+    const created = await this.options.inviteLinkStore.create({ campaignId: input.campaignId, ownerUid: input.actorId, tokenHash, expiresAt });
+    if (!created.ok) return created;
+    return ok({ campaignId: input.campaignId, token, expiresAt });
+  }
+
+  async acceptPlayerInviteLink(input: AcceptPlayerInviteLinkInput): Promise<MembershipResult<Membership>> {
+    const actor = validActor(input.accountId);
+    if (!actor.ok) return actor;
+    if (!this.options.inviteLinkStore) return failure("membership-unavailable", "Aceitar link exige Firebase configurado e conexão.", input.campaignId, input.accountId);
+    if (!/^[a-f0-9]{64}$/i.test(input.token)) return failure("membership-validation", "Link de convite inválido.", input.campaignId, input.accountId);
+    let tokenHash: string;
+    try {
+      tokenHash = await inviteTokenHash(input.token.toLowerCase());
+    } catch {
+      return failure("membership-unavailable", "Não foi possível validar o link de convite.", input.campaignId, input.accountId);
+    }
+    const accepted = await this.options.inviteLinkStore.accept({
+      campaignId: input.campaignId,
+      accountId: input.accountId,
+      tokenHash,
+      now: this.options.clock.now(),
+    });
+    if (!accepted.ok) return accepted;
+    return this.write(async (context) => {
+      const saved = await this.options.repository.saveMembership(accepted.value, context);
+      return saved.ok ? ok(saved.value) : failure("membership-unavailable", saved.error.message, input.campaignId, input.accountId);
     });
   }
 

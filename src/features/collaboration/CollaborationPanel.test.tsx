@@ -8,15 +8,20 @@ import { CollaborationPanel } from "./CollaborationPanel";
 
 const campaign = { id: asUuid("00000000-0000-4000-8000-000000000001"), name: "Tumba Rubra" };
 const session = { uid: "master-1", email: "mestre@example.com" };
+const playerSession = { uid: "player-2", email: "player@example.com" };
+const inviteToken = "a".repeat(64);
 
 function fakeMembership() {
   const master = { campaignId: campaign.id, accountId: asAccountId(session.uid), role: "master" as const, status: "active" as const, revision: 0, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
   const memberships = [master];
   return {
+    listReceivedInvitations: vi.fn(async () => ok([])),
     listMemberships: vi.fn(async () => ok(memberships)),
     issuePlayerInvite: vi.fn(async ({ playerAccountId }: { playerAccountId: ReturnType<typeof asAccountId> }) => ok({ ...master, accountId: playerAccountId, role: "player" as const, status: "invited" as const })),
     revokeMembership: vi.fn(async () => ok(master)),
     acceptInvite: vi.fn(async () => ok(master)),
+    createPlayerInviteLink: vi.fn(async () => ok({ campaignId: campaign.id, token: inviteToken, expiresAt: "2026-09-20T10:00:00.000Z" })),
+    acceptPlayerInviteLink: vi.fn(async () => ok({ ...master, accountId: asAccountId(playerSession.uid), role: "player" as const, status: "active" as const })),
   } as unknown as MembershipService;
 }
 
@@ -35,9 +40,10 @@ describe("CollaborationPanel", () => {
       { id: asUuid("00000000-0000-4000-8000-000000000022"), name: "Teste", ownerUid: playerAccountId, campaignId: campaign.id, revision: asRevision(1) },
     ];
     const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} characters={characters} view="participants" />);
-    const player = [...mounted.container.querySelectorAll("li")].find((item) => item.textContent?.includes(playerAccountId));
+    const player = [...mounted.container.querySelectorAll("li")].find((item) => item.textContent?.includes("Ficha: Teste"));
     expect(player?.textContent).toContain("Ficha: Teste");
     expect(player?.textContent).not.toContain("Brom");
+    expect(player?.textContent).not.toContain(playerAccountId);
     await mounted.unmount();
   });
 
@@ -47,20 +53,32 @@ describe("CollaborationPanel", () => {
     await mounted.unmount();
   });
 
-  it("lista o mestre e envia convite pelo identificador suportado", async () => {
+  it("gera e exibe link de convite sem pedir o ID da conta do jogador", async () => {
     const membership = fakeMembership();
     const mounted = await mount(<CollaborationPanel membership={membership} session={session} campaigns={[campaign]} />);
     const participantsTab = [...mounted.container.querySelectorAll('[role="tab"]')].find((item) => item.textContent?.includes("Participantes"))!;
     await fireEvent(participantsTab, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.textContent).toContain("Você");
-    const input = mounted.container.querySelector("input") as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-    setter?.call(input, "player-2");
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    const button = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Enviar convite"));
+    const button = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Gerar link de convite"));
     await fireEvent(button!, new MouseEvent("click", { bubbles: true }));
-    expect(membership.issuePlayerInvite).toHaveBeenCalledWith(expect.objectContaining({ playerAccountId: asAccountId("player-2") }));
+    await vi.waitFor(() => expect(membership.createPlayerInviteLink).toHaveBeenCalledWith({ actorId: asAccountId(session.uid), campaignId: campaign.id }));
+    expect(mounted.container.textContent).toContain(`#invite=${campaign.id}.${inviteToken}`);
+    expect(mounted.container.textContent).not.toContain("UID ou identificador");
     await mounted.unmount();
+  });
+
+  it("aceita convite ao abrir o link em uma conta autenticada", async () => {
+    const previousHash = window.location.hash;
+    window.location.hash = `#invite=${campaign.id}.${inviteToken}`;
+    const membership = fakeMembership();
+    const mounted = await mount(<CollaborationPanel membership={membership} session={playerSession} campaigns={[]} view="participants" />);
+
+    expect(mounted.container.textContent).toContain("Convite recebido");
+    await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Aceitar convite"))!, new MouseEvent("click", { bubbles: true }));
+    await vi.waitFor(() => expect(membership.acceptPlayerInviteLink).toHaveBeenCalledWith({ accountId: asAccountId(playerSession.uid), campaignId: campaign.id, token: inviteToken }));
+    expect(window.location.hash).toBe("");
+    await mounted.unmount();
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${previousHash}`);
   });
 
   it("navega as abas do mestre pelo teclado e associa cada conteúdo à sua aba", async () => {

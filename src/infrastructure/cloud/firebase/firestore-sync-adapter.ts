@@ -281,7 +281,8 @@ function firestoreDocument(operation: SyncOperation, ownerUid: string, existing?
   // Membership ownership is the campaign owner's authority, while the actor
   // may be the invited player accepting their own link. Keep that authority
   // stable across both writes; rules separately validate actor permissions.
-  const documentOwnerUid = operation.aggregateType === "membership"
+  // A ficha de campanha continua do jogador quando o mestre ajusta PV ou condições.
+  const documentOwnerUid = operation.aggregateType === "membership" || (operation.aggregateType === "character" && (scopeField(operation, "campaignId") ?? stringField(payload, "campaignId")))
     ? (typeof existing?.ownerUid === "string" ? existing.ownerUid : ownerUid)
     : ownerUid;
   const document: FirestoreData = {

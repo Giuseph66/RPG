@@ -1,3 +1,4 @@
+import { type Character } from "@domain/contracts/character";
 import { type DiceHistoryEntry, type DiceRoll } from "@domain/contracts/dice";
 import { type AppError, err, ok, type Result } from "@domain/contracts/errors";
 import { type Command, type CommandReceipt, type RuleResult } from "@domain/contracts/rules";
@@ -17,7 +18,11 @@ export interface CharacterCommandServiceDependencies {
   /** Necessário para mutações diretas do store publicarem operações próprias. */
   readonly idGenerator?: IdGenerator;
   readonly clock: Clock;
+  /** Avisado depois de cada gravação local confirmada (alimenta o histórico da mesa). */
+  readonly onCommitted?: CharacterCommittedListener;
 }
+
+export type CharacterCommittedListener = (previous: Character | undefined, next: Character) => void;
 
 export type CharacterCommandOutcome =
   | { readonly result: RuleResult; readonly revision?: never }
@@ -75,10 +80,13 @@ export class CharacterCommandService {
       }
       return saved;
     };
+    // Lida antes da transação: uma leitura dentro do UnitOfWork encerraria a transação.
+    const previous = this.dependencies.onCommitted ? await this.dependencies.characterRepository.get(command.characterId) : undefined;
     const saved = this.dependencies.unitOfWork
       ? await this.dependencies.unitOfWork.run((context) => save(context))
       : await save();
     if (!saved.ok) return saved;
+    this.dependencies.onCommitted?.(previous?.ok ? previous.value : undefined, { ...result.nextState, revision: saved.value });
     return ok({ result, revision: saved.value });
   }
 }

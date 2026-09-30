@@ -1,6 +1,6 @@
 import { type Account, type Membership } from "@domain/contracts/cloud-sync";
-import { type AccountId, type Uuid } from "@domain/contracts/ids";
-import { type AppError, type Result } from "@domain/contracts/errors";
+import { type AccountId, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
+import { type AppError, type MembershipError, type Result } from "@domain/contracts/errors";
 import { type TransactionContext } from "@application/ports/unit-of-work";
 
 /** Persistência local de perfis e vínculos. Não depende de Firebase. */
@@ -11,6 +11,22 @@ export interface MembershipRepository {
   saveMembership(membership: Membership, context?: TransactionContext): Promise<Result<Membership, AppError>>;
   listMemberships(campaignId: Uuid, context?: TransactionContext): Promise<Result<readonly Membership[], AppError>>;
   listMembershipsForAccount(accountId: AccountId, context?: TransactionContext): Promise<Result<readonly Membership[], AppError>>;
+}
+
+/** Nuvem valida links de convite de uso único; o segredo nunca entra na outbox local. */
+export interface PlayerInviteLinkStore {
+  create(input: {
+    readonly campaignId: Uuid;
+    readonly ownerUid: AccountId;
+    readonly tokenHash: string;
+    readonly expiresAt: IsoTimestamp;
+  }): Promise<Result<void, MembershipError>>;
+  accept(input: {
+    readonly campaignId: Uuid;
+    readonly accountId: AccountId;
+    readonly tokenHash: string;
+    readonly now: IsoTimestamp;
+  }): Promise<Result<Membership, MembershipError>>;
 }
 
 /** Implementação local mínima para testes, fallback e sessões sem rede. */

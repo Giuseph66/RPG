@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { MembershipService } from "@application/membership";
 import type { AuthSession } from "@application/ports/auth-port";
 import type { AccountId, DefinitionRef, Uuid } from "@domain/contracts/ids";
@@ -46,6 +47,8 @@ export type CollaborationSyncState = "local" | "pending" | "offline" | "synced" 
 
 export interface CollaborationPanelProps {
   readonly view?: "characters" | "participants";
+  /** Histórico da mesa em tempo real, exibido abaixo do grupo. */
+  readonly historyPanel?: ReactNode;
   readonly membership?: MembershipService;
   readonly session?: AuthSession | null;
   readonly campaigns?: readonly CollaborationCampaign[];
@@ -59,6 +62,7 @@ export interface CollaborationPanelProps {
   readonly onOpenSession?: (campaignId: Uuid) => void;
   readonly onOpenJourney?: () => void;
   readonly onOpenParticipants?: () => void;
+  readonly onOpenAccount?: () => void;
   readonly onCreateCharacter?: () => void;
   readonly onLinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
   /** Abre a ficha completa para editar (qualquer ficha que exista neste aparelho). */

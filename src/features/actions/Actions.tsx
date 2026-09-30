@@ -516,7 +516,7 @@ function groupOf(capability: ActionCapability): CapabilityGroup {
   return "spells";
 }
 
-export function Actions({ character, derived, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [], restInfo, carrying, walkSpeedCm, onOpenInventory }: ActionsProps) {
+export function Actions({ character, derived, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [], restInfo, carrying, walkSpeedCm, onOpenInventory, historyPanel }: ActionsProps) {
   const [selectedId, setSelectedId] = useState<string>();
   const [openGroup, setOpenGroup] = useState<CapabilityGroup>();
   const [skillsOpen, setSkillsOpen] = useState(false);
@@ -677,6 +677,7 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       )}
       {openGroup === "rest" ? null : selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
     </AppModal>
+    {historyPanel}
   </section>;
 }
 

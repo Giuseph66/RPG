@@ -61,16 +61,19 @@ import type { AccountAvailability, AccountSyncState } from "@features/account";
 import { FirebaseAuthAdapter, createFirebaseAssetStorageAdapter, getFirebaseApp, getFirebaseConfigDiagnostic } from "@infrastructure/cloud/firebase";
 import type { AssetTransferPort } from "@application/ports/asset-transfer";
 import type { PortraitRemoteStore } from "@application/ports/portrait-store";
-import { getFirestoreClient, createFirebaseFirestoreSyncAdapter } from "@infrastructure/cloud/firebase";
+import { getFirestoreClient, createFirebaseFirestoreSyncAdapter, createFirebasePlayerInviteLinkStore } from "@infrastructure/cloud/firebase";
 import { createSessionGatedOutboxRepository, createSyncOutboxService, createSyncRuntime, type SyncRuntime } from "@application/sync";
 import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityStorage, type MembershipService } from "@application/membership";
 import { createSessionService, type SessionService } from "@application/session";
 import type { SyncRuntimeSnapshot } from "@application/sync";
 import { type SessionAuthorizationPort } from "@application/session/authorization";
-import { asAccountId, asEntityId, type AccountId, type EntityId, type EntityType, type Uuid } from "@domain/contracts/ids";
+import { asAccountId, asEntityId, asUuid, type AccountId, type EntityId, type EntityType, type Uuid } from "@domain/contracts/ids";
 import { createFeatureRegistry, type FeatureRegistry } from "./feature-registry";
 import { createPortraitService } from "./portrait-service";
 import { createFirestorePortraitStore } from "@infrastructure/cloud/firebase/portrait-store";
+import { createFirestoreCampaignLog } from "@infrastructure/cloud/firebase/campaign-log-store";
+import { createCampaignLogRecorder, type CampaignLogRecorder } from "@application/campaign-log";
+import type { CampaignLogPort } from "@application/ports/campaign-log";
 import { AppRouter } from "./router";
 
 /**
@@ -375,7 +378,10 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     { currentSession: () => auth?.currentSession() ?? null },
     { onEnqueued: () => syncRuntime?.notifyPending() },
   );
+  // Criado depois que o pack carrega; até lá as gravações não entram no histórico da mesa.
+  let campaignLogRecorder: CampaignLogRecorder | undefined;
   const services = createApplicationServices({
+    onCharacterCommitted: (previous, next) => { void campaignLogRecorder?.recordCharacterChange(previous, next); },
     ownerUid: () => { const uid = auth?.currentSession()?.uid; return uid ? asAccountId(uid) : undefined; },
     characterRepository,
     campaignRepository,
@@ -390,6 +396,17 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   // The membership service is always local-capable. Reuse the session-gated outbox
   // after it is created so an authenticated offline session queues for replay while a
   // signed-out local session never emits cloud operations.
+  let inviteLinkStore: ReturnType<typeof createFirebasePlayerInviteLinkStore> | undefined;
+  const inviteLinkPort = firebaseApp ? {
+    create: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["create"]>[0]) => {
+      inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
+      return inviteLinkStore.create(input);
+    },
+    accept: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["accept"]>[0]) => {
+      inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
+      return inviteLinkStore.accept(input);
+    },
+  } : undefined;
   const membershipWithSync = createMembershipService({
     repository: membershipRepository,
     clock,
@@ -397,6 +414,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     unitOfWork: new IndexedDbUnitOfWork(database),
     syncOutbox: createSyncOutboxService(gatedOutboxRepository),
     localIdentity,
+    ...(inviteLinkPort ? { inviteLinkStore: inviteLinkPort } : {}),
   });
   const localMembership = createMembershipService({
     repository: membershipRepository,
@@ -453,6 +471,12 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   const portraitRemote: PortraitRemoteStore | undefined = firebaseApp ? {
     get: (id, campaignId) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id, campaignId),
     putCampaignCopy: (record) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).putCampaignCopy!(record),
+  } : undefined;
+  // Firestore só é iniciado no primeiro uso, como nos retratos.
+  let campaignLogStore: CampaignLogPort | undefined;
+  const campaignLog: CampaignLogPort | undefined = firebaseApp ? {
+    append: (entry) => (campaignLogStore ??= createFirestoreCampaignLog(getFirestoreClient(firebaseApp).firestore)).append(entry),
+    watch: (campaignId, onEntries, onError) => (campaignLogStore ??= createFirestoreCampaignLog(getFirestoreClient(firebaseApp).firestore)).watch(campaignId, onEntries, onError),
   } : undefined;
   const portraits = createPortraitService({
     assets,
@@ -524,7 +548,15 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     }
 
     const diceOverlayController = createDiceOverlayController({
-      history: services.dice,
+      history: {
+        hydrate: (...args) => services.dice.hydrate(...args),
+        // Rolagem de ficha vinculada (iniciativa, ataque…) também vai para o histórico da mesa.
+        append: async (entry) => {
+          const appended = await services.dice.append(entry);
+          if (appended.ok && entry.characterId) void campaignLogRecorder?.recordRoll(entry.roll);
+          return appended;
+        },
+      },
       rng: createPlatformRandomSource(),
       idGenerator,
       clock,
@@ -619,6 +651,17 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       recovery: recoveryRepository,
     });
 
+    if (campaignLog) {
+      campaignLogRecorder = createCampaignLogRecorder({
+        port: campaignLog,
+        actorUid: () => auth?.currentSession()?.uid,
+        loadCharacter: async (id) => { const loaded = await characterRepository.get(asUuid(id)); return loaded.ok ? loaded.value : undefined; },
+        conditionName: (entityId) => activePack.conditions.get(asEntityId(entityId))?.name ?? entityId,
+        newId: () => idGenerator.uuid(),
+        now: () => clock.now(),
+      });
+    }
+
     const definitionMaps: Readonly<Partial<Record<EntityType, ReadonlyMap<EntityId, { readonly name: string }>>>> = {
       race: activePack.races, subrace: activePack.subraces, class: activePack.classes, subclass: activePack.subclasses, background: activePack.backgrounds, feat: activePack.feats, feature: activePack.features, resource: activePack.resources, condition: activePack.conditions, equipment: activePack.equipment, spell: activePack.spells,
     };
@@ -628,6 +671,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       deriveCharacter: (character) => { const derived = deriveCharacter(character, activePack, STATIC_RULE_CONTEXT); return derived.ok ? derived.value : undefined; },
       resolveDefinitionName: (entityType, entityId) => definitionMaps[entityType]?.get(asEntityId(entityId))?.name,
       portraits,
+      ...(campaignLog ? { campaignLog } : {}),
       diceOverlayController,
       actionDispatcher,
       inventoryDispatcher,

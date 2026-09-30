@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Character } from "@domain/contracts/character";
 import type { DicePurpose, DiceRoll } from "@domain/contracts/dice";
 import type { CharacterDerived } from "@domain/contracts/derived";
@@ -149,6 +150,8 @@ export interface ActionsProps {
   readonly walkSpeedCm?: number;
   /** Leva ao inventário (painel de carga). */
   readonly onOpenInventory?: () => void;
+  /** Histórico da mesa (rolagens e estado das fichas), quando a ficha está numa campanha. */
+  readonly historyPanel?: ReactNode;
   readonly capabilities?: readonly ActionCapability[];
   /** Optional lookup for callers that keep previews separate from capability metadata. */
   readonly previews?: ReadonlyMap<string, ActionPreview> | Readonly<Record<string, ActionPreview>>;

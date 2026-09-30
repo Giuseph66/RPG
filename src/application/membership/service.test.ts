@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { asAccountId, asCommandId, asIsoTimestamp, asUuid, type AccountId } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
@@ -7,6 +7,7 @@ import { createPendingSyncOperation, type NewSyncOperation, type SyncOutboxServi
 
 import { createMemoryMembershipRepository } from "./ports";
 import { createMembershipService } from "./service";
+import type { PlayerInviteLinkStore } from "./ports";
 
 const campaignId = asUuid("00000000-0000-4000-8000-000000000501");
 const master = asAccountId("master-1");
@@ -15,7 +16,7 @@ const other = asAccountId("other-1");
 const timestamp = asIsoTimestamp("2026-09-12T10:00:00.000Z");
 const future = asIsoTimestamp("2026-09-13T10:00:00.000Z");
 
-function service(options: { readonly outbox?: SyncOutboxService } = {}) {
+function service(options: { readonly outbox?: SyncOutboxService; readonly inviteLinkStore?: PlayerInviteLinkStore } = {}) {
   let command = 0;
   return createMembershipService({
     repository: createMemoryMembershipRepository(),
@@ -24,7 +25,8 @@ function service(options: { readonly outbox?: SyncOutboxService } = {}) {
       uuid: () => asUuid("00000000-0000-4000-8000-000000000599"),
       commandId: () => asCommandId(`membership-${++command}`),
     },
-    ...options.outbox === undefined ? {} : { syncOutbox: options.outbox },
+    ...(options.outbox === undefined ? {} : { syncOutbox: options.outbox }),
+    ...(options.inviteLinkStore === undefined ? {} : { inviteLinkStore: options.inviteLinkStore }),
   });
 }
 
@@ -48,6 +50,47 @@ function outbox(operations: SyncOperation[], fail = false): SyncOutboxService {
 }
 
 describe("MembershipService", () => {
+  it("creates a one-use link for an active master and stores accepted membership locally", async () => {
+    const store: PlayerInviteLinkStore = {
+      create: async () => ({ ok: true, value: undefined }),
+      accept: async ({ accountId }) => ({
+        ok: true,
+        value: {
+          campaignId,
+          accountId,
+          role: "player",
+          status: "active",
+          invitedBy: master,
+          revision: asRevision(0),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      }),
+    };
+    const createSpy = vi.spyOn(store, "create");
+    const acceptSpy = vi.spyOn(store, "accept");
+    const current = service({ inviteLinkStore: store });
+    await current.ensureAccount({ actorId: master });
+    await current.ensureCampaignOwner({ actorId: master, campaignId });
+
+    const created = await current.createPlayerInviteLink({ actorId: master, campaignId });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.value.token).toMatch(/^[a-f0-9]{64}$/);
+    expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ campaignId, ownerUid: master, tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/) }));
+    expect(createSpy.mock.calls[0]?.[0].tokenHash).not.toBe(created.value.token);
+
+    const denied = await current.createPlayerInviteLink({ actorId: player, campaignId });
+    expect(denied).toMatchObject({ ok: false, error: { code: "membership-forbidden" } });
+    const accepted = await current.acceptPlayerInviteLink({ accountId: player, campaignId, token: created.value.token });
+    expect(accepted).toMatchObject({ ok: true, value: { accountId: player, role: "player", status: "active" } });
+    const acceptedTokenHash = acceptSpy.mock.calls[0]?.[0].tokenHash;
+    expect(acceptedTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(acceptedTokenHash).not.toBe(created.value.token);
+    expect(acceptSpy).toHaveBeenCalledWith(expect.objectContaining({ campaignId, accountId: player }));
+    expect(await current.listMemberships({ actorId: player, campaignId })).toMatchObject({ ok: true, value: [{ accountId: player, status: "active" }] });
+  });
+
   it("cria perfil mínimo sem aceitar senha e torna o perfil idempotente", async () => {
     const current = service();
     const created = await current.ensureAccount({ actorId: master, email: "master@example.com", displayName: "Mestre" });

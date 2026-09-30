@@ -8,7 +8,7 @@ import { type IdGenerator } from "@application/ports/id-generator";
 import { toJsonSnapshot, type SyncOutboxService } from "@application/sync";
 
 import { CharacterStore, createCharacterStore } from "./store";
-import { CharacterCommandService, type CharacterCommandServiceDependencies } from "./commands";
+import { CharacterCommandService, type CharacterCommandServiceDependencies, type CharacterCommittedListener } from "./commands";
 
 export interface CharacterApplicationServiceOptions {
   readonly repository: CharacterRepository;
@@ -27,6 +27,7 @@ interface CharacterSyncOptions {
   readonly unitOfWork?: UnitOfWork;
   readonly clock?: import("@application/ports/clock").Clock;
   readonly idGenerator?: IdGenerator;
+  readonly onCommitted?: CharacterCommittedListener;
 }
 
 function withCharacterSync(repository: CharacterRepository, options: CharacterSyncOptions): CharacterRepository {
@@ -46,6 +47,12 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
   }
 
   async function save(character: Character, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
+    // Versão anterior para o histórico da mesa; lida fora da transação (ver `remove`).
+    const previous = options.onCommitted && !context ? await repository.get(character.id) : undefined;
+    const notify = (saved: Result<Revision, AppError>) => {
+      if (saved.ok && options.onCommitted && !context) options.onCommitted(previous?.ok ? previous.value : undefined, { ...character, revision: saved.value });
+      return saved;
+    };
     const commit = async (transaction?: TransactionContext) => {
       const saved = await repository.save(character, expectedRevision, undefined, transaction);
       if (!saved.ok) return saved;
@@ -62,7 +69,7 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
       return queued.ok ? saved : err(queued.error);
     };
     if (context) return commit(context);
-    return unitOfWork ? unitOfWork.run((transaction) => commit(transaction)) : commit();
+    return notify(await (unitOfWork ? unitOfWork.run((transaction) => commit(transaction)) : commit()));
   }
 
   async function remove(id: Character["id"], expectedRevision: Revision, context?: TransactionContext): Promise<Result<void, AppError>> {

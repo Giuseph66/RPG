@@ -8,6 +8,7 @@ import type { CharacterCreationWizardProps as CreationProps } from "@features/ch
 import type { CharacterProgressionProps } from "@features/character/progression";
 import type { CharacterSelectionProps } from "@features/character/selection";
 import type { CharacterSheetProps, SheetPortrait } from "@features/character/sheet";
+import type { CampaignLogPort } from "@application/ports/campaign-log";
 import type { ActionCommitResult, ActionsProps } from "@features/actions";
 import type { InventoryIntent, InventoryProps } from "@features/inventory";
 import type { CampaignIntent, CampaignPanelProps, CampaignRecordIntent, CampaignRecordsProps, JourneyCampaignProps } from "@features/journey/campaign";
@@ -58,6 +59,8 @@ export interface FeatureRegistryDependencies {
   readonly resolveDefinitionName?: (entityType: EntityType, entityId: string) => string | undefined;
   /** Retratos: cópia local em IndexedDB e bytes no Cloud Storage quando há sessão. */
   readonly portraits?: SheetPortrait;
+  /** Histórico da mesa em tempo real (rolagens, PV, condições) quando há Firebase. */
+  readonly campaignLog?: CampaignLogPort;
   /** Read models are supplied by bootstrap; the registry does not own persistence. */
   readonly listCharacters?: () => Promise<Result<readonly CharacterSummary[], AppError>>;
   readonly listCharacterDrafts?: () => Promise<Result<readonly CharacterDraft[], AppError>>;
@@ -138,6 +141,7 @@ export interface FeatureRegistry {
     readonly bindProps: (props?: Omit<AccountPanelProps, "auth" | "availability">) => AccountPanelProps;
   };
   readonly membership?: MembershipService;
+  readonly campaignLog?: CampaignLogPort;
   readonly session?: SessionService;
 }
 
@@ -237,5 +241,5 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     }),
   };
 
-  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
+  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.campaignLog ? { campaignLog: dependencies.campaignLog } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
 }

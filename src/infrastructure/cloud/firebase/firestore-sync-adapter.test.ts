@@ -215,6 +215,20 @@ describe("FirebaseFirestoreSyncAdapter", () => {
     expect(fake.setCalls[0]?.data).not.toHaveProperty("storagePath");
   });
 
+  it("mestre ajusta ficha de campanha sem tomar a posse do jogador", async () => {
+    const fake = fakeFirestore({ [`campaigns/${campaignId}/characters/${characterId}`]: { id: characterId, campaignId, ownerUid: "player-1", revision: 3, createdAt: "t0" } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "master-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "character",
+      aggregateId: characterId,
+      baseRevision: asRevision(3),
+      payload: { id: characterId, campaignId, ownerUid: "player-1", hp: { current: 4, temp: 0 }, revision: 4, schemaVersion: 1 },
+    }));
+
+    expect(result.ok).toBe(true);
+    expect(fake.setCalls[0]).toMatchObject({ path: `campaigns/${campaignId}/characters/${characterId}`, data: { ownerUid: "player-1", revision: 4, createdAt: "t0" } });
+  });
+
   it("grava a cópia do retrato dentro da campanha para o mestre ler", async () => {
     const fake = fakeFirestore();
     const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });

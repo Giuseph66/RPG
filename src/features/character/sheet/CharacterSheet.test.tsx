@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { asCentimeters, type SourceRef } from "@domain/contracts/primitives";
 import { asEntityId, asUuid } from "@domain/contracts/ids";
+import { asRevision } from "@domain/contracts/versioning";
 import { minimalCharacter } from "@domain/contracts/fixtures";
 import type { Character } from "@domain/contracts/character";
 import type { CharacterDerived } from "@domain/contracts/derived";
@@ -100,6 +101,28 @@ describe("CharacterSheet", () => {
     await fireEvent(amount, new Event("input", { bubbles: true }));
     await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Cura") as HTMLElement);
     expect(updates.at(-1)?.hp).toEqual({ current: 11, temp: 0 });
+    await mounted.unmount();
+  });
+
+  it("mostra em tempo real o PV ajustado por outra pessoa depois de uma edição local", async () => {
+    let state = withCharacter({ hp: { current: 11, temp: 0 } });
+    const service = {
+      update: vi.fn((fn: (current: Character) => Character) => { state = fn(state); return { ok: true as const, value: state }; }),
+      save: vi.fn(async () => ({ ok: true as const, value: minimalCharacter.revision })),
+      retry: vi.fn(),
+      flush: vi.fn(),
+    };
+    const hpDerived = { ...derived, hitPointsMax: explanation(11) };
+    const mounted = await mount(<CharacterSheet character={state} derived={hpDerived} service={service} />);
+    const amount = mounted.container.querySelector('[aria-label="Quantidade de PV"]') as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(amount, "3");
+    await fireEvent(amount, new Event("input", { bubbles: true }));
+    await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Dano") as HTMLElement);
+    expect((mounted.container.querySelector("summary strong") as HTMLElement).textContent).toBe("8/11");
+    // O mestre ajusta o PV: chega uma nova revisão vinda do Firestore.
+    const remote = { ...state, hp: { current: 2, temp: 0 }, revision: asRevision(Number(state.revision) + 1) };
+    await mounted.rerender(<CharacterSheet character={remote} derived={hpDerived} service={service} />);
+    expect((mounted.container.querySelector("summary strong") as HTMLElement).textContent).toBe("2/11");
     await mounted.unmount();
   });
 

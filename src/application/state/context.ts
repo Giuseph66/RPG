@@ -13,7 +13,7 @@ import { createSyncOutboxService } from "@application/sync";
 
 import { createCampaignApplicationService, type CampaignApplicationService } from "@application/campaign";
 import { type CampaignCleanupManifestReader } from "@application/sync";
-import { createCharacterApplicationService, type CharacterApplicationService } from "@application/character";
+import { createCharacterApplicationService, type CharacterApplicationService, type CharacterCommittedListener } from "@application/character";
 import { createDiceApplicationService, type DiceApplicationService } from "@application/dice";
 import { createSettingsApplicationService, type SettingsApplicationService } from "@application/settings";
 
@@ -31,6 +31,8 @@ export interface ApplicationDependencies {
   readonly cleanupManifestReader?: CampaignCleanupManifestReader;
   /** Conta conectada agora; permite excluir fichas privadas também na nuvem. */
   readonly ownerUid?: () => AccountId | undefined;
+  /** Avisado a cada ficha gravada localmente; alimenta o histórico da mesa. */
+  readonly onCharacterCommitted?: CharacterCommittedListener;
 }
 
 export interface ApplicationServices {
@@ -63,6 +65,7 @@ export function createApplicationServices(
               unitOfWork: dependencies.unitOfWork,
               idGenerator: dependencies.idGenerator,
               syncOutbox,
+              ...(dependencies.onCharacterCommitted ? { onCommitted: dependencies.onCharacterCommitted } : {}),
             },
           }
         : {}),

@@ -25,6 +25,7 @@ import { DRAFT_STEP_LABELS } from "@features/character/selection/types";
 import type { AccountSyncState } from "@features/account";
 import type { AccountCampaign } from "@features/account/types";
 import type { CampaignAdjustmentTarget, CollaborationCharacter } from "@features/collaboration/types";
+import type { CampaignLogEntry } from "@domain/contracts/campaign-log";
 import type { CompendiumCategoryId, CompendiumDetail, CompendiumFilters } from "@application/compendium";
 import type { FeatureRegistry } from "./feature-registry";
 import { matchRoute, type RouteMatch } from "./routes";
@@ -34,6 +35,7 @@ import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
 import { attackRollsFor, carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, spellOptionsFor, spellRollsFor, unequippedWeaponsFor } from "./character-route-data";
 
+const LazyCampaignLog = lazy(() => import("@features/campaign-log").then((module) => ({ default: module.CampaignLog })));
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
 const LazyCharacterSheet = lazy(() => import("@features/character/sheet").then((module) => ({ default: module.CharacterSheet })));
 const LazyCharacterCreation = lazy(() => import("@features/character/creation").then((module) => ({ default: module.CharacterCreationWizard })));
@@ -448,6 +450,24 @@ function AccountRoute({ registry, navigate, syncState, syncMessage, campaign }: 
   })} campaigns={accountCampaigns} {...(syncState ? { syncState } : {})} {...(syncMessage ? { syncMessage } : {})} />;
 }
 
+/** Assina o histórico da campanha no Firestore; some quando não há conta ou campanha. */
+function CampaignLogRoute({ registry, campaignId, focusCharacterId }: { readonly registry: FeatureRegistry; readonly campaignId?: string; readonly focusCharacterId?: string }) {
+  const port = registry.campaignLog;
+  const signedIn = Boolean(registry.account.auth?.currentSession());
+  const [state, setState] = useState<{ readonly key?: string; readonly entries: readonly CampaignLogEntry[]; readonly status: "loading" | "ready" | "error" }>({ entries: [], status: "loading" });
+  useEffect(() => {
+    if (!port || !campaignId || !signedIn) return undefined;
+    setState({ key: campaignId, entries: [], status: "loading" });
+    return port.watch(campaignId, (entries) => setState({ key: campaignId, entries, status: "ready" }), (cause) => {
+      console.warn("[sync] Histórico da mesa indisponível", { campaignId, cause });
+      setState({ key: campaignId, entries: [], status: "error" });
+    });
+  }, [port, campaignId, signedIn]);
+  if (!port || !campaignId || !signedIn) return null;
+  const current = state.key === campaignId ? state : { entries: [], status: "loading" as const };
+  return <Suspense fallback={null}><LazyCampaignLog entries={current.entries} status={current.status} {...(focusCharacterId ? { focusCharacterId } : {})} /></Suspense>;
+}
+
 function CollaborationRoute({ registry, campaign, navigate, view, pack, syncState, syncMessage, syncHydration, onRefreshSync }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void; readonly view?: "characters" | "participants"; readonly pack?: RulePack; readonly syncState?: AccountSyncState; readonly syncMessage?: string; readonly syncHydration?: object; readonly onRefreshSync?: () => Promise<void> }) {
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(campaign?.value ? [campaign.value] : []);
   const [characters, setCharacters] = useState<readonly CollaborationCharacter[]>([]);
@@ -512,6 +532,7 @@ function CollaborationRoute({ registry, campaign, navigate, view, pack, syncStat
     syncMessage={syncMessage}
     syncHydration={syncHydration}
     onRefreshSync={onRefreshSync}
+    {...(view === "characters" && campaign?.value ? { historyPanel: <CampaignLogRoute registry={registry} campaignId={String(campaign.value.id)} /> } : {})}
     campaigns={campaigns.map((item) => ({ id: item.id, name: item.name }))}
     characters={characters}
     activeCampaignId={campaign?.value?.id}
@@ -520,6 +541,7 @@ function CollaborationRoute({ registry, campaign, navigate, view, pack, syncStat
     onOpenSession={(id) => navigate(`/session/${id}`)}
     onOpenJourney={() => navigate("/journey")}
     onOpenParticipants={() => navigate("/journey/participants")}
+    onOpenAccount={() => navigate("/account")}
     onCreateCharacter={() => navigate("/character/create")}
     onOpenCharacter={(characterId) => navigate(`/character/${characterId}`)}
     onDeleteCharacter={async (target) => {
@@ -936,7 +958,7 @@ function renderRegistryRoute(
   if (match.kind === "actions") {
     const ActionPage = LazyActions;
     const derived = currentCharacter ? registry.character.bindSheetProps({ character: currentCharacter }).derived : undefined;
-    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} />;
+    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} historyPanel={currentCharacter?.campaignId ? <CampaignLogRoute registry={registry} campaignId={String(currentCharacter.campaignId)} focusCharacterId={String(currentCharacter.id)} /> : undefined} />;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} campaignRole={campaignRole} match={match} navigate={navigate} pack={pack} syncHydration={syncHydration} />;

@@ -256,6 +256,12 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
     setMessage(undefined);
   }, [character?.id]);
 
+  // Nova revisão = ficha gravada ou atualizada por outra pessoa (ex.: mestre ajustou o PV).
+  // O store já tem os valores; manter o rascunho esconderia a atualização em tempo real.
+  useEffect(() => {
+    setDraft({});
+  }, [character?.revision]);
+
   // Vindo de Ações → Condições (`#condicoes`): leva direto ao painel.
   useEffect(() => {
     if (!character || typeof window === "undefined" || window.location.hash !== "#condicoes") return;

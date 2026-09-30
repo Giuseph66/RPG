@@ -80,6 +80,21 @@ service cloud.firestore {
     }
 
     match /campaigns/{campaignId} {
+      function acceptedInviteLink(data) {
+        return signedIn() && data.inviteLinkId is string &&
+          existsAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)) &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.campaignId == campaignId &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.ownerUid == data.ownerUid &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.status == 'accepted' &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.acceptedBy == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.acceptedAt == request.time &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.expiresAt is timestamp &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/inviteLinks/$(data.inviteLinkId)).data.expiresAt > request.time &&
+          data.campaignId == campaignId && data.accountId == request.auth.uid &&
+          data.ownerUid == get(/databases/$(database)/documents/campaigns/$(campaignId)).data.ownerUid &&
+          data.invitedBy == data.ownerUid && data.role == 'player' && data.status == 'active';
+      }
+
       allow read: if (signedIn() && resource == null) ||
         (campaignMember(campaignId) && resource.data.id == campaignId);
       allow create: if signedIn() && hasRecordIdentity(request.resource.data, campaignId) &&
@@ -88,6 +103,34 @@ service cloud.firestore {
         request.resource.data.id == campaignId && protectedFieldsUnchanged(resource.data, request.resource.data) &&
         revisionAdvances(resource.data, request.resource.data);
       allow delete: if campaignOwner(campaignId) && resource.data.id == campaignId;
+
+      // Link de convite é uma capacidade aleatória, curta e de uso único. Não pode ser enumerado.
+      match /inviteLinks/{tokenHash} {
+        allow get: if signedIn() && (resource == null || resource.data.campaignId == campaignId);
+        allow list: if false;
+        allow create: if campaignOwner(campaignId) &&
+          tokenHash.matches('^[a-f0-9]{64}$') &&
+          request.resource.data.keys().hasOnly(['campaignId', 'ownerUid', 'status', 'createdAt', 'expiresAt']) &&
+          request.resource.data.campaignId == campaignId &&
+          request.resource.data.ownerUid == request.auth.uid &&
+          request.resource.data.status == 'open' &&
+          request.resource.data.createdAt == request.time &&
+          request.resource.data.expiresAt is timestamp &&
+          request.resource.data.expiresAt > request.time;
+        allow update: if signedIn() &&
+          resource.data.campaignId == campaignId && resource.data.status == 'open' &&
+          request.resource.data.campaignId == campaignId &&
+          request.resource.data.ownerUid == resource.data.ownerUid &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          request.resource.data.expiresAt == resource.data.expiresAt &&
+          request.resource.data.status == 'accepted' &&
+          request.resource.data.acceptedBy == request.auth.uid &&
+          request.resource.data.acceptedAt == request.time &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedBy', 'acceptedAt']) &&
+          existsAfter(/databases/$(database)/documents/campaigns/$(campaignId)/members/$(request.auth.uid)) &&
+          getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/members/$(request.auth.uid)).data.inviteLinkId == tokenHash;
+        allow delete: if false;
+      }
 
       match /members/{memberUid} {
         allow get: if campaignOwner(campaignId) || self(memberUid);
@@ -103,7 +146,13 @@ service cloud.firestore {
            (request.resource.data.role == 'player' && request.resource.data.status == 'invited' &&
             request.resource.data.invitedBy == request.auth.uid &&
             request.resource.data.inviteExpiresAt is timestamp &&
-            request.resource.data.inviteExpiresAt > request.time));
+            request.resource.data.inviteExpiresAt > request.time)) ||
+          (self(memberUid) &&
+            request.resource.data.campaignId == campaignId &&
+            request.resource.data.accountId == memberUid &&
+            request.resource.data.role == 'player' &&
+            request.resource.data.status == 'active' &&
+            acceptedInviteLink(request.resource.data));
         // O mestre pode revogar/manter um jogador. O convidado só aceita o próprio convite.
         allow update: if (campaignOwner(campaignId) && request.resource.data.role == 'player' &&
           resource.data.campaignId == campaignId && resource.data.accountId == memberUid &&
@@ -125,7 +174,17 @@ service cloud.firestore {
             resource.data.inviteExpiresAt is timestamp &&
             resource.data.inviteExpiresAt > request.time &&
             request.resource.data.inviteExpiresAt == resource.data.inviteExpiresAt &&
-            revisionAdvances(resource.data, request.resource.data));
+            revisionAdvances(resource.data, request.resource.data)) ||
+          (self(memberUid) && resource.data.role == 'player' &&
+            resource.data.status in ['invited', 'active', 'revoked'] &&
+            resource.data.campaignId == campaignId && resource.data.accountId == memberUid &&
+            request.resource.data.campaignId == campaignId &&
+            request.resource.data.accountId == memberUid &&
+            request.resource.data.ownerUid == resource.data.ownerUid &&
+            request.resource.data.invitedBy == resource.data.invitedBy &&
+            request.resource.data.role == 'player' && request.resource.data.status == 'active' &&
+            revisionAdvances(resource.data, request.resource.data) &&
+            acceptedInviteLink(request.resource.data));
         allow delete: if campaignOwner(campaignId) && resource.data.campaignId == campaignId &&
           resource.data.accountId == memberUid && resource.data.role == 'player';
       }
@@ -139,11 +198,35 @@ service cloud.firestore {
         allow update: if campaignMember(campaignId) &&
           hasCampaignRecordIdentity(resource.data, campaignId, characterId) &&
           hasCampaignRecordIdentity(request.resource.data, campaignId, characterId) &&
-          resource.data.ownerUid == request.auth.uid &&
-          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
+          protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data) &&
+          // O dono edita a ficha inteira; o mestre só ajusta PV, condições e ajustes manuais.
+          (resource.data.ownerUid == request.auth.uid ||
+            (campaignOwner(campaignId) &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hp', 'conditions', 'manualAdjustments', 'updatedAt', 'revision', 'operationId'])));
         allow delete: if campaignMember(campaignId) &&
           hasCampaignRecordIdentity(resource.data, campaignId, characterId) &&
           resource.data.ownerUid == request.auth.uid;
+      }
+
+      // Histórico da mesa: rolagens e mudanças de PV/condições. Todos os membros leem; cada
+      // um só escreve em nome da própria conta; ninguém reescreve; o mestre pode limpar.
+      match /log/{entryId} {
+        allow get, list: if campaignMember(campaignId);
+        allow create: if campaignMember(campaignId) &&
+          request.resource.data.keys().hasOnly(['id', 'campaignId', 'characterId', 'characterName', 'actorUid', 'byMaster', 'kind', 'summary', 'detail', 'rollPurpose', 'rollTotal', 'createdAt', 'at']) &&
+          request.resource.data.id == entryId && request.resource.data.campaignId == campaignId &&
+          request.resource.data.actorUid == request.auth.uid &&
+          request.resource.data.kind in ['roll', 'hit-points', 'conditions', 'adjustments'] &&
+          request.resource.data.byMaster is bool &&
+          request.resource.data.characterId is string && request.resource.data.characterId.size() <= 64 &&
+          request.resource.data.characterName is string && request.resource.data.characterName.size() <= 120 &&
+          request.resource.data.summary is string && request.resource.data.summary.size() <= 200 &&
+          (!('detail' in request.resource.data) || (request.resource.data.detail is string && request.resource.data.detail.size() <= 300)) &&
+          (!('rollPurpose' in request.resource.data) || request.resource.data.rollPurpose is string) &&
+          (!('rollTotal' in request.resource.data) || request.resource.data.rollTotal is number) &&
+          request.resource.data.createdAt is string && request.resource.data.at == request.time;
+        allow update: if false;
+        allow delete: if campaignOwner(campaignId);
       }
 
       // Cópia do retrato do personagem para a campanha: o mestre e o grupo veem a imagem do jogador.
