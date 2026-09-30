@@ -153,6 +153,7 @@
 .inviteModal > div:last-child { display: flex; justify-content: flex-end; gap: var(--spacing-sm); }
 .inviteLinkResult { display: grid; gap: var(--spacing-sm); max-width: 34rem; margin-top: var(--spacing-md); }
 .inviteLinkResult code { overflow-wrap: anywhere; user-select: all; }
+.inviteLinkActions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
 @media (max-width: 620px) { .focusedHeader { align-items: flex-start; flex-direction: column; } .conditionsField > div, .adjustmentInputs { grid-template-columns: 1fr; } }
 
 /* ====================================================================== */

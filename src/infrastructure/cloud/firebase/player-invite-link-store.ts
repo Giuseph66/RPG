@@ -143,6 +143,41 @@ export class FirebasePlayerInviteLinkStore implements PlayerInviteLinkStore {
     }
   }
 
+  async revoke(input: {
+    readonly campaignId: Uuid;
+    readonly ownerUid: AccountId;
+    readonly tokenHash: string;
+  }): Promise<Result<void, MembershipError>> {
+    if (!/^[a-f0-9]{64}$/.test(input.tokenHash)) {
+      return failure("membership-validation", "Token de convite inválido.", input.campaignId, input.ownerUid);
+    }
+    try {
+      return await this.deps.runTransaction(this.firestore, async (transaction) => {
+        const reference = this.deps.doc(this.firestore, `campaigns/${input.campaignId}/inviteLinks/${input.tokenHash}`);
+        const snapshot = await transaction.get(reference) as InviteSnapshot;
+        if (!snapshot.exists()) return failure("membership-not-found", "Link de convite não encontrado.", input.campaignId, input.ownerUid);
+        const invite = snapshot.data();
+        if (!isRecord(invite) || invite.campaignId !== input.campaignId) {
+          return failure("membership-invalid-state", "Link de convite inválido.", input.campaignId, input.ownerUid);
+        }
+        if (invite.ownerUid !== input.ownerUid) {
+          return failure("membership-forbidden", "Somente o mestre que criou o link pode desativá-lo.", input.campaignId, input.ownerUid);
+        }
+        if (invite.status !== "open") {
+          return failure("membership-invalid-state", invite.status === "accepted" ? "Este link já foi usado." : "Este link já foi desativado.", input.campaignId, input.ownerUid);
+        }
+        transaction.set(reference, {
+          ...invite,
+          status: "revoked",
+          revokedAt: this.deps.serverTimestamp(),
+        });
+        return ok(undefined);
+      });
+    } catch (cause) {
+      return remoteFailure(cause, input.campaignId, input.ownerUid);
+    }
+  }
+
   async accept(input: {
     readonly campaignId: Uuid;
     readonly accountId: AccountId;

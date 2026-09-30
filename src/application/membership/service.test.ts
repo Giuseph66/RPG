@@ -53,6 +53,7 @@ describe("MembershipService", () => {
   it("creates a one-use link for an active master and stores accepted membership locally", async () => {
     const store: PlayerInviteLinkStore = {
       create: async () => ({ ok: true, value: undefined }),
+      revoke: vi.fn(async () => ({ ok: true as const, value: undefined })),
       accept: async ({ accountId }) => ({
         ok: true,
         value: {
@@ -68,6 +69,7 @@ describe("MembershipService", () => {
       }),
     };
     const createSpy = vi.spyOn(store, "create");
+    const revokeSpy = vi.spyOn(store, "revoke");
     const acceptSpy = vi.spyOn(store, "accept");
     const current = service({ inviteLinkStore: store });
     await current.ensureAccount({ actorId: master });
@@ -89,6 +91,11 @@ describe("MembershipService", () => {
     expect(acceptedTokenHash).not.toBe(created.value.token);
     expect(acceptSpy).toHaveBeenCalledWith(expect.objectContaining({ campaignId, accountId: player }));
     expect(await current.listMemberships({ actorId: player, campaignId })).toMatchObject({ ok: true, value: [{ accountId: player, status: "active" }] });
+
+    expect(await current.revokePlayerInviteLink({ actorId: master, campaignId, token: created.value.token })).toEqual({ ok: true, value: undefined });
+    expect(revokeSpy).toHaveBeenCalledWith(expect.objectContaining({ campaignId, ownerUid: master, tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/) }));
+    expect(revokeSpy.mock.calls[0]?.[0].tokenHash).not.toBe(created.value.token);
+    expect(await current.revokePlayerInviteLink({ actorId: player, campaignId, token: created.value.token })).toMatchObject({ ok: false, error: { code: "membership-forbidden" } });
   });
 
   it("cria perfil mínimo sem aceitar senha e torna o perfil idempotente", async () => {

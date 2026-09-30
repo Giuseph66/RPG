@@ -47,6 +47,12 @@ export interface AcceptPlayerInviteLinkInput {
   readonly token: string;
 }
 
+export interface RevokePlayerInviteLinkInput {
+  readonly actorId: AccountId;
+  readonly campaignId: Uuid;
+  readonly token: string;
+}
+
 export interface PlayerInviteLink {
   readonly campaignId: Uuid;
   /** Segredo de 256 bits para compor o link; persistimos somente seu hash. */
@@ -309,6 +315,28 @@ export class MembershipService {
     return this.write(async (context) => {
       const saved = await this.options.repository.saveMembership(accepted.value, context);
       return saved.ok ? ok(saved.value) : failure("membership-unavailable", saved.error.message, input.campaignId, input.accountId);
+    });
+  }
+
+  async revokePlayerInviteLink(input: RevokePlayerInviteLinkInput): Promise<MembershipResult<void>> {
+    const actor = validActor(input.actorId);
+    if (!actor.ok) return actor;
+    if (!this.options.inviteLinkStore) return failure("membership-unavailable", "Desativar links exige Firebase configurado e conexão.", input.campaignId, input.actorId);
+    if (!/^[a-f0-9]{64}$/i.test(input.token)) return failure("membership-validation", "Link de convite inválido.", input.campaignId, input.actorId);
+    const owner = await this.options.repository.getMembership(input.campaignId, input.actorId);
+    if (!(owner.ok && isActiveMaster(owner.value, input.actorId))) {
+      return failure("membership-forbidden", "Somente o mestre ativo pode desativar um link de convite.", input.campaignId, input.actorId);
+    }
+    let tokenHash: string;
+    try {
+      tokenHash = await inviteTokenHash(input.token.toLowerCase());
+    } catch {
+      return failure("membership-unavailable", "Não foi possível validar o link de convite.", input.campaignId, input.actorId);
+    }
+    return this.options.inviteLinkStore.revoke({
+      campaignId: input.campaignId,
+      ownerUid: input.actorId,
+      tokenHash,
     });
   }
 

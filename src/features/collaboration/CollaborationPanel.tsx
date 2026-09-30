@@ -24,6 +24,13 @@ function statusLabel(status: Membership["status"]): string {
   return status === "active" ? "Ativo" : status === "invited" ? "Convite pendente" : "Revogado";
 }
 
+function messageTone(message: string): "success" | "error" {
+  const success = message.includes("salvo") || message.includes("aceito") || message.includes("vinculado") ||
+    message.includes("desvinculado") || message === "Acesso revogado." || message === "Link copiado." ||
+    message.startsWith("Link criado.") || message === "Link desativado.";
+  return success ? "success" : "error";
+}
+
 function syncCopy(state: CollaborationPanelProps["syncState"]): { readonly label: string; readonly description: string; readonly tone: "info" | "warning" | "success" } {
   switch (state) {
     case "offline": return { label: "Offline", description: "Sem conexão. Alterações locais serão enviadas quando a rede voltar.", tone: "warning" };
@@ -306,6 +313,25 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
     }
   }
 
+  async function revokeInviteLink() {
+    if (!membership || !session || !selectedCampaign || !inviteUrl) return;
+    const link = parsePlayerInviteHash(new URL(inviteUrl).hash);
+    if (!link || link.campaignId !== selectedCampaign.id) {
+      setMessage("Não foi possível identificar este link de convite.");
+      return;
+    }
+    setBusy(true); setMessage(undefined);
+    const result = await membership.revokePlayerInviteLink({
+      actorId: asAccountId(session.uid),
+      campaignId: link.campaignId,
+      token: link.token,
+    });
+    setBusy(false);
+    if (!result.ok) { setMessage(result.error.message); return; }
+    setInviteUrl("");
+    setMessage("Link desativado.");
+  }
+
   async function acceptLinkedInvite() {
     if (!membership || !session || !linkedInvite) return;
     setBusy(true); setMessage(undefined);
@@ -323,7 +349,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
     if (selectedCampaign?.id === result.value.campaignId) await loadMembers();
   }
 
-  const inviteLinkResult = inviteUrl ? <div className={styles.inviteLinkResult}><code>{inviteUrl}</code><Button size="sm" variant="secondary" onClick={() => void copyInviteLink()}>Copiar link</Button></div> : null;
+  const inviteLinkResult = inviteUrl ? <div className={styles.inviteLinkResult}><code>{inviteUrl}</code><div className={styles.inviteLinkActions}><Button size="sm" variant="secondary" disabled={busy} onClick={() => void copyInviteLink()}>Copiar link</Button><Button size="sm" variant="danger" disabled={busy} onClick={() => void revokeInviteLink()}>Desativar link</Button></div></div> : null;
 
   async function revoke(accountId: string) {
     if (!membership || !actorId || !selectedCampaign) return;
@@ -510,7 +536,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
   if (view === "participants") return <section className={styles.focusedPage} aria-labelledby="campaign-participants-title">
     <header className={styles.focusedHeader}><div><p className={styles.eyebrow}>JORNADA · MESA COMPARTILHADA</p><h1 id="campaign-participants-title">Participantes</h1><p>{selectedCampaign ? `Pessoas convidadas para ${selectedCampaign.name}.` : "Convites recebidos e participação nas campanhas."}</p></div><div className={styles.focusedActions}>{session && onRefreshSync ? <Button variant="secondary" disabled={busy} onClick={() => void refreshInvitations()}>Sincronizar agora</Button> : null}{isMaster && selectedCampaign ? <Button onClick={() => setInviteOpen(true)}><Plus size={17} aria-hidden="true" /> Convidar jogador</Button> : null}</div></header>
     {syncState === "error" && syncMessage ? <InlineStatus tone="warning">{syncMessage}</InlineStatus> : null}
-    {message ? <InlineStatus tone={message.includes("salvo") || message.includes("aceito") || message.includes("vinculado") || message.includes("Link") ? "success" : "error"}>{message}</InlineStatus> : null}
+    {message ? <InlineStatus tone={messageTone(message)}>{message}</InlineStatus> : null}
     {isMaster && !session ? <InlineStatus tone="warning">Esta mesa está em modo local. Convites feitos aqui não chegam a outro navegador. Entre na conta do mestre para usar a sincronização.</InlineStatus> : null}
     {linkedInvite ? <SectionCard heading="Convite recebido" headingLevel={2}><p>Você recebeu um link para entrar em uma campanha.</p>{session ? <Button busy={busy} disabled={busy} onClick={() => void acceptLinkedInvite()}>Aceitar convite</Button> : <div><p>Entre em uma conta para aceitar; depois volte a esta aba.</p>{onOpenAccount ? <Button variant="secondary" onClick={onOpenAccount}>Entrar na conta</Button> : null}</div>}</SectionCard> : null}
     {invitations.length ? <SectionCard heading="Convites recebidos" headingLevel={2}><ul className={styles.memberList}>{invitations.map((item) => <li key={`${item.campaignId}:${item.accountId}`} className={styles.member}><span>Convite para {campaigns.find((entry) => entry.id === item.campaignId)?.name ?? `campanha ${String(item.campaignId).slice(0, 8)}`}</span><Button size="sm" disabled={busy} onClick={() => void accept(String(item.campaignId))}>Aceitar convite</Button></li>)}</ul></SectionCard> : null}
@@ -552,7 +578,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
     </section> : null}
     {campaigns.length === 0 ? <SectionCard heading="Campanhas" headingLevel={2}><p className={styles.empty}>Crie uma campanha para convidar jogadores.</p>{onOpenJourney ? <Button className={styles.sessionButton} onClick={onOpenJourney}>Criar campanha</Button> : null}</SectionCard> : <>
       <SectionCard heading="Campanha" headingLevel={2}><label className={styles.label} htmlFor="collaboration-campaign">Escolha a campanha</label><select id="collaboration-campaign" className={styles.select} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{campaigns.map((campaign) => <option key={String(campaign.id)} value={String(campaign.id)}>{campaign.name}</option>)}</select>{onOpenSession && selectedCampaign ? <Button className={styles.sessionButton} variant="secondary" onClick={() => onOpenSession(selectedCampaign.id)}><GiCrossedSwords aria-hidden="true" /> Abrir sessões</Button> : null}</SectionCard>
-      {message ? <InlineStatus tone={message.includes("salvo") || message.includes("aceito") || message.includes("vinculado") || message.includes("Link") || message.includes("desvinculado") ? "success" : "error"}>{message}</InlineStatus> : null}
+      {message ? <InlineStatus tone={messageTone(message)}>{message}</InlineStatus> : null}
       {isMaster && masterTab === "participants" ? <div id="master-panel-participants" role="tabpanel" aria-labelledby="master-tab-participants" tabIndex={0}>
         <SectionCard heading="Convidar jogador" headingLevel={2}><div className={styles.inviteForm}><p>Crie um link de uso único; o jogador precisa entrar em uma conta para aceitar.</p><Button busy={busy} disabled={busy || !session} onClick={() => void createInviteLink()}>{inviteUrl ? "Gerar outro link" : "Gerar link de convite"}</Button></div>{inviteLinkResult}</SectionCard>
         <SectionCard heading="Jogadores e mestre" headingLevel={2}>

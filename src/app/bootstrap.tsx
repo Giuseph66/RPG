@@ -402,6 +402,10 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
       return inviteLinkStore.create(input);
     },
+    revoke: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["revoke"]>[0]) => {
+      inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
+      return inviteLinkStore.revoke(input);
+    },
     accept: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["accept"]>[0]) => {
       inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
       return inviteLinkStore.accept(input);

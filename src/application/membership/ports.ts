@@ -21,6 +21,11 @@ export interface PlayerInviteLinkStore {
     readonly tokenHash: string;
     readonly expiresAt: IsoTimestamp;
   }): Promise<Result<void, MembershipError>>;
+  revoke(input: {
+    readonly campaignId: Uuid;
+    readonly ownerUid: AccountId;
+    readonly tokenHash: string;
+  }): Promise<Result<void, MembershipError>>;
   accept(input: {
     readonly campaignId: Uuid;
     readonly accountId: AccountId;

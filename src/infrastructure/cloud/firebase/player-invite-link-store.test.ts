@@ -70,6 +70,23 @@ describe("FirebasePlayerInviteLinkStore", () => {
     expect(await store.accept(input)).toMatchObject({ ok: true, value: { accountId: playerUid, status: "active" } });
   });
 
+  it("revokes an open link and rejects another owner or a previously used link", async () => {
+    const invitePath = `campaigns/${campaignId}/inviteLinks/${tokenHash}`;
+    const open = fakeStore({ [invitePath]: inviteRecord() });
+    expect(await open.store.revoke({ campaignId, ownerUid, tokenHash })).toEqual({ ok: true, value: undefined });
+    expect(open.documents.get(invitePath)).toMatchObject({ status: "revoked", revokedAt: now });
+    expect(await open.store.accept({ campaignId, accountId: playerUid, tokenHash, now }))
+      .toMatchObject({ ok: false, error: { code: "membership-invalid-state" } });
+
+    const wrongOwner = fakeStore({ [invitePath]: inviteRecord() });
+    expect(await wrongOwner.store.revoke({ campaignId, ownerUid: playerUid, tokenHash }))
+      .toMatchObject({ ok: false, error: { code: "membership-forbidden" } });
+
+    const accepted = fakeStore({ [invitePath]: inviteRecord({ status: "accepted", acceptedBy: playerUid }) });
+    expect(await accepted.store.revoke({ campaignId, ownerUid, tokenHash }))
+      .toMatchObject({ ok: false, error: { code: "membership-invalid-state" } });
+  });
+
   it("rejects expired, reused-by-another-account, and unknown links", async () => {
     const invitePath = `campaigns/${campaignId}/inviteLinks/${tokenHash}`;
     const expired = fakeStore({ [invitePath]: inviteRecord({ expiresAt: now }) });

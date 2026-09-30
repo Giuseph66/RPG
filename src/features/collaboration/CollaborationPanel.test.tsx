@@ -21,6 +21,7 @@ function fakeMembership() {
     revokeMembership: vi.fn(async () => ok(master)),
     acceptInvite: vi.fn(async () => ok(master)),
     createPlayerInviteLink: vi.fn(async () => ok({ campaignId: campaign.id, token: inviteToken, expiresAt: "2026-09-20T10:00:00.000Z" })),
+    revokePlayerInviteLink: vi.fn(async () => ok(undefined)),
     acceptPlayerInviteLink: vi.fn(async () => ok({ ...master, accountId: asAccountId(playerSession.uid), role: "player" as const, status: "active" as const })),
   } as unknown as MembershipService;
 }
@@ -64,6 +65,13 @@ describe("CollaborationPanel", () => {
     await vi.waitFor(() => expect(membership.createPlayerInviteLink).toHaveBeenCalledWith({ actorId: asAccountId(session.uid), campaignId: campaign.id }));
     expect(mounted.container.textContent).toContain(`#invite=${campaign.id}.${inviteToken}`);
     expect(mounted.container.textContent).not.toContain("UID ou identificador");
+    const disable = [...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Desativar link"));
+    await fireEvent(disable!, new MouseEvent("click", { bubbles: true }));
+    await vi.waitFor(() => expect(membership.revokePlayerInviteLink).toHaveBeenCalledWith({
+      actorId: asAccountId(session.uid), campaignId: campaign.id, token: inviteToken,
+    }));
+    expect(mounted.container.textContent).not.toContain(inviteToken);
+    expect(mounted.container.textContent).toContain("Link desativado.");
     await mounted.unmount();
   });
 
