@@ -86,24 +86,20 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
   const queued = new Set<string>();
   const inFlight = new Set<string>();
 
-  async function enqueueCopy(asset: Asset, uid: string, campaignId?: string): Promise<void> {
+  async function enqueuePrivate(asset: Asset, uid: string): Promise<void> {
     if (!remote || !outbox || asset.bytes.byteLength > MAX_PORTRAIT_BYTES) return;
-    const key = `${uid}:${asset.id}${campaignId ? `:${campaignId}` : ""}`;
+    const key = `${uid}:${asset.id}`;
     if (queued.has(key) || inFlight.has(key)) return;
     inFlight.add(key);
     try {
-      // A cópia da campanha é criada uma única vez; reenviar sobre um documento existente gera conflito de revisão.
-      if (campaignId && (await remote.get(asset.id, campaignId))?.sha256 === asset.hash) { queued.add(key); return; }
       const result = await outbox.enqueue({
-        operationId: asCommandId(`portrait:${uid}:${asset.id}${campaignId ? `:${campaignId}` : ""}`),
+        operationId: asCommandId(`portrait:${uid}:${asset.id}`),
         aggregateType: "portrait",
         aggregateId: asset.id,
         mutation: "upsert",
         baseRevision: asRevision(0),
-        ...(campaignId ? { scope: { campaignId: campaignId as Uuid } } : {}),
         payload: {
           id: asset.id,
-          ...(campaignId ? { campaignId } : {}),
           sha256: asset.hash,
           mediaType: asset.mediaType,
           ...(asset.width ? { width: asset.width } : {}),
@@ -122,10 +118,40 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
     }
   }
 
+  /**
+   * Cópia que o mestre e o grupo leem. Vai direto ao Firestore (sem outbox): uma recusa não fica
+   * presa na fila e a próxima abertura da ficha tenta de novo.
+   */
+  async function copyToCampaign(asset: Asset, uid: string, campaignId: string): Promise<void> {
+    if (!remote?.putCampaignCopy || asset.bytes.byteLength > MAX_PORTRAIT_BYTES) return;
+    const key = `${uid}:${asset.id}:${campaignId}`;
+    if (queued.has(key) || inFlight.has(key)) return;
+    inFlight.add(key);
+    try {
+      if ((await remote.get(asset.id, campaignId))?.sha256 !== asset.hash) {
+        await remote.putCampaignCopy({
+          id: asset.id,
+          campaignId,
+          ownerUid: uid,
+          mediaType: asset.mediaType,
+          sha256: asset.hash,
+          data: toBase64(asset.bytes),
+          ...(asset.width ? { width: asset.width } : {}),
+          ...(asset.height ? { height: asset.height } : {}),
+        });
+      }
+      if (cloudUid() === uid) queued.add(key);
+    } catch (cause) {
+      console.error("[sync] Falha ao publicar retrato na campanha", { assetId: asset.id, campaignId, cause });
+    } finally {
+      inFlight.delete(key);
+    }
+  }
+
   /** Envia a cópia privada e, quando o personagem está numa campanha, a cópia que o mestre lê. */
   async function publish(asset: Asset, uid: string, campaignId?: string): Promise<void> {
-    await enqueueCopy(asset, uid);
-    if (campaignId) await enqueueCopy(asset, uid, campaignId);
+    await enqueuePrivate(asset, uid);
+    if (campaignId) await copyToCampaign(asset, uid, campaignId);
   }
 
   return {

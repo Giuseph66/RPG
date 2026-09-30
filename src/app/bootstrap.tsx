@@ -452,6 +452,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   let portraitStore: PortraitRemoteStore | undefined;
   const portraitRemote: PortraitRemoteStore | undefined = firebaseApp ? {
     get: (id, campaignId) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id, campaignId),
+    putCampaignCopy: (record) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).putCampaignCopy!(record),
   } : undefined;
   const portraits = createPortraitService({
     assets,

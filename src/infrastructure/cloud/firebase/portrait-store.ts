@@ -1,4 +1,4 @@
-import { doc, getDoc, type Firestore } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, type Firestore } from "firebase/firestore";
 
 import type { PortraitRemoteStore } from "@application/ports/portrait-store";
 
@@ -20,6 +20,15 @@ export function createFirestorePortraitStore(firestore: Firestore): PortraitRemo
       } catch {
         return undefined;
       }
+    },
+    async putCampaignCopy(record) {
+      await setDoc(doc(firestore, "campaigns", record.campaignId, "portraits", record.id), {
+        ...record,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        revision: 1,
+        schemaVersion: 1,
+      });
     },
   };
 }

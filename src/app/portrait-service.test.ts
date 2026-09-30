@@ -84,14 +84,28 @@ describe("createPortraitService (Firestore)", () => {
     expect(await service.load(id, hash, { campaignId: "camp-1", ownerUid: "uid-jogador" })).toBeUndefined();
   });
 
-  it("dono envia também a cópia da campanha quando o personagem está vinculado", async () => {
+  it("dono grava direto a cópia da campanha quando o personagem está vinculado", async () => {
     const hash = await sha256(bytes);
     const assets = fakeAssets({ id, bytes, hash, mediaType: "image/webp", originalName: "r.webp" });
     const outbox = fakeOutbox();
-    const service = createPortraitService({ assets: assets.service, remote: fakeRemote(), outbox, cloudUid: () => "uid-1", newId: () => id, now });
+    const putCampaignCopy = vi.fn(async () => undefined);
+    const service = createPortraitService({ assets: assets.service, remote: { get: vi.fn(async () => undefined), putCampaignCopy }, outbox, cloudUid: () => "uid-1", newId: () => id, now });
     await service.publishExisting(id, "camp-1");
-    expect(outbox.enqueue).toHaveBeenCalledWith(expect.objectContaining({ aggregateType: "portrait", scope: { campaignId: "camp-1" }, payload: expect.objectContaining({ campaignId: "camp-1", sha256: hash }) }));
+    expect(putCampaignCopy).toHaveBeenCalledWith(expect.objectContaining({ id, campaignId: "camp-1", ownerUid: "uid-1", sha256: hash, data: btoa(String.fromCharCode(...bytes)) }));
+    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
     expect(outbox.enqueue).toHaveBeenCalledWith(expect.not.objectContaining({ scope: expect.anything() }));
+  });
+
+  it("recusa do Firebase na cópia da campanha não trava: a próxima publicação tenta de novo", async () => {
+    const hash = await sha256(bytes);
+    const assets = fakeAssets({ id, bytes, hash, mediaType: "image/webp", originalName: "r.webp" });
+    const putCampaignCopy = vi.fn().mockRejectedValueOnce(new Error("permission-denied")).mockResolvedValue(undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const service = createPortraitService({ assets: assets.service, remote: { get: vi.fn(async () => undefined), putCampaignCopy }, outbox: fakeOutbox(), cloudUid: () => "uid-1", newId: () => id, now });
+    await service.publishExisting(id, "camp-1");
+    await service.publishExisting(id, "camp-1");
+    expect(putCampaignCopy).toHaveBeenCalledTimes(2);
+    error.mockRestore();
   });
 
   it("recusa bytes que não batem com o hash da ficha", async () => {
