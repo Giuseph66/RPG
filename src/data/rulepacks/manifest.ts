@@ -56,7 +56,7 @@ const PHB_ENTITY_COUNTS: Readonly<Record<EntityType, number>> = {
   resource: 9,
   condition: 15,
   equipment: 220,
-  spell: 16,
+  spell: 361,
   progression: 1,
   "character-template": 12,
 };
@@ -112,7 +112,7 @@ export const PHB_PTBR_LOCAL_2017_MANIFEST: RulePackManifest = {
   checksums: {
     race: "ac43b3c6",
     subrace: "5c9dc84a",
-    class: "778d9213",
+    class: "7eefe2d3",
     subclass: "193917db",
     background: "80d1be8a",
     feat: "2bd75a8f",
@@ -120,7 +120,7 @@ export const PHB_PTBR_LOCAL_2017_MANIFEST: RulePackManifest = {
     resource: "bb1fab4a",
     condition: "f3d0e02c",
     equipment: "645d2e2a",
-    spell: "8ea73514",
+    spell: "65eaba52",
     progression: "10a8a812",
     "character-template": "8ec0050d",
   },

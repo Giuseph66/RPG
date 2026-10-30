@@ -7,6 +7,7 @@ import { type ChoiceSelection } from "@domain/contracts/primitives";
 import { deriveCharacter } from "@domain/rules/derived";
 import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, type CreationIssue, type MaterializeOptions, type MaterializedCharacter } from "./model";
 import { validateCharacterCreation } from "./validate";
+import { defaultBaseScore } from "./limits";
 
 function fallbackId(purpose: string, index: number): Uuid {
   const namespace = [...purpose].reduce((sum, character) => (sum * 31 + character.charCodeAt(0)) & 0xffffff, 0);
@@ -74,12 +75,9 @@ function spellState(draft: CharacterDraft, catalog: CreationCatalog, options: Ma
 
 /** Atributos não preenchidos (ausentes ou 0) viram 10, ou 8 na compra de pontos. */
 function withDefaultScores(generation: CharacterDraft["partial"]["abilityGeneration"]): AbilityGeneration {
-  const fallback = generation?.method === "point-buy" ? 8 : 10;
-  const scores = generation?.baseScores;
-  const fill = (value: number | undefined) => (value ? value : fallback);
   return {
     ...(generation ?? { method: "manual" as const }),
-    baseScores: { str: fill(scores?.str), dex: fill(scores?.dex), con: fill(scores?.con), int: fill(scores?.int), wis: fill(scores?.wis), cha: fill(scores?.cha) },
+    baseScores: { str: defaultBaseScore(generation, "str"), dex: defaultBaseScore(generation, "dex"), con: defaultBaseScore(generation, "con"), int: defaultBaseScore(generation, "int"), wis: defaultBaseScore(generation, "wis"), cha: defaultBaseScore(generation, "cha") },
   } as AbilityGeneration;
 }
 
@@ -92,7 +90,7 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const equipment = initialEquipment(draft, catalog, options);
   if (!equipment.ok) return equipment;
   const classRef = partial.classes?.[0];
-  if (!classRef || !partial.raceRef || !partial.backgroundRef) return err([{
+  if (!classRef || !partial.raceRef) return err([{
     code: "required-choice", field: "partial", message: "Decisões essenciais estão ausentes.",
   }]);
   const classDefinition = pack.classes.get(classRef.classId);
@@ -105,7 +103,7 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const hpGainId = makeId(options, "progression", 0);
   const character: Character = {
     id: draft.id, schemaVersion: CHARACTER_SCHEMA_VERSION, revision, rulesetRef: draft.rulesetRef, createdAt: draft.createdAt, updatedAt: now,
-    name: partial.name?.trim() || "Aventureiro sem nome", ...(partial.playerName === undefined ? {} : { playerName: partial.playerName }), raceRef: partial.raceRef, ...(partial.subraceRef ? { subraceRef: partial.subraceRef } : {}), backgroundRef: partial.backgroundRef,
+    name: partial.name?.trim() || "Aventureiro sem nome", ...(partial.playerName === undefined ? {} : { playerName: partial.playerName }), raceRef: partial.raceRef, ...(partial.subraceRef ? { subraceRef: partial.subraceRef } : {}), ...(partial.backgroundRef ? { backgroundRef: partial.backgroundRef } : {}),
     appearance: partial.appearance ?? "", personalityTraits: partial.personalityTraits ?? [], ideals: partial.ideals ?? [], bonds: partial.bonds ?? [], flaws: partial.flaws ?? [], history: partial.history ?? "",
     classes: [levelClass], abilityGeneration, choices: partial.choices ?? [], progressionHistory: [{ id: hpGainId, classId: classDefinition.id, level: 1, hitPointGain: { kind: "first-level-max", amount: classDefinition.hitDie }, choices: [], recordedAt: now }],
     xp: 0, inspiration: false, hp: { current: classDefinition.hitDie, temp: 0 }, hitDiceSpent: [{ classId: classDefinition.id, hitDie: classDefinition.hitDie, spent: 0 }], deathSaves: { successes: 0, failures: 0, stable: false }, conditions: [],

@@ -1,11 +1,14 @@
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
-import { AppModal, Button, Input } from "@components/ui";
+import { Info } from "@phosphor-icons/react";
+import { AppModal, Button, IconButton, Input } from "@components/ui";
 import type { Character } from "@domain/contracts/character";
 
 import { SPELL_SCHOOL_LABELS, formatSpellLevel } from "./mapping";
 import type { CharacterSheetPatch, SheetPortrait, SheetSpellOption } from "./types";
+import { SpellInfoDetails, spellBrief } from "../spell-info";
+import type { SpellInfoLookup } from "../spell-info";
 import styles from "./character-sheet.module.css";
 
 const ALIGNMENTS: Readonly<Record<NonNullable<Character["alignment"]>, string>> = {
@@ -126,6 +129,7 @@ export interface SpellManagerModalProps {
   readonly open: boolean;
   readonly onClose: () => void;
   readonly options: readonly SheetSpellOption[];
+  readonly spellInfo?: SpellInfoLookup;
   readonly selected: ReadonlySet<string>;
   readonly onChange: (next: ReadonlySet<string>) => void;
   readonly cantripLimit?: number;
@@ -134,8 +138,10 @@ export interface SpellManagerModalProps {
 }
 
 /** Seleção de truques e magias da lista da classe; os limites do livro são guia, não trava. */
-export function SpellManagerModal({ open, onClose, options, selected, onChange, cantripLimit, leveledLimit, leveledLabel }: SpellManagerModalProps) {
+export function SpellManagerModal({ open, onClose, options, spellInfo, selected, onChange, cantripLimit, leveledLimit, leveledLabel }: SpellManagerModalProps) {
   const [query, setQuery] = useState("");
+  // Detalhe abre na própria lista: um segundo modal sobre este perderia o contexto da escolha.
+  const [expanded, setExpanded] = useState<string>();
   const byLevel = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const groups = new Map<number, SheetSpellOption[]>();
@@ -166,12 +172,21 @@ export function SpellManagerModal({ open, onClose, options, selected, onChange, 
             <legend>{level === 0 ? "Truques" : formatSpellLevel(level)}</legend>
             {group.map((option) => {
               const id = String(option.ref.entityId);
+              const info = spellInfo?.(id);
+              const open = expanded === id;
+              const detailId = `spell-detail-${id}`;
               return (
-                <label key={id} className={[styles.spellOption, selected.has(id) ? styles.spellOptionOn : ""].join(" ")}>
-                  <input type="checkbox" checked={selected.has(id)} onChange={() => toggle(id)} />
-                  <span className={styles.spellOptionName}>{option.name}</span>
-                  <span className={styles.spellOptionMeta}>{SPELL_SCHOOL_LABELS[option.school] ?? option.school}{option.concentration ? " · concentração" : ""}{option.ritual ? " · ritual" : ""}</span>
-                </label>
+                <div key={id} className={[styles.spellOption, selected.has(id) ? styles.spellOptionOn : ""].join(" ")}>
+                  <label className={styles.spellOptionMain}>
+                    <input type="checkbox" checked={selected.has(id)} onChange={() => toggle(id)} />
+                    <span className={styles.spellOptionName}>{option.name}</span>
+                    <span className={styles.spellOptionMeta}>{SPELL_SCHOOL_LABELS[option.school] ?? option.school}{info ? ` · ${info.castingTime} · ${info.range}` : ""}{option.concentration ? " · concentração" : ""}{option.ritual ? " · ritual" : ""}</span>
+                    {info && !open ? <span className={styles.spellOptionBrief}>{spellBrief(info.description.join(" "))}</span> : null}
+                    {info?.higherLevels && !open ? <span className={styles.spellOptionScaling}>Evolui: {spellBrief(info.higherLevels)}</span> : null}
+                  </label>
+                  {info ? <IconButton className={styles.spellInfoButton} variant="ghost" label={open ? `Ocultar descrição de ${option.name}` : `Descrição de ${option.name}`} icon={<Info size={20} weight={open ? "fill" : "regular"} />} aria-expanded={open} aria-controls={detailId} onClick={() => setExpanded(open ? undefined : id)} /> : null}
+                  {info && open ? <div id={detailId} className={styles.spellOptionDetail}><SpellInfoDetails info={info} showMeta={false} /></div> : null}
+                </div>
               );
             })}
           </fieldset>

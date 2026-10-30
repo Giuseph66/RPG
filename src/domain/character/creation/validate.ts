@@ -3,6 +3,7 @@ import { type DefinitionRef } from "@domain/contracts/ids";
 import { type ChoiceDefinition, type ChoiceSelection, type Ability } from "@domain/contracts/primitives";
 import { type ClassDefinition } from "@domain/contracts/definitions/class";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
+import { creationChoiceLimit } from "./limits";
 import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, type CreationIssue, type CreationValidationReport, ABILITIES } from "./model";
 
 const standardArray = [8, 10, 12, 13, 14, 15];
@@ -25,12 +26,13 @@ function validateChoice(
   field: string,
   classId?: string,
   classLevel?: number,
+  max = choice.count.max,
 ): CreationIssue[] {
   // Escolhas são opcionais na criação: só o excesso e opções inválidas bloqueiam.
   if (!selection) return [];
   const issues: CreationIssue[] = [];
-  if (selection.selectedIds.length > choice.count.max) {
-    issues.push(issue("invalid-choice", field, `Escolha "${choice.id}" aceita no máximo ${choice.count.max} opções; recebeu ${selection.selectedIds.length}.`, choice.sourceRefs));
+  if (selection.selectedIds.length > max) {
+    issues.push(issue("invalid-choice", field, `Escolha "${choice.id}" aceita no máximo ${max} opções; recebeu ${selection.selectedIds.length}.`, choice.sourceRefs));
   }
   const seen = new Set<string>();
   for (const selected of selection.selectedIds) {
@@ -96,7 +98,6 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   if (draft.schemaVersion !== 1) issues.push(issue("invalid-reference", "schemaVersion", "Schema de draft incompatível."));
   if (draft.rulesetRef.id !== pack.manifest.id || draft.rulesetRef.version !== pack.manifest.version) issues.push(issue("invalid-reference", "rulesetRef", "O draft deve apontar para a versão exata do rule pack."));
   if (!partial.raceRef) issues.push(issue("required-choice", "raceRef", "Raça é obrigatória."));
-  if (!partial.backgroundRef) issues.push(issue("required-choice", "backgroundRef", "Antecedente é obrigatório."));
   if (!partial.classes?.length) issues.push(issue("required-choice", "classes", "Uma classe inicial é obrigatória."));
   if (partial.classes && partial.classes.length !== 1) issues.push(issue("invalid-choice", "classes", "Criação inicial aceita exatamente uma classe."));
   issues.push(...abilityIssues(partial.abilityGeneration));
@@ -143,7 +144,7 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   const knownIds = new Set<string>();
   for (const choice of choices) {
     knownIds.add(choice.id);
-    issues.push(...validateChoice(choice, selectedFor(choice, selections), pack, equipmentBundles, `choices.${choice.id}`, classDefinition?.id ? String(classDefinition.id) : undefined, classEntry?.level));
+    issues.push(...validateChoice(choice, selectedFor(choice, selections), pack, equipmentBundles, `choices.${choice.id}`, classDefinition?.id ? String(classDefinition.id) : undefined, classEntry?.level, creationChoiceLimit(pack, partial, choice).max));
   }
   for (const selection of selections) if (!knownIds.has(selection.choiceId)) issues.push(issue("invalid-choice", `choices.${selection.choiceId}`, `Escolha "${selection.choiceId}" não é concedida por raça, classe, sub-raça ou antecedente.`));
 

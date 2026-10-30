@@ -121,6 +121,137 @@ describe("CharacterCreationWizard", () => {
     }
   });
 
+  it("oferece ao druida truques e magias de nível 1 da lista da classe", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd"), rulesetRef, createdAt: now,
+      partial: {
+        name: "Artemis", raceRef: ref("human"), backgroundRef: ref("soldier"),
+        classes: [{ classId: asEntityId("druid"), level: 1, choices: [] }],
+        abilityGeneration: { method: "standard-array", baseScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 } },
+        inventory: [], castingSources: [], appearance: "",
+      },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const loaded = catalog();
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={loaded} />);
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Magias")) as HTMLElement);
+      const assertEligible = (label: string, level: number) => {
+        const values = [...mounted.container.querySelectorAll(`fieldset[aria-label="${label}"] input[type="checkbox"]`)].map((input) => (input as HTMLInputElement).value);
+        expect(values.length).toBeGreaterThan(0);
+        for (const value of values) {
+          const spell = loaded.rulePack.spells.get(asEntityId(value));
+          expect(spell?.level).toBe(level);
+          expect(spell?.classes.map(String)).toContain("druid");
+        }
+      };
+      assertEligible("Truques · Druida", 0);
+      assertEligible("Magias · Druida", 1);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("oferece ao alto elfo guerreiro truques de mago, fora da lista da classe", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("abcdabcd-abcd-4bcd-8bcd-abcdabcdabcd"), rulesetRef, createdAt: now,
+      partial: {
+        name: "Artemis", raceRef: ref("elf"), subraceRef: ref("high-elf"), backgroundRef: ref("soldier"),
+        classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }],
+        abilityGeneration: { method: "standard-array", baseScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 } },
+        inventory: [], castingSources: [], appearance: "",
+      },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const loaded = catalog();
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={loaded} />);
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Raça")) as HTMLElement);
+      const assertEligible = (label: string, level: number) => {
+        const values = [...mounted.container.querySelectorAll(`fieldset[aria-label="${label}"] input[type="checkbox"]`)].map((input) => (input as HTMLInputElement).value);
+        expect(values.length).toBeGreaterThan(0);
+        for (const value of values) {
+          const spell = loaded.rulePack.spells.get(asEntityId(value));
+          expect(spell?.level).toBe(level);
+          expect(spell?.classes.map(String)).toContain("wizard");
+        }
+      };
+      assertEligible("Truque · Alto elfo", 0);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("mostra resumo da magia e abre a descrição completa no botão de info", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("efefefef-efef-4fef-8fef-efefefefefef"), rulesetRef, createdAt: now,
+      partial: {
+        name: "Artemis", raceRef: ref("human"), backgroundRef: ref("soldier"),
+        classes: [{ classId: asEntityId("druid"), level: 1, choices: [] }],
+        abilityGeneration: { method: "standard-array", baseScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 } },
+        inventory: [], castingSources: [], appearance: "",
+      },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const loaded = catalog();
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={loaded} spellInfo={(id) => id === "bordao-mistico" ? { name: "Bordão Místico", level: 0, school: "transmutação", castingTime: "1 ação bônus", range: "Toque", components: "V, S, M", duration: "1 minuto", ritual: false, description: ["A madeira de uma clava ou bordão que você esteja segurando é imbuída com o poder da natureza.", "Segundo parágrafo."], source: "Livro do Jogador, p. 224" } : undefined} />);
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Magias")) as HTMLElement);
+      const option = mounted.container.querySelector('input[value="bordao-mistico"]')?.closest("div") as HTMLElement;
+      expect(option.textContent).toContain("Truque de transmutação · 1 ação bônus · Toque");
+      expect(option.textContent).toContain("A madeira de uma clava ou bordão que você esteja segurando é imbuída com o poder da natureza.");
+      expect(option.textContent).not.toContain("Segundo parágrafo.");
+      await click(option.querySelector('button[aria-label="Descrição de Bordão Místico"]') as HTMLElement);
+      const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+      expect(dialog.textContent).toContain("Segundo parágrafo.");
+      expect(dialog.textContent).toContain("Livro do Jogador, p. 224");
+      expect((mounted.container.querySelector('input[value="bordao-mistico"]') as HTMLInputElement).checked).toBe(false);
+      expect(mounted.container.textContent).toContain("até 1 opção (nível 1 + mod. de Sabedoria +0, mínimo 1)");
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("guia os atributos por método: matriz sem repetir valores, orçamento da compra e rolagem 4d6", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("dededede-dede-4ede-8ede-dededededede"), rulesetRef, createdAt: now,
+      partial: { name: "Artemis", raceRef: ref("human"), classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }], inventory: [], castingSources: [], appearance: "" },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={catalog()} />);
+    const query = <T extends Element>(selector: string) => mounted.container.querySelector(selector) as T;
+    const button = (label: string) => query<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((entry) => entry.textContent?.includes("Atributos")) as HTMLElement);
+      expect(mounted.container.textContent).toContain("Sem método, cada atributo começa em 10");
+      expect(mounted.container.textContent).toContain("Principal · Guerreiro");
+
+      await click(query('input[type="radio"][value="standard-array"]'));
+      const strength = query<HTMLSelectElement>('select[aria-label="Força (valor base)"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(strength, "15");
+      await fireEvent(strength, new Event("change", { bubbles: true }));
+      const dexOptions = [...query<HTMLSelectElement>('select[aria-label="Destreza (valor base)"]').options].map((option) => option.value);
+      expect(dexOptions).toEqual(["", "14", "13", "12", "10", "8"]);
+      expect(query('[aria-label^="Força final"]').getAttribute("aria-label")).toBe("Força final 16, modificador +3");
+
+      await click(query('input[type="radio"][value="point-buy"]'));
+      for (const ability of ["Força", "Destreza", "Constituição"]) for (let step = 0; step < 7; step += 1) await click(button(`Aumentar ${ability}`));
+      expect(mounted.container.textContent).toContain("0 de 27 pontos restantes");
+      expect(button("Aumentar Sabedoria").getAttribute("aria-disabled") ?? String(button("Aumentar Sabedoria").disabled)).toBe("true");
+
+      const random = vi.spyOn(crypto, "getRandomValues").mockImplementation(((array: Uint32Array) => { array.set([5, 4, 3, 0]); return array; }) as never);
+      await click(query('input[type="radio"][value="rolled"]'));
+      await click([...mounted.container.querySelectorAll("button")].find((entry) => entry.textContent === "Rolar todos") as HTMLElement);
+      random.mockRestore();
+      // Dados 6, 5, 4 e 1: descarta o 1, total 15; humano +1.
+      expect(query<HTMLInputElement>('input[aria-label="Força (valor base)"]').value).toBe("15");
+      expect(query('[aria-label^="Dados: 6, 5, 4, 1"]')).not.toBeNull();
+      expect(query('[aria-label^="Carisma final"]').getAttribute("aria-label")).toBe("Carisma final 16, modificador +3");
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
   it("começa pela identidade, permite avançar sem campos opcionais e preserva escolhas ao voltar", async () => {
     const mounted = await mount(<CharacterCreationWizard draft={draft()} catalog={catalog()} />);
     expect(mounted.container.textContent).toContain("Identidade");

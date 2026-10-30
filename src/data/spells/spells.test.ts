@@ -20,7 +20,7 @@ describe("SPELL-001 — catálogo estruturado", () => {
   it("publica opções reais suficientes para a criação inicial de Bardo", () => {
     const bardCantrips = SPELL_DEFINITIONS.filter((spell) => spell.classes.some((classId) => String(classId) === "bard") && spell.level === 0);
     const bardLevelOne = SPELL_DEFINITIONS.filter((spell) => spell.classes.some((classId) => String(classId) === "bard") && spell.level === 1);
-    expect(SPELL_DEFINITIONS).toHaveLength(16);
+    expect(SPELL_DEFINITIONS).toHaveLength(361);
     expect(bardCantrips.map((spell) => spell.id)).toEqual(expect.arrayContaining(["prestidigitacao", "zombaria-viciosa"]));
     expect(bardCantrips.length).toBeGreaterThanOrEqual(2);
     expect(bardLevelOne.map((spell) => spell.id)).toEqual(expect.arrayContaining(["cure-wounds", "disfarcar-se", "enfeiticar-pessoa", "fogo-das-fadas"]));
@@ -28,6 +28,14 @@ describe("SPELL-001 — catálogo estruturado", () => {
     expect(SPELL_DEFINITIONS.filter((spell) => spell.automationStatus === "blocked")).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "disfarcar-se", sourceRefs: [expect.objectContaining({ sourceId: "phb-ptbr-local-2017" })] })]),
     );
+  });
+
+  it("publica truques e magias de 1º nível para todas as classes conjuradoras de nível 1", () => {
+    for (const classId of ["cleric", "druid", "sorcerer", "warlock", "wizard"]) {
+      const forClass = SPELL_DEFINITIONS.filter((spell) => spell.classes.some((entry) => String(entry) === classId));
+      expect(forClass.some((spell) => spell.level === 0), classId).toBe(true);
+      expect(forClass.some((spell) => spell.level === 1), classId).toBe(true);
+    }
   });
 
   it("representa truque, concentração, ritual e componente consumido", () => {

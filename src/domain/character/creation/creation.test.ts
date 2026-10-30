@@ -3,7 +3,7 @@ import { asEntityId, asIsoTimestamp, asPackVersion, asRulesetId, asUuid } from "
 import { asRevision } from "@domain/contracts/versioning";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { equipmentBundles } from "@data/equipment/bundles";
-import { applyCreationDecision, createCharacterDraft, materializeCharacter, validateCharacterCreation } from ".";
+import { applyCreationDecision, createCharacterDraft, creationChoiceLimit, materializeCharacter, validateCharacterCreation } from ".";
 import { type CreationCatalog } from "./model";
 
 const rulesetRef = { id: asRulesetId("phb-ptbr-local-2017"), version: asPackVersion("1.0.0") };
@@ -64,6 +64,35 @@ describe("domínio de criação", () => {
     expect(validateCharacterCreation(catalog(), partialScores).valid).toBe(true);
     const materialized = materializeCharacter(catalog(), partialScores);
     expect(materialized.ok && materialized.value.character.abilityGeneration.baseScores.dex).toBe(8);
+  });
+
+  it("limita magias preparadas do druida a nível + mod. de Sabedoria, mínimo 1", () => {
+    const pack = catalog().rulePack;
+    const druidSpells = pack.classes.get(asEntityId("druid"))!.progression[0]!.choicesGranted.find((choice) => choice.id === "druid.spells.1")!;
+    const druidCantrips = pack.classes.get(asEntityId("druid"))!.progression[0]!.choicesGranted.find((choice) => choice.id === "druid.cantrips.1")!;
+    const base = { raceRef: ref("human"), backgroundRef: ref("acolyte"), classes: [{ classId: asEntityId("druid"), level: 1, choices: [] }] };
+    // Humano +1 em tudo: SAB 16 → 17 (+3) → 1 + 3 = 4.
+    const wise = draft({ ...base, abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 14, con: 13, int: 10, wis: 16 - 1, cha: 12 } } });
+    expect(creationChoiceLimit(pack, wise.partial, druidSpells).max).toBe(4);
+    expect(creationChoiceLimit(pack, wise.partial, druidCantrips).max).toBe(2);
+    const foolish = draft({ ...base, abilityGeneration: { method: "manual", baseScores: { str: 10, dex: 10, con: 10, int: 10, wis: 5, cha: 10 } } });
+    expect(creationChoiceLimit(pack, foolish.partial, druidSpells).max).toBe(1);
+    const tooMany = draft({ ...wise.partial, choices: [{ choiceId: "druid.spells.1", selectedIds: ["bom-fruto", "cure-wounds", "falar-com-animais", "nevoa-obscurecente", "salto"].map(ref), grantedAtLevel: 1, grantingRef: ref("druid") }] });
+    expect(validateCharacterCreation(catalog(), tooMany).issues.some((entry) => entry.field === "choices.druid.spells.1" && /no máximo 4/.test(entry.message))).toBe(true);
+  });
+
+  it("cria personagem sem antecedente e permite remover um antecedente escolhido", () => {
+    const withBackground = draft({ raceRef: ref("human"), backgroundRef: ref("acolyte"), classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }] });
+    const cleared = applyCreationDecision(withBackground, { kind: "background" });
+    expect(cleared.ok).toBe(true);
+    if (!cleared.ok) return;
+    expect("backgroundRef" in cleared.value.partial).toBe(false);
+    expect(validateCharacterCreation(catalog(), cleared.value).issues).toEqual([]);
+    const result = materializeCharacter(catalog(), cleared.value);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.character.backgroundRef).toBeUndefined();
+    expect("backgroundRef" in result.value.character).toBe(false);
   });
 
   it("aplica decisões sem mutar o draft anterior", () => {

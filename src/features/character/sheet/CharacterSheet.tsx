@@ -219,7 +219,7 @@ function newConditionId(): ConditionInstance["id"] {
   return asUuid(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`);
 }
 
-export function CharacterSheet({ character, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, conditionOptions, portrait }: CharacterSheetProps) {
+export function CharacterSheet({ character, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, conditionOptions, portrait }: CharacterSheetProps) {
   const rule = useRuleHint();
   const [view, setView] = useState<CharacterSheetView>(initialView);
   const [draft, setDraft] = useState<CharacterSheetPatch>({});
@@ -612,6 +612,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
           open={managingSpells}
           onClose={() => setManagingSpells(false)}
           options={spellOptions}
+          spellInfo={spellInfo}
           selected={selectedSpellIds}
           onChange={updateSpells}
           cantripLimit={sourceClassId ? cantripsKnown(sourceClassId, sourceLevel) : undefined}

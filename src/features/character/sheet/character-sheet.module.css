@@ -441,8 +441,13 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .spellGroups { display: grid; gap: .9rem; max-height: min(55vh, 30rem); overflow-y: auto; padding-right: .25rem; }
 .spellGroup { display: grid; gap: .35rem; margin: 0; padding: 0; border: 0; }
 .spellGroup legend { margin-bottom: .35rem; color: var(--color-secondary); font-family: var(--typography-heading-font-family); font-size: .95rem; }
-.spellOption { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: .6rem; padding: .4rem .6rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); border-radius: 4px; cursor: pointer; }
-.spellOption input { grid-row: 1 / span 2; width: 1.1rem; height: 1.1rem; accent-color: var(--color-secondary); }
+.spellOption { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: .25rem; padding: .4rem .3rem .4rem .6rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); border-radius: 4px; }
+.spellOptionMain { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: .6rem; row-gap: .1rem; min-width: 0; cursor: pointer; }
+.spellOptionMain input { grid-row: 1 / span 4; align-self: start; margin-top: .2rem; width: 1.1rem; height: 1.1rem; accent-color: var(--color-secondary); }
+.spellOptionBrief { color: var(--color-text); font-size: .85rem; line-height: 1.4; }
+.spellOptionScaling { color: var(--color-secondary); font-size: .78rem; line-height: 1.35; }
+.spellInfoButton { flex: 0 0 auto; }
+.spellOptionDetail { grid-column: 1 / -1; margin-top: .5rem; padding: .6rem .3rem .2rem 1.7rem; border-top: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); font-size: .9rem; }
 .spellOptionOn { border-color: var(--color-secondary); background: linear-gradient(180deg, rgba(48, 38, 24, .95), rgba(16, 14, 12, .95)); }
 .spellOptionName { color: var(--color-text); font-size: .95rem; }
 .spellOptionMeta { color: var(--color-text-muted); font-size: .75rem; }

@@ -2,6 +2,7 @@ import type { Character } from "@domain/contracts/character";
 import type { CharacterDerived } from "@domain/contracts/derived";
 import type { DefinitionRef, EntityType } from "@domain/contracts/ids";
 import type { CharacterApplicationService } from "@application/character/service";
+import type { SpellInfoLookup } from "../spell-info";
 import type { StoreStatus } from "@application/state/external-store";
 
 export type CharacterSheetView = "quick" | "expanded";
@@ -91,6 +92,8 @@ export interface CharacterSheetProps {
   readonly equipmentInfo?: (entityId: string) => SheetEquipmentInfo | undefined;
   /** Lista de magias das classes do personagem; habilita "Gerenciar magias". */
   readonly spellOptions?: readonly SheetSpellOption[];
+  /** Descrição do livro por id de magia; mostra resumo e detalhe em "Gerenciar magias". */
+  readonly spellInfo?: SpellInfoLookup;
   /** Condições do pack para o seletor "Adicionar condição". */
   readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
   readonly portrait?: SheetPortrait;

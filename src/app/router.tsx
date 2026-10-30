@@ -34,7 +34,7 @@ import { createRuleLookup } from "./rule-lookup";
 import { generateNpcCharacter } from "@application/character/generate-npc-character";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
-import { attackRollsFor, carryingFor, conditionOptionsFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
+import { attackRollsFor, carryingFor, conditionOptionsFor, spellInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
 
 const LazyCampaignLog = lazy(() => import("@features/campaign-log").then((module) => ({ default: module.CampaignLog })));
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
@@ -130,6 +130,7 @@ function CreateCharacterRoute({
   const [loadError, setLoadError] = useState<string>();
   const [existingCharacter, setExistingCharacter] = useState<Character>();
   const [copying, setCopying] = useState(false);
+  const spellInfo = useMemo(() => spellInfoFor(pack), [pack]);
   useEffect(() => {
     if (!draftId) return;
     if (!isUuid(draftId)) {
@@ -190,6 +191,7 @@ function CreateCharacterRoute({
       {...registry.character.bindCreationProps({
         draft,
         catalog: pack,
+        spellInfo,
         onDraftChange: setDraft,
         onCreated: handleCreated,
         onDraftSaved: (savedDraft) => {
@@ -361,6 +363,7 @@ function CharacterDetailRoute({ registry, character, pack, id }: { readonly regi
     error: character.errorMessage,
     equipmentInfo: (entityId) => equipmentInfo(pack, entityId),
     spellOptions: spellOptionsFor(currentCharacter, pack),
+    spellInfo: spellInfoFor(pack),
     conditionOptions: conditionOptionsFor(pack),
   });
   const RuleProvider = LazyRuleLookupProvider;

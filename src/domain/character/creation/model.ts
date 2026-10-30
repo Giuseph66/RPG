@@ -13,7 +13,7 @@ export type CreationDecision =
   | { readonly kind: "identity"; readonly name: string; readonly playerName?: string }
   | { readonly kind: "race"; readonly raceRef: DefinitionRef; readonly subraceRef?: DefinitionRef }
   | { readonly kind: "class"; readonly classRef: DefinitionRef; readonly subclassRef?: DefinitionRef }
-  | { readonly kind: "background"; readonly backgroundRef: DefinitionRef; readonly variantId?: string }
+  | { readonly kind: "background"; readonly backgroundRef?: DefinitionRef; readonly variantId?: string }
   | { readonly kind: "ability-scores"; readonly method: NonNullable<CharacterDraftPartial["abilityGeneration"]> }
   | { readonly kind: "choices"; readonly selections: readonly ChoiceSelection[] }
   | { readonly kind: "equipment"; readonly selections: readonly ChoiceSelection[] }

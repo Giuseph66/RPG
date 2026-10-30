@@ -3,6 +3,7 @@ import type { AppError, Result } from "@domain/contracts/errors";
 import type { Revision } from "@domain/contracts/versioning";
 import type { CharacterApplicationService } from "@application/character/service";
 import type { CreationCatalogInput } from "@domain/character/creation";
+import type { SpellInfo, SpellInfoLookup } from "../spell-info";
 
 /** Persistência de rascunho reaproveitada de CHAR-002; a criação nunca reimplementa storage. */
 export type CreationDraftService = Pick<CharacterApplicationService, "saveDraft" | "deleteDraft">;
@@ -22,11 +23,16 @@ export interface CreationWizardService extends CreationDraftService {
 
 export type CreationSaveStatus = "idle" | "saving-draft" | "draft-saved" | "confirming" | "confirmed" | "error";
 
+/** Mantido para quem já importa pelo módulo de criação. */
+export type CreationSpellInfo = SpellInfo;
+
 export interface CharacterCreationWizardProps {
   /** O draft controla a UI; o chamador decide como/quando um novo draft é criado. */
   readonly draft: CharacterDraft;
   readonly catalog: CreationCatalogInput;
   readonly service?: CreationWizardService;
+  /** Descrição de magia por id do pack; sem ela as opções mostram só o nome. */
+  readonly spellInfo?: SpellInfoLookup;
   readonly onDraftChange?: (draft: CharacterDraft) => void;
   readonly onCreated?: (character: Character, revision: Revision) => void;
   /** Chamado quando o usuário pede explicitamente para guardar o draft. */

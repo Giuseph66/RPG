@@ -9,8 +9,7 @@
 .stepNav button:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 .stepNav .activeStep { border-color: var(--color-primary); color: var(--color-primary); font-weight: 700; }
 .content { min-width: 0; }
-.formGrid, .abilityInputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-md); }
-.abilityInputs { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--spacing-lg); }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-md); }
 .choice { display: grid; max-width: 40rem; margin-bottom: var(--spacing-md); }
 .choiceFieldset { min-width: 0; padding: 0; border: 0; }
 .choiceFieldset legend { padding: 0; color: var(--color-text); font-family: var(--typography-label-font-family); font-size: var(--typography-label-font-size); font-weight: var(--typography-label-font-weight); }
@@ -20,6 +19,15 @@
 .choiceOption:hover, .choiceOption:focus-within { border-color: var(--color-primary); background: var(--color-surface-elevated); }
 .choiceOptionSelected { border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-background)); }
 .choiceOption input { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; accent-color: var(--color-secondary); }
+.spellOption { align-items: flex-start; padding-right: .3rem; cursor: default; }
+.spellOptionLabel { display: flex; flex: 1; align-items: flex-start; gap: var(--spacing-sm); min-width: 0; cursor: pointer; }
+.spellOptionLabel input { margin-top: .2rem; }
+.spellOptionText { display: grid; gap: .2rem; min-width: 0; }
+.spellOptionName { font-weight: 600; }
+.spellMeta { color: var(--color-text-muted); font-size: .78rem; }
+.spellBrief { color: var(--color-text); font-size: .875rem; line-height: 1.4; }
+.spellScaling { color: var(--color-secondary); font-size: .8rem; line-height: 1.35; }
+.spellInfoButton { flex: 0 0 auto; }
 .summary { display: grid; gap: .25rem; }
 .summary p { margin: 0; color: var(--color-text-muted); }
 .summary strong { color: var(--color-text); }
@@ -33,7 +41,7 @@
 .wizard :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
 .stepNav button { transition: background-color var(--motion-feedback) var(--motion-easing), border-color var(--motion-feedback) var(--motion-easing), color var(--motion-feedback) var(--motion-easing); }
 .stepNav button:hover:not(:disabled) { background: var(--color-surface); border-color: var(--color-primary); color: var(--color-text); }
-@media (max-width: 680px) { .wizard { padding-inline: var(--spacing-sm); } .header { align-items: stretch; flex-direction: column; } .formGrid, .abilityInputs { grid-template-columns: 1fr; } .footer { align-items: stretch; flex-direction: column; } .footerActions { justify-content: stretch; } .footerActions > * { flex: 1; } .choiceOption { min-height: 3rem; } }
+@media (max-width: 680px) { .wizard { padding-inline: var(--spacing-sm); } .header { align-items: stretch; flex-direction: column; } .formGrid { grid-template-columns: 1fr; } .footer { align-items: stretch; flex-direction: column; } .footerActions { justify-content: stretch; } .footerActions > * { flex: 1; } .choiceOption { min-height: 3rem; } }
 
 .wizard { max-width: 86rem; }
 .eyebrow { color: var(--color-secondary); font-family: var(--typography-label-font-family); text-transform: uppercase; }
@@ -153,4 +161,59 @@
   .stepNav li:nth-last-child(-n + 3) { border-bottom: 0; }
   .stepNav button { width: 100%; min-height: 2.75rem; padding-inline: var(--spacing-xs); font-size: .72rem; line-height: 1.2; text-align: left; white-space: normal; }
   .content > section { padding: var(--spacing-lg); }
+}
+
+/* Atributos */
+.methodGroup { min-width: 0; margin: 0; padding: 0; border: 0; }
+.methodGroup legend { padding: 0; margin-bottom: var(--spacing-sm); color: var(--color-text); font-family: var(--typography-label-font-family); font-size: var(--typography-label-font-size); font-weight: var(--typography-label-font-weight); }
+.optional { margin-left: var(--spacing-xs); color: var(--color-text-muted); font-size: .75rem; font-weight: 400; }
+.methodOptions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-xs); }
+.methodOption { display: flex; align-items: flex-start; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: .6rem .7rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-background); cursor: pointer; transition: border-color 160ms ease-out, background-color 160ms ease-out; }
+.methodOption:hover, .methodOption:focus-within { border-color: var(--color-primary); }
+.methodOption input { margin-top: .2rem; accent-color: var(--color-secondary); }
+.methodOption span { display: grid; gap: .15rem; }
+.methodOption strong { font-size: .9rem; }
+.methodOption small { color: var(--color-text-muted); font-size: .78rem; line-height: 1.35; }
+.methodOptionSelected { border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-background)); }
+.methodStatus { margin: var(--spacing-md) 0 var(--spacing-sm); color: var(--color-text-muted); font-size: .875rem; }
+.methodStatus p { margin: 0; }
+.arrayPool { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.arrayPool > span:first-child { margin-right: var(--spacing-xs); }
+.poolChip { display: inline-grid; place-items: center; min-width: 2.25rem; padding: .2rem .45rem; border: 1px solid var(--color-secondary); border-radius: var(--radius-control); color: var(--color-text); font-variant-numeric: tabular-nums; font-weight: 700; transition: opacity 160ms ease-out; }
+.poolChipUsed { border-color: var(--color-border-soft); color: var(--color-text-muted); text-decoration: line-through; opacity: .55; }
+.budget { display: grid; gap: .35rem; max-width: 28rem; }
+.budget strong { color: var(--color-secondary); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.budgetTrack { height: .35rem; overflow: hidden; border-radius: 999px; background: var(--color-border-soft); }
+.budgetTrack span { display: block; height: 100%; background: var(--color-secondary); transition: inline-size 200ms ease-out; }
+.budget small { font-size: .75rem; }
+.rollBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-sm); }
+.abilityList { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border-soft); }
+.abilityRow { display: grid; grid-template-columns: minmax(0, 1fr) 9.5rem 6.5rem; align-items: center; gap: var(--spacing-md); padding: .75rem .25rem; border-bottom: 1px solid var(--color-border-soft); }
+.abilityPrimary { background: color-mix(in srgb, var(--color-secondary) 6%, transparent); }
+.abilityName { display: grid; gap: .2rem; min-width: 0; }
+.abilityTitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-xs); font-weight: 600; }
+.abilityTitle abbr { color: var(--color-text-muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-decoration: none; }
+.primaryTag { padding: .05rem .4rem; border: 1px solid color-mix(in srgb, var(--color-secondary) 60%, transparent); border-radius: 999px; color: var(--color-secondary); font-size: .7rem; font-weight: 600; }
+.abilityName small { color: var(--color-text-muted); font-size: .8rem; line-height: 1.35; }
+.diceFaces { display: flex; gap: .25rem; margin-top: .15rem; }
+.diceFaces span { display: inline-grid; place-items: center; width: 1.45rem; height: 1.45rem; border: 1px solid var(--color-border); border-radius: .3rem; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.diceFaces .diceDropped { color: var(--color-text-muted); text-decoration: line-through; opacity: .5; }
+.abilityControl { display: flex; justify-content: center; }
+.abilitySelect, .abilityNumber { inline-size: 5rem; min-height: var(--size-touch-target); padding: .4rem .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); font: inherit; font-variant-numeric: tabular-nums; text-align: center; }
+.abilitySelect:focus-visible, .abilityNumber:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.abilityEntry { display: flex; align-items: center; gap: .25rem; }
+.stepper { display: flex; align-items: center; gap: .25rem; }
+.stepperValue { min-width: 2rem; font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 700; text-align: center; }
+.abilityDefault { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.abilityResult { display: grid; justify-items: end; gap: .1rem; }
+.abilityBonus { color: var(--color-secondary); font-size: .72rem; font-weight: 600; }
+.abilityFinal { display: flex; align-items: baseline; gap: .4rem; font-variant-numeric: tabular-nums; }
+.abilityFinal strong { font-family: var(--typography-display-font-family); font-size: 1.6rem; line-height: 1; }
+.abilityFinalDefault { opacity: .45; }
+.abilityFinal span { min-width: 2.2rem; color: var(--color-text-muted); font-size: .9rem; font-weight: 700; text-align: right; }
+@media (max-width: 900px) { .methodOptions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) {
+  .abilityRow { grid-template-columns: minmax(0, 1fr) auto; row-gap: .5rem; }
+  .abilityName { grid-column: 1 / -1; }
+  .abilityControl { justify-content: flex-start; }
 }

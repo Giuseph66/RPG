@@ -301,11 +301,13 @@ export function collectRules(
     for (const trait of subrace.traits) for (const modifier of trait.modifiers) add(modifier, `sub-raça ${subrace.id} / ${trait.id}`);
   }
 
-  const backgroundRefCheck = ensureLocalRef(character.backgroundRef, pack, "backgroundRef");
-  if (!backgroundRefCheck.ok) return backgroundRefCheck;
-  const background = pack.backgrounds.get(character.backgroundRef.entityId);
-  if (!background) return err(appError.notFound("background", refId(character.backgroundRef)));
-  for (const skill of background.skillProficiencies) skills.add(skill);
+  if (character.backgroundRef) {
+    const backgroundRefCheck = ensureLocalRef(character.backgroundRef, pack, "backgroundRef");
+    if (!backgroundRefCheck.ok) return backgroundRefCheck;
+    const background = pack.backgrounds.get(character.backgroundRef.entityId);
+    if (!background) return err(appError.notFound("background", refId(character.backgroundRef)));
+    for (const skill of background.skillProficiencies) skills.add(skill);
+  }
 
   for (let index = 0; index < character.classes.length; index += 1) {
     const classLevel = character.classes[index];

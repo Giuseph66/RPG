@@ -1,0 +1,10 @@
+.detail { display: grid; gap: var(--spacing-sm); line-height: 1.55; }
+.detail p { margin: 0; }
+.meta { color: var(--color-text-muted); font-size: .78rem; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-xs) var(--spacing-md); margin: 0; }
+.facts dt { color: var(--color-text-muted); font-size: .75rem; }
+.facts dd { margin: 0; }
+.higher { padding: var(--spacing-sm); border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-secondary) 8%, transparent); }
+.higher h3 { margin: 0 0 var(--spacing-xs); font-size: .9rem; }
+.source { color: var(--color-text-muted); font-size: .78rem; }
+@media (max-width: 680px) { .facts { grid-template-columns: 1fr; } }

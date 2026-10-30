@@ -18,7 +18,7 @@ describe("loadPhbPtBrLocal2017", () => {
       expect(result.value.races.size).toBe(9);
       expect(result.value.classes.size).toBe(12);
       expect(result.value.equipment.size).toBe(220);
-      expect(result.value.spells.size).toBe(16);
+      expect(result.value.spells.size).toBe(361);
       expect(result.value.conditions.size).toBe(15);
       expect(result.value.progression.table).toHaveLength(20);
       expect(isOk(resolveRace(result.value, ref("dwarf")))).toBe(true);
@@ -46,7 +46,7 @@ describe("loadPhbPtBrLocal2017", () => {
   });
 
   it("alcança o catálogo de magias com fonte e cobertura parcial explícita", () => {
-    expect(PHB_PTBR_LOCAL_2017_INPUT.spells).toHaveLength(16);
+    expect(PHB_PTBR_LOCAL_2017_INPUT.spells).toHaveLength(361);
     expect(PHB_PTBR_LOCAL_2017_INPUT.spells.every((spell) => spell.sourceRefs[0]?.sourceId === PHB_PTBR_LOCAL_2017_INPUT.manifest.id)).toBe(true);
     expect(SPELL_CATALOG_COVERAGE.status).toBe("partial");
     expect(SPELL_CATALOG_COVERAGE.includedIds).toEqual(PHB_PTBR_LOCAL_2017_INPUT.spells.map((spell) => spell.id));

@@ -11,6 +11,7 @@ import type { ActionAttackRoll, ActionRestInfo, ActionSpellRoll } from "@feature
 import { DAMAGE_LABELS } from "@features/character/sheet/mapping";
 import { DICE_FACES, type Ability, type DiceFaces } from "@domain/contracts/primitives";
 import type { SheetEquipmentInfo, SheetSpellOption } from "@features/character/sheet";
+import type { SpellInfo, SpellInfoLookup } from "@features/character/spell-info";
 import { carryingCapacityGrams, encumbranceThresholdsGrams } from "@data/rules/encumbrance";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
 
@@ -81,6 +82,56 @@ export function spellOptionsFor(character: Character, pack: RulePack | undefined
       };
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+/** Junta as linhas quebradas do PDF; parágrafo novo só após frase encerrada em linha curta. */
+function reflow(text: string): string[] {
+  const paragraphs: string[] = [];
+  let current = "";
+  for (const line of text.split("\n").map((entry) => entry.trim()).filter(Boolean)) {
+    // Hífen no fim da linha é quebra de palavra composta do PDF ("corpo-a-" + "corpo").
+    current = !current ? line : current.endsWith("-") ? `${current}${line}` : `${current} ${line}`;
+    if (/[.!?:]$/.test(line) && line.length < 48) { paragraphs.push(current); current = ""; }
+  }
+  if (current) paragraphs.push(current);
+  return paragraphs;
+}
+
+/** Evolução de truque fica no corpo do texto ("...quando você alcança o 5° nível"). */
+function cantripScaling(paragraphs: readonly string[]): string | undefined {
+  return paragraphs.flatMap((paragraph) => paragraph.split(/(?<=\.)\s+/)).find((sentence) => /\d+\s*[°º]\s*n[íi]vel/i.test(sentence) && /aument|alcan|dois|tr[êe]s|quatro/i.test(sentence));
+}
+
+const spellInfoByPack = new WeakMap<RulePack, SpellInfoLookup>();
+
+/** Descrição do livro por id de magia (criação e ficha); registros estruturados são achados pelo nome. */
+export function spellInfoFor(pack: RulePack | undefined): SpellInfoLookup {
+  const memo = pack ? spellInfoByPack.get(pack) : undefined;
+  if (memo) return memo;
+  const cache = new Map<string, SpellInfo | undefined>();
+  const lookup: SpellInfoLookup = (spellId) => {
+    if (cache.has(spellId)) return cache.get(spellId);
+    const name = pack?.spells.get(spellId as never)?.name;
+    const book = EXTRACTED_PHB_SPELLS.find((spell) => spell.id === spellId) ?? (name ? EXTRACTED_PHB_SPELLS.find((spell) => spell.name.localeCompare(name, "pt-BR", { sensitivity: "base" }) === 0) : undefined);
+    let info: SpellInfo | undefined;
+    if (book) {
+      const paragraphs = reflow(book.description);
+      const scaling = book.level === 0 && !book.higherLevels ? cantripScaling(paragraphs) : undefined;
+      // A evolução do truque sai do corpo do texto para não aparecer duas vezes.
+      const description = scaling ? paragraphs.map((paragraph) => paragraph.replace(scaling, "").trim()).filter(Boolean) : paragraphs;
+      const higherLevels = book.higherLevels ? reflow(book.higherLevels).join(" ").replace(/^Em N[íi]veis Superiores\.\s*/i, "") : scaling;
+      info = {
+        name: book.name, level: book.level, school: book.schoolPtBr, castingTime: book.castingTime, range: book.range,
+        components: book.components, duration: book.duration, ritual: book.ritual, description,
+        ...(higherLevels ? { higherLevels } : {}),
+        source: `Livro do Jogador, p. ${book.source.printedPage}`,
+      };
+    }
+    cache.set(spellId, info);
+    return info;
+  };
+  if (pack) spellInfoByPack.set(pack, lookup);
+  return lookup;
 }
 
 export function conditionOptionsFor(pack: RulePack | undefined): readonly { readonly ref: DefinitionRef; readonly name: string }[] {

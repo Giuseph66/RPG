@@ -7,11 +7,6 @@ import { EXTRACTED_PHB_SPELLS, type ExtractedBookSpell } from "./spells-book-cat
 const classes = (...ids: string[]): readonly EntityId[] => ids.map(spellId);
 const instant = { kind: "instantaneous" as const, endTriggers: [] as const };
 
-const BARD_INITIAL_CATALOG_IDS = [
-  "ilusao-menor", "maos-magicas", "prestidigitacao", "zombaria-viciosa",
-  "disfarcar-se", "enfeiticar-pessoa", "fogo-das-fadas", "heroismo", "onda-trovejante", "sussurros-dissonantes",
-] as const;
-
 const schoolByPtBr: Readonly<Record<string, SpellDefinition["school"]>> = {
   abjuração: "abjuration", conjuração: "conjuration", adivinhação: "divination", encantamento: "enchantment",
   evocação: "evocation", ilusão: "illusion", necromancia: "necromancy", transmutação: "transmutation",
@@ -45,9 +40,6 @@ function assistedFromBook(entry: ExtractedBookSpell): SpellDefinition {
   };
 }
 
-const assistedBardInitialSpells = EXTRACTED_PHB_SPELLS
-  .filter((entry) => (BARD_INITIAL_CATALOG_IDS as readonly string[]).includes(entry.id))
-  .map(assistedFromBook);
 
 /**
  * Conteúdo estruturado coberto por esta entrega. A prosa integral do PDF não é embutida;
@@ -128,7 +120,20 @@ export const spells: readonly SpellDefinition[] = [
   },
 ] as const;
 
-export const SPELL_DEFINITIONS: readonly SpellDefinition[] = [...spells, ...assistedBardInitialSpells];
+const structuredNames = new Set(spells.map((spell) => spell.name.toLocaleLowerCase("pt-BR")));
+
+/** Catálogo do livro completa as listas de classe; registros estruturados têm precedência pelo nome. */
+const assistedBookSpells = EXTRACTED_PHB_SPELLS
+  .filter((entry) => !structuredNames.has(entry.name.toLocaleLowerCase("pt-BR")))
+  .map(assistedFromBook);
+
+/** Truques ganham `<classe>-cantrip` para escolhas fora da classe, ex.: truque de mago do Alto Elfo. */
+function withClassCantripTags(spell: SpellDefinition): SpellDefinition {
+  if (spell.level !== 0) return spell;
+  return { ...spell, tags: [...new Set([...spell.tags, ...spell.classes.map((classId) => `${String(classId)}-cantrip`)])] };
+}
+
+export const SPELL_DEFINITIONS: readonly SpellDefinition[] = [...spells, ...assistedBookSpells].map(withClassCantripTags);
 export const spellsById: ReadonlyMap<EntityId, SpellDefinition> = new Map(SPELL_DEFINITIONS.map((spell) => [spell.id, spell]));
 
 export function findSpell(spellIdValue: string): SpellDefinition | undefined {

@@ -248,7 +248,8 @@ export interface Character {
   readonly playerName?: string;
   readonly raceRef: DefinitionRef;
   readonly subraceRef?: DefinitionRef;
-  readonly backgroundRef: DefinitionRef;
+  /** Antecedente é opcional: sem ele, a ficha só não recebe perícias, ferramentas, idiomas e equipamento dele. */
+  readonly backgroundRef?: DefinitionRef;
   readonly alignment?: Alignment;
   readonly appearance: string;
   readonly personalityTraits: readonly string[];

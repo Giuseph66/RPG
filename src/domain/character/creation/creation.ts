@@ -57,7 +57,13 @@ export function applyCreationDecision(draft: CharacterDraft, decision: CreationD
     case "identity": partial = { ...partial, name: decision.name, ...(decision.playerName === undefined ? {} : { playerName: decision.playerName }) }; break;
     case "race": partial = { ...partial, raceRef: decision.raceRef, choices: withoutOwnedChoices(partial.choices, [partial.raceRef?.entityId, partial.subraceRef?.entityId]), ...(decision.subraceRef === undefined ? { subraceRef: undefined } : { subraceRef: decision.subraceRef }) }; completedStep = "race"; break;
     case "class": partial = { ...partial, classRef: decision.classRef, classes: [{ classId: decision.classRef.entityId, level: 1, ...(decision.subclassRef ? { subclassId: decision.subclassRef.entityId } : {}), choices: [] }], choices: withoutOwnedChoices(partial.choices, [partial.classes?.[0]?.classId]) } as CharacterDraftPartial; completedStep = "class"; break;
-    case "background": partial = { ...partial, backgroundRef: decision.backgroundRef, choices: withoutOwnedChoices(partial.choices, [partial.backgroundRef?.entityId]), ...(decision.variantId === undefined ? {} : { backgroundVariantId: decision.variantId }) } as CharacterDraftPartial; completedStep = "background"; break;
+    case "background": {
+      // "Nenhum" remove a chave: valores undefined não são aceitos pela sincronização.
+      const { backgroundRef: _previous, backgroundVariantId: _variant, ...rest } = partial as CharacterDraftPartial & { readonly backgroundVariantId?: string };
+      partial = { ...rest, ...(decision.backgroundRef ? { backgroundRef: decision.backgroundRef } : {}), choices: withoutOwnedChoices(partial.choices, [partial.backgroundRef?.entityId]), ...(decision.variantId === undefined ? {} : { backgroundVariantId: decision.variantId }) } as CharacterDraftPartial;
+      completedStep = "background";
+      break;
+    }
     case "ability-scores": partial = { ...partial, abilityGeneration: decision.method }; completedStep = "ability-scores"; break;
     case "choices":
       partial = { ...partial, choices: mergeSelections(partial.choices, decision.selections) };
