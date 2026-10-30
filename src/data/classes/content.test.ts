@@ -26,8 +26,8 @@ describe("catálogo DATA-005", () => {
     const bard = classes.find((entry) => entry.id === "bard")!;
     const levelOne = bard.progression[0];
     expect(levelOne.choicesGranted).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "bard.cantrips.1", kind: "cantrip", count: { min: 2, max: 2 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell", filterTag: "cantrip" } } }),
-      expect.objectContaining({ id: "bard.spells.1", kind: "spell", count: { min: 4, max: 4 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell" } } }),
+      expect.objectContaining({ id: "bard.cantrips.1", kind: "cantrip", count: { min: 0, max: 2 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell", filterTag: "cantrip" } } }),
+      expect.objectContaining({ id: "bard.spells.1", kind: "spell", count: { min: 0, max: 4 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell" } } }),
     ]));
     expect(levelOne.spellSlotsGranted).toMatchObject({ slotsByLevel: [{ slotLevel: 1, count: 2 }], cantripsKnown: 2, spellsKnown: 4 });
     expect(bard.initialProficiencies.some((entry) => entry.entityId === "proficiency.rapier")).toBe(true);

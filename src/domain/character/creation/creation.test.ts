@@ -95,6 +95,19 @@ describe("domínio de criação", () => {
     expect("backgroundRef" in result.value.character).toBe(false);
   });
 
+  it("aceita subclasse e escolhas de classe do 1º nível na criação", () => {
+    const base = draft({ raceRef: ref("human"), classes: [{ classId: asEntityId("cleric"), level: 1, subclassId: asEntityId("knowledge-domain"), choices: [] }],
+      choices: [
+        { choiceId: "knowledge-domain.skills-expertise.1", selectedIds: [ref("arcana"), ref("history")], grantedAtLevel: 1, grantingRef: ref("knowledge-domain") },
+        { choiceId: "knowledge-domain.languages.1", selectedIds: [ref("elvish"), ref("dwarvish")], grantedAtLevel: 1, grantingRef: ref("knowledge-domain") },
+      ] });
+    expect(validateCharacterCreation(catalog(), base).issues).toEqual([]);
+    const fighter = draft({ raceRef: ref("human"), classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }], choices: [{ choiceId: "fighter.fighting-style.1", selectedIds: [ref("fighting-style.archery")], grantedAtLevel: 1, grantingRef: ref("fighter") }] });
+    expect(validateCharacterCreation(catalog(), fighter).issues).toEqual([]);
+    const wrongStyle = draft({ raceRef: ref("human"), classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }], choices: [{ choiceId: "fighter.fighting-style.1", selectedIds: [ref("metamagic.twinned-spell")], grantedAtLevel: 1, grantingRef: ref("fighter") }] });
+    expect(validateCharacterCreation(catalog(), wrongStyle).issues.some((entry) => entry.code === "invalid-choice")).toBe(true);
+  });
+
   it("aplica decisões sem mutar o draft anterior", () => {
     const initial = draft();
     const result = applyCreationDecision(initial, { kind: "race", raceRef: ref("human") });
@@ -167,7 +180,8 @@ describe("domínio de criação", () => {
       expect(result.value.character.castingSources[0]?.knownSpellRefs.map((spell) => String(spell.entityId))).toEqual([
         "prestidigitacao", "zombaria-viciosa", "cure-wounds", "disfarcar-se", "enfeiticar-pessoa", "fogo-das-fadas",
       ]);
-      expect(result.value.character.spellSlots).toHaveLength(1);
+      // Bardo de 1º nível tem 2 espaços de 1º círculo: um registro por espaço.
+      expect(result.value.character.spellSlots.map((slot) => slot.slotLevel)).toEqual([1, 1]);
     }
   });
 });

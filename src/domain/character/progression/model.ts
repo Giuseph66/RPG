@@ -1,5 +1,5 @@
 import type { Character, ProgressionHitPointGain } from "@domain/contracts/character";
-import type { ChoiceDefinition, ChoiceSelection, SourceRef } from "@domain/contracts/primitives";
+import type { Ability, ChoiceDefinition, ChoiceSelection, SourceRef } from "@domain/contracts/primitives";
 import type { DefinitionRef, EntityId, IsoTimestamp, Uuid } from "@domain/contracts/ids";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { ResourceDefinition, ResourceCapacityRule } from "@domain/contracts/definitions/resource";
@@ -13,6 +13,8 @@ export interface LevelUpRequest {
   readonly choices: readonly ChoiceSelection[];
   /** XP é exigido por padrão; milestone é uma autorização explícita da campanha. */
   readonly mode?: "xp" | "milestone";
+  /** Valores finais de atributo (com raça e aumentos) para checar requisitos de talentos. */
+  readonly abilityScores?: Readonly<Partial<Record<Ability, number>>>;
 }
 
 export interface ProgressionIssue {

@@ -38,6 +38,8 @@ const FEATURE_NAMES: Readonly<Record<string, string>> = {
   "thieves-cant": "Gíria de Ladrão", "timeless-body": "Corpo Atemporal", "tongue-of-sun-and-moon": "Idiomas do Sol e da Lua",
   "unarmored-defense": "Defesa sem Armadura", "unarmored-movement": "Movimento sem Armadura", "uncanny-dodge": "Esquiva Sobrenatural",
   vanish: "Desaparecer", "wild-shape": "Forma Selvagem", "wild-shape-improvement": "Forma Selvagem (aprimoramento)",
+  "slow-fall": "Queda Lenta", "ki-empowered-strikes": "Golpes de Chi", "favored-enemy-greater": "Inimigo Favorito Maior",
+  "sacred-oath": "Juramento Sagrado", "ranger-conclave": "Conclave de Patrulheiro",
 };
 
 /** Níveis em que a tabela da classe lista uma característica da subclasse (além da escolha). */
@@ -72,7 +74,7 @@ export function classProgressionText(classId: string): string | undefined {
       const key = String(ref.entityId).split(".").slice(1).join(".");
       return FEATURE_NAMES[key] ?? key;
     });
-    if (entry.choicesGranted.length > 0) names.push("Incremento no Valor de Habilidade");
+    if (entry.choicesGranted.some((granted) => /\.asi\.\d+$/.test(granted.id))) names.push("Incremento no Valor de Habilidade");
     if (subclass && entry.level === definition.subclassSelectionLevel && !names.includes(subclass.label)) names.push(subclass.label);
     if (subclass?.levels.includes(entry.level)) names.push(`Característica de ${subclass.label}`);
     const slots = entry.spellSlotsGranted?.slotsByLevel.map((slot) => `${slot.slotLevel}${ORDINAL}×${slot.count}`).join(" ");

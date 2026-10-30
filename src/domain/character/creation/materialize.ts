@@ -7,6 +7,7 @@ import { type ChoiceSelection } from "@domain/contracts/primitives";
 import { deriveCharacter } from "@domain/rules/derived";
 import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, type CreationIssue, type MaterializeOptions, type MaterializedCharacter } from "./model";
 import { validateCharacterCreation } from "./validate";
+import { syncSpellcasting } from "@domain/character/evolution/spell-state";
 import { defaultBaseScore } from "./limits";
 
 function fallbackId(purpose: string, index: number): Uuid {
@@ -52,27 +53,6 @@ function initialEquipment(
   return ok({ inventory, currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 } });
 }
 
-function spellState(draft: CharacterDraft, catalog: CreationCatalog, options: MaterializeOptions, classLevel: ClassLevel): Pick<Character, "castingSources" | "spellSlots" | "spellbookEntries" | "preparedSelections"> {
-  const pack = catalog.rulePack;
-  const definition = pack.classes.get(classLevel.classId);
-  const castsAtLevelOne = definition?.progression[0]?.featureRefs.some((ref) => String(ref.entityId).endsWith(".spellcasting"));
-  if (!definition?.spellcasting || !castsAtLevelOne) return { castingSources: [], spellSlots: [], spellbookEntries: [], preparedSelections: [] };
-  const sourceId = makeId(options, "casting-source", 0);
-  const sourceRef: DefinitionRef = { rulesetId: pack.manifest.id, entityId: classLevel.classId };
-  const selections = (draft.partial.choices ?? []).filter((selection) => selection.choiceId.toLowerCase().includes("spell") || selection.choiceId.toLowerCase().includes("cantrip"));
-  const spellRefs = selections.flatMap((selection) => selection.selectedIds).filter((ref) => pack.spells.has(ref.entityId));
-  const known = definition.spellcasting.kind === "known" ? spellRefs : [];
-  const prepared = definition.spellcasting.kind === "prepared" ? spellRefs : [];
-  const spellbook = definition.spellcasting.kind === "spellbook-prepared" ? spellRefs : [];
-  const slots = (definition.progression[0]?.spellSlotsGranted?.slotsByLevel ?? []).map((entry, index) => ({ poolId: makeId(options, "spell-slot", index + 1), kind: definition.spellcasting?.progressionType === "pact" ? "pact" as const : "spellcasting" as const, slotLevel: entry.slotLevel, spent: 0 }));
-  return {
-    castingSources: [{ id: sourceId, grantingRef: sourceRef, ability: definition.spellcasting.ability, knownSpellRefs: known, preparedSpellRefs: prepared, spellbookRefs: spellbook, resourcePoolIds: slots.map((slot) => slot.poolId) }],
-    spellSlots: slots,
-    spellbookEntries: spellbook.map((spellRef, index) => ({ id: makeId(options, "spellbook", index), spellRef, castingSourceId: sourceId })),
-    preparedSelections: [...prepared, ...spellbook].map((spellRef) => ({ castingSourceId: sourceId, spellRef, alwaysPrepared: false })),
-  };
-}
-
 /** Atributos não preenchidos (ausentes ou 0) viram 10, ou 8 na compra de pontos. */
 function withDefaultScores(generation: CharacterDraft["partial"]["abilityGeneration"]): AbilityGeneration {
   return {
@@ -101,16 +81,17 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const revision: Revision = options.revision ?? asRevision(0);
   const progressionEntry = classDefinition.progression[0];
   const hpGainId = makeId(options, "progression", 0);
-  const character: Character = {
+  const base: Character = {
     id: draft.id, schemaVersion: CHARACTER_SCHEMA_VERSION, revision, rulesetRef: draft.rulesetRef, createdAt: draft.createdAt, updatedAt: now,
     name: partial.name?.trim() || "Aventureiro sem nome", ...(partial.playerName === undefined ? {} : { playerName: partial.playerName }), raceRef: partial.raceRef, ...(partial.subraceRef ? { subraceRef: partial.subraceRef } : {}), ...(partial.backgroundRef ? { backgroundRef: partial.backgroundRef } : {}),
     appearance: partial.appearance ?? "", personalityTraits: partial.personalityTraits ?? [], ideals: partial.ideals ?? [], bonds: partial.bonds ?? [], flaws: partial.flaws ?? [], history: partial.history ?? "",
     classes: [levelClass], abilityGeneration, choices: partial.choices ?? [], progressionHistory: [{ id: hpGainId, classId: classDefinition.id, level: 1, hitPointGain: { kind: "first-level-max", amount: classDefinition.hitDie }, choices: [], recordedAt: now }],
     xp: 0, inspiration: false, hp: { current: classDefinition.hitDie, temp: 0 }, hitDiceSpent: [{ classId: classDefinition.id, hitDie: classDefinition.hitDie, spent: 0 }], deathSaves: { successes: 0, failures: 0, stable: false }, conditions: [],
     resources: (progressionEntry?.resourceChanges ?? []).map((change, index) => ({ id: makeId(options, "resource", index), definitionRef: change.resourceRef, ownerInstanceId: draft.id, spent: 0 })), pendingResolutions: [], inventory: equipment.value.inventory, currency: equipment.value.currency,
-    ...spellState(draft, catalog, options, levelClass), manualAdjustments: [],
+    castingSources: [], spellSlots: [], spellbookEntries: [], preparedSelections: [], manualAdjustments: [],
   };
   const context = options.context ?? { gameTime: { day: 0, hour: 0, minute: 0 }, availableActions: [], tablePolicies: [] };
+  const character = syncSpellcasting(base, pack, partial.choices ?? [], { autoPrepare: true, ...(options.idGenerator ? { idGenerator: options.idGenerator } : {}) });
   const derived = deriveCharacter(character, pack, context);
   if (!derived.ok) return err([{ code: derived.error.code === "unresolved-rule" ? "unresolved-source" : "invalid-reference", field: "derived", message: derived.error.message }]);
   return ok({ character: { ...character, hp: { current: derived.value.hitPointsMax.value, temp: 0 } }, derived: derived.value });

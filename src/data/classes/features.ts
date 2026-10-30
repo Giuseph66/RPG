@@ -3,6 +3,10 @@ import { type ResourceDefinition } from "@domain/contracts/definitions/resource"
 import { asEntityId } from "@domain/contracts/ids";
 import { ref, source } from "./common";
 import { classes } from "./classes";
+import { CLASS_FEATURE_NAMES, SUBCLASS_FEATURE_NAMES } from "./feature-names";
+import { OPTION_GROUPS, optionFeatureId } from "@data/evolution/options";
+import { SUBCLASS_FEATURE_CHOICES } from "@data/evolution/choices";
+import { type Prerequisite } from "@domain/contracts/primitives";
 
 const classFeatureNames = classes.flatMap((entry) => entry.progression.flatMap((level) => level.featureRefs.map((item) => item.entityId)));
 const subclassIds = classes.flatMap((entry) => entry.subclassIds);
@@ -20,7 +24,7 @@ export const FEATURE_PENDING_DECISIONS: Readonly<Record<string, readonly string[
  * próprios; o catálogo mantém referências estáveis para a progressão sem duplicar prosa.
  * Efeitos que exigem contexto de mesa permanecem assistidos no Rules Engine.
  */
-export const features: readonly FeatureDefinition[] = featureIds.map((featureId) => {
+const classAndSubclassFeatures: readonly FeatureDefinition[] = featureIds.map((featureId) => {
   const [ownerId] = featureId.split(".");
   const subclassOwner = classes.find((entry) => entry.subclassIds.some((subclassId) => featureId.startsWith(`${subclassId}-feature-level-`)));
   const owner = classes.find((entry) => entry.id === ownerId) ?? subclassOwner;
@@ -28,19 +32,46 @@ export const features: readonly FeatureDefinition[] = featureIds.map((featureId)
   const src = source(ownerClass.id === "barbarian" ? 46 : ownerClass.id === "bard" ? 51 : ownerClass.id === "warlock" ? 56 : ownerClass.id === "cleric" ? 63 : ownerClass.id === "druid" ? 71 : ownerClass.id === "sorcerer" ? 77 : ownerClass.id === "fighter" ? 83 : ownerClass.id === "rogue" ? 89 : ownerClass.id === "wizard" ? 94 : ownerClass.id === "monk" ? 102 : ownerClass.id === "paladin" ? 108 : 115, ownerClass.id === "barbarian" ? 45 : ownerClass.id === "bard" ? 50 : ownerClass.id === "warlock" ? 55 : ownerClass.id === "cleric" ? 62 : ownerClass.id === "druid" ? 70 : ownerClass.id === "sorcerer" ? 76 : ownerClass.id === "fighter" ? 82 : ownerClass.id === "rogue" ? 88 : ownerClass.id === "wizard" ? 93 : ownerClass.id === "monk" ? 101 : ownerClass.id === "paladin" ? 107 : 114, "Características e recursos");
   return {
     id: asEntityId(featureId),
-    name: featureId,
+    name: CLASS_FEATURE_NAMES[featureId] ?? SUBCLASS_FEATURE_NAMES[featureId] ?? featureId,
     tags: ["player-handbook", "class-feature"],
     sourceRefs: [src],
     activation: { kind: "passive" },
     eligibility: [],
-    effects: [{ kind: "narrative", description: "Regra detalhada na documentação da classe e resolvida conforme contexto." }],
+    effects: featureId === "paladin.divine-sense"
+      ? [{ kind: "modifier", modifier: { id: "paladin.divine-sense.extra-use", sourceRef: src, target: { kind: "resource-capacity", resourceRef: ref("paladin.divine-sense") }, operator: "add", value: { kind: "number", amount: 1 }, predicate: { kind: "always" } } }]
+      : [{ kind: "narrative", description: "Regra detalhada na documentação da classe e resolvida conforme contexto." }],
     resourceCosts: [],
-    choices: [],
+    choices: SUBCLASS_FEATURE_CHOICES[featureId] ?? [],
     automationStatus: FEATURE_PENDING_DECISIONS[featureId]?.length ? "blocked" : "assisted",
     pendingDecisionIds: FEATURE_PENDING_DECISIONS[featureId] ?? [],
   };
 });
 
+function optionEligibility(groupOwner: string, prerequisites: (typeof OPTION_GROUPS)[number]["options"][number]["prerequisites"]): readonly Prerequisite[] {
+  if (!prerequisites) return [];
+  const result: Prerequisite[] = [];
+  if (prerequisites.classLevel) result.push({ kind: "min-class-level", classRef: ref(groupOwner), level: prerequisites.classLevel });
+  if (prerequisites.pact) result.push({ kind: "has-feature", featureRef: ref(optionFeatureId("pact-boon", prerequisites.pact)) });
+  if (prerequisites.cantrip) result.push({ kind: "knows-spell", spellRef: ref(prerequisites.cantrip) });
+  return result;
+}
+
+/** Opções que o jogador escolhe ao evoluir (estilos de luta, metamagia, invocações…) viram características do pack. */
+const optionFeatures: readonly FeatureDefinition[] = OPTION_GROUPS.flatMap((group) => group.options.map((option) => ({
+  id: asEntityId(optionFeatureId(group.id, option.id)),
+  name: option.name,
+  tags: ["player-handbook", "evolution-option", group.id],
+  sourceRefs: [source(46, 45, group.label)],
+  activation: { kind: "passive" as const },
+  eligibility: optionEligibility(group.ownerId, option.prerequisites),
+  effects: [{ kind: "narrative" as const, description: option.summary ?? "Regra detalhada no texto da característica." }],
+  resourceCosts: [],
+  choices: [],
+  automationStatus: "assisted" as const,
+  pendingDecisionIds: [],
+})));
+
+export const features: readonly FeatureDefinition[] = [...classAndSubclassFeatures, ...optionFeatures];
 export const classFeatures = features;
 
 const RESOURCE_SPECS: readonly [string, string, "charges" | "uses" | "points" | "dice", ResourceDefinition["capacityRule"], ResourceDefinition["recoveryTriggers"], number, number][] = [
@@ -52,6 +83,10 @@ const RESOURCE_SPECS: readonly [string, string, "charges" | "uses" | "points" | 
   ["paladin.lay-on-hands", "Cura pelas Mãos", "points", { kind: "by-class-level", classRef: ref("paladin"), amountsByLevel: Array.from({ length: 20 }, (_, index) => ({ level: index + 1, count: (index + 1) * 5 })) }, [{ kind: "long-rest" }], 108, 107],
   ["wizard.arcane-recovery", "Recuperação Arcana", "uses", { kind: "fixed", amount: 1 }, [{ kind: "long-rest" }], 94, 93],
   ["fighter.second-wind", "Segundo Fôlego", "uses", { kind: "fixed", amount: 1 }, [{ kind: "short-rest" }, { kind: "long-rest" }], 83, 82],
+  ["fighter.action-surge", "Surto de Ação", "uses", { kind: "by-class-level", classRef: ref("fighter"), amountsByLevel: [{ level: 2, count: 1 }, { level: 17, count: 2 }] }, [{ kind: "short-rest" }, { kind: "long-rest" }], 83, 82],
+  ["fighter.indomitable", "Indomável", "uses", { kind: "by-class-level", classRef: ref("fighter"), amountsByLevel: [{ level: 9, count: 1 }, { level: 13, count: 2 }, { level: 17, count: 3 }] }, [{ kind: "long-rest" }], 83, 82],
+  ["druid.wild-shape", "Forma Selvagem", "uses", { kind: "fixed", amount: 2 }, [{ kind: "short-rest" }, { kind: "long-rest" }], 71, 70],
+  ["paladin.divine-sense", "Sentido Divino", "uses", { kind: "ability-modifier", ability: "cha", minimum: 0 }, [{ kind: "long-rest" }], 108, 107],
   ["rogue.stroke-of-luck", "Golpe de Sorte", "uses", { kind: "fixed", amount: 1 }, [{ kind: "short-rest" }, { kind: "long-rest" }], 89, 88],
 ];
 

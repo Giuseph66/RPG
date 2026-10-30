@@ -1,6 +1,7 @@
 import { type SubclassDefinition } from "@domain/contracts/definitions/class";
 import { asEntityId } from "@domain/contracts/ids";
 import { choice, featureRef, ref, source } from "@data/classes/common";
+import { CANTRIPS_KNOWN, SPELLS_KNOWN, SUBCLASS_CASTING } from "@domain/character/evolution/spell-tables";
 
 type SubclassSpec = { id: string; name: string; classId: string; selectionLevel: number; levels: readonly number[]; page: number; pdfPage: number };
 
@@ -61,6 +62,15 @@ export const subclasses: readonly SubclassDefinition[] = specs.map((spec) => {
     spellGrants: [],
     resourceChanges: [],
     choices: [],
+    ...(SUBCLASS_CASTING[spec.id] ? { spellcasting: {
+      ability: SUBCLASS_CASTING[spec.id].ability,
+      kind: "known" as const,
+      progressionType: "third" as const,
+      cantripsKnownByLevel: CANTRIPS_KNOWN[spec.id].map((count, index) => ({ level: index + 1, count })).filter((entry) => entry.count > 0),
+      spellsKnownByLevel: SPELLS_KNOWN[spec.id].map((count, index) => ({ level: index + 1, count })).filter((entry) => entry.count > 0),
+      ritualCasting: false,
+      spellcastingFocusAllowed: true,
+    } } : {}),
   };
 });
 

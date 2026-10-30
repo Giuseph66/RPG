@@ -1,0 +1,4292 @@
+{
+ "classes": [
+  {
+   "id": "barbarian",
+   "name": "Bárbaro",
+   "hitDie": 12,
+   "subclassSelectionLevel": 3,
+   "spellcasting": null
+  },
+  {
+   "id": "bard",
+   "name": "Bardo",
+   "hitDie": 8,
+   "subclassSelectionLevel": 3,
+   "spellcasting": "known"
+  },
+  {
+   "id": "warlock",
+   "name": "Bruxo",
+   "hitDie": 8,
+   "subclassSelectionLevel": 1,
+   "spellcasting": "known"
+  },
+  {
+   "id": "cleric",
+   "name": "Clérigo",
+   "hitDie": 8,
+   "subclassSelectionLevel": 1,
+   "spellcasting": "prepared"
+  },
+  {
+   "id": "druid",
+   "name": "Druida",
+   "hitDie": 8,
+   "subclassSelectionLevel": 2,
+   "spellcasting": "prepared"
+  },
+  {
+   "id": "sorcerer",
+   "name": "Feiticeiro",
+   "hitDie": 6,
+   "subclassSelectionLevel": 1,
+   "spellcasting": "known"
+  },
+  {
+   "id": "fighter",
+   "name": "Guerreiro",
+   "hitDie": 10,
+   "subclassSelectionLevel": 3,
+   "spellcasting": null
+  },
+  {
+   "id": "rogue",
+   "name": "Ladino",
+   "hitDie": 8,
+   "subclassSelectionLevel": 3,
+   "spellcasting": null
+  },
+  {
+   "id": "wizard",
+   "name": "Mago",
+   "hitDie": 6,
+   "subclassSelectionLevel": 2,
+   "spellcasting": "spellbook-prepared"
+  },
+  {
+   "id": "monk",
+   "name": "Monge",
+   "hitDie": 8,
+   "subclassSelectionLevel": 3,
+   "spellcasting": null
+  },
+  {
+   "id": "paladin",
+   "name": "Paladino",
+   "hitDie": 10,
+   "subclassSelectionLevel": 3,
+   "spellcasting": "prepared"
+  },
+  {
+   "id": "ranger",
+   "name": "Patrulheiro",
+   "hitDie": 10,
+   "subclassSelectionLevel": 3,
+   "spellcasting": "prepared"
+  }
+ ],
+ "subclasses": [
+  {
+   "id": "path-of-the-berserker",
+   "name": "Caminho do Furioso",
+   "classId": "barbarian",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "path-of-the-totem-warrior",
+   "name": "Caminho do Guerreiro Totêmico",
+   "classId": "barbarian",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "college-of-lore",
+   "name": "Colégio do Conhecimento",
+   "classId": "bard",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    14
+   ]
+  },
+  {
+   "id": "college-of-valor",
+   "name": "Colégio da Bravura",
+   "classId": "bard",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    14
+   ]
+  },
+  {
+   "id": "the-archfey",
+   "name": "A Arquifada",
+   "classId": "warlock",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "the-fiend",
+   "name": "O Corruptor",
+   "classId": "warlock",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "the-great-old-one",
+   "name": "O Grande Antigo",
+   "classId": "warlock",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "knowledge-domain",
+   "name": "Domínio do Conhecimento",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "life-domain",
+   "name": "Domínio da Vida",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "light-domain",
+   "name": "Domínio da Luz",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "nature-domain",
+   "name": "Domínio da Natureza",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "tempest-domain",
+   "name": "Domínio da Tempestade",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "trickery-domain",
+   "name": "Domínio da Enganação",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "war-domain",
+   "name": "Domínio da Guerra",
+   "classId": "cleric",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    2,
+    6,
+    8,
+    17
+   ]
+  },
+  {
+   "id": "circle-of-the-land",
+   "name": "Círculo da Terra",
+   "classId": "druid",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "circle-of-the-moon",
+   "name": "Círculo da Lua",
+   "classId": "druid",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "draconic-bloodline",
+   "name": "Linhagem Dracônica",
+   "classId": "sorcerer",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    6,
+    14,
+    18
+   ]
+  },
+  {
+   "id": "wild-magic",
+   "name": "Magia Selvagem",
+   "classId": "sorcerer",
+   "selectionLevel": 1,
+   "grants": [
+    1,
+    6,
+    14,
+    18
+   ]
+  },
+  {
+   "id": "champion",
+   "name": "Campeão",
+   "classId": "fighter",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    7,
+    10,
+    15,
+    18
+   ]
+  },
+  {
+   "id": "battle-master",
+   "name": "Mestre de Batalha",
+   "classId": "fighter",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    7,
+    10,
+    15,
+    18
+   ]
+  },
+  {
+   "id": "eldritch-knight",
+   "name": "Cavaleiro Místico",
+   "classId": "fighter",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    7,
+    10,
+    15,
+    18
+   ]
+  },
+  {
+   "id": "thief",
+   "name": "Ladrão",
+   "classId": "rogue",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    9,
+    13,
+    17
+   ]
+  },
+  {
+   "id": "assassin",
+   "name": "Assassino",
+   "classId": "rogue",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    9,
+    13,
+    17
+   ]
+  },
+  {
+   "id": "arcane-trickster",
+   "name": "Trapaceiro Arcano",
+   "classId": "rogue",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    9,
+    13,
+    17
+   ]
+  },
+  {
+   "id": "school-of-abjuration",
+   "name": "Escola de Abjuração",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-conjuration",
+   "name": "Escola de Conjuração",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-divination",
+   "name": "Escola de Adivinhação",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-enchantment",
+   "name": "Escola de Encantamento",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-evocation",
+   "name": "Escola de Evocação",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-illusion",
+   "name": "Escola de Ilusão",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-necromancy",
+   "name": "Escola de Necromancia",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "school-of-transmutation",
+   "name": "Escola de Transmutação",
+   "classId": "wizard",
+   "selectionLevel": 2,
+   "grants": [
+    2,
+    6,
+    10,
+    14
+   ]
+  },
+  {
+   "id": "way-of-the-open-hand",
+   "name": "Caminho da Mão Aberta",
+   "classId": "monk",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    11,
+    17
+   ]
+  },
+  {
+   "id": "way-of-shadow",
+   "name": "Caminho da Sombra",
+   "classId": "monk",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    11,
+    17
+   ]
+  },
+  {
+   "id": "way-of-the-four-elements",
+   "name": "Caminho dos Quatro Elementos",
+   "classId": "monk",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    6,
+    11,
+    17
+   ]
+  },
+  {
+   "id": "oath-of-devotion",
+   "name": "Juramento de Devoção",
+   "classId": "paladin",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    7,
+    15,
+    20
+   ]
+  },
+  {
+   "id": "oath-of-the-ancients",
+   "name": "Juramento dos Anciões",
+   "classId": "paladin",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    7,
+    15,
+    20
+   ]
+  },
+  {
+   "id": "oath-of-vengeance",
+   "name": "Juramento de Vingança",
+   "classId": "paladin",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    7,
+    15,
+    20
+   ]
+  },
+  {
+   "id": "beast-conclave",
+   "name": "Conclave da Besta",
+   "classId": "ranger",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    5,
+    7,
+    11,
+    15
+   ]
+  },
+  {
+   "id": "hunter-conclave",
+   "name": "Conclave do Caçador",
+   "classId": "ranger",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    5,
+    7,
+    11,
+    15
+   ]
+  },
+  {
+   "id": "deep-stalker-conclave",
+   "name": "Conclave do Rastreador Subterrâneo",
+   "classId": "ranger",
+   "selectionLevel": 3,
+   "grants": [
+    3,
+    5,
+    7,
+    11,
+    15
+   ]
+  }
+ ],
+ "features": [
+  {
+   "id": "barbarian.brutal-critical",
+   "name": "Crítico Brutal",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.danger-sense",
+   "name": "Sentido de Perigo",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.extra-attack",
+   "name": "Ataque Extra",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.fast-movement",
+   "name": "Movimento Rápido",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.feral-instinct",
+   "name": "Instinto Selvagem",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.indomitable-might",
+   "name": "Força Indomável",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.persistent-rage",
+   "name": "Fúria Persistente",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.primal-champion",
+   "name": "Campeão Primitivo",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.primal-path",
+   "name": "Caminho Primitivo",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.rage",
+   "name": "Fúria",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.reckless-attack",
+   "name": "Ataque Descuidado",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.relentless-rage",
+   "name": "Fúria Implacável",
+   "classId": "barbarian"
+  },
+  {
+   "id": "barbarian.unarmored-defense",
+   "name": "Defesa sem Armadura",
+   "classId": "barbarian"
+  },
+  {
+   "id": "bard.bard-college",
+   "name": "Colégio de Bardo",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.bardic-inspiration",
+   "name": "Inspiração de Bardo",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.countercharm",
+   "name": "Canção de Proteção",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.expertise",
+   "name": "Aptidão",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.font-of-inspiration",
+   "name": "Fonte de Inspiração",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.jack-of-all-trades",
+   "name": "Versatilidade",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.magical-secrets",
+   "name": "Segredos Mágicos",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.song-of-rest",
+   "name": "Canção de Descanso",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.spellcasting",
+   "name": "Conjuração",
+   "classId": "bard"
+  },
+  {
+   "id": "bard.superior-inspiration",
+   "name": "Inspiração Superior",
+   "classId": "bard"
+  },
+  {
+   "id": "cleric.channel-divinity",
+   "name": "Canalizar Divindade",
+   "classId": "cleric"
+  },
+  {
+   "id": "cleric.destroy-undead",
+   "name": "Destruir Mortos-Vivos",
+   "classId": "cleric"
+  },
+  {
+   "id": "cleric.divine-domain",
+   "name": "Domínio Divino",
+   "classId": "cleric"
+  },
+  {
+   "id": "cleric.divine-intervention",
+   "name": "Intervenção Divina",
+   "classId": "cleric"
+  },
+  {
+   "id": "cleric.greater-divine-intervention",
+   "name": "Intervenção Divina Maior",
+   "classId": "cleric"
+  },
+  {
+   "id": "cleric.spellcasting",
+   "name": "Conjuração",
+   "classId": "cleric"
+  },
+  {
+   "id": "druid.archdruid",
+   "name": "Arquidruida",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.beast-spells",
+   "name": "Magias da Besta",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.druid-circle",
+   "name": "Círculo Druídico",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.druidic",
+   "name": "Druídico",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.spellcasting",
+   "name": "Conjuração",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.timeless-body",
+   "name": "Corpo Atemporal",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.wild-shape",
+   "name": "Forma Selvagem",
+   "classId": "druid"
+  },
+  {
+   "id": "druid.wild-shape-improvement",
+   "name": "Melhoria de Forma Selvagem",
+   "classId": "druid"
+  },
+  {
+   "id": "fighter.action-surge",
+   "name": "Surto de Ação",
+   "classId": "fighter"
+  },
+  {
+   "id": "fighter.extra-attack",
+   "name": "Ataque Extra",
+   "classId": "fighter"
+  },
+  {
+   "id": "fighter.fighting-style",
+   "name": "Estilo de Luta",
+   "classId": "fighter"
+  },
+  {
+   "id": "fighter.indomitable",
+   "name": "Indomável",
+   "classId": "fighter"
+  },
+  {
+   "id": "fighter.martial-archetype",
+   "name": "Arquétipo Marcial",
+   "classId": "fighter"
+  },
+  {
+   "id": "fighter.second-wind",
+   "name": "Retomar o Fôlego",
+   "classId": "fighter"
+  },
+  {
+   "id": "monk.deflect-missiles",
+   "name": "Defletir Projéteis",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.diamond-soul",
+   "name": "Alma de Diamante",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.empty-body",
+   "name": "Corpo Vazio",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.evasion",
+   "name": "Evasão",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.extra-attack",
+   "name": "Ataque Extra",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.ki",
+   "name": "Chi",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.martial-arts",
+   "name": "Artes Marciais",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.monastic-tradition",
+   "name": "Tradição Monástica",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.perfect-self",
+   "name": "Auto-aperfeiçoamento",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.purity-of-body",
+   "name": "Pureza Corporal",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.stillness-of-mind",
+   "name": "Mente Tranquila",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.stunning-strike",
+   "name": "Ataque Atordoante",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.timeless-body",
+   "name": "Corpo Atemporal",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.tongue-of-sun-and-moon",
+   "name": "Idiomas do Sol e da Lua",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.unarmored-defense",
+   "name": "Defesa sem Armadura",
+   "classId": "monk"
+  },
+  {
+   "id": "monk.unarmored-movement",
+   "name": "Movimento sem Armadura",
+   "classId": "monk"
+  },
+  {
+   "id": "paladin.aura-of-courage",
+   "name": "Aura de Coragem",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.aura-of-protection",
+   "name": "Aura de Proteção",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.aura-range-improvement",
+   "name": "Aura Aprimorada (alcance)",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.cleansing-touch",
+   "name": "Toque Purificador",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.divine-health",
+   "name": "Saúde Divina",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.divine-sense",
+   "name": "Sentido Divino",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.divine-smite",
+   "name": "Destruição Divina",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.extra-attack",
+   "name": "Ataque Extra",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.fighting-style",
+   "name": "Estilo de Luta",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.improved-divine-smite",
+   "name": "Destruição Divina Aprimorada",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.lay-on-hands",
+   "name": "Cura pelas Mãos",
+   "classId": "paladin"
+  },
+  {
+   "id": "paladin.spellcasting",
+   "name": "Conjuração",
+   "classId": "paladin"
+  },
+  {
+   "id": "ranger.extra-attack",
+   "name": "Ataque Extra",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.favored-enemy",
+   "name": "Inimigo Favorito",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.feral-senses",
+   "name": "Sentidos Selvagens",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.fighting-style",
+   "name": "Estilo de Luta",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.foe-slayer",
+   "name": "Matador de Inimigos",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.hide-in-plain-sight",
+   "name": "Mimetismo",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.land-stride",
+   "name": "Pés Rápidos",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.natural-explorer",
+   "name": "Explorador Natural",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.primeval-awareness",
+   "name": "Consciência Primitiva",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.spellcasting",
+   "name": "Conjuração",
+   "classId": "ranger"
+  },
+  {
+   "id": "ranger.vanish",
+   "name": "Desaparecer",
+   "classId": "ranger"
+  },
+  {
+   "id": "rogue.blindsense",
+   "name": "Sentido Cego",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.cunning-action",
+   "name": "Ação Ardilosa",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.elusive",
+   "name": "Elusivo",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.evasion",
+   "name": "Evasão",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.expertise",
+   "name": "Especialização",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.reliable-talent",
+   "name": "Talento Confiável",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.roguish-archetype",
+   "name": "Arquétipo de Ladino",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.slippery-mind",
+   "name": "Mente Escorregadia",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.sneak-attack",
+   "name": "Ataque Furtivo",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.stroke-of-luck",
+   "name": "Golpe de Sorte",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.thieves-cant",
+   "name": "Gíria de Ladrão",
+   "classId": "rogue"
+  },
+  {
+   "id": "rogue.uncanny-dodge",
+   "name": "Esquiva Sobrenatural",
+   "classId": "rogue"
+  },
+  {
+   "id": "sorcerer.font-of-magic",
+   "name": "Fonte de Magia",
+   "classId": "sorcerer"
+  },
+  {
+   "id": "sorcerer.metamagic",
+   "name": "Metamagia",
+   "classId": "sorcerer"
+  },
+  {
+   "id": "sorcerer.sorcerous-origin",
+   "name": "Origem de Feitiçaria",
+   "classId": "sorcerer"
+  },
+  {
+   "id": "sorcerer.sorcerous-restoration",
+   "name": "Restauração Mística",
+   "classId": "sorcerer"
+  },
+  {
+   "id": "sorcerer.spellcasting",
+   "name": "Conjuração",
+   "classId": "sorcerer"
+  },
+  {
+   "id": "warlock.eldritch-invocations",
+   "name": "Invocações Místicas",
+   "classId": "warlock"
+  },
+  {
+   "id": "warlock.eldritch-master",
+   "name": "Mestre Místico",
+   "classId": "warlock"
+  },
+  {
+   "id": "warlock.mystic-arcanum",
+   "name": "Arcana Mística",
+   "classId": "warlock"
+  },
+  {
+   "id": "warlock.otherworldly-patron",
+   "name": "Patrono Transcendental",
+   "classId": "warlock"
+  },
+  {
+   "id": "warlock.pact-boon",
+   "name": "Dádiva do Pacto",
+   "classId": "warlock"
+  },
+  {
+   "id": "warlock.pact-magic",
+   "name": "Magia de Pacto",
+   "classId": "warlock"
+  },
+  {
+   "id": "wizard.arcane-recovery",
+   "name": "Recuperação Arcana",
+   "classId": "wizard"
+  },
+  {
+   "id": "wizard.arcane-tradition",
+   "name": "Tradição Arcana",
+   "classId": "wizard"
+  },
+  {
+   "id": "wizard.signature-spells",
+   "name": "Assinatura Mágica",
+   "classId": "wizard"
+  },
+  {
+   "id": "wizard.spell-mastery",
+   "name": "Dominar Magia",
+   "classId": "wizard"
+  },
+  {
+   "id": "wizard.spellcasting",
+   "name": "Conjuração",
+   "classId": "wizard"
+  }
+ ],
+ "resources": [
+  {
+   "id": "barbarian.rage",
+   "name": "Fúria"
+  },
+  {
+   "id": "bard.bardic-inspiration",
+   "name": "Inspiração de Bardo"
+  },
+  {
+   "id": "cleric.channel-divinity",
+   "name": "Canalizar Divindade"
+  },
+  {
+   "id": "monk.ki",
+   "name": "Chi"
+  },
+  {
+   "id": "sorcerer.sorcery-points",
+   "name": "Pontos de Feitiçaria"
+  },
+  {
+   "id": "paladin.lay-on-hands",
+   "name": "Cura pelas Mãos"
+  },
+  {
+   "id": "wizard.arcane-recovery",
+   "name": "Recuperação Arcana"
+  },
+  {
+   "id": "fighter.second-wind",
+   "name": "Retomar o Fôlego"
+  },
+  {
+   "id": "rogue.stroke-of-luck",
+   "name": "Golpe de Sorte"
+  }
+ ],
+ "gaps": [
+  {
+   "id": "choice:bard:3",
+   "class": "bard",
+   "level": 3,
+   "kind": "escolha-ausente",
+   "text": "Aptidão: 2 perícias"
+  },
+  {
+   "id": "choice:bard:10",
+   "class": "bard",
+   "level": 10,
+   "kind": "escolha-ausente",
+   "text": "Aptidão: 2 perícias"
+  },
+  {
+   "id": "choice:warlock:2",
+   "class": "warlock",
+   "level": 2,
+   "kind": "escolha-ausente",
+   "text": "Invocações Místicas: 2 escolhas (contagem sobe em 5, 7, 9, 12, 15 e 18)"
+  },
+  {
+   "id": "choice:warlock:3",
+   "class": "warlock",
+   "level": 3,
+   "kind": "escolha-ausente",
+   "text": "Dádiva do Pacto: Pacto da Corrente, da Lâmina ou do Tomo"
+  },
+  {
+   "id": "choice:warlock:11",
+   "class": "warlock",
+   "level": 11,
+   "kind": "escolha-ausente",
+   "text": "Arcana Mística 6º"
+  },
+  {
+   "id": "feature:warlock:13",
+   "class": "warlock",
+   "level": 13,
+   "kind": "caracteristica-ausente",
+   "text": "Arcana Mística 7º (`warlock.mystic-arcanum` só existe no nível 11)"
+  },
+  {
+   "id": "feature:warlock:15",
+   "class": "warlock",
+   "level": 15,
+   "kind": "caracteristica-ausente",
+   "text": "Arcana Mística 8º"
+  },
+  {
+   "id": "feature:warlock:17",
+   "class": "warlock",
+   "level": 17,
+   "kind": "caracteristica-ausente",
+   "text": "Arcana Mística 9º"
+  },
+  {
+   "id": "choice:cleric:1",
+   "class": "cleric",
+   "level": 1,
+   "kind": "escolha-ausente",
+   "text": "Domínio Divino (subclasse); Domínio do Conhecimento: 2 idiomas"
+  },
+  {
+   "id": "feature:druid:2",
+   "class": "druid",
+   "level": 2,
+   "kind": "caracteristica-ausente",
+   "text": "Recurso Forma Selvagem não modelado (2 usos, recupera em descanso curto ou longo)"
+  },
+  {
+   "id": "choice:sorcerer:1",
+   "class": "sorcerer",
+   "level": 1,
+   "kind": "escolha-ausente",
+   "text": "Origem de Feitiçaria (subclasse); Ancestral Dracônico (tipo de dragão, se Linhagem Dracônica)"
+  },
+  {
+   "id": "choice:sorcerer:3",
+   "class": "sorcerer",
+   "level": 3,
+   "kind": "escolha-ausente",
+   "text": "Metamagia: 2 opções"
+  },
+  {
+   "id": "choice:sorcerer:10",
+   "class": "sorcerer",
+   "level": 10,
+   "kind": "escolha-ausente",
+   "text": "Metamagia: +1 opção"
+  },
+  {
+   "id": "choice:sorcerer:17",
+   "class": "sorcerer",
+   "level": 17,
+   "kind": "escolha-ausente",
+   "text": "Metamagia: +1 opção"
+  },
+  {
+   "id": "choice:fighter:1",
+   "class": "fighter",
+   "level": 1,
+   "kind": "escolha-ausente",
+   "text": "Estilo de Luta (`fighter.fighting-style` sem escolha)"
+  },
+  {
+   "id": "feature:fighter:2",
+   "class": "fighter",
+   "level": 2,
+   "kind": "caracteristica-ausente",
+   "text": "Recurso Surto de Ação não modelado (1 uso; 2 no 17º)"
+  },
+  {
+   "id": "feature:fighter:9",
+   "class": "fighter",
+   "level": 9,
+   "kind": "caracteristica-ausente",
+   "text": "Recurso Indomável não modelado (`fighter.indomitable` sem capacidade: 1 uso, 2 no 13º, 3 no 17º)"
+  },
+  {
+   "id": "choice:rogue:1",
+   "class": "rogue",
+   "level": 1,
+   "kind": "escolha-ausente",
+   "text": "Especialização: 2 perícias ou perícia + ferramentas de ladrão"
+  },
+  {
+   "id": "choice:rogue:6",
+   "class": "rogue",
+   "level": 6,
+   "kind": "escolha-ausente",
+   "text": "Especialização: 2 perícias"
+  },
+  {
+   "id": "feature:rogue:6",
+   "class": "rogue",
+   "level": 6,
+   "kind": "caracteristica-ausente",
+   "text": "Especialização, 2ª escolha de perícias (`rogue.expertise` só aparece no nível 1)"
+  },
+  {
+   "id": "choice:wizard:1",
+   "class": "wizard",
+   "level": 1,
+   "kind": "escolha-ausente",
+   "text": "Grimório: 6 magias de 1º nível"
+  },
+  {
+   "id": "feature:wizard:1:erro",
+   "class": "wizard",
+   "level": 1,
+   "kind": "divergente",
+   "text": "Recuperação Arcana: pack diz 1 uso no descanso longo; livro diz 1 vez por dia no descanso curto, soma de níveis ≤ metade do nível de mago (arredondada para cima), sem espaços de 6º nível ou superior"
+  },
+  {
+   "id": "choice:wizard:2",
+   "class": "wizard",
+   "level": 2,
+   "kind": "escolha-ausente",
+   "text": "+2 magias no grimório a cada nível de mago"
+  },
+  {
+   "id": "choice:wizard:18",
+   "class": "wizard",
+   "level": 18,
+   "kind": "escolha-ausente",
+   "text": "Dominar Magia: magias de 1º e 2º nível do grimório (conferir)"
+  },
+  {
+   "id": "choice:wizard:20",
+   "class": "wizard",
+   "level": 20,
+   "kind": "escolha-ausente",
+   "text": "Assinatura Mágica: 2 magias de 3º nível"
+  },
+  {
+   "id": "feature:monk:4",
+   "class": "monk",
+   "level": 4,
+   "kind": "caracteristica-ausente",
+   "text": "Queda Lenta (`monk.slow-fall`, livro: reação, dano de queda −5×nível de monge)"
+  },
+  {
+   "id": "feature:monk:6",
+   "class": "monk",
+   "level": 6,
+   "kind": "caracteristica-ausente",
+   "text": "Golpes de Chi (`monk.ki-empowered-strikes`)"
+  },
+  {
+   "id": "feature:paladin:1",
+   "class": "paladin",
+   "level": 1,
+   "kind": "caracteristica-ausente",
+   "text": "Recurso Sentido Divino não modelado"
+  },
+  {
+   "id": "choice:paladin:2",
+   "class": "paladin",
+   "level": 2,
+   "kind": "escolha-ausente",
+   "text": "Estilo de Luta"
+  },
+  {
+   "id": "choice:ranger:1",
+   "class": "ranger",
+   "level": 1,
+   "kind": "escolha-ausente",
+   "text": "Inimigo Favorito (tipo e idioma) e Explorador Natural (terreno), conferir"
+  },
+  {
+   "id": "choice:ranger:2",
+   "class": "ranger",
+   "level": 2,
+   "kind": "escolha-ausente",
+   "text": "Estilo de Luta; magias conhecidas (2 de 1º nível)"
+  },
+  {
+   "id": "feature:ranger:2:erro",
+   "class": "ranger",
+   "level": 2,
+   "kind": "divergente",
+   "text": "Conjuração marcada como preparada; livro: magias conhecidas (2 de 1º nível no nível 2)"
+  },
+  {
+   "id": "feature:ranger:6",
+   "class": "ranger",
+   "level": 6,
+   "kind": "caracteristica-ausente",
+   "text": "Inimigo Favorito Maior (`ranger.favored-enemy-greater`)"
+  }
+ ],
+ "edges": [
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.rage",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.unarmored-defense",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:barbarian",
+   "to": "resource:barbarian.rage",
+   "rel": "altera-recurso",
+   "level": 1
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.reckless-attack",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.danger-sense",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.primal-path",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:barbarian",
+   "to": "resource:barbarian.rage",
+   "rel": "altera-recurso",
+   "level": 3
+  },
+  {
+   "from": "class:barbarian",
+   "to": "choice:barbarian.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.extra-attack",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.fast-movement",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:barbarian",
+   "to": "resource:barbarian.rage",
+   "rel": "altera-recurso",
+   "level": 6
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.feral-instinct",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "class:barbarian",
+   "to": "choice:barbarian.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.brutal-critical",
+   "rel": "concede",
+   "level": 9
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.relentless-rage",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "class:barbarian",
+   "to": "resource:barbarian.rage",
+   "rel": "altera-recurso",
+   "level": 12
+  },
+  {
+   "from": "class:barbarian",
+   "to": "choice:barbarian.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.persistent-rage",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "class:barbarian",
+   "to": "choice:barbarian.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:barbarian",
+   "to": "resource:barbarian.rage",
+   "rel": "altera-recurso",
+   "level": 17
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.indomitable-might",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:barbarian",
+   "to": "choice:barbarian.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:barbarian",
+   "to": "feature:barbarian.primal-champion",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:barbarian",
+   "to": "resource:barbarian.rage",
+   "rel": "altera-recurso",
+   "level": 20
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.spellcasting",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.bardic-inspiration",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:bard",
+   "to": "resource:bard.bardic-inspiration",
+   "rel": "altera-recurso",
+   "level": 1
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.cantrips.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.spells.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.jack-of-all-trades",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.song-of-rest",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.bard-college",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.expertise",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.font-of-inspiration",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.countercharm",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.magical-secrets",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.expertise",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:bard",
+   "to": "choice:bard.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:bard",
+   "to": "feature:bard.superior-inspiration",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:warlock",
+   "to": "feature:warlock.otherworldly-patron",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:warlock",
+   "to": "feature:warlock.pact-magic",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.cantrips.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.spells.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:warlock",
+   "to": "feature:warlock.eldritch-invocations",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:warlock",
+   "to": "feature:warlock.pact-boon",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:warlock",
+   "to": "feature:warlock.mystic-arcanum",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:warlock",
+   "to": "choice:warlock.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:warlock",
+   "to": "feature:warlock.eldritch-master",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:cleric",
+   "to": "feature:cleric.spellcasting",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:cleric",
+   "to": "feature:cleric.divine-domain",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.cantrips.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.spells.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:cleric",
+   "to": "feature:cleric.channel-divinity",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:cleric",
+   "to": "resource:cleric.channel-divinity",
+   "rel": "altera-recurso",
+   "level": 2
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:cleric",
+   "to": "feature:cleric.destroy-undead",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:cleric",
+   "to": "resource:cleric.channel-divinity",
+   "rel": "altera-recurso",
+   "level": 6
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:cleric",
+   "to": "feature:cleric.divine-intervention",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:cleric",
+   "to": "resource:cleric.channel-divinity",
+   "rel": "altera-recurso",
+   "level": 18
+  },
+  {
+   "from": "class:cleric",
+   "to": "choice:cleric.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:cleric",
+   "to": "feature:cleric.greater-divine-intervention",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.druidic",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.spellcasting",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.cantrips.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.spells.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.wild-shape",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.druid-circle",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.wild-shape-improvement",
+   "rel": "concede",
+   "level": 4
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.timeless-body",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.beast-spells",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:druid",
+   "to": "choice:druid.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:druid",
+   "to": "feature:druid.archdruid",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "feature:sorcerer.spellcasting",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "feature:sorcerer.sorcerous-origin",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.cantrips.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.spells.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "feature:sorcerer.font-of-magic",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 2
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "feature:sorcerer.metamagic",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 3
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 4
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 5
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 6
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 7
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 8
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 9
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "feature:sorcerer.metamagic",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 10
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 11
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 12
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 13
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 14
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 15
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 16
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 17
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 18
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 19
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "choice:sorcerer.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "feature:sorcerer.sorcerous-restoration",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "resource:sorcerer.sorcery-points",
+   "rel": "altera-recurso",
+   "level": 20
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.fighting-style",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.second-wind",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:fighter",
+   "to": "resource:fighter.second-wind",
+   "rel": "altera-recurso",
+   "level": 1
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.action-surge",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.martial-archetype",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.extra-attack",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.6",
+   "rel": "escolha-no-pack",
+   "level": 6
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.indomitable",
+   "rel": "concede",
+   "level": 9
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.extra-attack",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.indomitable",
+   "rel": "concede",
+   "level": 13
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.14",
+   "rel": "escolha-no-pack",
+   "level": 14
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.action-surge",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.indomitable",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:fighter",
+   "to": "choice:fighter.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:fighter",
+   "to": "feature:fighter.extra-attack",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.expertise",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.sneak-attack",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.thieves-cant",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.cunning-action",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.roguish-archetype",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:rogue",
+   "to": "choice:rogue.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.uncanny-dodge",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.evasion",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "class:rogue",
+   "to": "choice:rogue.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:rogue",
+   "to": "choice:rogue.asi.10",
+   "rel": "escolha-no-pack",
+   "level": 10
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.reliable-talent",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "class:rogue",
+   "to": "choice:rogue.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.blindsense",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.slippery-mind",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "class:rogue",
+   "to": "choice:rogue.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.elusive",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:rogue",
+   "to": "choice:rogue.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:rogue",
+   "to": "feature:rogue.stroke-of-luck",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:rogue",
+   "to": "resource:rogue.stroke-of-luck",
+   "rel": "altera-recurso",
+   "level": 20
+  },
+  {
+   "from": "class:wizard",
+   "to": "feature:wizard.spellcasting",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:wizard",
+   "to": "feature:wizard.arcane-recovery",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:wizard",
+   "to": "resource:wizard.arcane-recovery",
+   "rel": "altera-recurso",
+   "level": 1
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.cantrips.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.spells.1",
+   "rel": "escolha-no-pack",
+   "level": 1
+  },
+  {
+   "from": "class:wizard",
+   "to": "feature:wizard.arcane-tradition",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:wizard",
+   "to": "feature:wizard.spell-mastery",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:wizard",
+   "to": "choice:wizard.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:wizard",
+   "to": "feature:wizard.signature-spells",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.unarmored-defense",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.martial-arts",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.ki",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.unarmored-movement",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 2
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.monastic-tradition",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.deflect-missiles",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 3
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 4
+  },
+  {
+   "from": "class:monk",
+   "to": "choice:monk.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.extra-attack",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.stunning-strike",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 5
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 6
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.evasion",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.stillness-of-mind",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 7
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 8
+  },
+  {
+   "from": "class:monk",
+   "to": "choice:monk.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 9
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.purity-of-body",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 10
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 11
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 12
+  },
+  {
+   "from": "class:monk",
+   "to": "choice:monk.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.tongue-of-sun-and-moon",
+   "rel": "concede",
+   "level": 13
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 13
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.diamond-soul",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 14
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.timeless-body",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 15
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 16
+  },
+  {
+   "from": "class:monk",
+   "to": "choice:monk.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 17
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.empty-body",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 18
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 19
+  },
+  {
+   "from": "class:monk",
+   "to": "choice:monk.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:monk",
+   "to": "feature:monk.perfect-self",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:monk",
+   "to": "resource:monk.ki",
+   "rel": "altera-recurso",
+   "level": 20
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.divine-sense",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.lay-on-hands",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 1
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.fighting-style",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.divine-smite",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.spellcasting",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 2
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.divine-health",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 3
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 4
+  },
+  {
+   "from": "class:paladin",
+   "to": "choice:paladin.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.extra-attack",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 5
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.aura-of-protection",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 6
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 7
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 8
+  },
+  {
+   "from": "class:paladin",
+   "to": "choice:paladin.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 9
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.aura-of-courage",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 10
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.improved-divine-smite",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 11
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 12
+  },
+  {
+   "from": "class:paladin",
+   "to": "choice:paladin.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 13
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.cleansing-touch",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 14
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 15
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 16
+  },
+  {
+   "from": "class:paladin",
+   "to": "choice:paladin.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 17
+  },
+  {
+   "from": "class:paladin",
+   "to": "feature:paladin.aura-range-improvement",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 18
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 19
+  },
+  {
+   "from": "class:paladin",
+   "to": "choice:paladin.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:paladin",
+   "to": "resource:paladin.lay-on-hands",
+   "rel": "altera-recurso",
+   "level": 20
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.favored-enemy",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.natural-explorer",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.fighting-style",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.spellcasting",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.primeval-awareness",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "class:ranger",
+   "to": "choice:ranger.asi.4",
+   "rel": "escolha-no-pack",
+   "level": 4
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.extra-attack",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.land-stride",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "class:ranger",
+   "to": "choice:ranger.asi.8",
+   "rel": "escolha-no-pack",
+   "level": 8
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.hide-in-plain-sight",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "class:ranger",
+   "to": "choice:ranger.asi.12",
+   "rel": "escolha-no-pack",
+   "level": 12
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.vanish",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:ranger",
+   "to": "choice:ranger.asi.16",
+   "rel": "escolha-no-pack",
+   "level": 16
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.feral-senses",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:ranger",
+   "to": "choice:ranger.asi.19",
+   "rel": "escolha-no-pack",
+   "level": 19
+  },
+  {
+   "from": "class:ranger",
+   "to": "feature:ranger.foe-slayer",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:barbarian",
+   "to": "subclass:path-of-the-berserker",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:path-of-the-berserker",
+   "to": "feature:path-of-the-berserker-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:path-of-the-berserker",
+   "to": "feature:path-of-the-berserker-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:path-of-the-berserker",
+   "to": "feature:path-of-the-berserker-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:path-of-the-berserker",
+   "to": "feature:path-of-the-berserker-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:barbarian",
+   "to": "subclass:path-of-the-totem-warrior",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:path-of-the-totem-warrior",
+   "to": "feature:path-of-the-totem-warrior-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:path-of-the-totem-warrior",
+   "to": "feature:path-of-the-totem-warrior-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:path-of-the-totem-warrior",
+   "to": "feature:path-of-the-totem-warrior-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:path-of-the-totem-warrior",
+   "to": "feature:path-of-the-totem-warrior-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:bard",
+   "to": "subclass:college-of-lore",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:college-of-lore",
+   "to": "feature:college-of-lore-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:college-of-lore",
+   "to": "feature:college-of-lore-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:college-of-lore",
+   "to": "feature:college-of-lore-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:bard",
+   "to": "subclass:college-of-valor",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:college-of-valor",
+   "to": "feature:college-of-valor-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:college-of-valor",
+   "to": "feature:college-of-valor-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:college-of-valor",
+   "to": "feature:college-of-valor-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:warlock",
+   "to": "subclass:the-archfey",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:the-archfey",
+   "to": "feature:the-archfey-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:the-archfey",
+   "to": "feature:the-archfey-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:the-archfey",
+   "to": "feature:the-archfey-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:the-archfey",
+   "to": "feature:the-archfey-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:warlock",
+   "to": "subclass:the-fiend",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:the-fiend",
+   "to": "feature:the-fiend-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:the-fiend",
+   "to": "feature:the-fiend-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:the-fiend",
+   "to": "feature:the-fiend-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:the-fiend",
+   "to": "feature:the-fiend-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:warlock",
+   "to": "subclass:the-great-old-one",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:the-great-old-one",
+   "to": "feature:the-great-old-one-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:the-great-old-one",
+   "to": "feature:the-great-old-one-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:the-great-old-one",
+   "to": "feature:the-great-old-one-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:the-great-old-one",
+   "to": "feature:the-great-old-one-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:knowledge-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:knowledge-domain",
+   "to": "feature:knowledge-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:knowledge-domain",
+   "to": "feature:knowledge-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:knowledge-domain",
+   "to": "feature:knowledge-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:knowledge-domain",
+   "to": "feature:knowledge-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:knowledge-domain",
+   "to": "feature:knowledge-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:life-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:life-domain",
+   "to": "feature:life-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:life-domain",
+   "to": "feature:life-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:life-domain",
+   "to": "feature:life-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:life-domain",
+   "to": "feature:life-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:life-domain",
+   "to": "feature:life-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:light-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:light-domain",
+   "to": "feature:light-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:light-domain",
+   "to": "feature:light-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:light-domain",
+   "to": "feature:light-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:light-domain",
+   "to": "feature:light-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:light-domain",
+   "to": "feature:light-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:nature-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:nature-domain",
+   "to": "feature:nature-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:nature-domain",
+   "to": "feature:nature-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:nature-domain",
+   "to": "feature:nature-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:nature-domain",
+   "to": "feature:nature-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:nature-domain",
+   "to": "feature:nature-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:tempest-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:tempest-domain",
+   "to": "feature:tempest-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:tempest-domain",
+   "to": "feature:tempest-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:tempest-domain",
+   "to": "feature:tempest-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:tempest-domain",
+   "to": "feature:tempest-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:tempest-domain",
+   "to": "feature:tempest-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:trickery-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:trickery-domain",
+   "to": "feature:trickery-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:trickery-domain",
+   "to": "feature:trickery-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:trickery-domain",
+   "to": "feature:trickery-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:trickery-domain",
+   "to": "feature:trickery-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:trickery-domain",
+   "to": "feature:trickery-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:cleric",
+   "to": "subclass:war-domain",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:war-domain",
+   "to": "feature:war-domain-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:war-domain",
+   "to": "feature:war-domain-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:war-domain",
+   "to": "feature:war-domain-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:war-domain",
+   "to": "feature:war-domain-feature-level-8",
+   "rel": "concede",
+   "level": 8
+  },
+  {
+   "from": "subclass:war-domain",
+   "to": "feature:war-domain-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:druid",
+   "to": "subclass:circle-of-the-land",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:circle-of-the-land",
+   "to": "feature:circle-of-the-land-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:circle-of-the-land",
+   "to": "feature:circle-of-the-land-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:circle-of-the-land",
+   "to": "feature:circle-of-the-land-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:circle-of-the-land",
+   "to": "feature:circle-of-the-land-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:druid",
+   "to": "subclass:circle-of-the-moon",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:circle-of-the-moon",
+   "to": "feature:circle-of-the-moon-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:circle-of-the-moon",
+   "to": "feature:circle-of-the-moon-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:circle-of-the-moon",
+   "to": "feature:circle-of-the-moon-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:circle-of-the-moon",
+   "to": "feature:circle-of-the-moon-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "subclass:draconic-bloodline",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:draconic-bloodline",
+   "to": "feature:draconic-bloodline-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:draconic-bloodline",
+   "to": "feature:draconic-bloodline-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:draconic-bloodline",
+   "to": "feature:draconic-bloodline-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "subclass:draconic-bloodline",
+   "to": "feature:draconic-bloodline-feature-level-18",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:sorcerer",
+   "to": "subclass:wild-magic",
+   "rel": "tem-subclasse",
+   "level": 1
+  },
+  {
+   "from": "subclass:wild-magic",
+   "to": "feature:wild-magic-feature-level-1",
+   "rel": "concede",
+   "level": 1
+  },
+  {
+   "from": "subclass:wild-magic",
+   "to": "feature:wild-magic-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:wild-magic",
+   "to": "feature:wild-magic-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "subclass:wild-magic",
+   "to": "feature:wild-magic-feature-level-18",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:fighter",
+   "to": "subclass:champion",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:champion",
+   "to": "feature:champion-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:champion",
+   "to": "feature:champion-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:champion",
+   "to": "feature:champion-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:champion",
+   "to": "feature:champion-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "subclass:champion",
+   "to": "feature:champion-feature-level-18",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:fighter",
+   "to": "subclass:battle-master",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:battle-master",
+   "to": "feature:battle-master-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:battle-master",
+   "to": "feature:battle-master-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:battle-master",
+   "to": "feature:battle-master-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:battle-master",
+   "to": "feature:battle-master-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "subclass:battle-master",
+   "to": "feature:battle-master-feature-level-18",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:fighter",
+   "to": "subclass:eldritch-knight",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:eldritch-knight",
+   "to": "feature:eldritch-knight-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:eldritch-knight",
+   "to": "feature:eldritch-knight-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:eldritch-knight",
+   "to": "feature:eldritch-knight-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:eldritch-knight",
+   "to": "feature:eldritch-knight-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "subclass:eldritch-knight",
+   "to": "feature:eldritch-knight-feature-level-18",
+   "rel": "concede",
+   "level": 18
+  },
+  {
+   "from": "class:rogue",
+   "to": "subclass:thief",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:thief",
+   "to": "feature:thief-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:thief",
+   "to": "feature:thief-feature-level-9",
+   "rel": "concede",
+   "level": 9
+  },
+  {
+   "from": "subclass:thief",
+   "to": "feature:thief-feature-level-13",
+   "rel": "concede",
+   "level": 13
+  },
+  {
+   "from": "subclass:thief",
+   "to": "feature:thief-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:rogue",
+   "to": "subclass:assassin",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:assassin",
+   "to": "feature:assassin-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:assassin",
+   "to": "feature:assassin-feature-level-9",
+   "rel": "concede",
+   "level": 9
+  },
+  {
+   "from": "subclass:assassin",
+   "to": "feature:assassin-feature-level-13",
+   "rel": "concede",
+   "level": 13
+  },
+  {
+   "from": "subclass:assassin",
+   "to": "feature:assassin-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:rogue",
+   "to": "subclass:arcane-trickster",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:arcane-trickster",
+   "to": "feature:arcane-trickster-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:arcane-trickster",
+   "to": "feature:arcane-trickster-feature-level-9",
+   "rel": "concede",
+   "level": 9
+  },
+  {
+   "from": "subclass:arcane-trickster",
+   "to": "feature:arcane-trickster-feature-level-13",
+   "rel": "concede",
+   "level": 13
+  },
+  {
+   "from": "subclass:arcane-trickster",
+   "to": "feature:arcane-trickster-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-abjuration",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-abjuration",
+   "to": "feature:school-of-abjuration-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-abjuration",
+   "to": "feature:school-of-abjuration-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-abjuration",
+   "to": "feature:school-of-abjuration-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-abjuration",
+   "to": "feature:school-of-abjuration-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-conjuration",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-conjuration",
+   "to": "feature:school-of-conjuration-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-conjuration",
+   "to": "feature:school-of-conjuration-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-conjuration",
+   "to": "feature:school-of-conjuration-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-conjuration",
+   "to": "feature:school-of-conjuration-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-divination",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-divination",
+   "to": "feature:school-of-divination-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-divination",
+   "to": "feature:school-of-divination-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-divination",
+   "to": "feature:school-of-divination-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-divination",
+   "to": "feature:school-of-divination-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-enchantment",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-enchantment",
+   "to": "feature:school-of-enchantment-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-enchantment",
+   "to": "feature:school-of-enchantment-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-enchantment",
+   "to": "feature:school-of-enchantment-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-enchantment",
+   "to": "feature:school-of-enchantment-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-evocation",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-evocation",
+   "to": "feature:school-of-evocation-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-evocation",
+   "to": "feature:school-of-evocation-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-evocation",
+   "to": "feature:school-of-evocation-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-evocation",
+   "to": "feature:school-of-evocation-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-illusion",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-illusion",
+   "to": "feature:school-of-illusion-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-illusion",
+   "to": "feature:school-of-illusion-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-illusion",
+   "to": "feature:school-of-illusion-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-illusion",
+   "to": "feature:school-of-illusion-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-necromancy",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-necromancy",
+   "to": "feature:school-of-necromancy-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-necromancy",
+   "to": "feature:school-of-necromancy-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-necromancy",
+   "to": "feature:school-of-necromancy-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-necromancy",
+   "to": "feature:school-of-necromancy-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:wizard",
+   "to": "subclass:school-of-transmutation",
+   "rel": "tem-subclasse",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-transmutation",
+   "to": "feature:school-of-transmutation-feature-level-2",
+   "rel": "concede",
+   "level": 2
+  },
+  {
+   "from": "subclass:school-of-transmutation",
+   "to": "feature:school-of-transmutation-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:school-of-transmutation",
+   "to": "feature:school-of-transmutation-feature-level-10",
+   "rel": "concede",
+   "level": 10
+  },
+  {
+   "from": "subclass:school-of-transmutation",
+   "to": "feature:school-of-transmutation-feature-level-14",
+   "rel": "concede",
+   "level": 14
+  },
+  {
+   "from": "class:monk",
+   "to": "subclass:way-of-the-open-hand",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:way-of-the-open-hand",
+   "to": "feature:way-of-the-open-hand-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:way-of-the-open-hand",
+   "to": "feature:way-of-the-open-hand-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:way-of-the-open-hand",
+   "to": "feature:way-of-the-open-hand-feature-level-11",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "subclass:way-of-the-open-hand",
+   "to": "feature:way-of-the-open-hand-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:monk",
+   "to": "subclass:way-of-shadow",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:way-of-shadow",
+   "to": "feature:way-of-shadow-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:way-of-shadow",
+   "to": "feature:way-of-shadow-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:way-of-shadow",
+   "to": "feature:way-of-shadow-feature-level-11",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "subclass:way-of-shadow",
+   "to": "feature:way-of-shadow-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:monk",
+   "to": "subclass:way-of-the-four-elements",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:way-of-the-four-elements",
+   "to": "feature:way-of-the-four-elements-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:way-of-the-four-elements",
+   "to": "feature:way-of-the-four-elements-feature-level-6",
+   "rel": "concede",
+   "level": 6
+  },
+  {
+   "from": "subclass:way-of-the-four-elements",
+   "to": "feature:way-of-the-four-elements-feature-level-11",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "subclass:way-of-the-four-elements",
+   "to": "feature:way-of-the-four-elements-feature-level-17",
+   "rel": "concede",
+   "level": 17
+  },
+  {
+   "from": "class:paladin",
+   "to": "subclass:oath-of-devotion",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:oath-of-devotion",
+   "to": "feature:oath-of-devotion-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:oath-of-devotion",
+   "to": "feature:oath-of-devotion-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:oath-of-devotion",
+   "to": "feature:oath-of-devotion-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "subclass:oath-of-devotion",
+   "to": "feature:oath-of-devotion-feature-level-20",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:paladin",
+   "to": "subclass:oath-of-the-ancients",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:oath-of-the-ancients",
+   "to": "feature:oath-of-the-ancients-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:oath-of-the-ancients",
+   "to": "feature:oath-of-the-ancients-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:oath-of-the-ancients",
+   "to": "feature:oath-of-the-ancients-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "subclass:oath-of-the-ancients",
+   "to": "feature:oath-of-the-ancients-feature-level-20",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:paladin",
+   "to": "subclass:oath-of-vengeance",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:oath-of-vengeance",
+   "to": "feature:oath-of-vengeance-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:oath-of-vengeance",
+   "to": "feature:oath-of-vengeance-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:oath-of-vengeance",
+   "to": "feature:oath-of-vengeance-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "subclass:oath-of-vengeance",
+   "to": "feature:oath-of-vengeance-feature-level-20",
+   "rel": "concede",
+   "level": 20
+  },
+  {
+   "from": "class:ranger",
+   "to": "subclass:beast-conclave",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:beast-conclave",
+   "to": "feature:beast-conclave-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:beast-conclave",
+   "to": "feature:beast-conclave-feature-level-5",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "subclass:beast-conclave",
+   "to": "feature:beast-conclave-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:beast-conclave",
+   "to": "feature:beast-conclave-feature-level-11",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "subclass:beast-conclave",
+   "to": "feature:beast-conclave-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "class:ranger",
+   "to": "subclass:hunter-conclave",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:hunter-conclave",
+   "to": "feature:hunter-conclave-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:hunter-conclave",
+   "to": "feature:hunter-conclave-feature-level-5",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "subclass:hunter-conclave",
+   "to": "feature:hunter-conclave-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:hunter-conclave",
+   "to": "feature:hunter-conclave-feature-level-11",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "subclass:hunter-conclave",
+   "to": "feature:hunter-conclave-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  },
+  {
+   "from": "class:ranger",
+   "to": "subclass:deep-stalker-conclave",
+   "rel": "tem-subclasse",
+   "level": 3
+  },
+  {
+   "from": "subclass:deep-stalker-conclave",
+   "to": "feature:deep-stalker-conclave-feature-level-3",
+   "rel": "concede",
+   "level": 3
+  },
+  {
+   "from": "subclass:deep-stalker-conclave",
+   "to": "feature:deep-stalker-conclave-feature-level-5",
+   "rel": "concede",
+   "level": 5
+  },
+  {
+   "from": "subclass:deep-stalker-conclave",
+   "to": "feature:deep-stalker-conclave-feature-level-7",
+   "rel": "concede",
+   "level": 7
+  },
+  {
+   "from": "subclass:deep-stalker-conclave",
+   "to": "feature:deep-stalker-conclave-feature-level-11",
+   "rel": "concede",
+   "level": 11
+  },
+  {
+   "from": "subclass:deep-stalker-conclave",
+   "to": "feature:deep-stalker-conclave-feature-level-15",
+   "rel": "concede",
+   "level": 15
+  }
+ ]
+}

@@ -94,6 +94,8 @@ export interface CharacterSheetProps {
   readonly spellOptions?: readonly SheetSpellOption[];
   /** Descrição do livro por id de magia; mostra resumo e detalhe em "Gerenciar magias". */
   readonly spellInfo?: SpellInfoLookup;
+  /** Abre a evolução (subir de nível); sem ela o botão não aparece. */
+  readonly onLevelUp?: () => void;
   /** Condições do pack para o seletor "Adicionar condição". */
   readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
   readonly portrait?: SheetPortrait;

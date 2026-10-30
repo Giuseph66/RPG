@@ -80,4 +80,6 @@ export interface SubclassDefinition extends DefinitionBase {
   readonly spellGrants: readonly SubclassSpellGrant[];
   readonly resourceChanges: readonly ResourceProgressionChange[];
   readonly choices: readonly ChoiceDefinition[];
+  /** Subclasses de terço (Cavaleiro Místico, Trapaceiro Arcano) conjuram por esta definição. */
+  readonly spellcasting?: SpellcastingDescriptor;
 }

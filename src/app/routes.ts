@@ -53,6 +53,7 @@ export function matchRoute(pathname: string): RouteMatch {
   }
   if (first === "character") {
     if (second === "create" && segments.length <= 3) return { kind: "character", primary: "character", path, params: { mode: "create", ...(third ? { draftId: third } : {}) } };
+    if (second && third === "evolve" && segments.length === 3) return { kind: "character", primary: "character", path, params: { id: second, mode: "evolve" } };
     if (second) return { kind: "character", primary: "character", path, params: { id: second } };
     return { kind: "character", primary: "character", path, params: {} };
   }

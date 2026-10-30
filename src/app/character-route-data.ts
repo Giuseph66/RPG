@@ -14,6 +14,8 @@ import type { SheetEquipmentInfo, SheetSpellOption } from "@features/character/s
 import type { SpellInfo, SpellInfoLookup } from "@features/character/spell-info";
 import { carryingCapacityGrams, encumbranceThresholdsGrams } from "@data/rules/encumbrance";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
+import { OPTION_GROUPS } from "@data/evolution/options";
+import type { FeatureInfo, FeatureInfoLookup, RacialUnlock } from "@features/character/evolution";
 
 /** Itens concretos do catálogo (sem escolhas abstratas como "símbolo sagrado à escolha"). */
 export function equipmentCatalog(pack: RulePack | undefined): readonly InventoryCatalogOption[] {
@@ -275,4 +277,44 @@ export function restInfoFor(character: Character, derived: CharacterDerived | un
 /** Deslocamento de caminhada derivado (já com condições e armadura), em centímetros. */
 export function walkSpeedFor(derived: CharacterDerived | undefined): number | undefined {
   return derived?.speedsCm.find((entry) => entry.kind === "walk")?.value.value;
+}
+
+
+const CLASS_SLUG: Readonly<Record<string, string>> = { barbarian: "barbaro", bard: "bardo", warlock: "bruxo", cleric: "clerigo", druid: "druida", sorcerer: "feiticeiro", fighter: "guerreiro", rogue: "ladino", wizard: "mago", monk: "monge", paladin: "paladino", ranger: "patrulheiro" };
+const slug = (name: string): string => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+export interface FeatureTextBlock { readonly id: string; readonly text: string; readonly printedPages: readonly number[] }
+
+/** Textos do livro para as características e opções de evolução; `blocks` vem de `PHB_FEATURE_DESCRIPTIONS.featureBlocks`. */
+export function featureInfoFor(pack: RulePack | undefined, blocks: readonly FeatureTextBlock[]): FeatureInfoLookup {
+  const byId = new Map(blocks.map((block) => [block.id, block]));
+  const optionKeys = new Map<string, string | undefined>(OPTION_GROUPS.flatMap((group) => group.options.map((option) => [`${group.id}.${option.id}`, option.descKey] as const)));
+  return (featureId) => {
+    const feature = pack?.features.get(featureId as never);
+    if (!feature) return undefined;
+    const keys = optionKeys.has(featureId)
+      ? [optionKeys.get(featureId)].filter((key): key is string => Boolean(key))
+      : featureId.includes("-feature-level-")
+        ? feature.name.split(" / ").map((name) => `${featureId.split("-feature-level-")[0]}.${slug(name)}`)
+        : [`${CLASS_SLUG[featureId.split(".")[0]] ?? featureId.split(".")[0]}.${slug(feature.name)}`];
+    const found = keys.map((key) => byId.get(key)).filter((block): block is FeatureTextBlock => Boolean(block));
+    if (found.length === 0) return undefined;
+    const paragraphs = found.flatMap((block) => reflow(block.text.split("\n").slice(1).join("\n")));
+    const page = found[0].printedPages[0];
+    const info: FeatureInfo = { name: feature.name, paragraphs: paragraphs.filter((paragraph) => !/^\d+$/.test(paragraph)), ...(page ? { source: `Livro do Jogador, p. ${page}` } : {}) };
+    return info;
+  };
+}
+
+/** Características raciais que dependem do nível total (magias do Drow e do Tiefling, sopro do Draconato). */
+export function racialTraitsFor(pack: RulePack | undefined, character: Character): readonly RacialUnlock[] {
+  if (!pack) return [];
+  const race = pack.races.get(character.raceRef.entityId);
+  const subrace = character.subraceRef ? pack.subraces.get(character.subraceRef.entityId) : undefined;
+  const traits = [...(race?.traits ?? []), ...(subrace?.traits ?? [])];
+  return traits.flatMap((trait) => trait.modifiers.flatMap((modifier) => {
+    if (modifier.predicate.kind !== "min-total-level" || modifier.predicate.level <= 1) return [];
+    const description = modifier.target.kind === "custom" ? modifier.target.description : trait.description;
+    return [{ name: trait.name, description, level: modifier.predicate.level }];
+  }));
 }

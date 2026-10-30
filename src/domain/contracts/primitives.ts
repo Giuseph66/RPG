@@ -156,6 +156,8 @@ export type Prerequisite =
   | { readonly kind: "has-proficiency"; readonly proficiencyRef: DefinitionRef }
   | { readonly kind: "has-feature"; readonly featureRef: DefinitionRef }
   | { readonly kind: "spellcasting-ability-present" }
+  /** Exige conhecer a magia (ex.: invocações que dependem do truque Rajada Mística). */
+  | { readonly kind: "knows-spell"; readonly spellRef: DefinitionRef }
   /** Basta uma das alternativas (ex.: multiclasse de guerreiro exige FOR 13 OU DES 13). */
   | { readonly kind: "any-of"; readonly options: readonly Prerequisite[] }
   | { readonly kind: "custom"; readonly description: string; readonly sourceRef: SourceRef };

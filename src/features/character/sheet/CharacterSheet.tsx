@@ -219,7 +219,7 @@ function newConditionId(): ConditionInstance["id"] {
   return asUuid(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`);
 }
 
-export function CharacterSheet({ character, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, conditionOptions, portrait }: CharacterSheetProps) {
+export function CharacterSheet({ character, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, conditionOptions, portrait }: CharacterSheetProps) {
   const rule = useRuleHint();
   const [view, setView] = useState<CharacterSheetView>(initialView);
   const [draft, setDraft] = useState<CharacterSheetPatch>({});
@@ -420,6 +420,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             </div>
             {identityParts.length > 0 ? <p className={styles.heroLine}>{identityParts.map((part, index) => <span key={part.label}>{index > 0 ? <span aria-hidden="true"> • </span> : null}<span {...rule(part.query)} className={styles.ruleText}>{part.label}</span></span>)}</p> : null}
             <p className={styles.heroLine}>Nível {totalLevel}</p>
+            {onLevelUp && canEdit ? <button type="button" className={styles.levelUp} onClick={onLevelUp}>Subir de nível</button> : null}
             <div className={styles.heroDivider} aria-hidden="true"><span className={styles.heroDividerRule} /><span className={styles.heroDividerMark}><GiSparkles /></span><span className={styles.heroDividerRule} /></div>
           </div>
         </div>
@@ -509,6 +510,18 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             })}</div>
           )}
         </Panel>
+        {character.progressionHistory.length > 0 ? (
+          <Panel heading="Evolução" headingLevel={2} className={styles.evolutionPanel}>
+            <ol className={styles.evolutionList}>
+              {[...character.progressionHistory].reverse().map((entry) => (
+                <li key={entry.id}>
+                  <strong>{name("class", String(entry.classId))} {entry.level}</strong>
+                  <span>+{entry.hitPointGain.amount} PV{entry.choices.length ? ` · ${entry.choices.map((choice) => choice.selectedIds.map((ref) => spellById.get(String(ref.entityId))?.name ?? resolveName?.("feature", String(ref.entityId)) ?? formatRef(String(ref.entityId))).join(", ")).filter(Boolean).join(" · ")}` : ""}</span>
+                </li>
+              ))}
+            </ol>
+          </Panel>
+        ) : null}
         <Panel heading="Magias" headingLevel={2} className={styles.spellPanel} hint={rule({ category: "rules", title: "Conjurando Uma Magia" })} action={spellOptions && source && canEdit ? <PanelLink label="Gerenciar" onClick={() => setManagingSpells(true)} /> : undefined}>
           {!source ? <p className={styles.muted}>Esta classe não conjura magias neste nível.</p> : spellEntries.length === 0 ? (
             <div className={styles.emptySpells}>

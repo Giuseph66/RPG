@@ -133,6 +133,9 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   if (race) choices.push(...race.choices);
   if (partial.subraceRef) choices.push(...(pack.subraces.get(partial.subraceRef.entityId)?.choices ?? []));
   if (classDefinition) choices.push(classDefinition.skillChoices, ...classDefinition.initialEquipmentChoices, ...(classDefinition.progression[0]?.choicesGranted ?? []));
+  // Subclasse escolhida no 1º nível (Clérigo, Bruxo, Feiticeiro): as escolhas da característica do nível 1 valem na criação.
+  const level1Subclass = classEntry?.subclassId ? pack.subclasses.get(classEntry.subclassId) : undefined;
+  for (const grant of level1Subclass?.featureGrants.filter((entry) => entry.level <= 1) ?? []) choices.push(...(pack.features.get(grant.featureRef.entityId)?.choices ?? []));
   if (background) choices.push(...background.toolChoices, ...background.languageChoices);
   if (background) for (const grant of background.equipment) if (!pack.equipment.has(grant.equipmentRef.entityId)) issues.push(issue("unresolved-source", "background.equipment", `Equipamento inicial "${grant.equipmentRef.entityId}" não está publicado no catálogo.`));
   const selections = partial.choices ?? [];

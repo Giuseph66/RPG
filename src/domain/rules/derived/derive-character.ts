@@ -364,7 +364,7 @@ function deriveSpells(
     if (state.grantingRef.rulesetId !== pack.manifest.id) {
       return err(appError.missingRuleset({ id: state.grantingRef.rulesetId, version: pack.manifest.version }, "Referência estrangeira em castingSources.grantingRef."));
     }
-    const source = pack.classes.get(state.grantingRef.entityId)?.spellcasting;
+    const source = pack.classes.get(state.grantingRef.entityId)?.spellcasting ?? pack.subclasses.get(state.grantingRef.entityId)?.spellcasting;
     if (!source) return err(appError.unresolvedRule(`Origem de conjuração "${state.grantingRef.entityId}" sem descritor de conjuração suportado.`));
     const ability = modifierByAbility(scores, state.ability);
     const target = { kind: "spell-save-dc" as const, castingSourceRef: state.grantingRef };

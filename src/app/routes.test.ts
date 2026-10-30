@@ -14,3 +14,11 @@ describe("rotas de superfícies conectadas", () => {
     expect(matchRoute("/session/campaign-1")).toMatchObject({ kind: "session", params: { campaignId: "campaign-1" } });
   });
 });
+
+describe("rota de evolução", () => {
+  it("reconhece /character/:id/evolve sem confundir com a ficha nem com a criação", () => {
+    expect(matchRoute("/character/abc/evolve")).toMatchObject({ kind: "character", primary: "character", params: { id: "abc", mode: "evolve" } });
+    expect(matchRoute("/character/abc").params).toEqual({ id: "abc" });
+    expect(matchRoute("/character/create").params.mode).toBe("create");
+  });
+});

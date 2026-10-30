@@ -1,0 +1,13 @@
+export * from "./spell-tables";
+export { allotmentsOf, castingSourcesOf, chosenOptionIds, featureIdsOwned, ownMaxSpellLevel, projectClasses } from "./context";
+export type { CastingSource } from "./context";
+export { generatedChoices } from "./choices";
+export { ARCANUM_LEVEL, SUBCLASS_BONUS_CANTRIPS, isKnownCaster, knownSpellIds, parseEvolutionChoiceId, spellConstraintFor, spellProblem } from "./spell-rules";
+export type { EvolutionSpellKind, ParsedEvolutionChoice, SpellConstraint } from "./spell-rules";
+export { prerequisiteMet, validateEvolutionChoices } from "./validate";
+export type { EvolutionValidationInput, PrerequisiteContext } from "./validate";
+export { syncSpellcasting } from "./spell-state";
+export type { SpellSyncOptions } from "./spell-state";
+export { evolveCharacter } from "./apply";
+export { choiceFlavor, choiceTitle, explicitOptionsFor, featOptionsFor, prerequisiteContextFor, spellOptionsForChoice } from "./view";
+export type { ChoiceFlavor, ChoiceOptionView, EvolutionViewContext, SpellOptionView } from "./view";

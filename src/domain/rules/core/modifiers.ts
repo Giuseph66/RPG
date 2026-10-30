@@ -219,17 +219,35 @@ function collectChoiceProficiencies(
   }
 }
 
+/** Escolha de Incremento de Habilidade de classe (`<classe>.asi.<nível>`). */
+export function isAsiChoiceId(choiceId: string): boolean {
+  return /\.asi\.\d+$/.test(choiceId.toLowerCase());
+}
+
+/**
+ * Chave de uma opção dentro de uma escolha. A exclusão do bônus racial é por posição, não por
+ * valor: assim um Aumento de Habilidade posterior no mesmo atributo não é descartado.
+ */
+function pickKey(selection: ChoiceSelection, index: number): string {
+  return `${selection.choiceId}#${index}`;
+}
+
 function collectAbilityIncreaseChoices(
   selections: readonly ChoiceSelection[],
   abilityIncreases: ReadonlyMap<Ability, number>,
-  excluded: ReadonlySet<Ability> = new Set(),
+  consumed: ReadonlySet<string> = new Set(),
 ): ReadonlyMap<Ability, number> {
   const result = new Map(abilityIncreases);
   for (const selection of selections) {
-    if (!selection.choiceId.toLowerCase().includes("ability") && !selection.choiceId.toLowerCase().includes("score")) continue;
-    for (const selected of selection.selectedIds) {
-      const value = refId(selected);
-      if (isAbility(value) && !excluded.has(value)) result.set(value, (result.get(value) ?? 0) + 1);
+    const id = selection.choiceId.toLowerCase();
+    const asi = isAsiChoiceId(id);
+    if (!asi && !id.includes("ability") && !id.includes("score")) continue;
+    const picks = selection.selectedIds.map((selected, index) => ({ value: refId(selected), key: pickKey(selection, index) })).filter((pick) => isAbility(pick.value));
+    // Incremento de classe: um atributo recebe +2; dois atributos recebem +1 cada.
+    const amount = asi && picks.length === 1 ? 2 : 1;
+    for (const pick of picks) {
+      if (consumed.has(pick.key)) continue;
+      result.set(pick.value as Ability, (result.get(pick.value as Ability) ?? 0) + amount);
     }
   }
   return result;
@@ -262,8 +280,11 @@ export function collectRules(
   const race = pack.races.get(character.raceRef.entityId);
   if (!race) return err(appError.notFound("race", refId(character.raceRef)));
   const abilityIncreases = new Map<Ability, number>();
-  const selectedAbilityIds = choiceSelections(character, character.classes)
-    .flatMap((selection) => selection.selectedIds.map(refId).filter(isAbility));
+  // Escolha livre de atributo da raça usa as primeiras opções de atributo gravadas, exceto as de Incremento de classe.
+  const abilityPicks = choiceSelections(character, character.classes)
+    .filter((selection) => !isAsiChoiceId(selection.choiceId))
+    .flatMap((selection) => selection.selectedIds.map((selected, index) => ({ value: refId(selected), key: pickKey(selection, index) })).filter((pick): pick is { value: Ability; key: string } => isAbility(pick.value)));
+  const selectedAbilityIds = abilityPicks.map((pick) => pick.value);
   let selectedAbilityIndex = 0;
   for (const increase of race.abilityIncreases) {
     if (increase.ability !== "any") {
@@ -345,7 +366,7 @@ export function collectRules(
   const chosenAbilityIncreases = collectAbilityIncreaseChoices(
     choiceSelections(character, character.classes),
     new Map<Ability, number>(),
-    new Set(selectedAbilityIds.slice(0, selectedAbilityIndex)),
+    new Set(abilityPicks.slice(0, selectedAbilityIndex).map((pick) => pick.key)),
   );
   for (const [ability, amount] of chosenAbilityIncreases) {
     add({

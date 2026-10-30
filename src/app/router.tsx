@@ -34,11 +34,12 @@ import { createRuleLookup } from "./rule-lookup";
 import { generateNpcCharacter } from "@application/character/generate-npc-character";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
-import { attackRollsFor, carryingFor, conditionOptionsFor, spellInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
+import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
 
 const LazyCampaignLog = lazy(() => import("@features/campaign-log").then((module) => ({ default: module.CampaignLog })));
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
 const LazyCharacterSheet = lazy(() => import("@features/character/sheet").then((module) => ({ default: module.CharacterSheet })));
+const LazyLevelUp = lazy(() => import("@features/character/evolution").then((module) => ({ default: module.LevelUpWizard })));
 const LazyCharacterCreation = lazy(() => import("@features/character/creation").then((module) => ({ default: module.CharacterCreationWizard })));
 const LazyActions = lazy(() => import("@features/actions").then((module) => ({ default: module.Actions })));
 const LazyInventory = lazy(() => import("@features/inventory").then((module) => ({ default: module.Inventory })));
@@ -333,7 +334,36 @@ function CharacterSelectionRoute({ registry, navigate }: { readonly registry: Fe
   return <Selection {...registry.character.bindSelectionProps({ characters, drafts, status, error, onSelect: (id) => navigate(`/character/${id}`), onCreate: () => navigate("/character/create"), onResumeDraft: (id) => navigate(`/character/create/${id}`) })} />;
 }
 
-function CharacterDetailRoute({ registry, character, pack, id }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string }) {
+function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {
+  const validId = isUuid(id) ? asUuid(id) : undefined;
+  const [blocks, setBlocks] = useState<readonly { readonly id: string; readonly text: string; readonly printedPages: readonly number[] }[]>([]);
+  useEffect(() => {
+    if (validId && character?.value?.id !== validId) void registry.character.service.select(validId);
+  }, [character?.value?.id, registry.character.service, validId]);
+  useEffect(() => {
+    let active = true;
+    void import("@data/correto/descricoes/features").then((module) => { if (active) setBlocks(module.PHB_FEATURE_DESCRIPTIONS.featureBlocks); });
+    return () => { active = false; };
+  }, []);
+  const featureInfo = useMemo(() => featureInfoFor(pack, blocks), [pack, blocks]);
+  const Wizard = LazyLevelUp;
+  if (!validId) return <PendingDestination title="Subir de nível" reasons={["O identificador da ficha é inválido."]} />;
+  if (!pack) return <PendingDestination title="Subir de nível" reasons={["O catálogo de regras ainda não foi carregado."]} />;
+  if (character?.status === "hydrating" || character?.value?.id !== validId) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
+  const current = character.value;
+  const derived = registry.character.bindSheetProps({ character: current }).derived;
+  const confirm = async (next: Character) => {
+    const updated = registry.character.service.update(() => next, true);
+    if (!updated.ok) return { ok: false, message: updated.error.message };
+    const saved = await registry.character.service.save();
+    if (!saved.ok) return { ok: false, message: saved.error.message };
+    navigate(`/character/${current.id}`);
+    return { ok: true };
+  };
+  return <Wizard character={current} {...(derived ? { derived } : {})} pack={pack} spellInfo={spellInfoFor(pack)} featureInfo={featureInfo} racialTraits={racialTraitsFor(pack, current)} newId={() => asUuid(crypto.randomUUID())} onConfirm={confirm} onCancel={() => navigate(`/character/${current.id}`)} />;
+}
+
+function CharacterDetailRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {
   const validId = isUuid(id) ? asUuid(id) : undefined;
   const ruleLookup = useMemo(() => createRuleLookup(registry.compendium.service), [registry.compendium.service]);
   useEffect(() => {
@@ -364,6 +394,7 @@ function CharacterDetailRoute({ registry, character, pack, id }: { readonly regi
     equipmentInfo: (entityId) => equipmentInfo(pack, entityId),
     spellOptions: spellOptionsFor(currentCharacter, pack),
     spellInfo: spellInfoFor(pack),
+    onLevelUp: () => navigate(`/character/${currentCharacter.id}/evolve`),
     conditionOptions: conditionOptionsFor(pack),
   });
   const RuleProvider = LazyRuleLookupProvider;
@@ -1115,7 +1146,8 @@ function renderRegistryRoute(
       return <PendingDestination title="Criação de personagem" reasons={registry.character.pendingDependencies.length ? registry.character.pendingDependencies : ["Catálogo e draft de criação não foram fornecidos nesta composição."]} />;
     }
     if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} /> : <CharacterHomeRoute registry={registry} character={character} navigate={navigate} replace={replace} signedIn={signedIn} accountCharacterId={accountCharacterId} />;
-    return <CharacterDetailRoute registry={registry} character={character} pack={pack} id={match.params.id} />;
+    if (match.params.mode === "evolve") return <EvolveCharacterRoute registry={registry} character={character} pack={pack} id={match.params.id} navigate={navigate} />;
+    return <CharacterDetailRoute registry={registry} character={character} pack={pack} id={match.params.id} navigate={navigate} />;
   }
   if (match.kind === "actions") {
     const ActionPage = LazyActions;

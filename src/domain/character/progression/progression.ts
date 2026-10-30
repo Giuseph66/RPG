@@ -4,6 +4,8 @@ import type { ChoiceDefinition, ChoiceSelection, Prerequisite } from "@domain/co
 import type { ClassDefinition, SubclassDefinition } from "@domain/contracts/definitions/class";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import { err, ok } from "@domain/contracts/errors";
+import { generatedChoices } from "@domain/character/evolution/choices";
+import { validateEvolutionChoices } from "@domain/character/evolution/validate";
 import { asProgressionCatalog, type LevelUpPreview, type LevelUpRequest, type ProgressionApplyOptions, type ProgressionCatalogInput, type ProgressionIssue, type ProgressionResourcePreview, type ProgressionResult, type ProgressionStatus } from "./model";
 
 const SKILLS = new Set(["athletics", "acrobatics", "sleight-of-hand", "stealth", "arcana", "history", "investigation", "nature", "religion", "animal-handling", "insight", "medicine", "perception", "survival", "performance", "deception", "intimidation", "persuasion"]);
@@ -60,7 +62,7 @@ export function grantExperience(character: Character, amount: number): Progressi
   return setExperience(character, character.xp + amount);
 }
 
-function choicesFor(pack: RulePack, classDefinition: ClassDefinition, targetLevel: number, subclass: SubclassDefinition | undefined): { readonly choices: readonly ChoiceDefinition[]; readonly featureRefs: readonly import("@domain/contracts/ids").DefinitionRef[]; readonly issues: readonly ProgressionIssue[] } {
+function choicesFor(character: Character, pack: RulePack, classDefinition: ClassDefinition, targetLevel: number, subclass: SubclassDefinition | undefined): { readonly choices: readonly ChoiceDefinition[]; readonly featureRefs: readonly import("@domain/contracts/ids").DefinitionRef[]; readonly issues: readonly ProgressionIssue[] } {
   const progression = classDefinition.progression[targetLevel - 1];
   if (!progression || progression.level !== targetLevel) return { choices: [], featureRefs: [], issues: [issue("unresolved-source", "class.progression", `A progressão publicada não possui o nível ${targetLevel}.`, classDefinition.sourceRefs)] };
   const featureRefs = [...progression.featureRefs, ...(subclass?.featureGrants.filter((grant) => grant.level === targetLevel).map((grant) => grant.featureRef) ?? [])];
@@ -75,6 +77,9 @@ function choicesFor(pack: RulePack, classDefinition: ClassDefinition, targetLeve
     choices.push(...feature.choices);
   }
   if (subclass) choices.push(...subclass.choices);
+  // Escolhas de magia e de troca saem das tabelas do livro; as do 1º nível já vêm do pack.
+  const published = new Set(choices.map((entry) => entry.id));
+  choices.push(...generatedChoices(character, pack, String(classDefinition.id), targetLevel, subclass ? String(subclass.id) : undefined).filter((entry) => !published.has(entry.id)));
   return { choices, featureRefs, issues };
 }
 
@@ -159,12 +164,13 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
   const subclass = input.subclassId ? pack.subclasses.get(input.subclassId) : existingClass?.subclassId ? pack.subclasses.get(existingClass.subclassId) : undefined;
   if (input.subclassId && !subclass) errors.push(issue("invalid-subclass", "subclassId", `Subclasse "${String(input.subclassId)}" não está publicada.`));
   if (subclass && subclass.classId !== input.classId) errors.push(issue("invalid-subclass", "subclassId", "A subclasse não pertence à classe escolhida.", subclass.sourceRefs));
-  if (targetClassLevel >= classDefinition.subclassSelectionLevel && !subclass) errors.push(issue("required-choice", "subclassId", `A classe exige subclasse a partir do nível ${classDefinition.subclassSelectionLevel}.`, classDefinition.sourceRefs));
-  const gathered = choicesFor(pack, classDefinition, targetClassLevel, subclass);
+  if (targetClassLevel >= classDefinition.subclassSelectionLevel && !subclass) errors.push({ ...issue("required-choice", "subclassId", `A classe pede subclasse a partir do nível ${classDefinition.subclassSelectionLevel}; você pode escolhê-la depois.`, classDefinition.sourceRefs), blocking: false });
+  const gathered = choicesFor(character, pack, classDefinition, targetClassLevel, subclass);
   errors.push(...gathered.issues);
   errors.push(...validateHitPointGain(input.hitPointGain, classDefinition, targetClassLevel));
   const choices = character.choices;
   for (const choice of gathered.choices) errors.push(...validChoiceSelection(pack, choice, input.choices.find((selection) => selection.choiceId === choice.id)));
+  errors.push(...validateEvolutionChoices({ character, pack, classId: String(input.classId), targetLevel: targetClassLevel, ...(subclass ? { subclassId: String(subclass.id) } : {}), choices: input.choices, definitions: gathered.choices, ...(input.abilityScores ? { abilityScores: input.abilityScores } : {}) }));
   const knownChoiceIds = new Set(gathered.choices.map((choice) => choice.id));
   const submittedChoiceIds = new Set<string>();
   for (const selection of input.choices) {
@@ -186,7 +192,7 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
     resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => sameResourceRef(resource.definitionRef, change.resourceRef))?.spent ?? 0 });
   }
   const xpRequired = pack.progression.table[currentTotal]?.xpThreshold ?? Number.POSITIVE_INFINITY;
-  return ok({ classId: input.classId, targetClassLevel, totalLevel: currentTotal + 1, proficiencyBonus: pack.progression.table[currentTotal]?.proficiencyBonus ?? 0, xpRequired, hitPointGain: input.hitPointGain, featureRefs: gathered.featureRefs, resources, choices: gathered.choices, pending: errors, valid: errors.length === 0 });
+  return ok({ classId: input.classId, targetClassLevel, totalLevel: currentTotal + 1, proficiencyBonus: pack.progression.table[currentTotal]?.proficiencyBonus ?? 0, xpRequired, hitPointGain: input.hitPointGain, featureRefs: gathered.featureRefs, resources, choices: gathered.choices, pending: errors, valid: errors.every((entry) => !entry.blocking) });
 }
 
 function fallbackId(character: Character, purpose: string, index: number): ReturnType<typeof asUuid> {
