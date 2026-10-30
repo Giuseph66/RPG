@@ -11,6 +11,8 @@ export interface CastingSource {
   readonly classId: string;
   readonly level: number;
   readonly profile: CastingProfile;
+  /** Subclasse da classe, quando escolhida (ex.: patrono do bruxo, que amplia a lista de magias). */
+  readonly subclassId?: string;
 }
 
 export function castingSourcesOf(classes: readonly Pick<ClassLevel, "classId" | "level" | "subclassId">[]): readonly CastingSource[] {
@@ -18,8 +20,8 @@ export function castingSourcesOf(classes: readonly Pick<ClassLevel, "classId" | 
   for (const entry of classes) {
     const classId = String(entry.classId);
     const own = CLASS_CASTING[classId];
-    if (own && entry.level >= own.startLevel) result.push({ key: classId, classId, level: entry.level, profile: own });
     const subclassId = entry.subclassId ? String(entry.subclassId) : undefined;
+    if (own && entry.level >= own.startLevel) result.push({ key: classId, classId, level: entry.level, profile: own, ...(subclassId ? { subclassId } : {}) });
     const third = subclassId ? SUBCLASS_CASTING[subclassId] : undefined;
     if (subclassId && third && third.classId === classId && entry.level >= third.startLevel) result.push({ key: subclassId, classId, level: entry.level, profile: third });
   }

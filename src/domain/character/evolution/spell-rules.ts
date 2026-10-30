@@ -41,9 +41,17 @@ export interface SpellConstraint {
   readonly minLevel: number;
   readonly maxLevel: number;
   readonly schools?: readonly string[];
+  /** Magias aceitas mesmo fora das listas (lista expandida do patrono). */
+  readonly extraSpellIds?: ReadonlySet<string>;
 }
 
-export function spellConstraintFor(parsed: ParsedEvolutionChoice, sources: readonly CastingSource[]): SpellConstraint | undefined {
+/** Magias que a subclasse acrescenta à lista da classe sem deixá-las sempre preparadas. */
+export function expandedSpellIds(pack: RulePack | undefined, subclassId: string | undefined, classLevel: number): ReadonlySet<string> {
+  const subclass = subclassId && pack ? pack.subclasses.get(subclassId as EntityId) : undefined;
+  return new Set((subclass?.spellGrants ?? []).filter((grant) => !grant.alwaysPrepared && grant.level <= classLevel).map((grant) => String(grant.spellRef.entityId)));
+}
+
+export function spellConstraintFor(parsed: ParsedEvolutionChoice, sources: readonly CastingSource[], pack?: RulePack): SpellConstraint | undefined {
   const source = sources.find((entry) => entry.key === parsed.key);
   const bonus = SUBCLASS_BONUS_CANTRIPS[parsed.key];
   if (parsed.kind === "cantrip") return bonus ? { lists: [bonus.listClassId], minLevel: 0, maxLevel: 0 } : undefined;
@@ -58,17 +66,19 @@ export function spellConstraintFor(parsed: ParsedEvolutionChoice, sources: reado
   const list = source.profile.spellListClassId;
   const schools = THIRD_CASTER_SCHOOLS[source.key];
   const restriction = schools && !THIRD_CASTER_FREE_LEVELS.includes(parsed.level) ? { schools } : {};
-  if (parsed.kind === "cantrips") return { lists: [list], minLevel: 0, maxLevel: 0 };
+  const expanded = expandedSpellIds(pack, source.subclassId, source.level);
+  const extra = expanded.size > 0 ? { extraSpellIds: expanded } : {};
+  if (parsed.kind === "cantrips") return { lists: [list], minLevel: 0, maxLevel: 0, ...extra };
   if (parsed.kind === "magical-secrets" || parsed.kind === "additional-secrets") return { lists: "any", minLevel: 0, maxLevel: ownMaxSpellLevel(source) };
   // spells e spell-swap
-  return { lists: [list], minLevel: 1, maxLevel: ownMaxSpellLevel(source), ...restriction };
+  return { lists: [list], minLevel: 1, maxLevel: ownMaxSpellLevel(source), ...restriction, ...extra };
 }
 
 /** Motivo pelo qual a magia não cabe na restrição, ou `undefined` quando cabe. */
 export function spellProblem(pack: RulePack, spellId: string, constraint: SpellConstraint): string | undefined {
   const spell = pack.spells.get(spellId as EntityId);
   if (!spell) return `Magia "${spellId}" não está publicada no catálogo.`;
-  if (constraint.lists !== "any" && !spell.classes.some((entry) => constraint.lists.includes(String(entry)))) return `${spell.name} não está na lista de magias permitida para esta escolha.`;
+  if (constraint.lists !== "any" && !constraint.extraSpellIds?.has(spellId) && !spell.classes.some((entry) => constraint.lists.includes(String(entry)))) return `${spell.name} não está na lista de magias permitida para esta escolha.`;
   if (spell.level < constraint.minLevel || spell.level > constraint.maxLevel) {
     if (constraint.maxLevel === 0) return `${spell.name} não é um truque.`;
     if (constraint.minLevel === constraint.maxLevel) return `${spell.name} deve ser de ${constraint.minLevel}º nível.`;

@@ -125,4 +125,18 @@ describe("evolução: escolhas específicas de cada classe", () => {
     expect(next.castingSources[0].knownSpellRefs.map((entry) => String(entry.entityId))).toContain(arcanum);
     expect(next.spellSlots.filter((slot) => slot.kind === "pact")).toHaveLength(3);
   });
+
+  it("Bruxo do Corruptor aprende magias da Lista de Magia Expandida (ex.: Comando)", () => {
+    const warlock = create("warlock", [], { str: 10, dex: 12, con: 14, int: 10, wis: 10, cha: 16 });
+    // Comando não é da lista de bruxo; só entra pelo patrono.
+    expect(spellsOf("warlock", 1)).not.toContain("comando");
+    const withFiend = mustEvolve(warlock, "warlock", 2, { subclassId: "the-fiend", choices: [pick("warlock.spells.2", ["comando"], 2)] });
+    expect(withFiend.castingSources[0].knownSpellRefs.map((entry) => String(entry.entityId))).toContain("comando");
+    // Não fica preparada sozinha: a lista expandida só amplia o que dá para aprender.
+    expect(withFiend.castingSources[0].preparedSpellRefs).toEqual([]);
+    // Sono é da Arquifada, não do Corruptor.
+    expect(evolve(warlock, "warlock", 2, { subclassId: "the-fiend", choices: [pick("warlock.spells.2", ["sono"], 2)] }).ok).toBe(false);
+    // Raio Ardente (2º círculo) ainda não está ao alcance no nível 2.
+    expect(evolve(warlock, "warlock", 2, { subclassId: "the-fiend", choices: [pick("warlock.spells.2", ["raio-ardente"], 2)] }).ok).toBe(false);
+  });
 });

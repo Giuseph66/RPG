@@ -100,7 +100,12 @@ describe("catálogo DATA-005", () => {
     const ranger = classes.find((entry) => entry.id === "ranger");
     expect(ranger?.subclassIds).toEqual(["beast-conclave", "hunter-conclave", "deep-stalker-conclave"]);
     expect(subclasses.filter((entry) => entry.classId === "ranger")).toHaveLength(3);
-    expect(subclasses.every((entry) => entry.spellGrants.length === 0)).toBe(true);
+    // Só os patronos do bruxo concedem magias (Lista de Magia Expandida): 10 cada, sem ficarem sempre preparadas.
+    expect(subclasses.filter((entry) => entry.spellGrants.length > 0).map((entry) => entry.id).sort()).toEqual(["the-archfey", "the-fiend", "the-great-old-one"]);
+    for (const patron of subclasses.filter((entry) => entry.spellGrants.length > 0)) {
+      expect(patron.spellGrants).toHaveLength(10);
+      expect(patron.spellGrants.every((grant) => !grant.alwaysPrepared && [1, 3, 5, 7, 9].includes(grant.level))).toBe(true);
+    }
   });
 
   it("expõe pendências de fonte sem transformar lacunas em defaults", () => {

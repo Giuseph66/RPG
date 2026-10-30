@@ -108,6 +108,13 @@ describe("domínio de criação", () => {
     expect(validateCharacterCreation(catalog(), wrongStyle).issues.some((entry) => entry.code === "invalid-choice")).toBe(true);
   });
 
+  it("bruxo com patrono no 1º nível pode escolher magia da lista expandida", () => {
+    const fiend = draft({ raceRef: ref("human"), classes: [{ classId: asEntityId("warlock"), level: 1, subclassId: asEntityId("the-fiend"), choices: [] }], choices: [{ choiceId: "warlock.spells.1", selectedIds: [ref("comando")], grantedAtLevel: 1, grantingRef: ref("warlock") }] });
+    expect(validateCharacterCreation(catalog(), fiend).issues).toEqual([]);
+    const noPatron = draft({ raceRef: ref("human"), classes: [{ classId: asEntityId("warlock"), level: 1, choices: [] }], choices: [{ choiceId: "warlock.spells.1", selectedIds: [ref("comando")], grantedAtLevel: 1, grantingRef: ref("warlock") }] });
+    expect(validateCharacterCreation(catalog(), noPatron).issues.some((entry) => entry.code === "invalid-choice")).toBe(true);
+  });
+
   it("aplica decisões sem mutar o draft anterior", () => {
     const initial = draft();
     const result = applyCreationDecision(initial, { kind: "race", raceRef: ref("human") });

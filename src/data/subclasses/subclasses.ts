@@ -5,6 +5,21 @@ import { CANTRIPS_KNOWN, SPELLS_KNOWN, SUBCLASS_CASTING } from "@domain/characte
 
 type SubclassSpec = { id: string; name: string; classId: string; selectionLevel: number; levels: readonly number[]; page: number; pdfPage: number };
 
+/**
+ * Lista de Magia Expandida dos patronos do Bruxo (cap. 3): magias por círculo (1º ao 5º) que
+ * entram na lista de bruxo. Não ficam preparadas sozinhas: o bruxo pode aprendê-las.
+ */
+const EXPANDED_SPELLS: Readonly<Record<string, readonly (readonly [string, string])[]>> = {
+  "the-fiend": [["maos-flamejantes", "comando"], ["cegueira-surdez", "raio-ardente"], ["fireball", "nevoa-fetida"], ["escudo-de-fogo", "muralha-de-fogo"], ["coluna-de-chamas", "consagrar"]],
+  "the-archfey": [["fogo-das-fadas", "sono"], ["acalmar-emocoes", "forca-fantasmagorica"], ["piscar", "ampliar-plantas"], ["dominar-besta", "invisibilidade-maior"], ["dominar-pessoa", "similaridade"]],
+  "the-great-old-one": [["sussurros-dissonantes", "riso-histerico-de-tasha"], ["detectar-pensamentos", "forca-fantasmagorica"], ["clarividencia", "enviar-mensagem"], ["dominar-besta", "tentaculos-negros-de-evard"], ["dominar-pessoa", "telecinesia"]],
+};
+
+/** Círculo N fica disponível ao bruxo no nível 2N − 1 (Magia de Pacto). */
+function expandedSpellGrants(subclassId: string): SubclassDefinition["spellGrants"] {
+  return (EXPANDED_SPELLS[subclassId] ?? []).flatMap((spells, index) => spells.map((spellId) => ({ level: index * 2 + 1, spellRef: ref(spellId), alwaysPrepared: false })));
+}
+
 const specs: readonly SubclassSpec[] = ([
   ["path-of-the-berserker", "Caminho do Furioso", "barbarian", 3, [3, 6, 10, 14], 49, 48],
   ["path-of-the-totem-warrior", "Caminho do Guerreiro Totêmico", "barbarian", 3, [3, 6, 10, 14], 49, 48],
@@ -59,7 +74,7 @@ export const subclasses: readonly SubclassDefinition[] = specs.map((spec) => {
     classId: asEntityId(spec.classId),
     selectionLevel: spec.selectionLevel,
     featureGrants: spec.levels.map((level) => ({ level, featureRef: featureRef(`${spec.id}-feature-level-${level}`) })),
-    spellGrants: [],
+    spellGrants: expandedSpellGrants(spec.id),
     resourceChanges: [],
     choices: [],
     ...(SUBCLASS_CASTING[spec.id] ? { spellcasting: {

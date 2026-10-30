@@ -163,7 +163,7 @@ export function spellOptionsForChoice(choice: ChoiceDefinition, view: EvolutionV
   if (!parsed) return [];
   const classes = projectClasses(character, view.classId, view.targetLevel, view.subclassId);
   const sources = castingSourcesOf(classes);
-  const constraint = spellConstraintFor(parsed, sources);
+  const constraint = spellConstraintFor(parsed, sources, pack);
   if (!constraint) return [];
   const known = new Set<string>();
   for (const source of character.castingSources) for (const id of knownSpellIds(character, String(source.grantingRef.entityId))) known.add(id);

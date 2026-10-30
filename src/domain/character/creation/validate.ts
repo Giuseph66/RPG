@@ -4,6 +4,7 @@ import { type ChoiceDefinition, type ChoiceSelection, type Ability } from "@doma
 import { type ClassDefinition } from "@domain/contracts/definitions/class";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { creationChoiceLimit } from "./limits";
+import { expandedSpellIds } from "@domain/character/evolution/spell-rules";
 import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, type CreationIssue, type CreationValidationReport, ABILITIES } from "./model";
 
 const standardArray = [8, 10, 12, 13, 14, 15];
@@ -27,6 +28,8 @@ function validateChoice(
   classId?: string,
   classLevel?: number,
   max = choice.count.max,
+  /** Magias que a subclasse acrescenta à lista da classe (lista expandida do patrono). */
+  extraSpellIds: ReadonlySet<string> = new Set(),
 ): CreationIssue[] {
   // Escolhas são opcionais na criação: só o excesso e opções inválidas bloqueiam.
   if (!selection) return [];
@@ -56,7 +59,7 @@ function validateChoice(
       else {
         if (selector.filterTag && !spell.tags.includes(selector.filterTag)) issues.push(issue("invalid-choice", field, `Magia "${key}" não satisfaz o filtro "${selector.filterTag}".`));
         const classSpellChoice = classId !== undefined && choice.id.startsWith(`${classId}.`) && (choice.kind === "cantrip" || choice.kind === "spell");
-        if (classSpellChoice && !spell.classes.some((entry) => String(entry) === classId)) issues.push(issue("invalid-choice", field, `Magia "${key}" não está disponível para a classe "${classId}".`));
+        if (classSpellChoice && !extraSpellIds.has(key) && !spell.classes.some((entry) => String(entry) === classId)) issues.push(issue("invalid-choice", field, `Magia "${key}" não está disponível para a classe "${classId}".`));
         if (classSpellChoice && choice.kind === "cantrip" && spell.level !== 0) issues.push(issue("invalid-choice", field, `A escolha de truques aceita somente magias de nível 0; "${key}" é nível ${spell.level}.`));
         if (classSpellChoice && choice.kind === "spell" && (spell.level === 0 || (classLevel !== undefined && spell.level > classLevel))) issues.push(issue("invalid-choice", field, `A magia "${key}" excede o nível de magia disponível para a classe (nível ${classLevel ?? 1}).`));
       }
@@ -147,7 +150,7 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   const knownIds = new Set<string>();
   for (const choice of choices) {
     knownIds.add(choice.id);
-    issues.push(...validateChoice(choice, selectedFor(choice, selections), pack, equipmentBundles, `choices.${choice.id}`, classDefinition?.id ? String(classDefinition.id) : undefined, classEntry?.level, creationChoiceLimit(pack, partial, choice).max));
+    issues.push(...validateChoice(choice, selectedFor(choice, selections), pack, equipmentBundles, `choices.${choice.id}`, classDefinition?.id ? String(classDefinition.id) : undefined, classEntry?.level, creationChoiceLimit(pack, partial, choice).max, expandedSpellIds(pack, classEntry?.subclassId ? String(classEntry.subclassId) : undefined, classEntry?.level ?? 1)));
   }
   for (const selection of selections) if (!knownIds.has(selection.choiceId)) issues.push(issue("invalid-choice", `choices.${selection.choiceId}`, `Escolha "${selection.choiceId}" não é concedida por raça, classe, sub-raça ou antecedente.`));
 

@@ -16,6 +16,7 @@ import {
   validateCharacterCreation,
 } from "@domain/character/creation";
 import { asCreationCatalog, CREATION_STEPS } from "@domain/character/creation/model";
+import { expandedSpellIds } from "@domain/character/evolution/spell-rules";
 import type { CreationDecision, CreationCatalogInput, CreationIssue } from "@domain/character/creation";
 
 import { ABILITY_LABELS, formatRef, LANGUAGE_LABELS, PROFICIENCY_GROUP_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, TOOL_PROFICIENCY_OPTIONS } from "./mapping";
@@ -180,18 +181,21 @@ function ChoiceEditor({
       const classId = draft.partial.classes?.[0]?.classId;
       // Só escolhas da própria classe usam a lista dela; as raciais usam o filtro da raça.
       const classScoped = classId !== undefined && choice.id.startsWith(`${String(classId)}.`);
+      // A lista expandida do patrono do bruxo entra na lista da classe.
+      const subclassId = draft.partial.classes?.[0]?.subclassId;
+      const expanded = expandedSpellIds(pack, subclassId ? String(subclassId) : undefined, draft.partial.classes?.[0]?.level ?? 1);
       const spellLevel = choice.kind === "cantrip" ? 0 : choice.kind === "spell" ? 1 : undefined;
       return Array.from(pack.spells.values()).filter((spell) => {
         if (selector.filterTag && !spell.tags.includes(selector.filterTag)) return false;
         if (spellLevel !== undefined && spell.level !== spellLevel) return false;
-        return !classScoped || spell.classes.some((entry) => String(entry) === String(classId));
+        return !classScoped || expanded.has(String(spell.id)) || spell.classes.some((entry) => String(entry) === String(classId));
       }).map((spell) => ({ value: String(spell.id), label: displayName(spell) }));
     }
     if (selector.kind === "any-entity-of-type" && selector.entityType === "equipment") {
       return scopedEquipmentOptions(pack, owner, catalog, current);
     }
     return [];
-  }, [catalog, choice, owner, pack, value]);
+  }, [catalog, choice, owner, pack, value, draft.partial.classes]);
   const isSpell = choice.kind === "spell" || choice.kind === "cantrip";
   const limit = creationChoiceLimit(pack, draft.partial, choice);
   const multiple = limit.max > 1 || isSpell;

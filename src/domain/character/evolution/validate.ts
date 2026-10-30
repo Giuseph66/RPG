@@ -85,7 +85,7 @@ export function validateEvolutionChoices(input: EvolutionValidationInput): reado
     const ids = selection.selectedIds.map((ref) => String(ref.entityId));
     const parsed = parseEvolutionChoiceId(selection.choiceId);
     if (parsed) {
-      const constraint = spellConstraintFor(parsed, sources);
+      const constraint = spellConstraintFor(parsed, sources, pack);
       if (!constraint) { issues.push(issue("invalid-choice", field, `A escolha "${selection.choiceId}" não se aplica a este personagem.`)); continue; }
       if (parsed.kind === "spell-swap") {
         if (ids.length !== 0 && ids.length !== 2) issues.push(issue("invalid-choice", field, "A troca de magia exige a magia que sai e a que entra."));

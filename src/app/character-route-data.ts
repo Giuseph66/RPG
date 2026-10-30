@@ -70,8 +70,13 @@ export function spellOptionsFor(character: Character, pack: RulePack | undefined
   const classIds = new Set(character.castingSources.map((source) => String(source.grantingRef.entityId)));
   if (classIds.size === 0) return [];
   const maxSlot = character.spellSlots.reduce((max, slot) => Math.max(max, slot.slotLevel), 0);
+  // Lista expandida do patrono (bruxo): magias de outras listas que entram na da classe.
+  const expanded = new Set(character.classes.flatMap((entry) => {
+    const subclass = entry.subclassId ? pack.subclasses.get(entry.subclassId) : undefined;
+    return (subclass?.spellGrants ?? []).filter((grant) => !grant.alwaysPrepared && grant.level <= entry.level).map((grant) => String(grant.spellRef.entityId));
+  }));
   return EXTRACTED_PHB_SPELLS
-    .filter((spell) => spell.classes.some((classId) => classIds.has(classId)) && spell.level <= maxSlot)
+    .filter((spell) => (spell.classes.some((classId) => classIds.has(classId)) || expanded.has(spell.id) || expanded.has(String(pack.spells.get(spell.id as never)?.id ?? ""))) && spell.level <= maxSlot)
     .map((spell) => {
       const structured = pack.spells.get(spell.id as never);
       return {

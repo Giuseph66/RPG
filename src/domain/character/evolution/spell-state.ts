@@ -154,7 +154,8 @@ function applySubclassGrants(character: Character, pack: RulePack, active: reado
     const sourceIndex = next.sources.findIndex((source) => String(source.grantingRef.entityId) === String(entry.classId));
     if (sourceIndex < 0 || !active.some((source) => source.key === String(entry.classId))) continue;
     for (const grant of subclass.spellGrants) {
-      if (grant.level > entry.level || !pack.spells.has(grant.spellRef.entityId)) continue;
+      // Concessões que não ficam sempre preparadas (lista expandida do bruxo) só ampliam a lista de escolha.
+      if (!grant.alwaysPrepared || grant.level > entry.level || !pack.spells.has(grant.spellRef.entityId)) continue;
       const source = next.sources[sourceIndex];
       next.sources[sourceIndex] = { ...source, preparedSpellRefs: withRef(source.preparedSpellRefs, grant.spellRef) };
       const existing = next.prepared.findIndex((selection) => selection.castingSourceId === source.id && sameRef(selection.spellRef, grant.spellRef));
