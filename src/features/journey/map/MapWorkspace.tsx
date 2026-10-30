@@ -135,6 +135,11 @@ export function MapWorkspace({ campaignId, canManage = false, listMaps, getAsset
       const buffer = result.value.bytes.slice().buffer as ArrayBuffer;
       const url = URL.createObjectURL(new Blob([buffer], { type: result.value.mediaType }));
       setImageUrl(url);
+    }).catch((error) => {
+      if (!active) return;
+      setAsset(undefined);
+      setImageUrl(undefined);
+      setMessage(error instanceof Error ? error.message : "Não foi possível carregar a imagem deste mapa.");
     });
     return () => { active = false; };
   }, [getAsset, loadImage, selectedMap?.assetId]);
@@ -165,23 +170,33 @@ export function MapWorkspace({ campaignId, canManage = false, listMaps, getAsset
   async function publishSelected(target = selectedMap) {
     if (!target || !publication) return;
     setCloudBusy(true); setMessage(undefined);
-    const result = await publication.publish(target);
-    setCloudBusy(false);
-    if (!result.ok) { setMessage(result.error.message); return; }
-    replaceMap(result.value, target.id);
-    setMessage(`Imagem de “${result.value.name}” confirmada no Firebase.`);
+    try {
+      const result = await publication.publish(target);
+      if (!result.ok) { setMessage(result.error.message); return; }
+      replaceMap(result.value, target.id);
+      setMessage(`Imagem de “${result.value.name}” confirmada no Firebase.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível enviar a imagem ao Firebase.");
+    } finally {
+      setCloudBusy(false);
+    }
   }
 
   async function saveAudience() {
     if (!selectedMap || !publication) return;
     const audience = (shareDraft.includes("*") ? ["*"] : shareDraft) as unknown as CampaignAudience;
     setCloudBusy(true); setMessage(undefined);
-    const result = await publication.share(selectedMap, audience);
-    setCloudBusy(false);
-    if (!result.ok) { setMessage(result.error.message); return; }
-    replaceMap(result.value, selectedMap.id);
-    setShareOpen(false);
-    setMessage(audience.length === 0 ? "Mapa visível só para você." : `Mapa compartilhado · ${audienceLabel(result.value, players)}. Os jogadores veem ao atualizar.`);
+    try {
+      const result = await publication.share(selectedMap, audience);
+      if (!result.ok) { setMessage(result.error.message); return; }
+      replaceMap(result.value, selectedMap.id);
+      setShareOpen(false);
+      setMessage(audience.length === 0 ? "Mapa visível só para você." : `Mapa compartilhado · ${audienceLabel(result.value, players)}. Os jogadores veem ao atualizar.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível salvar a visibilidade do mapa.");
+    } finally {
+      setCloudBusy(false);
+    }
   }
 
   async function renameSelected() {

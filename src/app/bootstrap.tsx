@@ -27,10 +27,10 @@ import { STORE_NAMES } from "@infrastructure/persistence/indexeddb/schema";
 import { requestToPromise, runTransaction } from "@infrastructure/persistence/indexeddb/transaction";
 import { LocalStorageSettingsRepository } from "@infrastructure/preferences";
 import { createPlatformRandomSource } from "@domain/dice";
-import { createDiceOverlayController, type DiceOverlayController } from "@features/dice";
+import { createDiceOverlayController, type DiceOverlayController } from "@features/dice/controller";
 import { createCompendiumService } from "@application/compendium";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
-import { STATIC_COMPENDIUM_ITEMS } from "@data/compendium";
+import { createLazyCompendiumLoader } from "./lazy-compendium";
 import { registerPwa, type PwaPlatform, type RegisteredPwa } from "@infrastructure/pwa";
 import { deriveCharacter } from "@domain/rules";
 import { deriveActionCapabilities, type DeriveActionCapabilitiesResult } from "@application/character/action-capabilities";
@@ -58,10 +58,8 @@ import type { CreationWizardService } from "@features/character/creation";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { AuthPort } from "@application/ports/auth-port";
 import type { AccountAvailability, AccountSyncState } from "@features/account";
-import { FirebaseAuthAdapter, createFirebaseAssetStorageAdapter, getFirebaseApp, getFirebaseConfigDiagnostic } from "@infrastructure/cloud/firebase";
 import type { AssetTransferPort } from "@application/ports/asset-transfer";
 import type { PortraitRemoteStore } from "@application/ports/portrait-store";
-import { getFirestoreClient, createFirebaseFirestoreSyncAdapter, createFirebasePlayerInviteLinkStore } from "@infrastructure/cloud/firebase";
 import { createSessionGatedOutboxRepository, createSyncOutboxService, createSyncRuntime, type SyncRuntime } from "@application/sync";
 import { createMembershipService, loadOrCreateLocalIdentity, type LocalIdentityStorage, type MembershipService } from "@application/membership";
 import { createSessionService, type SessionService } from "@application/session";
@@ -75,6 +73,8 @@ import { createFirestoreCampaignLog } from "@infrastructure/cloud/firebase/campa
 import { createCampaignLogRecorder, type CampaignLogRecorder } from "@application/campaign-log";
 import type { CampaignLogPort } from "@application/ports/campaign-log";
 import { AppRouter } from "./router";
+
+type FirebaseCloudModule = typeof import("@infrastructure/cloud/firebase");
 
 /**
  * Contexto de regra estático usado para derivar capacidades de Ações. Não há relógio de jogo
@@ -340,9 +340,15 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   if (!opened.ok) throw new Error(opened.error.message);
 
   const database = opened.value;
-  const firebaseDiagnostic = getFirebaseConfigDiagnostic();
-  const firebaseApp = options.auth ? null : getFirebaseApp();
-  const auth = options.auth ?? (firebaseApp ? new FirebaseAuthAdapter(firebaseApp) : undefined);
+  // Firebase is optional. Resolve the small config module first and fetch the
+  // SDK/adapters only when a configured cloud capability can actually be used.
+  const firebaseConfig = await import("@infrastructure/cloud/firebase/config");
+  const firebaseDiagnostic = firebaseConfig.resolveFirebaseConfig(firebaseConfig.readViteFirebaseEnv());
+  let firebaseCloud: FirebaseCloudModule | undefined;
+  const firebaseApp = options.auth || !firebaseDiagnostic.available
+    ? null
+    : ((firebaseCloud = await import("@infrastructure/cloud/firebase")).getFirebaseApp());
+  const auth = options.auth ?? (firebaseApp && firebaseCloud ? new firebaseCloud.FirebaseAuthAdapter(firebaseApp) : undefined);
   const authAvailability: AccountAvailability = options.authAvailability ?? (firebaseDiagnostic.available
     ? { available: Boolean(auth) }
     : { available: false, missingKeys: firebaseDiagnostic.missingKeys });
@@ -396,18 +402,19 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   // The membership service is always local-capable. Reuse the session-gated outbox
   // after it is created so an authenticated offline session queues for replay while a
   // signed-out local session never emits cloud operations.
-  let inviteLinkStore: ReturnType<typeof createFirebasePlayerInviteLinkStore> | undefined;
-  const inviteLinkPort = firebaseApp ? {
-    create: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["create"]>[0]) => {
-      inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
+  let inviteLinkStore: ReturnType<FirebaseCloudModule["createFirebasePlayerInviteLinkStore"]> | undefined;
+  const cloud = firebaseCloud;
+  const inviteLinkPort = firebaseApp && cloud ? {
+    create: (input: Parameters<ReturnType<FirebaseCloudModule["createFirebasePlayerInviteLinkStore"]>["create"]>[0]) => {
+      inviteLinkStore ??= cloud.createFirebasePlayerInviteLinkStore(cloud.getFirestoreClient(firebaseApp).firestore);
       return inviteLinkStore.create(input);
     },
-    revoke: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["revoke"]>[0]) => {
-      inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
+    revoke: (input: Parameters<ReturnType<FirebaseCloudModule["createFirebasePlayerInviteLinkStore"]>["revoke"]>[0]) => {
+      inviteLinkStore ??= cloud.createFirebasePlayerInviteLinkStore(cloud.getFirestoreClient(firebaseApp).firestore);
       return inviteLinkStore.revoke(input);
     },
-    accept: (input: Parameters<ReturnType<typeof createFirebasePlayerInviteLinkStore>["accept"]>[0]) => {
-      inviteLinkStore ??= createFirebasePlayerInviteLinkStore(getFirestoreClient(firebaseApp).firestore);
+    accept: (input: Parameters<ReturnType<FirebaseCloudModule["createFirebasePlayerInviteLinkStore"]>["accept"]>[0]) => {
+      inviteLinkStore ??= cloud.createFirebasePlayerInviteLinkStore(cloud.getFirestoreClient(firebaseApp).firestore);
       return inviteLinkStore.accept(input);
     },
   } : undefined;
@@ -444,10 +451,16 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     localIdentity,
     ensureLocalOwner: (campaignId: Uuid, accountId: AccountId) => membershipWithSync.ensureCampaignOwner({ actorId: accountId, campaignId }),
   });
-  const assetTransfer = options.assetTransfer ?? (firebaseApp && auth
-    ? createFirebaseAssetStorageAdapter({
-        app: firebaseApp,
+  const assetTransfer = options.assetTransfer ?? (firebaseApp && cloud && auth
+    ? cloud.createFirestoreMapAssetTransferAdapter({
+        firestore: cloud.getFirestoreClient(firebaseApp).firestore,
         isAuthenticated: () => auth.currentSession() !== null,
+        // Referências antigas continuam legíveis sem inicializar Storage para
+        // as novas escritas Firestore; o adapter legado só nasce nesse fallback.
+        legacy: () => cloud.createFirebaseAssetStorageAdapter({
+          app: firebaseApp,
+          isAuthenticated: () => auth.currentSession() !== null,
+        }),
       })
     : undefined);
   const assets = createAssetSyncService(assetRepository, assetTransfer);
@@ -471,16 +484,22 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     clock,
     idGenerator,
   });
-  let portraitStore: PortraitRemoteStore | undefined;
-  const portraitRemote: PortraitRemoteStore | undefined = firebaseApp ? {
-    get: (id, campaignId) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).get(id, campaignId),
-    putCampaignCopy: (record) => (portraitStore ??= createFirestorePortraitStore(getFirestoreClient(firebaseApp).firestore)).putCampaignCopy!(record),
-  } : undefined;
+  const portraitRemote: PortraitRemoteStore | undefined = firebaseApp && cloud ? (() => {
+    let portraitStore: PortraitRemoteStore | undefined;
+    const createPortraitStore = () => createFirestorePortraitStore(
+      cloud.getFirestoreClient(firebaseApp).firestore,
+      () => auth?.currentSession()?.uid,
+    );
+    return {
+      get: (id: string, campaignId?: string, ownerUid?: string) => (portraitStore ??= createPortraitStore()).get(id, campaignId, ownerUid),
+      putCampaignCopy: (record: Parameters<NonNullable<PortraitRemoteStore["putCampaignCopy"]>>[0]) => (portraitStore ??= createPortraitStore()).putCampaignCopy!(record),
+    } satisfies PortraitRemoteStore;
+  })() : undefined;
   // Firestore só é iniciado no primeiro uso, como nos retratos.
   let campaignLogStore: CampaignLogPort | undefined;
-  const campaignLog: CampaignLogPort | undefined = firebaseApp ? {
-    append: (entry) => (campaignLogStore ??= createFirestoreCampaignLog(getFirestoreClient(firebaseApp).firestore)).append(entry),
-    watch: (campaignId, onEntries, onError) => (campaignLogStore ??= createFirestoreCampaignLog(getFirestoreClient(firebaseApp).firestore)).watch(campaignId, onEntries, onError),
+  const campaignLog: CampaignLogPort | undefined = firebaseApp && cloud ? {
+    append: (entry) => (campaignLogStore ??= createFirestoreCampaignLog(cloud.getFirestoreClient(firebaseApp).firestore)).append(entry),
+    watch: (campaignId, onEntries, onError) => (campaignLogStore ??= createFirestoreCampaignLog(cloud.getFirestoreClient(firebaseApp).firestore)).watch(campaignId, onEntries, onError),
   } : undefined;
   const portraits = createPortraitService({
     assets,
@@ -569,7 +588,8 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const pack = loadPhbPtBrLocal2017();
     if (!pack.ok) throw new Error(pack.error.message);
     const activePack = pack.value;
-    const compendiumService = createCompendiumService({ packs: [activePack], items: STATIC_COMPENDIUM_ITEMS, excludePackEntityTypes: ["spell", "condition", "race", "subrace", "class", "subclass", "feature", "resource", "progression", "background", "feat"] });
+    const compendiumService = createCompendiumService({ packs: [activePack], excludePackEntityTypes: ["spell", "condition", "race", "subrace", "class", "subclass", "feature", "resource", "progression", "background", "feat"] });
+    const loadCompendiumCatalog = createLazyCompendiumLoader(compendiumService);
 
     // `executionsHolder` liga a lista reativa de capacidades (recalculada a cada snapshot de
     // personagem por `computeActionCapabilities`, chamado de `ReadyApplication`) ao dispatcher
@@ -592,6 +612,11 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       saveDraft: (draft) => services.character.saveDraft(draft),
       deleteDraft: (id) => services.character.deleteDraft(id),
       saveCharacter: (character, expectedRevision) => services.character.saveCharacter(character, expectedRevision),
+      loadCharacter: (id) => services.character.get(id),
+      canReuseCharacter: (character) => {
+        const sessionUid = auth?.currentSession()?.uid;
+        return sessionUid ? character.ownerUid === sessionUid : character.ownerUid === undefined;
+      },
     };
 
     function createDraft(): CharacterDraft {
@@ -647,7 +672,26 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       now: () => clock.now(),
       idGenerator,
       availableRulesets: [rulesetRef],
-      commitImport: (input) => commitBackupEnvelope(database, clock, input),
+      commitImport: async (input) => {
+        // Complete local edits before replacement so the recovery record contains
+        // the latest value and a delayed save cannot overwrite the imported one.
+        for (const service of [services.character, services.campaign]) {
+          if (!service.store.getSnapshot().hasPendingChanges) continue;
+          const flushed = await service.flush();
+          if (!flushed.ok) return err(flushed.error);
+        }
+        const imported = await commitBackupEnvelope(database, clock, input);
+        if (!imported.ok) return imported;
+        const characterId = services.character.store.selectedId;
+        const campaignId = services.campaign.store.selectedId;
+        if (characterId && input.envelope.records.characters.some((record) => record.id === characterId)) {
+          await services.character.hydrate(characterId);
+        }
+        if (campaignId && input.envelope.records.campaigns.some((record) => record.id === campaignId)) {
+          await services.campaign.hydrate(campaignId);
+        }
+        return imported;
+      },
     });
     const dataManagement = new DataManagementService({
       backup,
@@ -672,6 +716,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const registry = createFeatureRegistry({
       services,
       compendiumService,
+      loadCompendiumCatalog,
       deriveCharacter: (character) => { const derived = deriveCharacter(character, activePack, STATIC_RULE_CONTEXT); return derived.ok ? derived.value : undefined; },
       resolveDefinitionName: (entityType, entityId) => definitionMaps[entityType]?.get(asEntityId(entityId))?.name,
       portraits,
@@ -713,10 +758,10 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
           clock,
           hydration: remoteHydration,
           createAdapter: (uid) => {
-            if (!firebaseApp) return undefined;
+            if (!firebaseApp || !cloud) return undefined;
             try {
-              const firestore = getFirestoreClient(firebaseApp).firestore;
-              return createFirebaseFirestoreSyncAdapter({ firestore, ownerUid: uid });
+              const firestore = cloud.getFirestoreClient(firebaseApp).firestore;
+              return cloud.createFirebaseFirestoreSyncAdapter({ firestore, ownerUid: uid });
             } catch {
               return undefined;
             }
@@ -765,7 +810,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     if (auth && portraitRemote) {
       unsubscribePortraitCharacter = services.character.store.subscribe(() => {
         const current = services.character.store.getSnapshot().value;
-        if (current?.portraitAssetId) void portraits.publishExisting(current.portraitAssetId, current.campaignId);
+        if (current?.portraitAssetId) void portraits.publishExisting(current.portraitAssetId, current.campaignId, current.ownerUid);
       });
       unsubscribePortraitAuth = auth.observeSession((session) => {
         if (!session) return;
@@ -773,7 +818,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
           if (!listed.ok) return;
           for (const summary of listed.value) {
             const character = await characterRepository.get(summary.id);
-            if (character.ok && character.value.portraitAssetId) await portraits.publishExisting(character.value.portraitAssetId, character.value.campaignId);
+            if (character.ok && character.value.portraitAssetId) await portraits.publishExisting(character.value.portraitAssetId, character.value.campaignId, character.value.ownerUid);
           }
         });
       });

@@ -56,6 +56,17 @@ const knownSpell: SpellDefinition = {
   higherLevels: { kind: "none" }, effects: [], automationStatus: "automated", pendingDecisionIds: [],
 };
 
+const selfHealingSpell: SpellDefinition = {
+  ...knownSpell,
+  id: asEntityId("cure-wounds"),
+  name: "Curar Ferimentos",
+  range: { kind: "touch" },
+  classes: [asEntityId("bard")],
+  targetType: { type: "creature", count: 1, restrictions: [], visibilityRequired: false },
+  damage: [],
+  healing: [{ expression: { quantity: 1, faces: 8 }, bonusPerCastingSourceAbility: true }],
+};
+
 const blockedSpell: SpellDefinition = {
   ...knownSpell,
   id: asEntityId("wish"), name: "Desejo", automationStatus: "blocked", pendingDecisionIds: ["PEND-WISH"],
@@ -115,7 +126,7 @@ function pack(): RulePack {
     resources: new Map([[resourceDefinition.id, resourceDefinition], [variableResourceDefinition.id, variableResourceDefinition]]),
     conditions: new Map(),
     equipment: new Map([[weaponDefinition.id, weaponDefinition]]),
-    spells: new Map([[knownSpell.id, knownSpell], [blockedSpell.id, blockedSpell]]),
+    spells: new Map([[knownSpell.id, knownSpell], [blockedSpell.id, blockedSpell], [selfHealingSpell.id, selfHealingSpell]]),
     progression: { id: asEntityId("progression"), name: "", tags: [], sourceRefs: [], table: [] },
     characterTemplates: new Map(),
   } as unknown as RulePack;
@@ -214,6 +225,55 @@ describe("deriveActionCapabilities", () => {
 
     // Nenhuma capacidade de concentração: personagem não está concentrando.
     expect(capabilities.some((c) => c.kind === "concentration")).toBe(false);
+  });
+
+  it("monta Curar Ferimentos como execução real no próprio personagem", () => {
+    const poolId = asUuid("99999999-9999-4999-8999-999999999999");
+    const char = character({
+      hp: { current: 5, temp: 0 },
+      classes: [{ classId: asEntityId("bard"), level: 1, choices: [] }],
+      abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 15, con: 13, int: 10, wis: 12, cha: 15 } },
+      castingSources: [{ id: asUuid("11111111-1111-4111-8111-000000000002"), grantingRef: ref("bard"), ability: "cha", knownSpellRefs: [ref("cure-wounds")], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [poolId] }],
+      spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }],
+    });
+    const derived = { ...derivedFor(char), abilityScores: [{ ability: "cha" as const, score: exp(16), modifier: exp(3) }] };
+    const { capabilities, executions } = deriveActionCapabilities(char, derived, pack(), fakeIdGenerator());
+    const capability = capabilities.find((entry) => entry.id.endsWith(":cure-wounds"));
+    expect(capability?.status).toBe("available");
+    expect(capability?.effectSummary?.[0]).toContain("1d8");
+    expect(capability?.effectSummary?.[0]).toContain("CAR");
+    expect(capability?.description).toContain("Espaço de 1º nível escolhido automaticamente");
+    expect(capability?.preview).toBeDefined();
+    const execution = executions.get(capability!.id)!;
+    expect(execution.command.kind).toBe("cast-spell");
+    if (execution.command.kind === "cast-spell") {
+      expect(execution.command.payload.targetContext.targetIds).toEqual([char.id]);
+      expect(execution.command.payload.slotLevel).toBe(1);
+      expect(execution.command.payload.resourcePoolId).toBe(poolId);
+    }
+    const planned = execution.rollPlan[0];
+    const rolled = rollExpression(planned.expression, createSequenceRandomSource([7]), { id: planned.id, timestamp: asIsoTimestamp("2024-01-01T00:00:00.000Z"), purpose: planned.purpose, characterId: char.id, commandId: execution.command.commandId });
+    expect(rolled.ok).toBe(true);
+    if (!rolled.ok) return;
+    const result = execution.resolve({ character: char, rolls: new Map([[planned.id, rolled.value]]) });
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      expect(result.nextState.hp.current).toBe(15); // 1d8 (7) + CAR final 16 (+3), embora a base seja 15
+      expect(result.nextState.spellSlots[0].spent).toBe(1);
+    }
+  });
+
+  it("bloqueia a revisão de cura quando não resta espaço compatível", () => {
+    const poolId = asUuid("99999999-9999-4999-8999-999999999999");
+    const char = character({
+      classes: [{ classId: asEntityId("bard"), level: 1, choices: [] }],
+      castingSources: [{ id: asUuid("11111111-1111-4111-8111-000000000002"), grantingRef: ref("bard"), ability: "cha", knownSpellRefs: [ref("cure-wounds")], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [poolId] }],
+      spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 1 }],
+    });
+    const { capabilities } = deriveActionCapabilities(char, derivedFor(char), pack(), fakeIdGenerator());
+    const capability = capabilities.find((entry) => entry.id.endsWith(":cure-wounds"));
+    expect(capability?.status).toBe("blocked");
+    expect(capability?.blockedReason).toContain("Nenhum espaço");
   });
 
   it("expõe capacidade de concentração somente quando ativa, com o comando end-concentration", () => {

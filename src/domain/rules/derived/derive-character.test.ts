@@ -13,6 +13,7 @@ import { deriveCharacter } from "./derive-character";
 import { abilityModifier, applyNumericModifiers, proficiencyBonusForLevel } from "../core/modifiers";
 import { races as publishedRaces } from "@data/races/races";
 import { findCondition } from "@data/conditions";
+import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 
 const source: SourceRef = { sourceId: minimalCharacter.rulesetRef.id, chapter: "Teste", printedPage: 1, pdfPage: 1 };
 const ref = (entityId: string): DefinitionRef => ({ rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId(entityId) });
@@ -75,6 +76,28 @@ describe("deriveCharacter", () => {
     const result = deriveCharacter(character(), pack(), context);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.proficiencyBonus.value).toBe(2);
+  });
+
+  it("deriva ataque de Bardo com DEX 15 e proficiência publicada em rapieira", () => {
+    const loaded = loadPhbPtBrLocal2017();
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const subject = character({
+      raceRef: ref("human"),
+      classes: [{ classId: asEntityId("bard"), level: 1, choices: [] }],
+      abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 14, con: 14, int: 10, wis: 12, cha: 13 } },
+      progressionHistory: [{ ...minimalCharacter.progressionHistory[0], classId: asEntityId("bard"), hitPointGain: { kind: "first-level-max", amount: 8 } }],
+      hitDiceSpent: [{ classId: asEntityId("bard"), hitDie: 8, spent: 0 }],
+      inventory: [{ id: "66666666-6666-4666-8666-666666666666" as never, equipmentRef: ref("rapier"), quantity: 1, equippedState: "equipped", notes: "" }],
+    });
+    const result = deriveCharacter(subject, loaded.value, context);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.abilityScores.find((entry) => entry.ability === "dex")?.score.value).toBe(15); // Humano +1
+      expect(result.value.proficiencyBonus.value).toBe(2);
+      expect(result.value.attacks[0]?.attackModifier.value).toBe(4);
+      expect(result.value.attacks[0]?.damageParts[0]?.modifierBonus.value).toBe(2);
+    }
   });
 
   it("soma armadura e escudo, e rejeita duas bases concorrentes", () => {

@@ -128,7 +128,7 @@ export function applyDamage(character: Character, input: ApplyDamageInput): Rule
   let deathSaves = character.deathSaves;
   if (newCurrent > 0) {
     deathSaves = { successes: 0, failures: 0, stable: false };
-  } else if (resolved.amount > 0 && (before.current === 0 || enteredZero)) {
+  } else if (resolved.amount > 0 && before.current === 0) {
     const failures = Math.min(3, deathSaves.failures + (criticalAtZero ? 2 : 1));
     deathSaves = { successes: before.current === 0 ? 0 : deathSaves.successes, failures, stable: false };
   } else if (enteredZero) {

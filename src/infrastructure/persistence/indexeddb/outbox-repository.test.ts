@@ -86,6 +86,15 @@ describe("IndexedDbOutboxRepository", () => {
     expect(unwrap(await repository.listPending())).toEqual([early, expect.objectContaining({ operationId: late.operationId, status: "failed" })]);
   });
 
+  it("recupera uma operação syncing deixada por uma aba que caiu", async () => {
+    const repository = new IndexedDbOutboxRepository(db, clock);
+    const item = operation(1);
+    await repository.enqueue(item);
+    await repository.markSyncing(item.operationId);
+
+    expect(unwrap(await repository.listPending())).toMatchObject([{ operationId: item.operationId, status: "syncing" }]);
+  });
+
   it("persiste estados, tentativas, falha, conflito e ack sem sobrescrever silenciosamente", async () => {
     const repository = new IndexedDbOutboxRepository(db, clock);
     const item = operation(1);

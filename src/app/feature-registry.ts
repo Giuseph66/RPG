@@ -45,6 +45,8 @@ export interface FeatureRegistryDependencies {
   readonly services: ApplicationServices;
   /** CompendiumService is injected so the registry never creates an empty catalog implicitly. */
   readonly compendiumService: CompendiumService;
+  /** Loads the deferred book catalog when the compendium route is mounted. */
+  readonly loadCompendiumCatalog?: () => Promise<void>;
   readonly diceOverlayController?: DiceOverlayController;
   readonly actionDispatcher?: ActionDispatcher;
   readonly inventoryDispatcher?: InventoryDispatcher;
@@ -121,6 +123,7 @@ export interface FeatureRegistry {
   };
   readonly compendium: {
     readonly service: CompendiumService;
+    readonly loadCatalog: () => Promise<void>;
     readonly pendingDependencies: readonly string[];
     readonly bindProps: (props: CompendiumRegistryProps) => CompendiumProps;
   };
@@ -213,6 +216,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
 
   const compendium = {
     service: dependencies.compendiumService,
+    loadCatalog: dependencies.loadCompendiumCatalog ?? (() => Promise.resolve()),
     pendingDependencies: [],
     bindProps: (props: CompendiumRegistryProps): CompendiumProps => {
       const filters: CompendiumFilters = props.filters ?? { query: "" };

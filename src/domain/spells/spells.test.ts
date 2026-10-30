@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { minimalCharacter } from "@domain/contracts/fixtures";
 import { type Character } from "@domain/contracts/character";
 import { type CastRequest, type SpellDefinition } from "@domain/contracts/definitions/spell";
-import { asCommandId, asEntityId, asUuid } from "@domain/contracts/ids";
+import { type DiceRoll } from "@domain/contracts/dice";
+import { asCommandId, asEntityId, asUuid, type Uuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import { classes } from "@data/classes";
 import { findSpell } from "@data/spells";
@@ -41,6 +42,10 @@ function clericCharacter(spellId: string, slots = [{ poolId, kind: "spellcasting
 
 const context = { availableActions: ["action" as const], canSpeak: true, freeHands: true };
 
+function healingRoll(id: Uuid, total: number): DiceRoll {
+  return { id, expression: { quantity: 1, faces: 8, modifier: 0, mode: "normal" }, purpose: "healing", timestamp: "2024-01-01T00:00:00.000Z" as never, rawDice: [total], selectedIndexes: [0], discardedIndexes: [], subtotal: total, modifier: 0, total, rngVersion: "test" };
+}
+
 describe("spell domain", () => {
   it("exige magia preparada e rejeita slot esgotado", () => {
     const spell = findSpell("cure-wounds")!;
@@ -58,6 +63,55 @@ describe("spell domain", () => {
     const result = castSpell(source, spell, request("cure-wounds", "normal", { slotLevel: 2 }), context);
     expect(result.status).toBe("success");
     if (result.status === "success") expect(result.nextState.spellSlots[0].spent).toBe(1);
+  });
+
+  it("aplica o modificador da fonte e os dados adicionais de Curar Ferimentos", () => {
+    const first = uid("12121212-1212-4121-8121-121212121212");
+    const second = uid("13131313-1313-4131-8131-131313131313");
+    const spell = findSpell("cure-wounds")!;
+    const source = clericCharacter("cure-wounds", [{ poolId, kind: "spellcasting", slotLevel: 2, spent: 0 }], {
+      hp: { current: 5, temp: 0 },
+      abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 13, con: 14, int: 10, wis: 12, cha: 15 } },
+      castingSources: [{ id: sourceId, grantingRef: ref("bard"), ability: "cha", knownSpellRefs: [], preparedSpellRefs: [ref("cure-wounds")], spellbookRefs: [], resourcePoolIds: [poolId] }],
+    });
+    const result = castSpell(source, spell, request("cure-wounds", "normal", { slotLevel: 2, diceResultIds: [first, second] }), {
+      ...context,
+      maximumHitPoints: 20,
+      casterAbilityModifier: 3,
+      diceResults: new Map([[first, healingRoll(first, 4)], [second, healingRoll(second, 5)]]),
+    });
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      expect(result.nextState.hp.current).toBe(17); // 4 + 5 + modificador efetivo derivado de CAR (+3), limitado pelo máximo 20
+      expect(result.nextState.spellSlots[0].spent).toBe(1);
+    }
+
+    const cleric = clericCharacter("cure-wounds", [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }], {
+      hp: { current: 5, temp: 0 },
+      abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 13, con: 14, int: 10, wis: 15, cha: 8 } },
+    });
+    const clericResult = castSpell(cleric, spell, request("cure-wounds", "normal", { diceResultIds: [first] }), {
+      ...context,
+      maximumHitPoints: 20,
+      casterAbilityModifier: 2,
+      diceResults: new Map([[first, healingRoll(first, 4)]]),
+    });
+    expect(clericResult.status).toBe("success");
+    if (clericResult.status === "success") expect(clericResult.nextState.hp.current).toBe(11); // 4 + SAB 15 (+2)
+  });
+
+  it("bloqueia conjuração de cura para criatura incapacitada sem gastar slot", () => {
+    const spell = findSpell("cure-wounds")!;
+    const blocked = clericCharacter("cure-wounds", [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }], {
+      conditions: [{ id: uid("14141414-1414-4141-8141-141414141414"), definitionRef: ref("incapacitated"), origin: { kind: "environment", description: "teste" } }],
+    });
+    const result = castSpell(blocked, spell, request("cure-wounds"), { ...context, canSpeak: true, freeHands: true, maximumHitPoints: 20, casterAbilityModifier: 3, diceResults: new Map() });
+    expect(result.status).toBe("rejected");
+    if (result.status === "rejected") expect(result.errors[0].message).toContain("impede a conjuração");
+    expect(blocked.spellSlots[0]?.spent).toBe(0);
+
+    const dying = clericCharacter("cure-wounds", [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }], { hp: { current: 0, temp: 0 } });
+    expect(castSpell(dying, spell, request("cure-wounds"), { ...context, canSpeak: true, freeHands: true, maximumHitPoints: 20, casterAbilityModifier: 3, diceResults: new Map() }).status).toBe("rejected");
   });
 
   it("ritual elegível não consome slot e falha sem capacidade ritual", () => {

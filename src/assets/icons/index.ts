@@ -27,6 +27,9 @@ export {
   X,
 } from "@phosphor-icons/react";
 
+// Keep only the named symbols used by the shell and common controls. The
+// generated Game Icons catalogue is intentionally not imported here; screens
+// that need the full picker load it from their own lazy boundary.
 export {
   GiArmorVest,
   GiBackpack,
@@ -48,4 +51,4 @@ export {
   GiSkills,
   GiSkullCrossedBones,
   GiSpellBook,
-} from "react-icons/gi";
+} from "./known-game-icons";

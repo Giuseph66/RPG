@@ -1,6 +1,6 @@
 import { type SpellDefinition } from "@domain/contracts/definitions/spell";
 import { isEntityId } from "@domain/contracts/ids";
-import { findSpell, spells, SPELLCASTING_ABILITIES_BY_CLASS } from "./spells";
+import { findSpell, SPELL_DEFINITIONS, SPELLCASTING_ABILITIES_BY_CLASS } from "./spells";
 
 export type SpellClassId =
   | "barbarian" | "bard" | "cleric" | "druid" | "fighter" | "monk"
@@ -16,7 +16,7 @@ export interface SpellAccess {
 /** Acesso base publicado pela fonte; known/prepared/spellbook são estado do personagem. */
 export function getSpellsForClass(classId: string): readonly SpellDefinition[] {
   if (!isEntityId(classId)) return [];
-  return spells.filter((spell) => spell.classes.some((entry) => entry === classId));
+  return SPELL_DEFINITIONS.filter((spell) => spell.classes.some((entry) => entry === classId));
 }
 
 export function hasClassAccess(classId: string, spellId: string): boolean {

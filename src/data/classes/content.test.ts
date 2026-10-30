@@ -22,6 +22,17 @@ describe("catálogo DATA-005", () => {
     for (const level of [3, 4, 5, 6, 7, 8, 9, 10, 11, 20]) expect(at(level)).toHaveLength(1);
   });
 
+  it("Bardo publica escolhas iniciais, contagem conhecida, espaços e rapieira", () => {
+    const bard = classes.find((entry) => entry.id === "bard")!;
+    const levelOne = bard.progression[0];
+    expect(levelOne.choicesGranted).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "bard.cantrips.1", kind: "cantrip", count: { min: 2, max: 2 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell", filterTag: "cantrip" } } }),
+      expect.objectContaining({ id: "bard.spells.1", kind: "spell", count: { min: 4, max: 4 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell" } } }),
+    ]));
+    expect(levelOne.spellSlotsGranted).toMatchObject({ slotsByLevel: [{ slotLevel: 1, count: 2 }], cantripsKnown: 2, spellsKnown: 4 });
+    expect(bard.initialProficiencies.some((entry) => entry.entityId === "proficiency.rapier")).toBe(true);
+  });
+
   it("multiclasse: guerreiro aceita FOR 13 OU DES 13; monge/paladino/patrulheiro exigem os dois", () => {
     const prerequisites = (id: string) => classes.find((entry) => entry.id === id)!.multiclassPrerequisites;
     expect(prerequisites("fighter")).toEqual([{ kind: "any-of", options: [{ kind: "min-ability-score", ability: "str", score: 13 }, { kind: "min-ability-score", ability: "dex", score: 13 }] }]);

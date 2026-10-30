@@ -107,6 +107,32 @@ describe("createActionDispatcher", () => {
     if (result.status === "success") expect(result.nextState.hp.current).toBe(13); // 20 - 7
   });
 
+  it("publica no store a revisão persistida antes da próxima ação", async () => {
+    const initial: Character = { ...minimalCharacter, hp: { current: 20, temp: 0 } };
+    let persisted = initial;
+    const base = fakeRepository(initial).repository;
+    const repository: CharacterRepository = {
+      ...base,
+      get: async () => ok(persisted),
+      save: async (next, expectedRevision) => {
+        if (expectedRevision !== persisted.revision) return err(appError.conflict(expectedRevision, persisted.revision));
+        persisted = { ...next, revision: asRevision(Number(expectedRevision) + 1) };
+        return ok(persisted.revision);
+      },
+    };
+    const service = createCharacterApplicationService({ repository, debounceMs: 0, commandDependencies: { clock } });
+    await service.select(initial.id);
+    const command: Command = { commandId: asCommandId("cmd-refresh-1"), characterId: initial.id, expectedRevision: initial.revision, kind: "apply-damage", payload: { amount: 5, damageType: "fire", diceResultIds: [] } };
+    const execution: ActionCapabilityExecution = { command, rollPlan: [], resolve: ({ character: live }) => resolveCombatCommand(live, command, { maximumHitPoints: 20 }) };
+    const dispatch = createActionDispatcher({ characterService: service, capabilitiesById: new Map([["damage-refresh", execution]]), rng: createSequenceRandomSource([]), idGenerator: fakeIdGenerator(), clock });
+
+    const result = await dispatch({ commandId: command.commandId, characterId: initial.id, capabilityId: "damage-refresh", kind: "damage" });
+    expect(result?.status).toBe("success");
+    expect(service.store.getSnapshot().value?.hp.current).toBe(15);
+    expect(service.store.getSnapshot().value?.revision).toBe(asRevision(1));
+    service.dispose();
+  });
+
   it("repassa intent.value para execution.resolve (dano/cura manual)", async () => {
     const character: Character = { ...minimalCharacter };
     const { service } = await activeService(character);

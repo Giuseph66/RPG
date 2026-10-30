@@ -114,6 +114,15 @@ describe("compendium application", () => {
     expect(service.getDetail({ rulesetId: "local-pack", version: "1.0.0", entityType: "spell", entityId: "cura" })).toMatchObject({ ok: true, value: { title: "Cura de ferimentos", sourceRefs: [{ chapter: "Capítulo 1" }] } });
   });
 
+  it("incorpora uma fatia carregada depois sem perder favoritos ou duplicar entradas", () => {
+    const service = createCompendiumService({ items: [items[0]!] });
+    service.toggleFavorite(service.getIndex()[0]!);
+    service.addItems([items[0]!, items[1]!]);
+    expect(service.getIndex()).toHaveLength(2);
+    expect(service.search({ category: "class" }).entries[0]?.title).toBe("Guerreiro");
+    expect(service.getFavorites()).toMatchObject([{ exists: true, ref: { entityId: "cura" } }]);
+  });
+
   it("merges canonical armor and special weapon text into pack entries", () => {
     const pack = loadPhbPtBrLocal2017();
     expect(pack.ok).toBe(true);

@@ -210,11 +210,17 @@ describe("PlayerCreatureBoard (jogador)", () => {
     await click(byText(dialog, "button[aria-pressed]", "Ameaça"));
     // A aparência já foi revelada: vira fato, não pergunta. PV ainda pode ser suposto.
     expect(dialog.textContent).not.toContain("Aparência que você imagina");
+    const name = dialog.querySelector('input[maxlength="80"]')!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(name, "Lobo do pântano");
+    await fireEvent(name, new Event("input", { bubbles: true }));
     const hp = [...dialog.querySelectorAll("label")].find((label) => label.textContent?.includes("Pontos de vida estimados"))!.querySelector("input")!;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(hp, "uns 30");
     await fireEvent(hp, new Event("input", { bubbles: true }));
+    const note = dialog.querySelector("textarea[maxlength='800']")!;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(note, "Ronda a ponte");
+    await fireEvent(note, new Event("input", { bubbles: true }));
     await click(byText(dialog, "button[type='submit']", "Guardar palpite"));
-    expect(onSaveGuess).toHaveBeenCalledWith(creature.id, { kind: "enemy", name: "", note: "", fields: { hitPoints: "uns 30" } });
+    expect(onSaveGuess).toHaveBeenCalledWith(creature.id, { kind: "enemy", name: "Lobo do pântano", note: "Ronda a ponte", fields: { hitPoints: "uns 30" } });
     await unmount();
   });
 

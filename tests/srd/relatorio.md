@@ -104,6 +104,6 @@ Sem divergências.
 |---|---|---|---|---|---|
 | revivify | revivify | Escola | necromancy | conjuration | exceção: Definição automatizada e PDF dizem necromancia; a SRD diz conjuração. Não confirmado no texto do livro: conferir a página antes de mudar. |
 
-- Só no nosso pack: nenhum
+- Só no nosso pack: disfarcar-se, enfeiticar-pessoa, fogo-das-fadas, heroismo, ilusao-menor, maos-magicas, onda-trovejante, prestidigitacao, sussurros-dissonantes, zombaria-viciosa
 - Só na SRD: nenhum
 

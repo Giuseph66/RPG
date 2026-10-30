@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-10-06T01:35:29.578504+00:00",
+  "goalComplete": false,
+  "remaining": "C19: permissão recusada global e conflito CAS em sighting na campanha atual; correlação ainda não comprovada",
+  "codeAndVerificationComplete": false,
+  "currentGoalTurnClassification": "completed: base64 persisted, paired image delivery and hiding confirmed, final gates passed",
+  "currentWork": "diagnóstico sem edição de produto; sighting é revelação do mestre, guess é palpite",
+  "nextAction": "causa comprovada e correção estreita, sem apagar dados",
+  "mapTransport": "Firestore base64 chunks; Storage legacy read compatibility",
+  "tests": {
+    "passed": 1090,
+    "skipped": 3,
+    "filesPassed": 152,
+    "filesSkipped": 2,
+    "rulesEmulatorPassed": 2,
+    "typecheckExit": 0,
+    "buildExit": 0
+  },
+  "pairedQa": {
+    "smallImage": true,
+    "largeImage": true,
+    "reload": true,
+    "mobile360And390": true,
+    "hideRemovesFromPlayerUi": true
+  },
+  "limitations": [
+    "Viewport emulation is not physical-device certification",
+    "No new marker fixture in C03 retest; prior map interaction report preserved"
+  ]
+}

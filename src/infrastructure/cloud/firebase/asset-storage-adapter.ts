@@ -65,6 +65,12 @@ function isMissing(error: unknown): boolean {
   return codeOf(error) === "storage/object-not-found";
 }
 
+function statusOf(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null || !("status_" in error)) return undefined;
+  const status = (error as { status_?: unknown }).status_;
+  return typeof status === "number" ? status : undefined;
+}
+
 function pathFor(scope: AssetTransferReference | AssetUploadRequest, sha256: string): Result<string, AppError> {
   if (!SAFE_SEGMENT.test(scope.ownerUid)) return err(appError.validation("ownerUid", "ownerUid inválido."));
   if (scope.campaignId !== undefined && !SAFE_SEGMENT.test(scope.campaignId)) return err(appError.validation("campaignId", "campaignId inválido."));
@@ -103,6 +109,12 @@ function receipt(location: AssetTransferReceipt["location"], storagePath: string
 
 function remoteFailure(operation: string, error: unknown): Result<never, AppError> {
   const code = codeOf(error);
+  // The SDK reports a missing Firebase Storage bucket as storage/unknown with
+  // an empty serverResponse. Keep this distinct from a transient network
+  // failure so the map UI can explain why only the local copy is available.
+  if (code === "storage/unknown" && statusOf(error) === 404) {
+    return unavailable(`${operation}: o bucket configurado do Firebase não existe ou ainda não foi provisionado. A imagem continua neste aparelho.`, code);
+  }
   if (code === "storage/unauthorized" || code === "storage/unauthenticated") {
     return unavailable(`${operation}: autenticação ou permissão do Cloud Storage recusada.`, code);
   }

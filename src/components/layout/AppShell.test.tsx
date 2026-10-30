@@ -27,7 +27,7 @@ function diceController() {
 describe("AppShell", () => {
   it("mostra a conexão em tempo real como borda do selo de papel no cabeçalho", async () => {
     const campaign = { value: { id: asUuid("00000000-0000-4000-8000-0000000000c1"), name: "Mesa" } } as never;
-    for (const [connection, label] of [["live", "Jogador · ao vivo"], ["down", "Jogador · sem conexão"], [undefined, "Jogador"]] as const) {
+    for (const [connection, label] of [["live", "Jogador · ao vivo"], ["down", "Jogador · sem conexão"], ["pending", "Jogador · sincronizando"], ["error", "Jogador · erro de sincronização"], [undefined, "Jogador"]] as const) {
       const mounted = await mount(<AppShell route={matchRoute("/journey")} navigate={vi.fn()} onOpenDice={vi.fn()} campaign={campaign} campaignRole="player" connection={connection} />);
       const badge = mounted.container.querySelector("header [data-role='player']")!;
       expect(badge.getAttribute("data-connection")).toBe(connection ?? null);
@@ -82,7 +82,9 @@ describe("AppShell", () => {
     await click(mounted.container.querySelector('[aria-label="Abrir rolagem de dados"]')!);
 
     expect(dice.getSnapshot()).toMatchObject({ open: true, source: "header", characterId });
-    expect(mounted.container.querySelector('[aria-label="Área de sobreposições"] [role="dialog"]')).toBeTruthy();
+    await vi.waitFor(() => {
+      expect(mounted.container.querySelector('[aria-label="Área de sobreposições"] [role="dialog"]')).toBeTruthy();
+    });
     await mounted.unmount();
   });
 

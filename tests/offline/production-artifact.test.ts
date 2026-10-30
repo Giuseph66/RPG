@@ -39,7 +39,8 @@ describe("production offline artifact", () => {
     expect(worker).toContain('shell.match("/offline.html")');
     expect(worker).toContain('path.startsWith("/assets/")');
     expect(worker).toContain('path.startsWith("/corpus/")');
-    expect(worker).toContain("name.startsWith(`${PREFIX}-`)");
+    expect(worker).toContain("name.startsWith(`${PREFIX}-shell-`)");
+    expect(worker).toContain("name.startsWith(`${PREFIX}-corpus-`)");
     expect(worker).toContain("self.clients.claim()");
   });
 });

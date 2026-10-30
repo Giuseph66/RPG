@@ -57,4 +57,18 @@ describe("DATA-006 backup transfer", () => {
     expect(imported).toMatchObject({ ok: false, error: { code: "storage-unavailable" } });
     expect(commit).toHaveBeenCalledTimes(1);
   });
+
+  it("permite cópia de uma colisão com IDs remapeados", async () => {
+    const copiedId = asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    const commit = vi.fn(async ({ envelope }: { readonly envelope: BackupEnvelope }) => ok({ rootId: envelope.rootId }));
+    const { service, character } = makeService(minimalCharacter, commit);
+    const options = (service as unknown as { options: BackupServiceOptions }).options;
+    Object.assign(options, { idGenerator: { uuid: () => copiedId } });
+    const exported = await service.exportCharacter(character.id);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const imported = await service.commitImport(exported.value, "copy");
+    expect(imported).toMatchObject({ ok: true, value: { rootId: copiedId } });
+    expect(commit).toHaveBeenCalledWith(expect.objectContaining({ mode: "copy", envelope: expect.objectContaining({ rootId: copiedId }) }));
+  });
 });

@@ -1,4 +1,6 @@
-export { DiceOverlay } from "./DiceOverlay";
+// Keep the public symbol stable while keeping Game Icons/3D dependencies out
+// of the application shell. Direct component tests can import ./DiceOverlay.
+export { LazyDiceOverlay as DiceOverlay } from "./lazy";
 export type { DiceOverlayProps } from "./DiceOverlay";
 export { DiceHistory } from "./DiceHistory";
 export type { DiceHistoryProps } from "./DiceHistory";

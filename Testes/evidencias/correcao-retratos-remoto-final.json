@@ -1,0 +1,30 @@
+[
+  {
+    "path": "users/WbqHlpoEg6QnVoDqLx9yY3NqUB53/portraits/4bc8b5dc-5885-4c2f-8040-4be91982ccca",
+    "status": 200,
+    "ownerMatchesPlayer": true,
+    "revision": "1",
+    "hasOperationId": true
+  },
+  {
+    "path": "portraits/4bc8b5dc-5885-4c2f-8040-4be91982ccca",
+    "status": 200,
+    "ownerMatchesPlayer": false,
+    "revision": "1",
+    "hasOperationId": true
+  },
+  {
+    "path": "users/WbqHlpoEg6QnVoDqLx9yY3NqUB53/portraits/b89e7e31-acb5-40a7-8703-fe84085c4232",
+    "status": 200,
+    "ownerMatchesPlayer": true,
+    "revision": "1",
+    "hasOperationId": true
+  },
+  {
+    "path": "portraits/b89e7e31-acb5-40a7-8703-fe84085c4232",
+    "status": 200,
+    "ownerMatchesPlayer": false,
+    "revision": "1",
+    "hasOperationId": true
+  }
+]

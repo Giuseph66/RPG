@@ -81,7 +81,7 @@ export interface JournalEntry {
 /** Contas que podem ver um conteúdo da campanha; "*" libera para todos os jogadores. */
 export type CampaignAudience = readonly (AccountId | "*")[];
 
-/** Cópia da imagem do mapa confirmada no Cloud Storage. */
+/** Cópia da imagem do mapa confirmada por um caminho remoto canônico (Storage legado ou chunks Firestore). */
 export interface MapImageCloudRef {
   readonly storagePath: string;
   readonly sha256: string;

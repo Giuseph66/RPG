@@ -21,8 +21,8 @@ import {
 import type { DicePurpose, DiceRoll } from "@domain/contracts/dice";
 import type { Ability, DiceFaces, Skill } from "@domain/contracts/primitives";
 import heroArt from "../../assets/art/textures/fundo-dado.webp";
-import type { CastPreview } from "@domain/contracts/definitions/spell";
-import type { RuleResult } from "@domain/contracts/rules";
+import type { CastPreview, CastingTimeKind } from "@domain/contracts/definitions/spell";
+import type { AvailableAction, RuleResult } from "@domain/contracts/rules";
 
 import type { ActionAttackRoll, ActionCapability, ActionCapabilityKind, ActionCommitResult, ActionCost, ActionIntent, ActionPreview, ActionPreviewDetails, ActionRollDice, ActionSourceRef, ActionSpellRoll, ActionsProps } from "./types";
 import { ABILITY_LABELS, SKILL_ABILITY, SKILL_LABELS } from "@features/character/sheet/mapping";
@@ -84,6 +84,28 @@ function effectLabel(kind: string): string {
   } satisfies Record<string, string>)[kind] ?? kind;
 }
 
+const ACTION_LABELS: Record<AvailableAction, string> = {
+  action: "Ação",
+  "bonus-action": "Ação bônus",
+  reaction: "Reação",
+  free: "Ação livre",
+};
+
+const CASTING_TIME_LABELS: Record<CastingTimeKind, string> = {
+  action: "Ação",
+  "bonus-action": "Ação bônus",
+  reaction: "Reação",
+  minutes: "Minutos",
+  hours: "Horas",
+};
+
+function castingTimeLabel(castingTime: CastPreview["actionCost"]): string {
+  if (castingTime.amount === undefined || (castingTime.kind !== "minutes" && castingTime.kind !== "hours")) return CASTING_TIME_LABELS[castingTime.kind];
+  const unit = castingTime.unit ?? (castingTime.kind === "hours" ? "hour" : "minute");
+  const unitLabel = unit === "hour" ? "hora" : "minuto";
+  return `${castingTime.amount} ${castingTime.amount === 1 ? unitLabel : `${unitLabel}s`}`;
+}
+
 function valueLabel(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number") return value.toLocaleString("pt-BR");
@@ -127,7 +149,7 @@ function previewDetails(preview: ActionPreview | undefined): ActionPreviewDetail
 function previewCosts(preview: ActionPreview | undefined): readonly ActionCost[] {
   const cast = castPreviewOf(preview);
   if (!cast) return [];
-  const costs: ActionCost[] = [{ label: "Tempo", value: `${cast.actionCost.kind}${cast.actionCost.amount === undefined ? "" : ` · ${cast.actionCost.amount} ${cast.actionCost.unit ?? "unidade(s)"}`}` }];
+  const costs: ActionCost[] = [{ label: "Tempo", value: castingTimeLabel(cast.actionCost) }];
   if (cast.slotCost) costs.push({ label: "Espaço", value: `${cast.slotCost.slotLevel}º nível` });
   for (const cost of cast.resourceCosts) costs.push({ label: `Recurso ${cost.resourceRef.entityId}`, value: cost.amount });
   if (cast.componentsConsumed.length) costs.push({ label: "Componente consumido", value: cast.componentsConsumed.join(", ") });
@@ -155,12 +177,17 @@ function statusLabel(status: ActionCapabilityStatusForRender): string {
 type ActionCapabilityStatusForRender = "available" | "blocked" | "pending" | "unsupported";
 
 function capabilityState(capability: ActionCapability, preview: ActionPreview | undefined, availableActions: readonly string[]): { readonly status: ActionCapabilityStatusForRender; readonly reasons: readonly string[]; readonly details: ActionPreviewDetails } {
-  const details = previewDetails(preview);
+  // Ataques só podem fechar a prévia depois que o jogador informa a CA. A regra
+  // continua exigindo esse valor no commit, mas a ausência de uma rolagem prévia
+  // não pode esconder a revisão nem transformar a capacidade em "prévia ausente".
+  const details = !preview && capability.inputKind === "target-armor-class"
+    ? { effects: [], explanations: [], pending: [], blocked: [], sources: [] }
+    : previewDetails(preview);
   const reasons = [...(capability.blockedReason ? [capability.blockedReason] : []), ...(capability.pendingReasons ?? [])];
   if (capability.status === "unsupported") return { status: "unsupported", reasons: reasons.length ? reasons : ["Esta capacidade ainda não possui execução suportada."], details };
   if (capability.status === "blocked") return { status: "blocked", reasons: reasons.length ? reasons : ["A capacidade está bloqueada pelo estado recebido."], details };
   if (capability.status === "pending") return { status: "pending", reasons: reasons.length ? reasons : ["A capacidade aguarda uma decisão do resolvedor."], details };
-  if (capability.actionCost && !availableActions.includes(capability.actionCost)) reasons.push(`Ação indisponível: ${capability.actionCost}.`);
+  if (capability.actionCost && !availableActions.includes(capability.actionCost)) reasons.push(`Ação indisponível: ${ACTION_LABELS[capability.actionCost]}.`);
   for (const cost of capability.costs ?? []) {
     if (cost.available === false || cost.remaining !== undefined && cost.remaining <= 0) reasons.push(`${cost.label} esgotado.`);
   }
@@ -556,13 +583,20 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
   const selectedPreview = selected ? lookupPreview(selected, previews) : undefined;
   const selectedState = selected ? capabilityState(selected, selectedPreview, availableActions) : undefined;
   const groupCapabilities = openGroup ? capabilities.filter((capability) => groupOf(capability) === openGroup) : [];
+  // A composição real usa os IDs `rest:short`/`rest:long` e recebe o painel de
+  // descanso com prévia própria. Capacidades injetadas por integrações antigas ou
+  // por uma sessão parcial ainda precisam passar pelo fluxo comum de revisão.
+  const usesRestPanel = openGroup === "rest" && groupCapabilities.some((capability) => capability.id === "rest:short" || capability.id === "rest:long");
 
-  const quickRoll = (faces: DiceFaces, modifier: number, purpose: DicePurpose, label: string, quantity?: number) => dice?.roll?.({ faces, modifier, purpose, label, ...(quantity && quantity > 1 ? { quantity } : {}) });
+  // Chips in this page are informational rolls. Only Confirmar execução dispatches a
+  // capability; damage/healing purposes must not be interpreted by a host as an HP command.
+  const quickRoll = (faces: DiceFaces, modifier: number, purpose: DicePurpose, label: string, quantity?: number) => dice?.roll?.({ faces, modifier, purpose: purpose === "damage" || purpose === "healing" ? "free" : purpose, label, ...(quantity && quantity > 1 ? { quantity } : {}) });
 
   const confirm = async () => {
     if (!selected || !selectedState || selectedState.status !== "available" || !onIntent || submittedCommands.current.has(String(selected.commandId))) return;
     if (selected.inputKind === "target-armor-class" && !isValidArmorClassInput(inputValue)) return;
-    submittedCommands.current.add(String(selected.commandId));
+    const commandId = String(selected.commandId);
+    submittedCommands.current.add(commandId);
     setSubmitting(true);
     setFeedback(undefined);
     const intent: ActionIntent = {
@@ -576,9 +610,16 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
     try {
       const result: ActionCommitResult = onIntent(intent);
       const resolved = await result;
-      if (resolved && "status" in resolved) setFeedback(resultMessage(resolved));
-      else setFeedback({ tone: "success", message: "Aplicado na ficha." });
+      if (resolved && "status" in resolved) {
+        setFeedback(resultMessage(resolved));
+        if (resolved.status === "success") setSelectedId(undefined);
+        else submittedCommands.current.delete(commandId);
+      } else {
+        setFeedback({ tone: "success", message: "Aplicado na ficha." });
+        setSelectedId(undefined);
+      }
     } catch (cause) {
+      submittedCommands.current.delete(commandId);
       setFeedback({ tone: "error", message: cause instanceof Error ? cause.message : "Não foi possível salvar; nada mudou na ficha." });
     } finally {
       setSubmitting(false);
@@ -670,12 +711,12 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       {feedback ? <InlineStatus tone={feedback.tone} assertive>{feedback.message}</InlineStatus> : null}
       {openGroup === "attack" ? <AttackRolls attacks={attackRolls} unequipped={unequippedWeapons} roll={dice?.roll ? quickRoll : undefined} /> : null}
       {openGroup === "spells" ? <SpellRolls spells={spellRolls} roll={dice?.roll ? quickRoll : undefined} /> : null}
-      {openGroup === "rest" ? <RestPanel key={restKind} character={character} info={restInfo} capabilities={groupCapabilities} initialKind={restKind} onIntent={onIntent} onDone={(outcome) => { setFeedback(outcome); setOpenGroup(undefined); }} /> : null}
-      {openGroup !== "rest" && groupCapabilities.length ? <h3 className={styles.modalSubheading}>Aplicar na ficha</h3> : null}
-      {openGroup === "rest" || groupCapabilities.length === 0 ? null : (
+      {usesRestPanel ? <RestPanel key={restKind} character={character} info={restInfo} capabilities={groupCapabilities} initialKind={restKind} onIntent={onIntent} onDone={(outcome) => { setFeedback(outcome); setOpenGroup(undefined); }} /> : null}
+      {!usesRestPanel && groupCapabilities.length ? <h3 className={styles.modalSubheading}>Aplicar na ficha</h3> : null}
+      {usesRestPanel || groupCapabilities.length === 0 ? null : (
         <div className={styles.capabilityList}>{groupCapabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>
       )}
-      {openGroup === "rest" ? null : selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
+      {usesRestPanel ? null : selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
     </AppModal>
     {historyPanel}
   </section>;

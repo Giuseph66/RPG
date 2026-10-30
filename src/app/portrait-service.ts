@@ -2,7 +2,7 @@ import type { AssetSyncService } from "@application/assets/service";
 import { MAX_PORTRAIT_BASE64_LENGTH, MAX_PORTRAIT_BYTES, type PortraitRemoteStore } from "@application/ports/portrait-store";
 import type { SyncOutboxService } from "@application/sync";
 import type { Asset } from "@domain/contracts/campaign";
-import { asCommandId, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
+import { asAccountId, asCommandId, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import type { SheetPortrait } from "@features/character/sheet";
 
@@ -81,7 +81,7 @@ function toUrl(asset: Pick<Asset, "bytes" | "mediaType">): string {
   return URL.createObjectURL(new Blob([copy.buffer], { type: asset.mediaType }));
 }
 
-export function createPortraitService(options: PortraitServiceOptions): SheetPortrait & { publishExisting(assetId: Uuid, campaignId?: string): Promise<void> } {
+export function createPortraitService(options: PortraitServiceOptions): SheetPortrait & { publishExisting(assetId: Uuid, campaignId?: string, ownerUid?: string): Promise<void> } {
   const { assets, outbox, remote, cloudUid, newId, now } = options;
   const queued = new Set<string>();
   const inFlight = new Set<string>();
@@ -98,6 +98,10 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
         aggregateId: asset.id,
         mutation: "upsert",
         baseRevision: asRevision(0),
+        // Retratos privados ficam no namespace da conta, e a posse faz parte
+        // do escopo imutável da operação. Sem ela, uma fila legada poderia ser
+        // reaplicada por outra sessão autenticada.
+        scope: { ownerUid: asAccountId(uid) },
         payload: {
           id: asset.id,
           sha256: asset.hash,
@@ -155,9 +159,12 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
   }
 
   return {
-    async publishExisting(assetId, campaignId) {
+    async publishExisting(assetId, campaignId, ownerUid) {
       const uid = cloudUid();
-      if (!uid) return;
+      // A origem da chamada deve provar a posse da ficha. O bootstrap pode
+      // visitar personagens legados de outras contas no mesmo IndexedDB; sem
+      // ownerUid explícito, manter o asset local é a única ação segura.
+      if (!uid || !ownerUid || ownerUid !== uid) return;
       const local = await assets.getLocal(assetId);
       if (local.ok) await publish(local.value, uid, campaignId);
     },
@@ -172,7 +179,7 @@ export function createPortraitService(options: PortraitServiceOptions): SheetPor
       }
       if (!uid || !remote || !sha256) return undefined;
       const expectedOwner = context?.ownerUid ?? uid;
-      let record = owned ? await remote.get(assetId) : undefined;
+      let record = owned ? await remote.get(assetId, undefined, expectedOwner) : undefined;
       if (!record && context?.campaignId) record = await remote.get(assetId, context.campaignId);
       if (!record || record.ownerUid !== expectedOwner || record.sha256 !== sha256 ||
         !/^image\/(webp|jpeg)$/.test(record.mediaType)) return undefined;

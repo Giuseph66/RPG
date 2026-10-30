@@ -117,7 +117,10 @@ export interface SpellDamagePart {
 
 export interface SpellHealingPart {
   readonly expression: DiceFormula;
+  /** Campo legado/compatível; a fonte efetiva continua sendo a origem de conjuração. */
   readonly bonusPerCasterAbility?: Ability;
+  /** Cura soma o modificador da habilidade declarada em `CastingSourceState.ability`. */
+  readonly bonusPerCastingSourceAbility?: true;
   readonly timing?: "immediate";
 }
 

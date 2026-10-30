@@ -1,16 +1,23 @@
 import { act } from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { click, fireEvent, mount } from "@components/ui/testUtils";
 import { createApplicationRuntime } from "./bootstrap";
-import { AppRouter } from "./router";
+import { AppRouter, connectionFor, DataManagementRoute } from "./router";
 import { fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
 import { asEntityId, asUuid } from "@domain/contracts/ids";
 import { IndexedDbCharacterRepository, openDatabase } from "@infrastructure/persistence/indexeddb";
 import { asIsoTimestamp } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import { applyCreationDecision } from "@domain/character/creation";
+
+// A composição do router não testa a implementação WebGL do preview de Configurações;
+// os testes de dice3d cobrem esse contrato separadamente. O mock é local a este arquivo,
+// preservando o setup global e deixando falhas reais de WebGL visíveis fora da composição.
+vi.mock("@features/dice3d", () => ({ Dice3D: () => null }));
 
 async function mountRoute(node: Parameters<typeof mount>[0]) {
   const mounted = await mount(node);
@@ -21,6 +28,14 @@ async function mountRoute(node: Parameters<typeof mount>[0]) {
 }
 
 describe("AppRouter", () => {
+  it("mantém pending e erro distintos no indicador de sincronização", () => {
+    expect(connectionFor("synced", true)).toBe("live");
+    expect(connectionFor("offline", true)).toBe("down");
+    expect(connectionFor("pending", true)).toBe("pending");
+    expect(connectionFor("error", true)).toBe("error");
+    expect(connectionFor("error", false)).toBeUndefined();
+  });
+
   it("expõe fallback acessível durante o carregamento lazy de uma rota", async () => {
     const runtime = await createApplicationRuntime();
     try {
@@ -48,9 +63,58 @@ describe("AppRouter", () => {
       const reloadMount = await mountRoute(<AppRouter navigate={() => undefined} />);
       expect(reloadMount.container.textContent).toContain("Configurações");
       expect(reloadMount.container.textContent).not.toContain("Abra sua mesa");
+      expect(reloadMount.container.textContent).toContain("Backup e recuperação");
+      await click([...reloadMount.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Abrir backup")) as HTMLElement);
+      expect(window.location.pathname).toBe("/data");
       await reloadMount.unmount();
     } finally {
       window.history.replaceState({}, "", originalUrl);
+    }
+  });
+
+  it("limpa uma prévia inválida e atualiza recovery após importar", async () => {
+    const validJson = readFileSync(resolve(process.cwd(), "Testes/evidencias/backup-campanha-qa.json"), "utf8");
+    let recoveryCalls = 0;
+    const recovery = [{ id: "recovery-old", sourceStore: "campaigns", recordedAt: "agora", raw: null }];
+    const refreshedRecovery = [{ id: "recovery-new", sourceStore: "campaigns", recordedAt: "agora", raw: null }];
+    const service = {
+      listRecovery: vi.fn(async () => ({ ok: true as const, value: recoveryCalls++ === 0 ? recovery : refreshedRecovery })),
+      import: vi.fn(async () => ({ ok: true as const, value: { imported: 1, copied: 0, replaced: 0, recovery: [] } })),
+    };
+    const integration = {
+      service,
+      previewImport: vi.fn(async () => ({ ok: true as const, value: {
+        kind: "campaign" as const,
+        rootName: "Campanha QA",
+        schemaVersion: 1 as const,
+        rulesetRefs: [],
+        counts: { campaigns: 1 },
+        conflicts: [],
+        warnings: [],
+        estimatedBytes: validJson.length,
+      } })),
+    };
+    const mounted = await mountRoute(<DataManagementRoute registry={{ dataManagement: integration } as never} character={undefined} campaign={undefined} />);
+    try {
+      const input = mounted.container.querySelector('input[type="file"]') as HTMLInputElement;
+      const changeFile = async (file: File) => {
+        Object.defineProperty(input, "files", { configurable: true, value: [file] });
+        await fireEvent(input, new Event("change", { bubbles: true }));
+      };
+      await changeFile(new File([validJson], "valid.json", { type: "application/json" }));
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Prévia da importação"));
+      await changeFile(new File(["não é JSON"], "invalid.json", { type: "application/json" }));
+      await vi.waitFor(() => expect(mounted.container.textContent).not.toContain("Prévia da importação"));
+      expect(mounted.container.textContent).toContain("JSON inválido");
+
+      await changeFile(new File([validJson], "valid-again.json", { type: "application/json" }));
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Prévia da importação"));
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Confirmar importação")) as HTMLElement);
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("recovery-new"));
+      expect(service.import).toHaveBeenCalledOnce();
+      expect(service.listRecovery).toHaveBeenCalledTimes(2);
+    } finally {
+      await mounted.unmount();
     }
   });
 
@@ -98,6 +162,34 @@ describe("AppRouter", () => {
       runtime.services.settings.dispose();
       runtime.services.dice.dispose();
       runtime.database.close();
+    }
+  });
+
+  it("oferece cópia de rascunho usado sem substituir ficha existente", async () => {
+    const runtime = await createApplicationRuntime();
+    const named = applyCreationDecision(runtime.createDraft(), { kind: "identity", name: "Rascunho preservado" });
+    if (!named.ok) throw new Error(named.error.message);
+    await runtime.services.character.saveDraft(named.value);
+    const existing = { ...minimalCharacter, id: named.value.id, name: "Ficha já editada", ownerUid: "outra-conta" };
+    await runtime.services.character.saveCharacter(existing, asRevision(0));
+    const originalUrl = window.location.href;
+    const mounted = await mountRoute(<AppRouter initialPath={`/character/create/${named.value.id}`} navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} createDraft={runtime.createDraft} />);
+    try {
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Este rascunho já foi usado"));
+      expect(mounted.container.textContent).not.toContain("Abrir ficha existente");
+      expect(mounted.container.textContent).not.toContain(existing.name);
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Criar uma nova ficha deste rascunho")!);
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Criação de personagem"));
+      expect(window.location.pathname).not.toBe(`/character/create/${named.value.id}`);
+      const drafts = await runtime.services.character.listDrafts();
+      if (!drafts.ok) throw new Error(drafts.error.message);
+      expect(drafts.value.filter((entry) => entry.partial.name === "Rascunho preservado")).toHaveLength(2);
+      const loaded = await runtime.services.character.get(existing.id);
+      expect(loaded.ok && loaded.value.name).toBe(existing.name);
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
+      await mounted.unmount();
+      runtime.services.character.dispose(); runtime.services.campaign.dispose(); runtime.services.settings.dispose(); runtime.services.dice.dispose(); runtime.database.close();
     }
   });
 
@@ -183,12 +275,16 @@ describe("AppRouter", () => {
       });
 
       expect(input.value).toBe("adaga");
+      const searchButton = mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement | null;
+      expect(searchButton).not.toBeNull();
+      await click(searchButton as HTMLButtonElement);
+      await vi.waitFor(() => expect([...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")].find((button) => button.textContent?.includes("Adaga"))).toBeDefined());
       const result = [...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")]
         .find((button) => button.textContent?.includes("Adaga")) as HTMLButtonElement | undefined;
       expect(result).toBeDefined();
       await act(async () => result?.click());
       expect(mounted.container.querySelector("#compendium-detail-title")?.textContent).toBe("Adaga");
-      expect(mounted.container.textContent).toContain("Fonte:");
+      expect(mounted.container.textContent).toContain("Fonte ·");
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();
@@ -211,12 +307,65 @@ describe("AppRouter", () => {
         setter?.call(input, "força");
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
+      const searchButton = mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement | null;
+      expect(searchButton).not.toBeNull();
+      await click(searchButton as HTMLButtonElement);
+      await vi.waitFor(() => expect([...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")].find((button) => button.textContent?.includes("Força"))).toBeDefined());
       const result = [...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")]
         .find((button) => button.textContent?.includes("Força")) as HTMLButtonElement | undefined;
       expect(result).toBeDefined();
       await act(async () => result?.click());
       expect(mounted.container.querySelector("#compendium-detail-title")?.textContent).toBe("Força");
       expect(mounted.container.textContent).toContain("Capítulo 1");
+    } finally {
+      await mounted.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("keeps the compendium locked during a lazy failure and retries before category recovery", async () => {
+    const runtime = await createApplicationRuntime();
+    const originalLoadCatalog = runtime.registry.compendium.loadCatalog;
+    let attempts = 0;
+    const loadCatalog = vi.fn(async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("catálogo lazy indisponível");
+      await originalLoadCatalog();
+    });
+    (runtime.registry.compendium as unknown as { loadCatalog: () => Promise<void> }).loadCatalog = loadCatalog;
+    const mounted = await mountRoute(<AppRouter initialPath="/compendium" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
+    try {
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("catálogo lazy indisponível"));
+      const input = mounted.container.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null;
+      expect(input).toBeTruthy();
+      if (!input) return;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      await act(async () => {
+        setter?.call(input, "força");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await click(mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement);
+      expect([...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força"))).toBeUndefined();
+
+      const raceCategory = [...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-categories-title\"] button")].find((button) => button.textContent?.includes("Raças"));
+      expect(raceCategory).toBeDefined();
+      await click(raceCategory as HTMLButtonElement);
+      await vi.waitFor(() => expect(loadCatalog).toHaveBeenCalledTimes(2));
+
+      await click([...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-categories-title\"] button")].find((button) => button.textContent?.includes("Raças")) as HTMLButtonElement);
+      await act(async () => {
+        setter?.call(input, "força");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await click(mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement);
+      await vi.waitFor(() => expect([...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força"))).toBeDefined());
+      const result = [...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força")) as HTMLButtonElement;
+      await click(result);
+      expect(mounted.container.querySelector("#compendium-detail-title")?.textContent).toBe("Força");
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();
@@ -246,8 +395,8 @@ describe("AppRouter", () => {
     const snapshot = runtime.services.character.store.getSnapshot();
     const mounted = await mountRoute(<AppRouter initialPath={`/character/${character.id}`} navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} character={{ value: snapshot.value, status: snapshot.status }} diceOverlayController={runtime.diceOverlayController} />);
     try {
-      expect(mounted.container.textContent).toContain("Poção de cura");
-      expect(mounted.container.textContent).toContain("Consumir");
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Poção de cura"));
+      await vi.waitFor(() => expect(mounted.container.textContent).toContain("Consumir"));
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();

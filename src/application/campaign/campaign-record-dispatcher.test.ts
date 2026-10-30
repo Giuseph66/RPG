@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { type Campaign, type NpcRecord, type Quest } from "@domain/contracts/campaign";
 import { type AppError } from "@domain/contracts/errors";
-import { asPackVersion, asRulesetId, asUuid } from "@domain/contracts/ids";
+import { asCommandId, asPackVersion, asRulesetId, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import { type CampaignRecordIntent } from "@features/journey/campaign/types";
 
@@ -69,6 +69,8 @@ async function setUp(initial: Campaign = campaign()) {
   const errors: Array<{ readonly error: AppError; readonly intent: CampaignRecordIntent }> = [];
   const dispatch = createCampaignRecordDispatcher({
     campaignService,
+    idGenerator: { uuid: () => asUuid("00000000-0000-4000-8000-000000000013"), commandId: () => asCommandId("record-command") },
+    clock: { now: () => timestamp },
     onError: (error, intent) => errors.push({ error, intent }),
   });
   return { campaignService, fake, dispatch, errors };
@@ -97,6 +99,34 @@ describe("createCampaignRecordDispatcher", () => {
     const stored = fake.getCampaign(campaignId)?.quests[0];
     expect(stored?.title).toBe("Reconstruir a ponte");
     expect(stored?.description).toBe("Localizar a ponte ao norte");
+  });
+
+  it("cria, edita e remove objetivos e missões no snapshot persistido", async () => {
+    const { campaignService, fake, dispatch, errors } = await setUp();
+
+    dispatch({ kind: "create-objective", text: "Encontrar a ponte" });
+    await campaignService.save();
+    dispatch({ kind: "create-quest", title: "Abrir a passagem", description: "Descobrir a chave" });
+    await campaignService.save();
+    const created = fake.getCampaign(campaignId)!;
+    expect(created.objectives).toEqual(["Encontrar a ponte"]);
+    expect(created.quests.at(-1)).toMatchObject({ title: "Abrir a passagem", status: "active" });
+
+    dispatch({ kind: "update-objective", index: 0, text: "Reconstruir a ponte" });
+    await campaignService.save();
+    dispatch({ kind: "update-quest", questId: String(created.quests.at(-1)!.id), patch: { title: "Abrir o portão" } });
+    await campaignService.save();
+    const updated = fake.getCampaign(campaignId)!;
+    expect(updated.objectives).toEqual(["Reconstruir a ponte"]);
+    expect(updated.quests.at(-1)?.title).toBe("Abrir o portão");
+
+    dispatch({ kind: "delete-objective", index: 0 });
+    await campaignService.save();
+    dispatch({ kind: "delete-quest", questId: String(updated.quests.at(-1)!.id) });
+    await campaignService.save();
+    expect(fake.getCampaign(campaignId)?.objectives).toEqual([]);
+    expect(fake.getCampaign(campaignId)?.quests).toEqual([quest()]);
+    expect(errors).toHaveLength(0);
   });
 
   it("aplica update-npc e persiste o patch", async () => {

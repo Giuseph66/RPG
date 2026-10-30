@@ -6,7 +6,9 @@ import { CampaignRecords } from "./CampaignRecords";
 import type { JourneyCampaignProps, JourneySectionId } from "./types";
 import styles from "./campaign.module.css";
 
-const PLAYER_TABS = new Set(["overview", "map", "journal", "npcs"]);
+// Participantes is safe for players: the panel renders only the current
+// membership and the current account's own linkable sheet in that role.
+const PLAYER_TABS = new Set(["overview", "map", "journal", "npcs", "participants"]);
 
 function PlayerJourneys({ journeys = [], onOpen }: { readonly journeys?: JourneyCampaignProps["playerJourneys"]; readonly onOpen?: (accountId: string) => void }) {
   if (journeys.length === 0) return null;
@@ -42,8 +44,8 @@ export function JourneyCampaign({ campaign, quests, onRecordIntent, mapPanel, jo
     { id: "npcs", label: "Elenco", panel: creaturesPanel ?? <p className={styles.muted}>Selecione uma campanha para ver o elenco.</p> },
     ...(player ? [] : [
       { id: "sessions", label: "Sessões", panel: sessionsPanel ?? <p className={styles.muted}>Selecione uma campanha para acompanhar as sessões.</p> },
-      { id: "participants", label: "Participantes", panel: participantsPanel ?? <p className={styles.muted}>Selecione uma campanha para ver os participantes.</p> },
     ]),
+    { id: "participants", label: "Participantes", panel: participantsPanel ?? <p className={styles.muted}>Selecione uma campanha para ver os participantes.</p> },
   ];
 
   return <div className={styles.workspace}>

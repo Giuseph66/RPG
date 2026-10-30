@@ -2,9 +2,9 @@
  * Publicação de mapas para os jogadores.
  *
  * O mestre importa a imagem localmente; para que um jogador a veja, os bytes precisam
- * estar confirmados no Cloud Storage (`campaigns/{campaignId}/assets/{assetId}`) e o mapa
- * precisa listar o público em `visibleTo`. O Storage só aceita o upload depois que o
- * documento de metadados do asset existe no Firestore, por isso a outbox é drenada antes.
+ * estar confirmados no conteúdo Firestore do mapa e o mapa precisa listar o público em
+ * `visibleTo`. Referências antigas de Storage continuam legíveis, mas novas escritas usam
+ * manifesto/chunks base64 e só confirmam o mapa depois do manifesto completo.
  */
 
 import { type Asset, type CampaignAudience, type MapRecord } from "@domain/contracts/campaign";
@@ -30,6 +30,8 @@ export interface MapPublicationOptions {
   readonly saveMap: (map: MapRecord, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
   readonly clock: Clock;
   readonly idGenerator: IdGenerator;
+  /** Prazo de operações cloud; usado pelo host para testes e redes lentas. */
+  readonly cloudTimeoutMs?: number;
 }
 
 export interface MapPublication {
@@ -41,6 +43,15 @@ export interface MapPublication {
   share(map: MapRecord, audience: CampaignAudience): Promise<Result<MapRecord, AppError>>;
   /** Imagem local ou, para jogadores, baixada do Firebase e guardada neste aparelho. */
   loadImage(map: MapRecord): Promise<Result<Asset, AppError>>;
+}
+
+const CLOUD_OPERATION_TIMEOUT_MS = 30_000;
+
+function withCloudDeadline<T>(promise: Promise<T>, message: string, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -85,8 +96,21 @@ export function createMapPublication(options: MapPublicationOptions): MapPublica
       current = rebound.value;
     }
 
-    await options.flush();
-    const receipt = await options.upload({ ownerUid, campaignId: map.campaignId, bytes: target.bytes, mediaType: target.mediaType, originalName: target.originalName, assetId: target.id });
+    try {
+      await withCloudDeadline(options.flush(), "O Firebase não respondeu antes do envio do mapa. A imagem continua neste aparelho; tente novamente.", options.cloudTimeoutMs ?? CLOUD_OPERATION_TIMEOUT_MS);
+    } catch (cause) {
+      return err(appError.storageUnavailable(cause instanceof Error ? cause.message : "Não foi possível preparar o envio do mapa."));
+    }
+    let receipt: Awaited<ReturnType<MapPublicationOptions["upload"]>>;
+    try {
+      receipt = await withCloudDeadline(
+        options.upload({ ownerUid, campaignId: map.campaignId, mapId: map.id, bytes: target.bytes, mediaType: target.mediaType, originalName: target.originalName, assetId: target.id }),
+        "O Firestore não respondeu no prazo. A imagem continua neste aparelho; tente novamente.",
+        options.cloudTimeoutMs ?? CLOUD_OPERATION_TIMEOUT_MS,
+      );
+    } catch (cause) {
+      return err(appError.storageUnavailable(cause instanceof Error ? cause.message : "Não foi possível enviar a imagem do mapa."));
+    }
     if (!receipt.ok) return receipt;
     const confirmed = await saved(current, {
       image: {
@@ -123,7 +147,7 @@ export function createMapPublication(options: MapPublicationOptions): MapPublica
       const local = await options.getLocalAsset(map.assetId);
       if (local.ok) return local;
       if (!map.image) return err(appError.notFound("asset", map.assetId));
-      const downloaded = await options.download({ ownerUid: map.image.ownerUid, campaignId: map.campaignId, sha256: map.image.sha256, assetId: map.assetId, storagePath: map.image.storagePath });
+      const downloaded = await options.download({ ownerUid: map.image.ownerUid, campaignId: map.campaignId, mapId: map.id, sha256: map.image.sha256, assetId: map.assetId, storagePath: map.image.storagePath });
       if (!downloaded.ok) return downloaded;
       const asset: Asset = {
         id: map.assetId,

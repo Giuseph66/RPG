@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { Bootstrap, createApplicationRuntime, hasPendingApplicationWork } from "@app/bootstrap";
-import { mount } from "@components/ui/testUtils";
+import { click, mount } from "@components/ui/testUtils";
 import type { ApplicationServices } from "@application/state";
 import { createCampaign } from "@domain/campaign/journal";
 import { diceRollAdvantageSample, fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
@@ -20,6 +20,7 @@ import {
 } from "@infrastructure/persistence/indexeddb";
 import type { Campaign } from "@domain/contracts/campaign";
 import type { JournalDraftState } from "@domain/campaign/journal";
+import type { AssetTransferPort } from "@application/ports/asset-transfer";
 
 const fixedClock = { now: () => asIsoTimestamp("2026-09-12T12:00:00.000Z") };
 
@@ -62,7 +63,34 @@ async function mountRoute(node: Parameters<typeof mount>[0]) {
   return mounted;
 }
 
+async function waitForText(container: HTMLElement, expected: string): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (container.textContent?.includes(expected)) return;
+    await act(async () => { await new Promise<void>((resolve) => setTimeout(resolve, 25)); });
+  }
+  throw new Error(`Texto não apareceu no tempo esperado: ${expected}`);
+}
+
 describe("Bootstrap", () => {
+  it("compõe publicação de mapas quando o transporte Firestore é injetado", async () => {
+    const transfer: AssetTransferPort = {
+      isAvailable: () => true,
+      upload: vi.fn(),
+      download: vi.fn(),
+      delete: vi.fn(),
+    };
+    const runtime = await createApplicationRuntime({ assetTransfer: transfer });
+    try {
+      expect(runtime.registry.journey.mapPublication).toBeDefined();
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
   it("keeps the application landmark visible while local data opens", () => {
     const markup = renderToStaticMarkup(<Bootstrap initialPath="/" />);
 
@@ -74,9 +102,27 @@ describe("Bootstrap", () => {
     const runtime = await createApplicationRuntime();
     const mounted = await mountRoute(<Bootstrap runtime={runtime} initialPath="/compendium" />);
     try {
-      expect(mounted.container.textContent).toContain("Ábaco");
+      expect(mounted.container.textContent).toContain("Categorias");
       expect(mounted.container.innerHTML).toContain('aria-current="page"');
       expect(mounted.container.textContent).toContain("Regras");
+      const input = mounted.container.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null;
+      expect(input).not.toBeNull();
+      if (input) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+        await act(async () => {
+          setter?.call(input, "ábaco");
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        const searchButton = mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement | null;
+        expect(searchButton).not.toBeNull();
+        await click(searchButton as HTMLButtonElement);
+        await vi.waitFor(() => expect([...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Ábaco"))).toBeDefined());
+        const result = [...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Ábaco")) as HTMLButtonElement | undefined;
+        expect(result).toBeDefined();
+        await click(result as HTMLButtonElement);
+        expect(mounted.container.querySelector("#compendium-detail-title")?.textContent).toBe("Ábaco");
+        expect(mounted.container.textContent).toContain("Fonte ·");
+      }
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();
@@ -120,6 +166,7 @@ describe("Bootstrap", () => {
   it("adopts the registry for all four destinations with truthful local states", async () => {
     const runtime = await createApplicationRuntime();
     try {
+      await runtime.registry.compendium.loadCatalog();
       expect(runtime.registry.compendium.service.getIndex().length).toBeGreaterThan(0);
       expect(runtime.registry.compendium.service.search({ category: "attributes" }).entries).toHaveLength(6);
       expect(runtime.registry.compendium.service.search({ category: "skills" }).entries).toHaveLength(18);
@@ -128,13 +175,14 @@ describe("Bootstrap", () => {
       const routes = [
         ["/character", "Carregando personagens"],
         ["/actions", "Nenhum personagem selecionado"],
-        ["/journey", "Nenhuma campanha local"],
-        ["/compendium", "Ábaco"],
+        ["/journey", "Nenhuma campanha selecionada"],
+        ["/compendium", "Categorias"],
       ] as const;
       for (const [path, expected] of routes) {
         const mounted = await mountRoute(<Bootstrap runtime={runtime} initialPath={path} />);
         try {
-          expect(mounted.container.textContent).toContain(expected);
+          if (path === "/character") await waitForText(mounted.container, "Nenhum personagem ainda");
+          else expect(mounted.container.textContent).toContain(expected);
         } finally {
           await mounted.unmount();
         }
@@ -168,7 +216,7 @@ describe("Bootstrap", () => {
       expect(runtime.services.campaign.store.selectedId).toBe(created.value.id);
       expect(runtime.services.campaign.store.getSnapshot().value?.name).toBe("Campanha persistida");
       expect(mounted.container.textContent).toContain("Campanha persistida");
-      expect(mounted.container.textContent).toContain("Ativa");
+      expect(mounted.container.textContent).toContain("Campanha ativa");
     } finally {
       await mounted.unmount();
       runtime.services.character.dispose();
@@ -360,15 +408,20 @@ describe("Bootstrap", () => {
 
       const mutated = { ...campaign, revision: asRevision(1), name: "Campanha mutada" };
       expect((await campaigns.save(mutated, asRevision(1))).ok).toBe(true);
+      await runtime.services.campaign.select(campaignId);
+      expect(runtime.services.campaign.update((current) => ({ ...current, name: "Campanha em edição" })).ok).toBe(true);
 
       const replaced = await dataManagement.service.import(envelope, "replace");
       expect(replaced).toMatchObject({ ok: true, value: { rootId: campaignId } });
+      expect(runtime.services.campaign.store.getSnapshot()).toMatchObject({
+        status: "clean", hasPendingChanges: false, value: { name: "Campanha DATA-007" },
+      });
       const afterReplace = await campaigns.get(campaignId);
       if (!afterReplace.ok) throw new Error(afterReplace.error.message);
       expect(afterReplace.value.name).toBe("Campanha DATA-007");
 
       const recovered = await readRaw(runtime.database, STORE_NAMES.recovery, campaignId);
-      expect(recovered).toMatchObject({ sourceStore: STORE_NAMES.campaigns, raw: { name: "Campanha mutada" } });
+      expect(recovered).toMatchObject({ sourceStore: STORE_NAMES.campaigns, raw: { name: "Campanha em edição" } });
 
       const copied = await dataManagement.service.import(envelope, "copy");
       if (!copied.ok) throw new Error(copied.error.message);

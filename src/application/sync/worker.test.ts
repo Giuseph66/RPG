@@ -36,7 +36,7 @@ function fakeOutbox(initial: readonly SyncOperation[]) {
   const outbox: OutboxRepository = {
     enqueue: async () => { throw new Error("unused"); },
     get: async (id) => ok(records.get(id)!),
-    listPending: async () => ok([...records.values()].filter((operation) => operation.status === "pending" || operation.status === "failed" || operation.status === "conflict")),
+    listPending: async () => ok([...records.values()].filter((operation) => operation.status === "pending" || operation.status === "syncing" || operation.status === "failed" || operation.status === "conflict")),
     markSyncing: async (id) => {
       const current = records.get(id)!;
       const next = { ...current, status: "syncing" as const, attempts: current.attempts + 1 };
@@ -85,6 +85,75 @@ describe("SyncWorker", () => {
     expect(result).toEqual({ ok: true, value: { attempted: 3, acked: 3, conflicts: 0, failed: 0, skipped: 0, unavailable: false } });
     expect(apply.mock.calls.map(([item]) => (item as SyncOperation).operationId)).toEqual(["first", "second", "other"]);
     expect(store.applied).toEqual(["syncing:first", "acked:first", "syncing:second", "acked:second", "syncing:other", "acked:other"]);
+  });
+
+  it("reenfileira syncing após queda antes do ack e confirma pelo operationId", async () => {
+    const stuck = { ...makeOperation("stuck"), status: "syncing" as const, attempts: 1 };
+    const store = fakeOutbox([stuck]);
+    const apply = vi.fn(async (operation: SyncOperation) => {
+      expect(operation.operationId).toBe("stuck");
+      return ok({ kind: "acked" as const, remoteRevision: asRevision(1) });
+    });
+    const result = await createSyncWorker({ outbox: store.outbox, adapter: { isAvailable: () => true, apply }, clock }).run();
+
+    expect(result).toMatchObject({ ok: true, value: { attempted: 1, acked: 1 } });
+    expect(store.records.get(stuck.operationId)?.status).toBe("acked");
+  });
+
+  it("preserva retrato com escopo de outra sessão e não o transmite", async () => {
+    const legacy = {
+      ...makeOperation("portrait-legacy"),
+      aggregateType: "portrait" as const,
+      scope: { ownerUid: "other-player" as never },
+      payload: { id: firstId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+      ownerUid: "player",
+      status: "failed" as const,
+      lastError: "Missing or insufficient permissions.",
+    };
+    const store = fakeOutbox([legacy]);
+    const apply = vi.fn();
+
+    const result = await createSyncWorker({ outbox: store.outbox, adapter: { isAvailable: () => true, apply }, clock, ownerUid: "player" }).run({ retryFailed: true });
+
+    expect(result).toMatchObject({ ok: true, value: { attempted: 0, acked: 0, failed: 1, skipped: 1 } });
+    expect(result).toMatchObject({ ok: true, value: { lastErrorMessage: expect.stringContaining("retrato legado") } });
+    expect(apply).not.toHaveBeenCalled();
+    expect(store.records.get(legacy.operationId)?.status).toBe("failed");
+  });
+
+  it("reprocessa retrato legado quando o marcador de posse é da sessão atual", async () => {
+    const legacy = {
+      ...makeOperation("portrait-legacy-same-owner"),
+      aggregateType: "portrait" as const,
+      payload: { id: firstId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+      ownerUid: "player",
+      status: "failed" as const,
+      lastError: "Missing or insufficient permissions.",
+    };
+    const store = fakeOutbox([legacy]);
+    const apply = vi.fn(async () => ok({ kind: "acked" as const, remoteRevision: asRevision(1) }));
+
+    const result = await createSyncWorker({ outbox: store.outbox, adapter: { isAvailable: () => true, apply }, clock, ownerUid: "player" }).run({ retryFailed: true });
+
+    expect(result).toMatchObject({ ok: true, value: { attempted: 1, acked: 1, failed: 0 } });
+    expect(store.records.get(legacy.operationId)?.status).toBe("acked");
+  });
+
+  it("envia somente retrato privado com escopo do dono autenticado", async () => {
+    const scoped = {
+      ...makeOperation("portrait-scoped"),
+      aggregateType: "portrait" as const,
+      scope: { ownerUid: "player" as never },
+      payload: { id: firstId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+      ownerUid: "player",
+    };
+    const store = fakeOutbox([scoped]);
+    const apply = vi.fn(async () => ok({ kind: "acked" as const, remoteRevision: asRevision(1) }));
+
+    const result = await createSyncWorker({ outbox: store.outbox, adapter: { isAvailable: () => true, apply }, clock, ownerUid: "player" }).run();
+
+    expect(result).toMatchObject({ ok: true, value: { attempted: 1, acked: 1, failed: 0, skipped: 0 } });
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ aggregateType: "portrait", scope: { ownerUid: "player" } }));
   });
 
   it("persiste conflito e para a fila do agregado afetado", async () => {
@@ -171,6 +240,47 @@ describe("SyncWorker", () => {
     const retried = await createSyncWorker({ outbox: store.outbox, adapter, clock }).run({ retryConflicts: true });
     expect(retried).toMatchObject({ ok: true, value: { attempted: 1, acked: 1, conflicts: 0 } });
     expect(store.records.get(conflicted.operationId)?.status).toBe("acked");
+  });
+
+  it("retoma conflito persistido somente para bootstrap de perfil ainda na revisão zero", async () => {
+    const conflicted = {
+      ...makeOperation("account-bootstrap"),
+      aggregateType: "account" as const,
+      aggregateId: "player" as never,
+      payload: { id: "player", uid: "player", revision: 0 },
+      ownerUid: "player",
+      status: "conflict" as const,
+      conflict: { remoteRevision: asRevision(1), detectedAt: time, message: "perfil remoto já existe" },
+      dedupeKey: "account-bootstrap|account|player|upsert|0",
+    };
+    const store = fakeOutbox([conflicted]);
+    const apply = vi.fn(async () => ok({ kind: "acked" as const, remoteRevision: asRevision(1) }));
+
+    const result = await createSyncWorker({ outbox: store.outbox, adapter: { isAvailable: () => true, apply }, clock, ownerUid: "player" }).run();
+
+    expect(result).toMatchObject({ ok: true, value: { attempted: 1, acked: 1, conflicts: 0 } });
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ aggregateType: "account", payload: expect.objectContaining({ revision: 0 }) }));
+    expect(store.records.get(conflicted.operationId)?.status).toBe("acked");
+  });
+
+  it("não reprocessa como bootstrap a primeira edição de perfil com revisão um", async () => {
+    const conflicted = {
+      ...makeOperation("account-edit"),
+      aggregateType: "account" as const,
+      aggregateId: "player" as never,
+      payload: { id: "player", uid: "player", revision: 1, displayName: "Local" },
+      ownerUid: "player",
+      status: "conflict" as const,
+      conflict: { remoteRevision: asRevision(1), detectedAt: time, message: "perfil remoto já existe" },
+      dedupeKey: "account-edit|account|player|upsert|0",
+    };
+    const store = fakeOutbox([conflicted]);
+    const apply = vi.fn();
+
+    const result = await createSyncWorker({ outbox: store.outbox, adapter: { isAvailable: () => true, apply }, clock, ownerUid: "player" }).run();
+
+    expect(result).toMatchObject({ ok: true, value: { attempted: 0, conflicts: 1 } });
+    expect(apply).not.toHaveBeenCalled();
   });
 
   it("não lista nem chama o adapter quando está offline ou Firebase indisponível", async () => {

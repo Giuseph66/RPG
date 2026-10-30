@@ -1,0 +1,4 @@
+{
+  "httpStatus": 400,
+  "error": "INVALID_LOGIN_CREDENTIALS"
+}

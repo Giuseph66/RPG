@@ -137,15 +137,20 @@ describe("FirebaseFirestoreSyncAdapter.pull", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player", deps: remote.deps as never });
     const result = await adapter.pull();
-    warn.mockRestore();
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) { warn.mockRestore(); return; }
     const ids = result.value.records.map((item) => `${item.aggregateType}:${item.aggregateId}`);
     expect(ids).toEqual(expect.arrayContaining(["campaign:c1", "map:m3", "journal:j2"]));
     expect(ids.some((id) => id.startsWith("creature:"))).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("c1:creature"), expect.objectContaining({ recusadas: ["c1:creature"] }));
     // O tipo recusado não entra na lista de reconciliação: sem leitura nada pode ser dado como removido.
     expect(result.value.visibleCampaigns?.[0]?.types).not.toContain("creature");
     expect(result.value.visibleCampaigns?.[0]?.types).toContain("map");
+    expect(result.value.partial).toEqual({
+      deniedCollections: ["c1:creature"],
+      message: expect.stringContaining("snapshots locais foram preservados"),
+    });
+    warn.mockRestore();
   });
 
   it("subscrição é encerrável e não registra listener quando indisponível", () => {

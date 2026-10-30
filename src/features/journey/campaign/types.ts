@@ -19,6 +19,11 @@ export type CampaignIntent =
 export type CampaignRecordIntent =
   | { readonly kind: "complete-quest"; readonly questId: string }
   | { readonly kind: "update-quest"; readonly questId: string; readonly patch: Partial<Pick<Quest, "title" | "description" | "status" | "linkedEntityIds">> }
+  | { readonly kind: "create-quest"; readonly title: string; readonly description: string }
+  | { readonly kind: "delete-quest"; readonly questId: string }
+  | { readonly kind: "create-objective"; readonly text: string }
+  | { readonly kind: "update-objective"; readonly index: number; readonly text: string }
+  | { readonly kind: "delete-objective"; readonly index: number }
   | { readonly kind: "create-npc"; readonly name: string; readonly description: string; readonly recordKind: "npc" | "enemy"; readonly characterRef?: Uuid }
   | { readonly kind: "update-npc"; readonly npcId: string; readonly patch: Partial<Pick<NpcRecord, "name" | "description" | "linkedEntityIds" | "kind" | "characterRef">> }
   | { readonly kind: "delete-npc"; readonly npcId: string };

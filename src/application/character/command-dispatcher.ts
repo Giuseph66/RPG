@@ -169,6 +169,7 @@ export function resolveCharacterCommand(character: Character, command: Command, 
         // magia exigem um mapa (mesmo vazio) para que a ausência de rolagens
         // resulte em `needsInput`, sem gasto parcial.
         diceResults: context.diceResults ?? new Map(),
+        casterAbilityModifier: context.spell?.casterAbilityModifier,
         conditionDefinitions: context.conditionDefinitions,
         processedCommandIds: context.processedCommandIds as ReadonlySet<import("@domain/contracts/ids").CommandId> | undefined,
         maximumHitPoints: context.maximumHitPoints,

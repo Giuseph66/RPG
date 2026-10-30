@@ -278,7 +278,9 @@ function deriveAttacks(
     const abilityValue = modifierByAbility(scores, ability);
     const categoryProficient = [...rules.proficiencyRefs].some((ref) => {
       const value = String(ref.entityId);
-      return value === String(definition.id) || value.includes(weapon.proficiencyCategory);
+      return value === String(definition.id)
+        || value === `proficiency.${String(definition.id)}`
+        || value === `proficiency.${weapon.proficiencyCategory}-weapons`;
     });
     const attack = numeric(
       abilityValue.value + (categoryProficient ? rules.proficiencyBonus : 0),

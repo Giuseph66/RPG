@@ -25,6 +25,9 @@ type ClassSpec = {
   multiclassProficiencies: string[];
   spellcasting?: SpellcastingDescriptor;
   slotProfile?: "full" | "half" | "pact";
+  initialSpellChoices?: readonly ChoiceDefinition[];
+  cantripsKnownByLevel?: readonly number[];
+  spellsKnownByLevel?: readonly number[];
 };
 
 const skillSelector = { kind: "any-skill" as const };
@@ -54,8 +57,15 @@ function progression(spec: ClassSpec): readonly ClassLevelProgressionEntry[] {
       level,
       featureRefs: (spec.levels[level] ?? []).map((feature) => featureRef(`${spec.id}.${feature}`)),
       resourceChanges: resourceChangesFor(spec, level),
-      choicesGranted: spec.asi.includes(level) ? [asiChoice(spec.id, level, spec.page, spec.pdfPage)] : [],
-      ...(slots ? { spellSlotsGranted: { slotsByLevel: slots.map((count, index) => ({ slotLevel: index + 1, count })).filter((entry) => entry.count > 0) } } : {}),
+      choicesGranted: [
+        ...(spec.asi.includes(level) ? [asiChoice(spec.id, level, spec.page, spec.pdfPage)] : []),
+        ...(level === 1 ? spec.initialSpellChoices ?? [] : []),
+      ],
+      ...(slots ? { spellSlotsGranted: {
+        slotsByLevel: slots.map((count, index) => ({ slotLevel: index + 1, count })).filter((entry) => entry.count > 0),
+        ...((spec.cantripsKnownByLevel?.[level - 1] ?? spec.spellcasting?.cantripsKnownByLevel?.find((entry) => entry.level === level)?.count) !== undefined ? { cantripsKnown: spec.cantripsKnownByLevel?.[level - 1] ?? spec.spellcasting?.cantripsKnownByLevel?.find((entry) => entry.level === level)?.count } : {}),
+        ...((spec.spellsKnownByLevel?.[level - 1] ?? spec.spellcasting?.spellsKnownByLevel?.find((entry) => entry.level === level)?.count) !== undefined ? { spellsKnown: spec.spellsKnownByLevel?.[level - 1] ?? spec.spellcasting?.spellsKnownByLevel?.find((entry) => entry.level === level)?.count } : {}),
+      } } : {}),
     };
   });
 }
@@ -133,10 +143,14 @@ function makeClass(spec: ClassSpec): ClassDefinition {
   };
 }
 
-const fullSpellcasting = (ability: "int" | "wis" | "cha", kind: SpellcastingDescriptor["kind"]): SpellcastingDescriptor => ({
+const fullSpellcasting = (ability: "int" | "wis" | "cha", kind: SpellcastingDescriptor["kind"], known?: { readonly cantrips: readonly number[]; readonly spells?: readonly number[] }): SpellcastingDescriptor => ({
   ability,
   kind,
   progressionType: "full",
+  ...(known ? {
+    cantripsKnownByLevel: known.cantrips.map((count, index) => ({ level: index + 1, count })),
+    ...(known.spells ? { spellsKnownByLevel: known.spells.map((count, index) => ({ level: index + 1, count })) } : {}),
+  } : {}),
   ritualCasting: ability === "int",
   spellcastingFocusAllowed: true,
 });
@@ -151,7 +165,10 @@ const halfSpellcasting = (ability: "wis" | "cha"): SpellcastingDescriptor => ({
 
 const specs: ClassSpec[] = [
   { id: "barbarian", name: "Bárbaro", page: 46, pdfPage: 45, hitDie: 12, primaryAbilities: ["str"], saves: ["str", "con"], skillCount: 2, skillOptions: "any", subclassLevel: 3, subclasses: ["path-of-the-berserker", "path-of-the-totem-warrior"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "str", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.martial-weapons"], multiclassProficiencies: ["proficiency.shield", "proficiency.simple-weapons", "proficiency.martial-weapons"], levels: { 1: ["rage", "unarmored-defense"], 2: ["reckless-attack", "danger-sense"], 3: ["primal-path"], 5: ["extra-attack", "fast-movement"], 7: ["feral-instinct"], 9: ["brutal-critical"], 11: ["relentless-rage"], 15: ["persistent-rage"], 18: ["indomitable-might"], 20: ["primal-champion"] } },
-  { id: "bard", name: "Bardo", page: 51, pdfPage: 50, hitDie: 8, primaryAbilities: ["cha"], saves: ["dex", "cha"], skillCount: 3, skillOptions: "any", subclassLevel: 3, subclasses: ["college-of-lore", "college-of-valor"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "cha", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.simple-weapons", "proficiency.hand-crossbow", "proficiency.longsword", "proficiency.rapier", "proficiency.shortsword", "proficiency.instrument"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.instrument"], slotProfile: "full", spellcasting: fullSpellcasting("cha", "known"), levels: { 1: ["spellcasting", "bardic-inspiration"], 2: ["jack-of-all-trades", "song-of-rest"], 3: ["bard-college", "expertise"], 5: ["font-of-inspiration"], 6: ["countercharm"], 10: ["magical-secrets", "expertise"], 20: ["superior-inspiration"] } },
+  { id: "bard", name: "Bardo", page: 51, pdfPage: 50, hitDie: 8, primaryAbilities: ["cha"], saves: ["dex", "cha"], skillCount: 3, skillOptions: "any", subclassLevel: 3, subclasses: ["college-of-lore", "college-of-valor"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "cha", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.simple-weapons", "proficiency.hand-crossbow", "proficiency.longsword", "proficiency.rapier", "proficiency.shortsword", "proficiency.instrument"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.instrument"], slotProfile: "full", spellcasting: fullSpellcasting("cha", "known", { cantrips: [2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4], spells: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22] }), initialSpellChoices: [
+    choice("bard.cantrips.1", "cantrip", 2, { kind: "any-entity-of-type", entityType: "spell", filterTag: "cantrip" }, source(51, 50, "Truques conhecidos")),
+    choice("bard.spells.1", "spell", 4, { kind: "any-entity-of-type", entityType: "spell" }, source(51, 50, "Magias conhecidas")),
+  ], levels: { 1: ["spellcasting", "bardic-inspiration"], 2: ["jack-of-all-trades", "song-of-rest"], 3: ["bard-college", "expertise"], 5: ["font-of-inspiration"], 6: ["countercharm"], 10: ["magical-secrets", "expertise"], 20: ["superior-inspiration"] } },
   { id: "warlock", name: "Bruxo", page: 56, pdfPage: 55, hitDie: 8, primaryAbilities: ["cha"], saves: ["wis", "cha"], skillCount: 2, skillOptions: "any", subclassLevel: 1, subclasses: ["the-archfey", "the-fiend", "the-great-old-one"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "cha", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.simple-weapons"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.simple-weapons"], slotProfile: "pact", spellcasting: { ability: "cha", kind: "known", progressionType: "pact", ritualCasting: false, spellcastingFocusAllowed: true }, levels: { 1: ["otherworldly-patron", "pact-magic"], 2: ["eldritch-invocations"], 3: ["pact-boon"], 11: ["mystic-arcanum"], 20: ["eldritch-master"] } },
   { id: "cleric", name: "Clérigo", page: 63, pdfPage: 62, hitDie: 8, primaryAbilities: ["wis"], saves: ["wis", "cha"], skillCount: 2, skillOptions: "any", subclassLevel: 1, subclasses: ["knowledge-domain", "life-domain", "light-domain", "nature-domain", "tempest-domain", "trickery-domain", "war-domain"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "wis", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield"], slotProfile: "full", spellcasting: fullSpellcasting("wis", "prepared"), levels: { 1: ["spellcasting", "divine-domain"], 2: ["channel-divinity"], 5: ["destroy-undead"], 10: ["divine-intervention"], 20: ["greater-divine-intervention"] } },
   { id: "druid", name: "Druida", page: 71, pdfPage: 70, hitDie: 8, primaryAbilities: ["wis"], saves: ["int", "wis"], skillCount: 2, skillOptions: "any", subclassLevel: 2, subclasses: ["circle-of-the-land", "circle-of-the-moon"], asi: [4, 8, 12, 16, 19], multiclassPrerequisites: [{ ability: "wis", score: 13 }], proficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield", "proficiency.simple-weapons", "proficiency.herbalism-kit"], multiclassProficiencies: ["proficiency.light-armor", "proficiency.medium-armor", "proficiency.shield"], slotProfile: "full", spellcasting: fullSpellcasting("wis", "prepared"), levels: { 1: ["druidic", "spellcasting"], 2: ["wild-shape", "druid-circle"], 4: ["wild-shape-improvement"], 18: ["timeless-body", "beast-spells"], 20: ["archdruid"] } },

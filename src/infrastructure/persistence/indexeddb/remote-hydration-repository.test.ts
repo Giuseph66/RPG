@@ -32,6 +32,17 @@ function operation(): SyncOperation {
   };
 }
 
+function accountOperation(): SyncOperation {
+  return {
+    ...operation(),
+    operationId: asCommandId("local-account-operation"),
+    aggregateType: "account",
+    aggregateId: "player" as never,
+    payload: { id: "player", uid: "player", email: "local@example.invalid", displayName: "Local", revision: 0, schemaVersion: 1, createdAt: clock.now(), updatedAt: clock.now() },
+    dedupeKey: "local-account-operation|account|player|upsert|0",
+  };
+}
+
 describe("IndexedDbRemoteHydrationRepository", () => {
   let db: IDBDatabase;
   beforeEach(async () => { db = await openTestDb(); });
@@ -61,6 +72,25 @@ describe("IndexedDbRemoteHydrationRepository", () => {
       request.onerror = () => reject(request.error);
     });
     expect(raw).toBeUndefined();
+  });
+
+  it("hidrata perfil remoto existente durante bootstrap concorrente", async () => {
+    const repository = new IndexedDbRemoteHydrationRepository(db);
+    const account = {
+      aggregateType: "account" as const,
+      aggregateId: "player",
+      revision: asRevision(2),
+      payload: { id: "player", uid: "player", email: "remota@example.invalid", displayName: "Remota", revision: 2, schemaVersion: 1, createdAt: clock.now(), updatedAt: clock.now() },
+    };
+    const result = await repository.hydrate({ ownerUid: "player", pull: { ...pull(), records: [...pull().records, account] }, pending: [accountOperation()], clock });
+
+    expect(result).toMatchObject({ ok: true, value: { received: 3, applied: 3, skipped: 0, conflicts: [] } });
+    const raw = await new Promise<unknown>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.accounts], "readonly").objectStore(STORE_NAMES.accounts).get("player");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    expect(raw).toMatchObject({ email: "remota@example.invalid", displayName: "Remota", revision: 2 });
   });
 
   it("em campanha de jogador, remove o que o mestre deixou de mostrar e preserva o que é da própria conta", async () => {

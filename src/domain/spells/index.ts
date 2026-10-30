@@ -23,6 +23,8 @@ export interface SpellResolutionContext {
   readonly diceResults?: ReadonlyMap<Uuid, DiceRoll>;
   /** Máximo efetivo de PV, necessário quando a magia cura. */
   readonly maximumHitPoints?: number;
+  /** Modificador efetivo já derivado da habilidade da fonte de conjuração. */
+  readonly casterAbilityModifier?: number;
   /** Catálogo necessário para efeitos `apply-condition`. */
   readonly conditionDefinitions?: ReadonlyMap<EntityId, ConditionDefinition>;
   /** ID explícito para cada instância de condição criada por este comando. */
@@ -127,6 +129,20 @@ function spellHasStatefulEffects(spell: SpellDefinition): boolean {
   return spell.damage.length > 0 || spell.healing.length > 0 || spell.effects.some((effect) => effect.kind === "apply-condition");
 }
 
+const CAST_BLOCKING_CONDITIONS = new Set(["incapacitated", "unconscious", "stunned", "paralyzed", "petrified"]);
+
+function castBlockingState(character: Character, spell: SpellDefinition): RuleResult | undefined {
+  if (character.hp.current <= 0) return reject(spell, "A criatura com 0 PV está inconsciente/morrendo e não pode conjurar; nenhum espaço foi consumido.");
+  const condition = character.conditions.find((entry) => CAST_BLOCKING_CONDITIONS.has(String(entry.definitionRef.entityId)));
+  if (condition) return reject(spell, `A condição ${condition.definitionRef.entityId} impede a conjuração; nenhum espaço foi consumido.`);
+  return undefined;
+}
+
+function extraHealingSteps(spell: SpellDefinition, slotLevel: number | undefined): number {
+  if (slotLevel === undefined || spell.higherLevels.kind !== "extra-healing-dice-per-slot-level") return 0;
+  return Math.max(0, slotLevel - spell.level);
+}
+
 function validateEffectContext(character: Character, spell: SpellDefinition, request: CastRequest, context: SpellResolutionContext): RuleResult | undefined {
   if (!context.diceResults || !spellHasStatefulEffects(spell)) return undefined;
 
@@ -145,7 +161,7 @@ function validateEffectContext(character: Character, spell: SpellDefinition, req
   if (spell.savingThrow && context.spellSaveSucceeded === undefined) return ask(spell, request.commandId as unknown as Uuid, "Resolva o teste de resistência do alvo antes de aplicar o efeito da magia.");
 
   const diceResultIds = request.diceResultIds ?? [];
-  const expectedRolls = spell.damage.length + spell.healing.length;
+  const expectedRolls = spell.damage.length + spell.healing.reduce((total, _part) => total + 1 + extraHealingSteps(spell, request.slotLevel), 0);
   if (diceResultIds.length < expectedRolls) return ask(spell, request.commandId as unknown as Uuid, "Forneça todas as rolagens vinculadas aos efeitos da magia.");
   for (const rollId of diceResultIds.slice(0, expectedRolls)) {
     const roll = context.diceResults.get(rollId);
@@ -197,12 +213,18 @@ function applySpellEffects(character: Character, spell: SpellDefinition, request
 
   const source = sourceFor(character, request);
   for (const part of spell.healing) {
-    const rollId = request.diceResultIds?.[rollIndex++];
-    const roll = rollId ? context.diceResults.get(rollId) : undefined;
-    if (!roll) return ask(spell, rollId ?? (request.commandId as unknown as Uuid), "Uma rolagem de cura vinculada não está disponível.");
+    let rolledAmount = 0;
+    const rollsForPart = 1 + extraHealingSteps(spell, request.slotLevel);
+    for (let die = 0; die < rollsForPart; die += 1) {
+      const rollId = request.diceResultIds?.[rollIndex++];
+      const roll = rollId ? context.diceResults.get(rollId) : undefined;
+      if (!roll) return ask(spell, rollId ?? (request.commandId as unknown as Uuid), "Uma rolagem de cura vinculada não está disponível.");
+      rolledAmount += roll.total;
+    }
     const score = source ? character.abilityGeneration.baseScores[source.ability] : undefined;
-    if (typeof score !== "number" || !Number.isFinite(score)) return reject(spell, `A habilidade ${source?.ability ?? "da fonte"} não está disponível para calcular a cura.`, "unresolved-rule");
-    const amount = roll.total + (part.bonusPerCasterAbility ? abilityModifier(score) : 0);
+    const modifier = context.casterAbilityModifier ?? (typeof score === "number" && Number.isFinite(score) ? abilityModifier(score) : undefined);
+    if (modifier === undefined || !Number.isFinite(modifier)) return reject(spell, `O modificador da habilidade ${source?.ability ?? "da fonte"} não está disponível para calcular a cura.`, "unresolved-rule");
+    const amount = rolledAmount + (part.bonusPerCasterAbility || part.bonusPerCastingSourceAbility ? modifier : 0);
     const applied = applyHealing(nextState, { amount, maximumHitPoints: context.maximumHitPoints as number, sourceRef: request.spellRef });
     if (applied.status !== "success") return applied;
     nextState = applied.nextState;
@@ -287,6 +309,8 @@ function validateScaling(request: CastRequest, spell: SpellDefinition): RuleResu
 export function castSpell(character: Character, spell: SpellDefinition, request: CastRequest, context: SpellResolutionContext = {}): RuleResult {
   if (request.characterId !== character.id) return reject(spell, "Comando de conjuração não pertence ao personagem recebido.");
   if (context.processedCommandIds?.has(request.commandId)) return success(character, character, [], spell, ["Comando de conjuração já processado; nenhum recurso foi consumido novamente."]);
+  const blocked = castBlockingState(character, spell);
+  if (blocked) return blocked;
   const source = sourceFor(character, request);
   if (!source) return reject(spell, "Fonte de conjuração não encontrada no personagem.");
   const classId = classIdFor(source, context);

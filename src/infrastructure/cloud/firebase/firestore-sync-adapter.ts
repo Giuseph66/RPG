@@ -128,8 +128,46 @@ function stringField(payload: unknown, key: string): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
+function accountCreationMatchesRemote(payload: FirestoreData, remote: FirestoreData, ownerUid: string): boolean {
+  if (!accountBelongsToOwner(remote, ownerUid)) return false;
+  // Account creation is the only path where an already-exists commit can be
+  // acknowledged without the original operationId. Mutable profile changes
+  // must still surface as a CAS conflict instead of being silently discarded.
+  for (const key of ["id", "uid", "email", "displayName", "preferredCampaignRole", "revision", "schemaVersion"] as const) {
+    if (key in payload && payload[key] !== remote[key]) return false;
+  }
+  return true;
+}
+
+function accountBelongsToOwner(remote: FirestoreData, ownerUid: string): boolean {
+  return stringField(remote, "uid") === ownerUid || stringField(remote, "ownerUid") === ownerUid;
+}
+
+/**
+ * A criação inicial tem revisão zero no snapshot. Uma edição feita antes do
+ * primeiro envio já carrega revisão um e deve continuar sujeita ao CAS.
+ */
+function isAccountBootstrapOperation(operation: SyncOperation, ownerUid: string): boolean {
+  if (operation.aggregateType !== "account" || operation.mutation !== "upsert" || operation.baseRevision !== 0) return false;
+  return isRecord(operation.payload) && operation.payload.revision === 0 && stringField(operation.payload, "uid") === ownerUid;
+}
+
+function canRecoverAccountBootstrap(operation: SyncOperation, data: FirestoreData, ownerUid: string): boolean {
+  if (!isAccountBootstrapOperation(operation, ownerUid) || !accountBelongsToOwner(data, ownerUid)) return false;
+  // A remote revision above zero proves that this is an older profile already
+  // established by another session. Revision zero still needs an equivalent
+  // creation payload; otherwise a concurrent first write must remain a CAS
+  // conflict instead of discarding the other profile's fields.
+  return remoteRevision(data) > 0 || (isRecord(operation.payload) && accountCreationMatchesRemote(operation.payload, data, ownerUid));
+}
+
 function scopeField(operation: SyncOperation, key: "campaignId" | "accountId" | "ownerUid"): string | undefined {
   const value = operation.scope?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+function operationOwnerUid(operation: SyncOperation): string | undefined {
+  const value = (operation as SyncOperation & { readonly ownerUid?: unknown }).ownerUid;
   return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
@@ -201,7 +239,12 @@ export function firestorePathForOperation(operation: SyncOperation, privateOwner
       if (!/^[A-Za-z0-9_-]+$/.test(id)) return err(pathError("ID de retrato inválido."));
       // Cópia da campanha: os membros (mestre incluso) leem o retrato do jogador daqui.
       const campaignId = scopeField(operation, "campaignId");
-      return ok(campaignId ? `campaigns/${campaignId}/portraits/${id}` : `portraits/${id}`);
+      const ownerUid = scopeField(operation, "ownerUid") ?? operationOwnerUid(operation);
+      return campaignId
+        ? ok(`campaigns/${campaignId}/portraits/${id}`)
+        : ownerUid
+          ? ok(`users/${ownerUid}/portraits/${id}`)
+          : err(pathError("Retrato privado exige ownerUid no escopo ou marcador autoritativo da operação."));
     }
     default:
       return err(pathError(`Tipo de agregado não suportado: ${String(operation.aggregateType)}.`));
@@ -232,6 +275,14 @@ function toJsonValue(value: unknown): JsonValue | undefined {
 function remoteRevision(data: FirestoreData | undefined): Revision {
   const value = data?.revision;
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? asRevision(value) : asRevision(0);
+}
+
+function sameSightingContent(left: FirestoreData, right: FirestoreData): boolean {
+  const leftRevealed = left.revealed;
+  const rightRevealed = right.revealed;
+  if (left.kind !== right.kind || !isRecord(leftRevealed) || !isRecord(rightRevealed)) return false;
+  const keys = new Set([...Object.keys(leftRevealed), ...Object.keys(rightRevealed)]);
+  return [...keys].every((key) => leftRevealed[key] === rightRevealed[key]);
 }
 
 function remoteConflict(operation: SyncOperation, data: FirestoreData | undefined): RemoteSyncConflictResult {
@@ -287,6 +338,11 @@ function firestoreDocument(operation: SyncOperation, ownerUid: string, existing?
     : ownerUid;
   const document: FirestoreData = {
     ...base,
+    // JournalEntry e MapRecord são contratos locais e não carregam o envelope
+    // Firestore. As regras exigem schemaVersion em todo documento de campanha.
+    schemaVersion: typeof base.schemaVersion === "number" && Number.isInteger(base.schemaVersion)
+      ? base.schemaVersion
+      : 1,
     ownerUid: documentOwnerUid,
     operationId: operation.operationId,
     // Local ISO strings are useful in IndexedDB, but remote authorization and
@@ -634,6 +690,19 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
         typeof payload.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(payload.sha256)) {
         return err(pathError("Retrato inválido ou acima do limite do Firestore."));
       }
+      // A cópia privada usa o namespace da conta. Operações novas carregam o
+      // dono no escopo; operações antigas usam o marcador de posse da sessão gated.
+      // Um escopo explícito divergente nunca pode ser reinterpretado pelo
+      // adapter, e uma operação sem qualquer marcador não pode atravessar a
+      // fronteira de contas.
+      if (!scopeField(operation, "campaignId")) {
+        const scopedOwner = scopeField(operation, "ownerUid");
+        const operationOwner = operationOwnerUid(operation);
+        if ((scopedOwner !== undefined && scopedOwner !== this.ownerUid) ||
+          (scopedOwner === undefined && operationOwner !== this.ownerUid)) {
+          return err(pathError("Retrato privado exige ownerUid correspondente à sessão autenticada."));
+        }
+      }
     }
     const path = firestorePathForOperation(operation, this.ownerUid);
     if (!path.ok) return path;
@@ -658,6 +727,21 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
         if (operation.mutation === "delete" && !snapshot.exists() && operation.baseRevision > 0) {
           return { kind: "acked", remoteRevision: actual } satisfies RemoteSyncApplyResult;
         }
+        // Outro dispositivo do mesmo mestre pode já ter publicado exatamente
+        // esta projeção. Reconhecê-la evita transformar um retry idempotente em
+        // conflito permanente sem sobrescrever conteúdo remoto divergente.
+        if (operation.aggregateType === "sighting" && operation.mutation === "upsert" &&
+          data !== undefined && isRecord(operation.payload) && sameSightingContent(operation.payload, data)) {
+          return { kind: "acked", remoteRevision: actual } satisfies RemoteSyncApplyResult;
+        }
+        // A profile bootstrap can race with another tab (or a previous
+        // session) that already created the same account document. The pull
+        // phase hydrates that remote snapshot before this replay; once the
+        // owner identity matches, the remote profile is authoritative and the
+        // initial local creation can be acknowledged without overwriting it.
+        if (data !== undefined && canRecoverAccountBootstrap(operation, data, this.ownerUid)) {
+          return { kind: "acked", remoteRevision: actual } satisfies RemoteSyncApplyResult;
+        }
         const creatingRemoteDocument = operation.mutation === "upsert" && !snapshot.exists();
         if (!creatingRemoteDocument && actual !== operation.baseRevision) return remoteConflict(operation, data);
 
@@ -672,6 +756,29 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
       });
       return ok(result);
     } catch (cause) {
+      // Duas abas podem criar o perfil da mesma conta ao mesmo tempo. O Firestore
+      // pode ler "ausente" em ambas e rejeitar uma delas no commit com already-exists;
+      // somente um documento vencedor com o mesmo payload de criação é replay idempotente.
+      if (operation.aggregateType === "account" && operation.mutation === "upsert" &&
+        errorCode(cause).replace(/^firestore\//, "") === "already-exists") {
+        try {
+          const existing = await this.deps.getDoc(reference);
+          const existingData = existing.data();
+          const data = existing.exists() && isRecord(existingData) ? existingData : undefined;
+          const payload = isRecord(operation.payload) ? operation.payload : undefined;
+          if (data && canRecoverAccountBootstrap(operation, data, this.ownerUid)) {
+            return ok({ kind: "acked", remoteRevision: remoteRevision(data) });
+          }
+          if (data && operation.baseRevision === 0 && payload !== undefined && accountCreationMatchesRemote(payload, data, this.ownerUid)) {
+            return ok({ kind: "acked", remoteRevision: remoteRevision(data) });
+          }
+          if (data && accountBelongsToOwner(data, this.ownerUid)) {
+            return ok(remoteConflict(operation, data));
+          }
+        } catch {
+          // Mantém a classificação original se a confirmação também estiver offline.
+        }
+      }
       return err(remoteError(cause));
     }
   }
@@ -786,7 +893,10 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
       const warning = [...skipped].sort().join(",");
       if (warning && warning !== this.lastSkippedWarning) {
         this.lastSkippedWarning = warning;
-        console.warn("[sync] Coleções da campanha recusadas pelo Firebase (publique as regras do Firestore)", { recusadas: [...skipped] });
+        // Preserve local snapshots and exclude these types from cleanup until a
+        // server-confirmed read arrives. Include the exact source in the message
+        // so a legacy document/rules mismatch is diagnosable from browser logs.
+        console.warn(`[sync] Coleções da campanha recusadas pelo Firebase: ${warning}`, { recusadas: [...skipped] });
       }
       const ALL_TYPES = ["campaign", "character", "session", "journal", "map", "sighting", "guess", "creature"] as const;
       return ok({
@@ -797,6 +907,12 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           ...(skipped.size ? { types: ALL_TYPES.filter((type) => !skipped.has(`${campaignId}:${type}`)) } : {}),
         })),
         records: uniqueRecords(records),
+        ...(skipped.size ? {
+          partial: {
+            deniedCollections: [...skipped].sort(),
+            message: `O Firebase recusou coleções da campanha: ${[...skipped].sort().join(", ")}. Os snapshots locais foram preservados; publique as regras e tente novamente.`,
+          },
+        } : {}),
       });
     } catch (cause) {
       return err(remoteError(cause));

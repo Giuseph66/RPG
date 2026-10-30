@@ -125,6 +125,11 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
     if (!committed.ok) {
       return rejected(`Falha ao persistir o comando: ${committed.error.message}`, result.sourceRefs);
     }
+    // A execução usa o snapshot do store, enquanto CharacterCommandService grava pelo
+    // repositório diretamente. Reidratar aqui publica a revisão e os PV/recursos novos na
+    // ficha imediatamente; sem isso a próxima ação ainda usaria a revisão anterior e bateria
+    // em CAS, além de deixar a tela mostrando o estado antes do comando.
+    await characterService.hydrate(character.id);
     return committed.value.result;
   };
 }

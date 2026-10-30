@@ -115,13 +115,20 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
         if (entry.aggregateType === "character" && entry.scope?.ownerUid !== undefined && entry.scope.ownerUid !== input.ownerUid) { skipped += 1; continue; }
 
         const operation = pending.get(pullKey(entry));
-        if (operation) {
+        // The first account snapshot is special: account creation may have
+        // raced with another tab, so the existing remote profile is the
+        // authoritative recovery source. Keep the outbox operation so its
+        // replay can be acknowledged by the adapter after hydration.
+        const initialAccountRecovery = operation !== undefined && entry.aggregateType === "account" &&
+          operation.mutation === "upsert" && operation.baseRevision === 0 &&
+          record(operation.payload)?.revision === 0 && record(operation.payload)?.uid === input.ownerUid && entry.revision > 0;
+        if (operation && !initialAccountRecovery) {
           conflicts.push({ aggregateType: entry.aggregateType, aggregateId: entry.aggregateId, remoteRevision: entry.revision, message: `Pull preservado: há operação local ${operation.operationId} pendente para o agregado.` });
           skipped += 1;
           continue;
         }
         const current = await requestToPromise(tx.objectStore(store).get(localKey(entry.aggregateType, entry)));
-        if (current !== undefined && revision(current) >= entry.revision) {
+        if (!initialAccountRecovery && current !== undefined && revision(current) >= entry.revision) {
           const currentRecord = record(current);
           if (entry.aggregateType === "character" && currentRecord && revision(current) === entry.revision && typeof payload.ownerUid === "string" && currentRecord.ownerUid !== payload.ownerUid) {
             await requestToPromise(tx.objectStore(store).put({ ...currentRecord, ownerUid: payload.ownerUid }));

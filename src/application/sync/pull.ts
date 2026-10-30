@@ -54,7 +54,12 @@ export class RemotePullWorker {
     if (!pulled.ok) return err(appError.storageUnavailable(pulled.error.message, pulled.error.cause));
     const pending = await outbox.listPending();
     if (!pending.ok) return pending;
-    return hydration.hydrate({ ownerUid: this.options.ownerUid, pull: pulled.value, pending: pending.value, clock });
+    const hydrated = await hydration.hydrate({ ownerUid: this.options.ownerUid, pull: pulled.value, pending: pending.value, clock });
+    if (!hydrated.ok) return hydrated;
+    if (pulled.value.partial) {
+      return err(appError.storageUnavailable(pulled.value.partial.message, pulled.value.partial.deniedCollections.join(",")));
+    }
+    return hydrated;
   }
 }
 

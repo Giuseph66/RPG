@@ -46,6 +46,11 @@ export interface RemoteSyncPullRecord {
 
 export interface RemoteSyncPullResult {
   readonly records: readonly RemoteSyncPullRecord[];
+  /** Leitura parcial: os tipos recusados permanecem locais e não são reconciliados. */
+  readonly partial?: {
+    readonly deniedCollections: readonly string[];
+    readonly message: string;
+  };
   /**
    * Campanhas lidas por completo neste pull e o papel da conta nelas. Para jogadores, o
    * pull é a lista autoritativa do que ainda é visível; o que sumiu foi ocultado pelo mestre.

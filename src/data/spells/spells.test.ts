@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getClassSpellcastingAbility, getSpellAccess, getSpellsForClass, hasClassAccess } from "./access";
-import { findSpell, spells } from "./spells";
+import { findSpell, SPELL_DEFINITIONS, spells } from "./spells";
 import { validateSpellCatalog, validateSpellDefinition } from "./validate";
 
 describe("SPELL-001 — catálogo estruturado", () => {
@@ -17,6 +17,19 @@ describe("SPELL-001 — catálogo estruturado", () => {
     expect(findSpell("fireball")?.id).toBe("fireball");
   });
 
+  it("publica opções reais suficientes para a criação inicial de Bardo", () => {
+    const bardCantrips = SPELL_DEFINITIONS.filter((spell) => spell.classes.some((classId) => String(classId) === "bard") && spell.level === 0);
+    const bardLevelOne = SPELL_DEFINITIONS.filter((spell) => spell.classes.some((classId) => String(classId) === "bard") && spell.level === 1);
+    expect(SPELL_DEFINITIONS).toHaveLength(16);
+    expect(bardCantrips.map((spell) => spell.id)).toEqual(expect.arrayContaining(["prestidigitacao", "zombaria-viciosa"]));
+    expect(bardCantrips.length).toBeGreaterThanOrEqual(2);
+    expect(bardLevelOne.map((spell) => spell.id)).toEqual(expect.arrayContaining(["cure-wounds", "disfarcar-se", "enfeiticar-pessoa", "fogo-das-fadas"]));
+    expect(bardLevelOne.length).toBeGreaterThanOrEqual(4);
+    expect(SPELL_DEFINITIONS.filter((spell) => spell.automationStatus === "blocked")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "disfarcar-se", sourceRefs: [expect.objectContaining({ sourceId: "phb-ptbr-local-2017" })] })]),
+    );
+  });
+
   it("representa truque, concentração, ritual e componente consumido", () => {
     expect(findSpell("fire-bolt")?.level).toBe(0);
     expect(findSpell("detect-magic")).toMatchObject({ concentration: true, ritual: true });
@@ -28,6 +41,7 @@ describe("SPELL-001 — catálogo estruturado", () => {
     expect(hasClassAccess("wizard", "fireball")).toBe(true);
     expect(hasClassAccess("cleric", "fireball")).toBe(false);
     expect(getSpellsForClass("wizard").map((spell) => spell.id)).toEqual(expect.arrayContaining(["fireball", "fire-bolt", "detect-magic"]));
+    expect(getSpellsForClass("bard").map((spell) => spell.id)).toEqual(expect.arrayContaining(["prestidigitacao", "zombaria-viciosa", "disfarcar-se"]));
     expect("prepared" in (findSpell("fireball") as object)).toBe(false);
     expect(getClassSpellcastingAbility("bard")).toBe("cha");
     expect(getClassSpellcastingAbility("cleric")).toBe("wis");

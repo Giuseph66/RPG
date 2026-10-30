@@ -33,6 +33,11 @@ export interface Dice3DProps {
   ref?: Ref<Dice3DHandle>;
 }
 
+function mensagemErro3D(error: Error): string {
+  if (/failed to fetch|networkerror|load failed/i.test(error.message)) return "Os dados 3D estão indisponíveis offline. A rolagem continua pela mesa 2D.";
+  return "Não foi possível carregar os dados 3D. A rolagem continua pela mesa 2D.";
+}
+
 export function Dice3D({
   dice,
   appearance,
@@ -76,7 +81,7 @@ export function Dice3D({
   if (erro) {
     return (
       <div className={className} role="alert">
-        Falha ao carregar os dados 3D: {erro.message}
+        {mensagemErro3D(erro)}
       </div>
     );
   }

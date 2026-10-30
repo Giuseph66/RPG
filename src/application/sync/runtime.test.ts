@@ -5,6 +5,7 @@ import { type Clock } from "@application/ports/clock";
 import { type OutboxRepository } from "@application/ports/outbox-repository";
 import { type RemoteSyncAdapter } from "@application/ports/remote-sync-adapter";
 import { asIsoTimestamp } from "@domain/contracts/ids";
+import { appError } from "@domain/contracts/errors";
 import { createSessionGatedOutboxRepository } from "./index";
 import { createSyncRuntime, type SyncRuntimeEventTarget } from "./runtime";
 
@@ -171,6 +172,26 @@ describe("SyncRuntime", () => {
     runtime.dispose();
   });
 
+  it("expõe erro de hidratação em tempo real em vez de manter o cabeçalho como sincronizado", async () => {
+    const auth = new FakeAuth();
+    const outbox = emptyOutbox();
+    let notifyRemote: (() => void) | undefined;
+    const adapter: RemoteSyncAdapter = {
+      isAvailable: () => true,
+      apply: vi.fn(),
+      pull: vi.fn(async () => ({ ok: true as const, value: { records: [] } })),
+      subscribe: vi.fn((listener) => { notifyRemote = listener; return () => undefined; }),
+    };
+    const hydration = { hydrate: vi.fn(async () => ({ ok: false as const, error: appError.storageUnavailable("Permissão negada no registro remoto.") })) };
+    const runtime = createSyncRuntime({ auth, outbox, clock, createAdapter: () => adapter, hydration, isOnline: () => true });
+    auth.setSession(session("player"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    notifyRemote?.();
+    await vi.waitFor(() => expect(runtime.snapshot.state).toBe("error"));
+    expect(runtime.snapshot.lastError?.message).toBe("Permissão negada no registro remoto.");
+    runtime.dispose();
+  });
+
   it("envia a fila mesmo quando a leitura remota falha", async () => {
     const auth = new FakeAuth();
     const outbox = emptyOutbox();
@@ -208,6 +229,26 @@ describe("SyncRuntime", () => {
     expect(runtime.snapshot.lastError?.message).toBe("Índice ausente");
     expect(errorLog).toHaveBeenCalledWith("[sync] Leitura remota falhou", expect.objectContaining({ message: "Índice ausente" }));
     errorLog.mockRestore();
+    runtime.dispose();
+  });
+
+  it("sinaliza pull parcial depois de hidratar e não anuncia sincronização completa", async () => {
+    const auth = new FakeAuth();
+    const outbox = emptyOutbox();
+    const adapter: RemoteSyncAdapter = {
+      isAvailable: () => true,
+      apply: vi.fn(),
+      pull: vi.fn(async () => ({ ok: true as const, value: {
+        records: [],
+        partial: { deniedCollections: ["c1:creature"], message: "Coleção recusada; snapshot local preservado." },
+      } })),
+    };
+    const hydration = { hydrate: vi.fn(async () => ({ ok: true as const, value: { received: 0, applied: 0, skipped: 0, conflicts: [] } })) };
+    const runtime = createSyncRuntime({ auth, outbox, clock, createAdapter: () => adapter, hydration, isOnline: () => true });
+    auth.setSession(session("master"));
+    await vi.waitFor(() => expect(runtime.snapshot.state).toBe("error"));
+    expect(hydration.hydrate).toHaveBeenCalled();
+    expect(runtime.snapshot.lastError?.message).toContain("Coleção recusada");
     runtime.dispose();
   });
 });

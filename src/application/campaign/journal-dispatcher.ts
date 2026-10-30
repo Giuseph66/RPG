@@ -112,6 +112,13 @@ export function createJournalDispatcher(options: JournalDispatcherOptions): Jour
     onError?.(error, intent);
   }
 
+  function unexpectedSaveFailure(cause: unknown, intent: JournalIntent): void {
+    const message = cause instanceof Error ? cause.message : "Não foi possível salvar o registro do diário.";
+    const campaignId = activeCampaignId();
+    if (campaignId !== undefined) state = markDraftError(currentState(campaignId), message);
+    fail(appError.storageUnavailable(message), intent);
+  }
+
   function handleUpdateDraft(intent: Extract<JournalIntent, { kind: "update-draft" }>): void {
     const campaignId = activeCampaignId();
     if (campaignId === undefined) {
@@ -235,10 +242,10 @@ export function createJournalDispatcher(options: JournalDispatcherOptions): Jour
         handleUpdateDraft(intent);
         return;
       case "save-draft":
-        void handleSaveDraft(intent);
+        void handleSaveDraft(intent).catch((cause) => unexpectedSaveFailure(cause, intent));
         return;
       case "reload-draft":
-        void handleReloadDraft(intent);
+        void handleReloadDraft(intent).catch((cause) => fail(appError.storageUnavailable(cause instanceof Error ? cause.message : "Não foi possível recarregar o registro do diário."), intent));
         return;
       case "discard-draft":
         handleDiscardDraft(intent);

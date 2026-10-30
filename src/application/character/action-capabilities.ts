@@ -44,12 +44,10 @@
  *   consertar.
  * - "spell": uma por `DefinitionRef` conhecido/preparado em cada `castingSources[]`, resolvida
  *   contra `pack.spells`. `automationStatus === "blocked"` vira `status: "blocked"` citando
- *   `pendingDecisionIds`. Como não há UI de seleção de alvo/slot na intent, o `CastSpellPayload`
- *   é o mínimo estrutural (`targetContext: {targetIds: []}`, sem `slotLevel`/`resourcePoolId`);
- *   `castSpell` (domain/spells) validará e devolverá `needsInput`/`rejected` honesto quando
- *   faltar alvo ou espaço — nunca inventa uma escolha. `preview` tenta `previewCast` com a mesma
- *   requisição mínima; quando o preview também precisa de mais contexto que não temos
- *   (`previewCast` delega para `castSpell` internamente), fica `undefined` (campo opcional).
+ *   `pendingDecisionIds`. Magias sem alvo modelado continuam pendentes sem uma escolha inventada;
+ *   magias de cura de um único alvo usam a própria ficha como alvo explícito (o único alvo que a
+ *   tela consegue representar) e escolhem o primeiro espaço compatível ainda disponível. Assim
+ *   Curar Ferimentos tem revisão e execução reais, consumindo o espaço e aplicando a rolagem.
  * - "rest": duas capacidades fixas (curto/longo), sem seleção de Dados de Vida a recuperar
  *   escolhidos na intent (`hitDice`); `prepare` pré-aloca uma rolagem por dado.
  * - "concentration": só aparece quando `character.concentration` está ativo; sempre
@@ -87,6 +85,15 @@ import { castSpell, previewCast } from "@domain/spells";
 import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
 import { type ActionCapability, type ActionCapabilityKind } from "@features/actions/types";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
+
+const ABILITY_SHORT_LABELS: Readonly<Record<string, string>> = {
+  str: "FOR",
+  dex: "DES",
+  con: "CON",
+  int: "INT",
+  wis: "SAB",
+  cha: "CAR",
+};
 
 /** Nome impresso da magia (catálogo do cap. 11) para as que ainda não têm definição estruturada. */
 function bookSpellName(spellId: string): string | undefined {
@@ -239,7 +246,11 @@ function buildAttackCapabilities(
       commandId,
       kind: "attack",
       label: `Atacar com ${label}`,
-      description: "Rola ataque e dano reais contra a CA do alvo informada abaixo. Sem uma CA explícita, o resultado volta como pendência pedindo o valor (nenhum acerto é inventado).",
+      description: "Informe a CA do alvo para rolar o ataque e o dano.",
+      effectSummary: [
+        `Ataque: 1d20 ${attack.attackModifier.value >= 0 ? "+" : "−"}${Math.abs(attack.attackModifier.value)} contra a CA informada.`,
+        ...attack.damageParts.map((part) => `Dano: ${part.expression.quantity}d${part.expression.faces} ${part.modifierBonus.value >= 0 ? "+" : "−"}${Math.abs(part.modifierBonus.value)} (${part.damageType}).`),
+      ],
       costs: [{ label: "Ação", available: true }],
       sourceRefs: [attack.sourceRef],
       status: "available",
@@ -312,7 +323,7 @@ function buildManualHpCapabilities(
     commandId: healCommandId,
     kind: "damage",
     label: `Aplicar ${PRESET_AMOUNT} de cura`,
-    description: "Ação avulsa para registrar cura manual. Informe a quantidade abaixo; sem preenchimento, usa o valor padrão. Usa kind \"damage\" porque ActionCapabilityKind não tem uma variante de cura.",
+    description: "Ação avulsa para registrar cura manual. Informe a quantidade abaixo; sem preenchimento, usa o valor padrão.",
     status: "available",
     preview: healPreview,
     inputKind: "amount",
@@ -354,6 +365,7 @@ function minimalCastRequest(command: Extract<Command, { readonly kind: "cast-spe
 
 function buildSpellCapabilities(
   character: Character,
+  derived: CharacterDerived,
   pack: RulePack,
   idGenerator: IdGenerator,
 ): { readonly capabilities: ActionCapability[]; readonly executions: readonly (readonly [string, ActionCapabilityExecution])[] } {
@@ -390,10 +402,43 @@ function buildSpellCapabilities(
         continue;
       }
       const commandId = idGenerator.commandId();
+      const selfHealing = spell.healing.length > 0 && spell.damage.length === 0 && spell.targetType.type === "creature" && spell.targetType.count === 1;
+      const selectedSlot = spell.level > 0
+        ? character.spellSlots
+          .filter((slot) => slot.spent < 1 && slot.slotLevel >= spell.level && source.resourcePoolIds.includes(slot.poolId))
+          .sort((a, b) => a.slotLevel - b.slotLevel)[0]
+        : undefined;
+      const extraHealingDice = selectedSlot && spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
+        ? Math.max(0, selectedSlot.slotLevel - spell.level)
+        : 0;
+      const effectSummary = selfHealing ? spell.healing.map((part) => {
+        const bonusAbility = part.bonusPerCasterAbility ?? (part.bonusPerCastingSourceAbility ? source.ability : undefined);
+        const bonus = bonusAbility ? ` + modificador de ${ABILITY_SHORT_LABELS[String(bonusAbility)] ?? String(bonusAbility)}` : "";
+        const scaling = spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
+          ? `; +${spell.higherLevels.diceIncrease.quantity}d${spell.higherLevels.diceIncrease.faces} por nível acima do ${spell.level}º`
+          : "";
+        return `Cura ${part.expression.quantity}d${part.expression.faces}${bonus}${scaling} na própria ficha, limitada ao máximo de PV.`;
+      }) : undefined;
       const effectRollPlans: RollPlanRequest[] = [
         ...spell.damage.map((part) => ({ id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "damage" as const })),
-        ...spell.healing.map((part) => ({ id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "healing" as const })),
+        ...spell.healing.flatMap((part) => [
+          { id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "healing" as const },
+          ...Array.from({ length: extraHealingDice }, () => ({
+            id: idGenerator.uuid(),
+            expression: spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
+              ? { quantity: spell.higherLevels.diceIncrease.quantity, faces: spell.higherLevels.diceIncrease.faces, modifier: 0, mode: "normal" as const }
+              : { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const },
+            purpose: "healing" as const,
+          })),
+        ]),
       ];
+      const targetContext = { targetIds: selfHealing ? [character.id] : [] };
+      const casterAbilityModifier = derived.abilityScores.find((entry) => entry.ability === source.ability)?.modifier.value;
+      const castContext = {
+        availableActions: ["action", "bonus-action", "reaction", "free"] as const,
+        ...(casterAbilityModifier !== undefined ? { casterAbilityModifier } : {}),
+        ...(selfHealing ? { canSpeak: true, freeHands: true, maximumHitPoints: derived.hitPointsMax.value } : {}),
+      };
       const command: Command = {
         commandId,
         characterId: character.id,
@@ -403,17 +448,20 @@ function buildSpellCapabilities(
           spellRef,
           castingSourceId: source.id,
           mode: "normal",
-          targetContext: { targetIds: [] },
+          targetContext,
           componentContext: { materialProvided: false, focusUsed: false },
           choices: [],
           diceResultIds: effectRollPlans.map((planned) => planned.id),
+          ...(selectedSlot ? { resourcePoolId: selectedSlot.poolId, slotLevel: selectedSlot.slotLevel } : {}),
         },
       };
       const castCommand = command as Extract<Command, { readonly kind: "cast-spell" }>;
       let preview: RuleResult | undefined;
       try {
-        const previewResult = previewCast(character, spell, minimalCastRequest(castCommand), {});
-        preview = previewResult.status === "needsInput" && previewResult.preview ? previewResult : undefined;
+        const previewResult = previewCast(character, spell, minimalCastRequest(castCommand), castContext);
+        // Mesmo uma rejeição/pendência é uma prévia válida: ela informa a decisão
+        // exigida pela regra em vez de cair no aviso genérico de prévia ausente.
+        preview = previewResult;
       } catch {
         preview = undefined;
       }
@@ -422,16 +470,21 @@ function buildSpellCapabilities(
         commandId,
         kind: "spell",
         label: spell.level === 0 ? `${spell.name} (truque)` : `${spell.name} (nível ${spell.level})`,
+        description: selfHealing
+          ? `Conjura na própria ficha; a rolagem de cura, o modificador efetivo da fonte e o espaço são visíveis na revisão.${selectedSlot ? ` Espaço de ${selectedSlot.slotLevel}º nível escolhido automaticamente (menor compatível disponível).` : " Nenhum espaço compatível está disponível."}`
+          : undefined,
+        effectSummary,
         sourceRefs: spell.sourceRefs,
         preview,
-        status: "available",
+        status: selfHealing && spell.level > 0 && !selectedSlot ? "blocked" : "available",
+        ...(selfHealing && spell.level > 0 && !selectedSlot ? { blockedReason: `Nenhum espaço de nível ${spell.level} ou superior está disponível para esta magia.` } : {}),
       });
       executions.push([
         id,
         {
           command,
           rollPlan: effectRollPlans,
-          resolve: ({ character: liveCharacter, rolls }) => castSpell(liveCharacter, spell, minimalCastRequest(castCommand), { diceResults: rolls }),
+          resolve: ({ character: liveCharacter, rolls }) => castSpell(liveCharacter, spell, minimalCastRequest({ ...castCommand, characterId: liveCharacter.id, expectedRevision: liveCharacter.revision }), { ...castContext, diceResults: rolls }),
         },
       ]);
     }
@@ -651,7 +704,7 @@ export function deriveActionCapabilities(
 ): DeriveActionCapabilitiesResult {
   const attacks = buildAttackCapabilities(character, derived, pack, idGenerator);
   const manualHp = buildManualHpCapabilities(character, derived, idGenerator);
-  const spells = buildSpellCapabilities(character, pack, idGenerator);
+  const spells = buildSpellCapabilities(character, derived, pack, idGenerator);
   const rests = buildRestCapabilities(character, derived, pack, idGenerator);
   const concentration = buildConcentrationCapability(character, idGenerator);
   const resources = buildResourceCapabilities(character, derived, pack, idGenerator);

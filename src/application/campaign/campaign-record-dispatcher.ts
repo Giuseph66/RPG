@@ -11,20 +11,15 @@
  * e aplica a operação pura correspondente à variante do intent, sempre reescrevendo o `Campaign`
  * inteiro via `update()`+`save()` (mesmo padrão de `inventory-dispatcher.ts`).
  *
- * `complete-quest` não usa `completeQuest()` de `domain/campaign/journal` porque essa função
- * exige um `updatedAt: IsoTimestamp` (terceiro parâmetro) e `CampaignRecordIntent` não expõe
- * timestamp algum (nem o próprio `Quest.updatedAt` é atingível pela UI — o patch de
- * `update-quest` também nunca inclui `updatedAt`, ver `CampaignRecordIntent` em
- * `src/features/journey/campaign/types.ts`). Para manter a assinatura de opções deste
- * dispatcher igual à combinada no handoff (`{ campaignService }`, sem `Clock`), `complete-quest`
- * chama `updateQuest(campaign, questId, { status: "completed" })` diretamente — equivalente ao
- * corpo de `completeQuest()` menos o carimbo de tempo. Ver "Pedido a STATE-001" no handoff desta
- * tarefa se um `updatedAt` correto por mutação for necessário no futuro.
+ * Missões novas usam `createQuest()` e recebem ID/relógio injetados; objetivos continuam sendo
+ * textos do agregado Campaign e são validados por `updateCampaign()`. Toda mutação é aplicada ao
+ * snapshot local e salva pelo serviço, que também enfileira a mesma revisão no outbox quando o
+ * modo remoto está ativo.
  */
 
 import { type Campaign } from "@domain/contracts/campaign";
 import { type AppError, appError } from "@domain/contracts/errors";
-import { type JournalResult, createNpc, updateNpc, updateQuest } from "@domain/campaign/journal";
+import { type JournalResult, createNpc, createQuest, updateCampaign, updateNpc, updateQuest } from "@domain/campaign/journal";
 import { type CampaignRecordIntent } from "@features/journey/campaign/types";
 import type { IdGenerator } from "@application/ports/id-generator";
 import type { Clock } from "@application/ports/clock";
@@ -48,9 +43,37 @@ export interface CampaignRecordDispatcherOptions {
 function applyIntent(campaign: Campaign, intent: CampaignRecordIntent, idGenerator?: IdGenerator, clock?: Clock): JournalResult<Campaign> {
   switch (intent.kind) {
     case "complete-quest":
-      return updateQuest(campaign, intent.questId, { status: "completed" });
+      return updateQuest(campaign, intent.questId, { status: "completed", ...(clock ? { updatedAt: clock.now() } : {}) });
     case "update-quest":
-      return updateQuest(campaign, intent.questId, intent.patch);
+      return updateQuest(campaign, intent.questId, { ...intent.patch, ...(clock ? { updatedAt: clock.now() } : {}) });
+    case "create-quest": {
+      if (!idGenerator || !clock) return { ok: false, error: { code: "validation-error", field: "quest", message: "Criação de missão indisponível nesta composição." } };
+      const title = intent.title.trim();
+      const description = intent.description.trim();
+      const now = clock.now();
+      const created = createQuest({ id: idGenerator.uuid(), title, description, status: "active", linkedEntityIds: [], createdAt: now, updatedAt: now });
+      return created.ok ? { ok: true, value: { ...campaign, quests: [...campaign.quests, created.value] } } : created;
+    }
+    case "delete-quest": {
+      if (!campaign.quests.some((quest) => String(quest.id) === intent.questId)) return { ok: false, error: { code: "validation-error", field: "questId", message: "Esta missão já não existe na campanha." } };
+      return { ok: true, value: { ...campaign, quests: campaign.quests.filter((quest) => String(quest.id) !== intent.questId) } };
+    }
+    case "create-objective": {
+      const text = intent.text.trim();
+      if (!text) return { ok: false, error: { code: "validation-error", field: "objective", message: "Informe o texto do objetivo." } };
+      return updateCampaign(campaign, { objectives: [...campaign.objectives, text] });
+    }
+    case "update-objective": {
+      if (!Number.isInteger(intent.index) || intent.index < 0 || intent.index >= campaign.objectives.length) return { ok: false, error: { code: "validation-error", field: "objective", message: "Objetivo não encontrado nesta campanha." } };
+      const text = intent.text.trim();
+      if (!text) return { ok: false, error: { code: "validation-error", field: "objective", message: "Informe o texto do objetivo." } };
+      const objectives = [...campaign.objectives];
+      objectives[intent.index] = text;
+      return updateCampaign(campaign, { objectives });
+    }
+    case "delete-objective":
+      if (!Number.isInteger(intent.index) || intent.index < 0 || intent.index >= campaign.objectives.length) return { ok: false, error: { code: "validation-error", field: "objective", message: "Objetivo não encontrado nesta campanha." } };
+      return updateCampaign(campaign, { objectives: campaign.objectives.filter((_objective, index) => index !== intent.index) });
     case "update-npc":
       return updateNpc(campaign, intent.npcId, intent.patch);
     case "create-npc": {
@@ -100,6 +123,6 @@ export function createCampaignRecordDispatcher(options: CampaignRecordDispatcher
 
     void campaignService.save().then((saveResult) => {
       if (!saveResult.ok) onError?.(saveResult.error, intent);
-    });
+    }).catch((cause) => onError?.(appError.storageUnavailable(cause instanceof Error ? cause.message : "Não foi possível salvar o registro da campanha."), intent));
   };
 }

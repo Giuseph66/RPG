@@ -28,7 +28,14 @@ export interface GenerateNpcCatalog extends CreationCatalog {
   readonly selectorOptions?: Readonly<Record<string, readonly string[]>>;
 }
 
-function choicesFor(choice: ChoiceDefinition, catalog: GenerateNpcCatalog, usedProficiencies: Set<string>, usedOptions: Set<string>): readonly DefinitionRef[] | undefined {
+function choicesFor(
+  choice: ChoiceDefinition,
+  catalog: GenerateNpcCatalog,
+  usedProficiencies: Set<string>,
+  usedOptions: Set<string>,
+  classId?: EntityId,
+  classLevel = 1,
+): readonly DefinitionRef[] | undefined {
   const pack = catalog.rulePack;
   const ref = (id: string): DefinitionRef => ({ rulesetId: pack.manifest.id, entityId: asEntityId(id) });
   let options: readonly DefinitionRef[];
@@ -38,7 +45,12 @@ function choicesFor(choice: ChoiceDefinition, catalog: GenerateNpcCatalog, usedP
     if (selector.kind === "any-skill") options = skillIds.map(ref);
     else if (selector.kind === "any-language") options = languageIds.map(ref);
     else if (selector.kind === "any-tool-proficiency") options = toolIds.map(ref);
-    else if (selector.entityType === "spell") options = [...pack.spells.values()].filter((spell) => !selector.filterTag || spell.tags.includes(selector.filterTag)).map((spell) => ref(String(spell.id)));
+    else if (selector.entityType === "spell") options = [...pack.spells.values()]
+      .filter((spell) => !selector.filterTag || spell.tags.includes(selector.filterTag))
+      .filter((spell) => classId === undefined || spell.classes.some((entry) => String(entry) === String(classId)))
+      .filter((spell) => choice.kind !== "cantrip" || spell.level === 0)
+      .filter((spell) => choice.kind !== "spell" || (spell.level > 0 && spell.level <= classLevel))
+      .map((spell) => ref(String(spell.id)));
     else if (selector.entityType === "equipment") options = [...pack.equipment.keys()].map((id) => ref(String(id)));
     else if (catalog.selectorOptions?.[choice.id]) options = catalog.selectorOptions[choice.id].map(ref);
     else options = [];
@@ -98,7 +110,7 @@ export function generateNpcCharacter(catalog: GenerateNpcCatalog, input: Generat
     const selections: ChoiceSelection[] = [];
     let unresolved = false;
     for (const { choice, grantingRef } of definitionChoices) {
-      const selectedIds = choicesFor(choice, catalog, usedProficiencies, usedOptions);
+      const selectedIds = choicesFor(choice, catalog, usedProficiencies, usedOptions, characterClass.id, 1);
       if (!selectedIds) { unresolved = true; lastProblem = `Não há opções válidas para ${choice.id}.`; break; }
       selections.push({ choiceId: choice.id, selectedIds, grantedAtLevel: 1, grantingRef });
     }

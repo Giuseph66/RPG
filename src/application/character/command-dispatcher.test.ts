@@ -110,7 +110,7 @@ describe("command-dispatcher", () => {
     };
     const wordResult = resolveCharacterCommand(wordCharacter, wordCommand, { ...spellContext(wordRoll), maximumHitPoints: 20, spellDefinitions: new Map([[word.id, word]]) });
     expect(wordResult.status).toBe("success");
-    if (wordResult.status === "success") expect(wordResult.nextState.hp.current).toBe(14);
+    if (wordResult.status === "success") expect(wordResult.nextState.hp.current).toBe(15); // 4 + modificador SAB +1
   });
 
   it("aplica dano de Raio de Fogo e Bola de Fogo somente com ataque, alvo, alcance e resistência explícitos", () => {

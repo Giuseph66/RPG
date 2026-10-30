@@ -41,11 +41,12 @@ function setup(asset: Asset | undefined, overrides: Partial<MapPublicationOption
 describe("MapPublication", () => {
   it("drena a outbox antes do upload e grava a confirmação no mapa", async () => {
     const hash = await sha(bytes);
-    const { publication, calls } = setup({ id: map.assetId, bytes, hash, mediaType: "image/png", originalName: "costa.png", campaignId });
+    const { publication, calls, options } = setup({ id: map.assetId, bytes, hash, mediaType: "image/png", originalName: "costa.png", campaignId });
     const result = await publication.publish(map);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(calls.slice(0, 2)).toEqual(["flush", `upload:${map.assetId}`]);
+    expect(vi.mocked(options.upload).mock.calls[0]?.[0]).toMatchObject({ campaignId, mapId: map.id });
     expect(result.value.image).toMatchObject({ sha256: hash, ownerUid: "master-uid", storagePath: `campaigns/${campaignId}/assets/${map.assetId}` });
     expect(result.value.revision).toBe(2);
   });
@@ -72,6 +73,20 @@ describe("MapPublication", () => {
     expect(publication.canPublish()).toBe(false);
     const result = await publication.publish(map);
     expect(result).toMatchObject({ ok: false, error: { code: "storage-unavailable" } });
+  });
+
+  it("encerra flush remoto preso e mantém o mapa disponível para retry", async () => {
+    const { publication } = setup({ id: map.assetId, bytes, hash: await sha(bytes), mediaType: "image/png", originalName: "costa.png", campaignId }, {
+      flush: () => new Promise<void>(() => undefined), cloudTimeoutMs: 5,
+    });
+    await expect(publication.publish(map)).resolves.toMatchObject({ ok: false, error: { code: "storage-unavailable", message: expect.stringContaining("continua neste aparelho") } });
+  });
+
+  it("encerra upload remoto preso sem confirmar a imagem", async () => {
+    const { publication } = setup({ id: map.assetId, bytes, hash: await sha(bytes), mediaType: "image/png", originalName: "costa.png", campaignId }, {
+      upload: () => new Promise(() => undefined), cloudTimeoutMs: 5,
+    });
+    await expect(publication.publish(map)).resolves.toMatchObject({ ok: false, error: { code: "storage-unavailable", message: expect.stringContaining("continua neste aparelho") } });
   });
 
   it("o jogador baixa a imagem confirmada e guarda cópia local", async () => {

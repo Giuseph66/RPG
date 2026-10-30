@@ -41,6 +41,20 @@ describe("combat rules", () => {
     }
   });
 
+  it("ao cair em 0 PV inicia queda sem registrar falha prematura", () => {
+    const target = { ...minimalCharacter, hp: { current: 3, temp: 0 }, deathSaves: { successes: 1, failures: 0, stable: false } };
+    const entered = applyDamage(target, { amount: 3, damageType: "fire", maximumHitPoints: 10 });
+    expect(entered.status).toBe("success");
+    if (entered.status === "success") {
+      expect(entered.nextState.hp.current).toBe(0);
+      expect(entered.nextState.deathSaves).toEqual({ successes: 0, failures: 0, stable: false });
+
+      const whileDying = applyDamage(entered.nextState, { amount: 1, damageType: "fire", maximumHitPoints: 10 });
+      expect(whileDying.status).toBe("success");
+      if (whileDying.status === "success") expect(whileDying.nextState.deathSaves.failures).toBe(1);
+    }
+  });
+
   it("dobra os dados no crítico e registra falha natural em 0 PV", () => {
     const target = { ...minimalCharacter, hp: { current: 20, temp: 0 } };
     const result = resolveAttack(target, {

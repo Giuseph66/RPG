@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { click, focus, keyDown, mount, mouseDown } from "../../testUtils";
+import { click, focus, keyDown, mount } from "../../testUtils";
 import { AppModal } from "./AppModal";
 
 function Harness({
@@ -124,10 +124,7 @@ describe("AppModal", () => {
     const dialog = container.querySelector('[role="dialog"]') as HTMLElement;
     const backdrop = dialog.parentElement as HTMLElement;
 
-    // A mousedown directly on the backdrop element (not bubbled from the
-    // dialog) has event.target === event.currentTarget, which is what
-    // AppModal checks before dismissing.
-    await mouseDown(backdrop);
+    await click(backdrop);
     expect(container.querySelector('[role="dialog"]')).toBeNull();
     await unmount();
   });
@@ -141,7 +138,7 @@ describe("AppModal", () => {
     );
     const dialog = container.querySelector('[role="dialog"]') as HTMLElement;
     const backdrop = dialog.parentElement as HTMLElement;
-    await mouseDown(backdrop);
+    await click(backdrop);
     expect(onClose).not.toHaveBeenCalled();
     await unmount();
   });

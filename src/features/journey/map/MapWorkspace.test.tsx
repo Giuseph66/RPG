@@ -41,6 +41,24 @@ describe("MapWorkspace", () => {
     await unmount();
   });
 
+  it("releases the Firebase busy state when sharing rejects", async () => {
+    const map = { id: "map", name: "Costa das Brumas", assetId: "asset", pins: [], revision: 0 } as never;
+    const listMaps = vi.fn().mockResolvedValue({ ok: true, value: [map] }) as unknown as MapWorkspaceProps["listMaps"];
+    const publication = {
+      canPublish: true,
+      publish: vi.fn().mockResolvedValue({ ok: true, value: map }),
+      share: vi.fn().mockRejectedValue(new Error("Missing or insufficient permissions.")),
+    } as unknown as NonNullable<MapWorkspaceProps["publication"]>;
+    const { container, unmount } = await mount(<MapWorkspace campaignId={campaignId} canManage listMaps={listMaps} publication={publication} />);
+    await act(async () => { await Promise.resolve(); });
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Só o mestre")!);
+    await click([...document.body.querySelectorAll("button")].find((button) => button.textContent?.includes("Salvar visibilidade"))!);
+    await act(async () => { await Promise.resolve(); });
+    expect(container.textContent).toContain("Missing or insufficient permissions.");
+    expect(container.textContent).not.toContain("Enviando…");
+    await unmount();
+  });
+
   it("validates and imports a local image into the selected campaign", async () => {
     vi.stubGlobal("Image", class {
       readonly naturalWidth = 640;

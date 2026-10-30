@@ -6,7 +6,7 @@ import { minimalCharacter } from "@domain/contracts/fixtures";
 import type { CastPreview } from "@domain/contracts/definitions/spell";
 import { asCommandId, asUuid } from "@domain/contracts/ids";
 import type { RuleResult } from "@domain/contracts/rules";
-import type { ActionCapability } from "./types";
+import type { ActionCapability, ActionIntent } from "./types";
 import { Actions } from "./Actions";
 
 const sourceRef = { sourceId: "phb" as never, chapter: "Capítulo de teste", printedPage: 10 };
@@ -54,11 +54,16 @@ async function typeValue(input: HTMLInputElement, value: string): Promise<void> 
 
 describe("Actions", () => {
   it("separa ataque e dano e não envia duas vezes o mesmo commandId", async () => {
-    const onIntent = vi.fn();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const onIntent = vi.fn((intent: ActionIntent) => { void intent; return pending; });
     const mounted = await mount(<Actions character={characterA} capabilities={[capability("Ataque", "attack"), capability("Dano", "damage")]} availableActions={["action"]} onIntent={onIntent} />);
     await openQuickAction(mounted.container, "Ataque");
     await reviewAndConfirm(mounted.container, "Ataque");
     await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledTimes(1);
+    release();
+    await act(async () => { await pending; });
     await reviewAndConfirm(mounted.container, "Dano", 1);
     expect(onIntent).toHaveBeenCalledTimes(2);
     expect(onIntent.mock.calls.map(([intent]) => intent.kind)).toEqual(["attack", "damage"]);
@@ -83,8 +88,74 @@ describe("Actions", () => {
     await openQuickAction(mounted.container, "Magias");
     await click(button(mounted.container, "Revisar capacidade"));
     expect(mounted.container.textContent).toContain("Espaço");
+    expect(mounted.container.textContent).toContain("Ação");
+    expect(mounted.container.textContent).not.toContain("action");
     expect(mounted.container.textContent).toContain("Escolha o alvo no dispatcher.");
     expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await mounted.unmount();
+  });
+
+  it("rola a cura na revisão sem enviar intent nem alterar a ficha", async () => {
+    const roll = vi.fn();
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions
+      character={characterA}
+      spellRolls={[{ id: "cure-wounds", name: "Curar Ferimentos", level: 1, effect: { quantity: 1, faces: 8, modifier: 3, kind: "healing" } }]}
+      dice={{ history: [], roll }}
+      capabilities={[capability("Curar Ferimentos", "spell")]}
+      onIntent={onIntent}
+    />);
+    await openQuickAction(mounted.container, "Magias");
+    await click(mounted.container.querySelector('button[aria-label="Rolar Cura 1d8+3"]') as HTMLElement);
+    expect(roll).toHaveBeenCalledWith({ faces: 8, modifier: 3, purpose: "free", label: "Cura (Curar Ferimentos)" });
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(button(mounted.container, "Cancelar"));
+    expect(onIntent).not.toHaveBeenCalled();
+    await mounted.unmount();
+  });
+
+  it("rola o dano do ataque como dado informativo sem aplicar dano na ficha", async () => {
+    const roll = vi.fn();
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions
+      character={characterA}
+      attackRolls={[{ id: "rapier", name: "Rapieira", attackBonus: 5, damage: { quantity: 1, faces: 8, modifier: 3 } }]}
+      dice={{ history: [], roll }}
+      capabilities={[capability("Ataque", "attack")]}
+      onIntent={onIntent}
+    />);
+    await openQuickAction(mounted.container, "Ataque");
+    await click(mounted.container.querySelector('button[aria-label="Rolar Dano 1d8+3"]') as HTMLElement);
+    expect(roll).toHaveBeenCalledWith({ faces: 8, modifier: 3, purpose: "free", label: "Dano (Rapieira)" });
+    expect(onIntent).not.toHaveBeenCalled();
+    await mounted.unmount();
+  });
+
+  it("cancelar a revisão de cura não envia intent e a confirmação bem-sucedida fecha a revisão", async () => {
+    const onIntent = vi.fn(() => preview());
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Curar Ferimentos", "spell", { effectSummary: ["Cura 1d8 + modificador de CAR na própria ficha, limitada ao máximo de PV."] })]} onIntent={onIntent} />);
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain("Cura 1d8 + modificador de CAR");
+    await click(button(mounted.container, "Cancelar"));
+    expect(onIntent).not.toHaveBeenCalled();
+    expect(mounted.container.textContent).toContain("Revisão aguardando seleção");
+
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledTimes(1);
+    expect([...mounted.container.querySelectorAll("button")].some((candidate) => candidate.textContent?.includes("Confirmar execução"))).toBe(false);
+    expect(mounted.container.textContent).toContain("Aplicado na ficha.");
+    expect(mounted.container.textContent).not.toContain("Sem efeito automático na ficha.");
+    await mounted.unmount();
+  });
+
+  it("traduz a ação indisponível na revisão", async () => {
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia bônus", "spell", { actionCost: "bonus-action" })]} availableActions={["action"]} onIntent={vi.fn()} />);
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain("Ação indisponível: Ação bônus.");
+    expect(mounted.container.textContent).not.toContain("bonus-action");
     await mounted.unmount();
   });
 

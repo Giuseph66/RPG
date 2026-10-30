@@ -14,6 +14,10 @@ export type CreationDraftService = Pick<CharacterApplicationService, "saveDraft"
  */
 export interface CreationWizardService extends CreationDraftService {
   readonly saveCharacter: (character: Character, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
+  /** Leitura usada para tornar a confirmação retomada idempotente sem ignorar CAS. */
+  readonly loadCharacter?: (id: Character["id"]) => Promise<Result<Character, AppError>>;
+  /** A composição informa se uma ficha existente pertence à sessão atual. */
+  readonly canReuseCharacter?: (character: Character) => boolean;
 }
 
 export type CreationSaveStatus = "idle" | "saving-draft" | "draft-saved" | "confirming" | "confirmed" | "error";

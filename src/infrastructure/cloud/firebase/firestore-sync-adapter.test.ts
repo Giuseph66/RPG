@@ -68,7 +68,11 @@ describe("firestorePathForOperation", () => {
     expect(pathOf(firestorePathForOperation(operation({ aggregateType: "session", aggregateId: sessionId, payload: { campaignId, id: sessionId } })))).toBe(`campaigns/${campaignId}/sessions/${sessionId}`);
     expect(pathOf(firestorePathForOperation(operation({ aggregateType: "session", aggregateId: `${campaignId}/${sessionId}` as never, mutation: "delete", scope: { campaignId }, payload: undefined })))).toBe(`campaigns/${campaignId}/sessions/${sessionId}`);
     expect(pathOf(firestorePathForOperation(operation({ aggregateType: "asset", aggregateId: characterId })))).toBe(`assets/${characterId}`);
-    expect(pathOf(firestorePathForOperation(operation({ aggregateType: "portrait", aggregateId: characterId })))).toBe(`portraits/${characterId}`);
+    expect(pathOf(firestorePathForOperation({
+      ...operation({ aggregateType: "portrait", aggregateId: characterId }),
+      ownerUid: "u1",
+    } as SyncOperation & { readonly ownerUid: string }))).toBe(`users/u1/portraits/${characterId}`);
+    expect(pathOf(firestorePathForOperation(operation({ aggregateType: "portrait", aggregateId: characterId, scope: { ownerUid: asAccountId("u1") } })))).toBe(`users/u1/portraits/${characterId}`);
   });
 
   it("recusa delete escopado sem campanha e não usa o owner autenticado como palpite", () => {
@@ -96,6 +100,100 @@ describe("FirebaseFirestoreSyncAdapter", () => {
       path: `campaigns/${campaignId}`,
       data: { ownerUid: "master-1", operationId: "operation-1", revision: 1 },
     });
+  });
+
+  it("confirma criação concorrente do perfil quando outra aba venceu o commit", async () => {
+    const fake = fakeFirestore();
+    fake.deps.runTransaction.mockRejectedValueOnce(Object.assign(new Error("already exists"), { code: "already-exists" }));
+    const deps = {
+      ...fake.deps,
+      getDoc: vi.fn(async () => ({ exists: () => true, data: () => ({ id: "player-1", uid: "player-1", email: "qa@example.invalid", revision: 0, schemaVersion: 1 }) })),
+    };
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player-1", deps: deps as never });
+    const result = await adapter.apply(operation({
+      operationId: asCommandId("account-race"),
+      aggregateType: "account",
+      aggregateId: "player-1" as never,
+      payload: { id: "player-1", uid: "player-1", email: "qa@example.invalid", revision: 0 },
+    }));
+
+    expect(result).toEqual({ ok: true, value: { kind: "acked", remoteRevision: 0 as Revision } });
+    expect(deps.getDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it("não confirma uma corrida quando a outra aba publicou outro perfil", async () => {
+    const fake = fakeFirestore();
+    fake.deps.runTransaction.mockRejectedValueOnce(Object.assign(new Error("already exists"), { code: "already-exists" }));
+    const deps = {
+      ...fake.deps,
+      getDoc: vi.fn(async () => ({ exists: () => true, data: () => ({ id: "player-1", uid: "player-1", email: "outra@example.invalid", revision: 0, schemaVersion: 1 }) })),
+    };
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player-1", deps: deps as never });
+    const result = await adapter.apply(operation({
+      operationId: asCommandId("account-race-conflict"),
+      aggregateType: "account",
+      aggregateId: "player-1" as never,
+      payload: { id: "player-1", uid: "player-1", email: "qa@example.invalid", revision: 0, schemaVersion: 1 },
+    }));
+
+    expect(result).toMatchObject({ ok: true, value: { kind: "conflict", conflict: { remoteSnapshot: { email: "outra@example.invalid" } } } });
+    expect(deps.getDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconhece bootstrap contra perfil remoto existente e preserva o remoto", async () => {
+    const path = "users/player-1";
+    const fake = fakeFirestore({ [path]: {
+      id: "player-1", uid: "player-1", ownerUid: "player-1", email: "remota@example.invalid",
+      displayName: "Perfil remoto", revision: 2, schemaVersion: 1,
+    } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      operationId: asCommandId("account-bootstrap-recovery"),
+      aggregateType: "account",
+      aggregateId: "player-1" as never,
+      baseRevision: asRevision(0),
+      payload: { id: "player-1", uid: "player-1", email: "local@example.invalid", displayName: "Perfil local", revision: 0, schemaVersion: 1 },
+    }));
+
+    expect(result).toEqual({ ok: true, value: { kind: "acked", remoteRevision: 2 as Revision } });
+    expect(fake.setCalls).toHaveLength(0);
+    expect(fake.documents.get(path)).toMatchObject({ email: "remota@example.invalid", displayName: "Perfil remoto" });
+  });
+
+  it("não confirma edição de perfil divergente só porque o UID remoto coincide", async () => {
+    const path = "users/player-1";
+    const fake = fakeFirestore({ [path]: {
+      id: "player-1", uid: "player-1", ownerUid: "player-1", email: "remota@example.invalid",
+      displayName: "Perfil remoto", revision: 1, schemaVersion: 1,
+    } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "player-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      operationId: asCommandId("account-edit-cas"),
+      aggregateType: "account",
+      aggregateId: "player-1" as never,
+      baseRevision: asRevision(0),
+      payload: { id: "player-1", uid: "player-1", email: "local@example.invalid", displayName: "Perfil local", revision: 1, schemaVersion: 1 },
+    }));
+
+    expect(result).toMatchObject({ ok: true, value: { kind: "conflict", conflict: { remoteRevision: 1, remoteSnapshot: { email: "remota@example.invalid" } } } });
+    expect(fake.setCalls).toHaveLength(0);
+  });
+
+  it("acrescenta o envelope exigido pelas rules a diário e mapa sem schema local", async () => {
+    for (const aggregateType of ["journal", "map"] as const) {
+      const fake = fakeFirestore();
+      const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "master-1", deps: fake.deps as never });
+      const result = await adapter.apply(operation({
+        operationId: asCommandId(`operation-${aggregateType}`),
+        aggregateType,
+        aggregateId: asUuid(aggregateType === "journal" ? "00000000-0000-4000-8000-000000000004" : "00000000-0000-4000-8000-000000000005"),
+        payload: aggregateType === "journal"
+          ? { id: "journal-1", campaignId, title: "Cena", body: "", linkedEntityIds: [], tags: [], revision: 0 }
+          : { id: "map-1", campaignId, name: "Mapa", assetId: "asset-1", pins: [], revision: 0 },
+      }));
+      expect(result).toMatchObject({ ok: true, value: { kind: "acked" } });
+      expect(fake.setCalls[0]?.data).toMatchObject({ schemaVersion: 1, ownerUid: "master-1" });
+    }
   });
 
   it("publica ficha existente localmente quando o destino da campanha ainda não existe", async () => {
@@ -169,6 +267,39 @@ describe("FirebaseFirestoreSyncAdapter", () => {
     expect(fake.setCalls).toHaveLength(0);
   });
 
+  it("confirma avistamento já publicado com o mesmo conteúdo sem regravar", async () => {
+    const path = `campaigns/${campaignId}/sightings/creature-1__player-1`;
+    const revealed = { appearance: "Escamas negras" };
+    const fake = fakeFirestore({ [path]: { id: "creature-1__player-1", revision: 2, kind: "enemy", revealed } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "master-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "sighting",
+      aggregateId: "creature-1__player-1" as never,
+      baseRevision: asRevision(0),
+      scope: { campaignId },
+      payload: { id: "creature-1__player-1", revision: 1, kind: "enemy", revealed },
+    }));
+
+    expect(result).toEqual({ ok: true, value: { kind: "acked", remoteRevision: asRevision(2) } });
+    expect(fake.setCalls).toHaveLength(0);
+  });
+
+  it("mantém conflito de avistamento quando o conteúdo remoto diverge", async () => {
+    const path = `campaigns/${campaignId}/sightings/creature-1__player-1`;
+    const fake = fakeFirestore({ [path]: { id: "creature-1__player-1", revision: 2, kind: "enemy", revealed: { appearance: "Escamas claras" } } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "master-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "sighting",
+      aggregateId: "creature-1__player-1" as never,
+      baseRevision: asRevision(0),
+      scope: { campaignId },
+      payload: { id: "creature-1__player-1", revision: 1, kind: "enemy", revealed: { appearance: "Escamas negras" } },
+    }));
+
+    expect(result).toMatchObject({ ok: true, value: { kind: "conflict", conflict: { remoteRevision: 2 } } });
+    expect(fake.setCalls).toHaveLength(0);
+  });
+
   it("persiste metadata privada de asset conforme Firestore e Storage rules", async () => {
     const fake = fakeFirestore();
     const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
@@ -204,15 +335,82 @@ describe("FirebaseFirestoreSyncAdapter", () => {
     const result = await adapter.apply(operation({
       aggregateType: "portrait",
       aggregateId: characterId,
+      scope: { ownerUid: asAccountId("u1") },
       payload: { id: characterId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
     }));
 
     expect(result.ok).toBe(true);
     expect(fake.setCalls[0]).toMatchObject({
-      path: `portraits/${characterId}`,
+      path: `users/u1/portraits/${characterId}`,
       data: { id: characterId, ownerUid: "u1", sha256: "a".repeat(64), data: "AQID", revision: 1 },
     });
     expect(fake.setCalls[0]?.data).not.toHaveProperty("storagePath");
+  });
+
+  it("roteia retrato privado legado do mesmo dono para o namespace da conta", async () => {
+    const fake = fakeFirestore();
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
+    const result = await adapter.apply({
+      ...operation({
+        aggregateType: "portrait",
+        aggregateId: characterId,
+        payload: { id: characterId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+      }),
+      ownerUid: "u1",
+    } as SyncOperation & { readonly ownerUid: string });
+
+    expect(result).toMatchObject({ ok: true, value: { kind: "acked", remoteRevision: 1 } });
+    expect(fake.setCalls[0]?.path).toBe(`users/u1/portraits/${characterId}`);
+  });
+
+  it("migra operação legada para a conta e preserva registro raiz de outro dono", async () => {
+    const fake = fakeFirestore({ [`portraits/${characterId}`]: { id: characterId, ownerUid: "u2", revision: 1, schemaVersion: 1 } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
+    const result = await adapter.apply({
+      ...operation({
+        aggregateType: "portrait",
+        aggregateId: characterId,
+        payload: { id: characterId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+      }),
+      ownerUid: "u1",
+    } as SyncOperation & { readonly ownerUid: string });
+
+    expect(result).toMatchObject({ ok: true, value: { kind: "acked", remoteRevision: 1 } });
+    expect(fake.setCalls[0]).toMatchObject({
+      path: `users/u1/portraits/${characterId}`,
+      data: { ownerUid: "u1", revision: 1 },
+    });
+    expect(fake.documents.get(`portraits/${characterId}`)).toMatchObject({ ownerUid: "u2", revision: 1 });
+  });
+
+  it("recusa retrato privado sem posse escopada antes da transação", async () => {
+    const fake = fakeFirestore();
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      aggregateType: "portrait",
+      aggregateId: characterId,
+      payload: { id: characterId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+    }));
+
+    expect(result).toMatchObject({ ok: false, error: { code: "remote-error" } });
+    expect(fake.deps.runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("recusa scope explícito de retrato privado pertencente a outra conta", async () => {
+    const fake = fakeFirestore();
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });
+    const result = await adapter.apply({
+      ...operation({
+        aggregateType: "portrait",
+        aggregateId: characterId,
+        scope: { ownerUid: asAccountId("u2") },
+        payload: { id: characterId, mediaType: "image/webp", sha256: "a".repeat(64), data: "AQID", revision: 1, schemaVersion: 1 },
+      }),
+      ownerUid: "u1",
+    } as SyncOperation & { readonly ownerUid: string });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "remote-error" } });
+    expect(fake.deps.runTransaction).not.toHaveBeenCalled();
   });
 
   it("mestre ajusta ficha de campanha sem tomar a posse do jogador", async () => {

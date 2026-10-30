@@ -33,5 +33,5 @@ export const SKILL_LABELS: Readonly<Record<Skill, string>> = {
 export const ALL_SKILLS: readonly Skill[] = Object.keys(SKILL_LABELS) as Skill[];
 
 export function formatRef(entityId: string): string {
-  return entityId.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return entityId.replaceAll("-", " ").replaceAll(".", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

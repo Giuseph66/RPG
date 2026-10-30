@@ -56,6 +56,30 @@ function mergeReport(report: SyncWorkerReport, patch: Partial<SyncWorkerReport>)
   return { ...report, ...patch };
 }
 
+function operationOwnerUid(operation: SyncOperation): unknown {
+  return (operation as SyncOperation & { readonly ownerUid?: unknown }).ownerUid;
+}
+
+/**
+ * Retrato privado é o único agregado que precisa conferir o escopo quando ele
+ * existe. Operações antigas sem esse campo continuam compatíveis quando o
+ * marcador autoritativo da sessão pertence à conta atual; sem esse marcador,
+ * o filtro de posse abaixo já as exclui.
+ */
+function isLegacyPortraitForSession(operation: SyncOperation, ownerUid: string | undefined): boolean {
+  if (ownerUid === undefined || operation.aggregateType !== "portrait" || operation.scope?.campaignId !== undefined) return false;
+  return operation.scope?.ownerUid !== undefined && operation.scope.ownerUid !== ownerUid;
+}
+
+const legacyPortraitMessage = "Há um retrato legado de outra sessão aguardando revisão; a operação foi preservada e não será enviada nesta conta. O convite da campanha não está pendente por esse motivo.";
+
+function isRecoverableAccountBootstrap(operation: SyncOperation, ownerUid: string | undefined): boolean {
+  if (ownerUid === undefined || operation.aggregateType !== "account" || operation.mutation !== "upsert" ||
+    operation.baseRevision !== 0 || typeof operation.payload !== "object" || operation.payload === null || Array.isArray(operation.payload)) return false;
+  const payload = operation.payload as { readonly uid?: unknown; readonly revision?: unknown };
+  return payload.uid === ownerUid && payload.revision === 0;
+}
+
 /**
  * Drena a fila somente quando explicitamente chamado e quando o transporte está
  * disponível. Agregados diferentes podem continuar após uma falha, mas a fila de
@@ -76,19 +100,22 @@ export class SyncWorker {
     const grouped = new Map<string, SyncOperation[]>();
     let skipped = 0;
     const owned = listed.value.filter((operation) => {
-      const ownerUid = (operation as SyncOperation & { readonly ownerUid?: unknown }).ownerUid;
-      if (this.options.ownerUid !== undefined && ownerUid !== this.options.ownerUid) {
+      const operationOwner = operationOwnerUid(operation);
+      if (this.options.ownerUid !== undefined && operationOwner !== this.options.ownerUid) {
         skipped += 1;
         return false;
       }
-      return operation.status === "pending" || operation.status === "failed" || operation.status === "conflict";
+      if (isLegacyPortraitForSession(operation, this.options.ownerUid)) skipped += 1;
+      return operation.status === "pending" || operation.status === "syncing" || operation.status === "failed" || operation.status === "conflict";
     });
-    const eligible = owned.filter((operation) => operation.status === "pending" ||
+    const eligible = owned.filter((operation) => !isLegacyPortraitForSession(operation, this.options.ownerUid) &&
+      (operation.status === "pending" || operation.status === "syncing" ||
       (operation.status === "failed" && (options.retryFailed || (operation.nextRetryAt !== undefined && operation.nextRetryAt <= clock.now()))) ||
-      (operation.status === "conflict" && options.retryConflicts === true));
+      (operation.status === "conflict" && (options.retryConflicts === true || isRecoverableAccountBootstrap(operation, this.options.ownerUid)))));
     const operations = this.options.maxOperations === undefined ? eligible : eligible.slice(0, this.options.maxOperations);
     const processedIds = new Set(operations.map((operation) => operation.operationId));
-    const unresolvedFailures = owned.filter((operation) => operation.status === "failed" && !processedIds.has(operation.operationId));
+    const unresolvedFailures = owned.filter((operation) => !processedIds.has(operation.operationId) &&
+      (operation.status === "failed" || isLegacyPortraitForSession(operation, this.options.ownerUid)));
     const unresolvedConflicts = owned.filter((operation) => operation.status === "conflict" && !processedIds.has(operation.operationId));
     const unresolved = [...unresolvedFailures, ...unresolvedConflicts].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     const latestUnresolved = unresolved.at(-1);
@@ -106,7 +133,9 @@ export class SyncWorker {
       failed: unresolvedFailures.length,
       conflicts: unresolvedConflicts.length,
       ...(latestUnresolved
-        ? { lastErrorMessage: latestUnresolved.status === "conflict"
+        ? { lastErrorMessage: isLegacyPortraitForSession(latestUnresolved, this.options.ownerUid)
+          ? legacyPortraitMessage
+          : latestUnresolved.status === "conflict"
           ? latestUnresolved.conflict?.message ?? "Há conflitos remotos não resolvidos."
           : latestUnresolved.lastError ?? "Há operações anteriores que ainda não foram confirmadas pelo Firebase." }
         : {}),

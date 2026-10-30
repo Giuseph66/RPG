@@ -1,5 +1,7 @@
 # Tarefas de implementação — registro canônico
 
+**Estado vigente em 04/10/2026:** as reservas e reaberturas corretivas ao final deste documento prevalecem sobre os aceites históricos. Nenhum gate desta rodada está DONE antes da prova integrada.
+
 IMPLEMENTAÇÃO DO SOFTWARE INICIADA. `CORE-001`, `DATA-001`, `DATA-002`, `DATA-003`, `DATA-004`, `DATA-005`, `DICE-001`, `DICE-002`, `ITEM-001`, `RULE-001`, `UI-001`, `UI-002` e `STATE-001` estão `DONE`; `SPELL-001`, `ITEM-002` e `CHAR-002` estão em execução com Luna.
 
 42 tarefas, IDs estáveis. O campo “bloqueia” é o inverso exato de “dependências”; [DEPENDENCIES](DEPENDENCIES.md) deriva deste registro. Contratos comuns estão em 09/10/11 e dados/schemas; DATA-001 os materializa antes dos consumidores. Pendências semânticas de fonte continuam registradas em decisoes/PENDENCIAS, nunca resolvidas por default silencioso.
@@ -824,3 +826,91 @@ Esta fase substitui o limite de escopo local-only por solicitação explícita d
 - Escopo: testes de fluxo sessão→personagem→recurso→dado, reconexão, conflito, desktop/mobile e orçamento 3D em porta auxiliar.
 - Evidência local: 122 arquivos/760 testes, typecheck, build e diff check; browser em portas auxiliares confirmou criação, Journey, vínculo personagem↔campanha, sessão/presença persistida, desktop 1440, mobile 320/390, d100/d120 e PWA cacheado offline.
 - Bloqueio externo: confirmação com Firebase publicado e duas contas reais; matriz de dispositivos físicos permanece externa.
+
+## Reabertura corretiva — QA de 04/10/2026
+
+Pedido vigente: corrigir todos os problemas de `Testes/`, incluindo P1/P2 e regressões automatizadas. Revisão-base `948adc2cae6a2f42ae5ea3e069b72bcbd96fcb12`; checkout compartilhado `/home/jesus/Progetos/RPG`; início/heartbeat 2026-10-04T23:02:07-04:00. Aceites históricos acima não aprovam esta rodada. Claude indisponível conforme override ativo em AGENTS; fallback nativo `gpt-5.6-luna`, `xhigh`, profundidade 1, três workers. Testes/build/reteste autorizados pela sessão de QA e correção sem perguntas. Coordenador somente integra/revisa e mantém metadados.
+
+Reservas disjuntas IN_PROGRESS, predecessores locais já aceitos:
+
+| Executor | IDs reabertos / dependências | Escrita exclusiva temporária | Aceite e handoff |
+| --- | --- | --- | --- |
+| `/root/corrigir_colaboracao` | CLOUD-001, MAP-001, JOUR-001; DATA-007 local aceito | `src/features/journey/**`, `src/features/collaboration/**`, `src/features/account/**`, `src/application/collaboration/**`, `src/application/sync/**`, `src/application/assets/**`, `src/infrastructure/cloud/**`, `firestore.rules`, `storage.rules`, `firebase.json`; testes nesses paths | Palpite sem crash; mapa/diário compartilháveis, erros/status acionáveis; objetivos/missões acessíveis; regras preservam privacy. `Testes/correcao-colaboracao.md`. Publicação remota só após correção concreta validada e evidência de acesso autorizado. |
+| `/root/corrigir_jogabilidade` | RULE-002/003, SPELL-002, UI-003, STATE-001, UI-002, CORE-001/002; contratos/dados existentes aceitos | `src/app/**`, `src/application/character/**`, `src/application/state/**`, `src/application/campaign/**`, `src/features/actions/**`, `src/domain/rules/**`, `src/domain/spells/**`, `src/domain/inventory/**`, `src/domain/character/**`; testes nesses paths | Morte conforme fonte; descanso correto/atualizado; executar prévias/ações/magia; vínculo jogador e finalização ficha; bootstrap/router/actions tests confiáveis. `Testes/correcao-jogabilidade.md`. Integra pedidos de router dos outros owners. |
+| `/root/corrigir_interface` | CHAR-002/003, UI-001, COMP-001, DATA-006; domínio/repositories existentes aceitos | `src/features/character/creation/**`, `src/features/character/selection/**`, `src/features/character/sheet/**`, `src/features/compendium/**`, `src/application/compendium/**`, `src/features/data-management/**`, `src/application/transfer/**`, `src/components/ui/**`, `src/styles/**`; testes nesses paths | Wizard mobile legível/validado, alvos adequados, magia inicial coerente, copy/replace executáveis e atômicos, testes modal/compêndio válidos. `Testes/correcao-interface.md`. |
+
+Paths fora das reservas requerem reserva explícita antes de edição. Um escritor por path; consumidores encaminham integração ao owner. Sem novas dependências, sem alterar dados reais ou inventar regras. QA-004/005 e REL-001 reabertos para revisão após produtores; desempenho/bundle e validação integrada serão alocados na segunda onda. DONE somente com diff revisado, provas focais e prova real pertinente; pendências externas permanecem explícitas.
+
+Ajuste de reserva (04/10/2026): `corrigir_colaboracao` também possui `src/application/membership/**`, `src/application/session/**`, `src/application/campaign/**`, `src/domain/campaign/**`, `src/application/campaign-log/**`. Esses paths saem da reserva de jogabilidade (que não edita `src/application/campaign/**`). Integração bootstrap/router permanece com jogabilidade; contratos/ports não são transferidos automaticamente. Necessário pelo grafo atual de memberships/sessões e publicação de mapa.
+
+Reserva adicional corrigir_colaboracao: `src/infrastructure/persistence/indexeddb/outbox-repository.ts` e `outbox-repository.test.ts`, recuperação de operações syncing abandonadas após reload. Nenhum outro adapter IndexedDB transferido. Coordenador identificou edição antes da reserva; regularizada sem conflito de writer, agente orientado a solicitar paths antes de futuras expansões.
+
+Reserva adicional corrigir_jogabilidade: `src/data/classes/**` (inclui testes), escolhas iniciais de magia Bardo e grants/proficiências se necessário, conforme fonte/pack existente. Wizard continua corrigir_interface; assinatura integrada por handoff. Interface entregou 44 testes focais; revisão parcial, C13 escolhas de magia ainda pendente do domínio.
+
+Segunda onda parcial — corrigir_interface continua writer de seus paths e recebe `vite.config.ts`, `src/features/dice/**`, `src/data/compendium/**`, `src/data/correto/**` exclusivamente para diagnóstico/redução de carga inicial (sem mudanças de conteúdo/regras). Pode produzir build/sourcemap diagnóstico com dependências existentes; não reduzir apenas nome/tamanho do entry se a carga inicial total permanecer igual. Bootstrap/router permanecem jogabilidade, integração via handoff. QA UI/backup mobile e produção permitida em dados sintéticos; viewport retornar ao original. Handoff adicional `Testes/correcao-performance.md`, evidências `Testes/evidencias/correcao-ui-*` e `correcao-performance-*`. No máximo três workers.
+
+Reserva adicional corrigir_interface: `src/infrastructure/pwa/**` para preservar atualização/cache offline quando a divisão do bundle mudar, com prova de upgrade e cache aquecido; não mudar schema local.
+
+Segunda onda jogabilidade: integração/triagem continua IN_PROGRESS; reserva adicional `src/data/rulepacks/manifest.ts` (checksum de classes alteradas, já revisado com 30 testes), `src/features/inventory/**`, `tests/setup.ts`, `tests/integration/**`, `tests/acceptance/**` para correções/provas pertinentes. Seus paths anteriores permanecem. Objetivo inclui zerar falhas bootstrap/router, sem diminuir cobertura/mascarar WebGL global; coordenar Dice/Compendium com interface. Suíte final/test/build em `Testes/evidencias/correcao-*`. QA jogador Chrome 4173 e colaboração com mestre ficam autorizados após build atual. Código/UI de terceiros segue ownership correspondente.
+
+Reserva adicional corrigir_jogabilidade: `src/data/spells/**` para restaurar bônus/escala declarados na fonte local (Curar Ferimentos/Palavra Curativa), com manifesto/checksum e testes pertinentes. Sem liberação automática dos contratos; field existente preferível quando semântica suficiente.
+
+Colaboração REVIEW (04/10/2026): typecheck/build e 79 testes focais passaram; emulador demonstrou mapas/diários 403 sem schemaVersion e 200 com envelope corrigido. Suíte integral durante alteração concorrente de catálogo falhou por checksum de spells ainda não atualizado pelo owner. Sem publicação remota. Segunda onda do mesmo executor: QA mestre real no IAB localhost5173 com sessão sintética existente, pareado ao QA jogador Chrome4173 de jogabilidade; sem novo writer de src/app. Handoff de validação `Testes/correcao-colaboracao.md` e capturas `evidencias/correcao-mestre-*`. Aceite depende da integração do router e prova de dupla conta.
+
+Reserva adicional corrigir_jogabilidade: `src/components/layout/**` para corrigir estado de conexão do header (pending não equivale a live; erro de permissão não equivale a offline) e testes de composição. Journey/Collaboration continuam colaboração; props de sync integradas pelo router owner.
+
+Transferência explícita para fechar performance: `src/app/bootstrap.tsx`, `src/app/bootstrap.test.tsx`, `src/app/feature-registry.ts`, `src/app/feature-registry.test.ts` e novo helper se necessário `src/app/lazy-compendium.ts` agora exclusivos de corrigir_interface; jogabilidade NÃO os edita, mantém router/routes/character-route-data e demais paths. Performance ainda IN_PROGRESS: entry 4471kB não reduziu carga; implementar lazy real sob esta reserva. QA Bardo encontrou 0 truques e 3 magias elegíveis, correção de conteúdo fica com jogabilidade; inventário 36px é jogabilidade em src/features/inventory/**. Backup copy/replace real precisa IAB (Chrome bloqueou upload file URI); persistência deve ser demonstrada.
+
+Reserva adicional performance: `src/assets/icons/**` para corrigir alcance estático de Gi* sem alterar semântica/seleção de ícones; corrigir_interface mantém writer. `src/components/layout/**` segue jogabilidade: request de lazy DiceOverlay por handoff, não writer paralelo. Interface integra bootstrap/controller/Firebase/catalog conforme reserva; raiz continua sem implementar produto.
+
+Reserva complementar formalizada — jogabilidade: `src/domain/contracts/definitions/spell.ts` para campo opcional compatível `bonusPerCastingSourceAbility` (os demais contratos não são transferidos); `src/data/rulepacks/phb-ptbr-local-2017/index.test.ts` e `tests/srd/relatorio.md` (relatório gerado pelos testes do catálogo alterado). Auditar todos consumidores do bônus de cura e regressões Bardo/Clérigo/ASI/upcast. Campo legado permanece compatível, sourceRefs continuam autoridade. Alterações atuais revisadas estruturalmente, aceite ainda depende de prova.
+
+- Reserva complementar de correção C17: `public/pwa-worker.js` pertence exclusivamente a `corrigir_interface`, junto da política de cache PWA, para atualização verificável e compatível com chunks sob demanda.
+
+- QA complementar IAB pela raiz: delegação dessa superfície tornou-se tecnicamente indisponível (`Browser is not available: iab` nos filhos); o IAB continua disponível na sessão principal. A raiz assume exclusivamente importação/backup e mestre visual pareado, conforme exceção quando não há delegação possível. Produto e gates de build/teste continuam com os owners. Evidências `Testes/evidencias/correcao-raiz-*` e capturas de mestre já realizadas.
+
+- Recuperação 05/10: owners nativos encerraram com limite de uso confirmado. Sem delegação disponível, raiz assume somente correções restantes comprovadas e QA complementar; ownership anterior fica suspenso até retomada explícita. Primeira reserva exata: fluxo de importação em `src/app/router.tsx`, `src/app/bootstrap.tsx` e seus testes, por snapshot stale reproduzido após substituir backup. Não há novo worker ou mudança de modelo.
+
+- 05/10 retomada após verificação oficial: ordinaryUsageAllowed=true, janela7%; colaboração/interface reativados, jogador anterior não pôde retomar (agent thread limit), substituído por `jogador_qa_final` Luna xhigh, limitado a Chrome e `Testes/correcao-jogador-final.md`/evidências respectivas. Produto volta aos owners. Interface reassume bootstrap com a correção flush/hydrate da raiz já aprovada no foco14 e recebe exclusivamente DataManagementRoute em router para fechamento de recovery/preview de backup. Demais trechos de router preservados; ninguém escreve esses paths em paralelo. Gate final completo reservado à interface quando cloud estiver estável.
+
+- Interface: reserva adicional de `src/features/settings/SettingsPanel.tsx`, teste/tipos locais diretamente necessários e somente SettingsRoute em router, para acesso visível a Backup e recuperação usando navegação existente. Não autoriza outras seções do router.
+
+- Recuperação de capacidade 05/10: ambos owners de produto encerraram novamente com Selected model is at capacity, confirmado por list_agents e tentativas repetidas no mesmo modelo permitido. Delegação de codificação indisponível; raiz assume exclusivamente CreateCharacterRoute em router.tsx/teste direto e CharacterCreationWizard.tsx/teste direto para ciclo seguro de draft já materializado. Nenhum overwrite de ficha existente; opção de cópia com novo ID; draft original preservado até criação concluída. Owners anteriores ficam suspensos nesses trechos até devolução explícita. QA jogador segue separado.
+
+## Fechamento C05/C10 — revisão raiz
+
+- C05 handoff53 focais/emulador aceitou nova regra, mas mapper legado sem scope ainda retornava raiz; revisão recusou aceite e devolveu namespace via operation.ownerUid autoritativo, teste legado com raiz de outro dono e callsite publishExisting ownerUid. Sem deploy antes desse reparo. Bootstrap portrait permanece cloud até handback.
+- C10 QA integrada comprovou mutação antecipada de PV durante rolagem em revisão com confirmação bloqueada; Cancelar não desfaz. fechar_validacao corrige fluxo de prévia/slot/commit; depois assume handler dice bootstrap quando cloud devolver arquivo. Gate final depois de ambos estáveis.
+- C18 mestre recebeu PV7/10 após reload; jogador recebeu Rodada2 e Em turno sem comandos de mestre. Captura completa correcao-mestre-pv-rodada-final.jpg verificada visualmente.
+
+## Fechamento final — 05/10/2026
+
+C05 privado aprovado local/remoto: regras publicadas, dois retratos novos owner correto, raízes de terceiros preservadas; GUI Sincronizado. C10 correção e QA passaram: revisão mostra slot/efeito, confirmação única aplica/gasta, cancelamento e roll isolado preservam PV/slot/reload. Correção de diagnóstico: a mutação legada registrada ocorreu após Confirmar execução; não se atribui à simples rolagem, pois controlador só registra histórico. Gate final1083/1 ignorado, typecheck/build0; assert do mock revisado e suíte repetida. Todos os owners concluíram/devolveram fonte; raiz revisou evidências e reindexou grafo8484/22208. C03 é a única pendência externa: bucket404 e billing false; nenhum compromisso financeiro autorizado. Estado de retomada em Testes/evidencias/correcao-fechamento-estado.json; não repetir matriz/gates sem mudança de fonte ou backend.
+
+## Reabertura C03 — orientação base64 do usuário (05/10/2026)
+
+Usuário reafirmou armazenamento dos mapas em base64. A premissa de Storage obrigatório foi rejeitada; MAP-001/CLOUD-001 e QA pertinente reabertos, sem ativar faturamento. Claude permanece indisponível pelo override vigente; reutilizar Luna xhigh, até3 filhos/profundidade1. Migration: preservar mapas antigos/local/retry/offline e publicar novos em base64 no Firestore, inclusive imagens grandes dentro do limite vigente10MiB, com fragmentos se necessário.
+
+Reserva fechar_sync_retratos: contrato de transporte de mapas/AssetTransfer, novo adapter Firestore base64 e teste direto, integração bootstrap/cloud exports, map-publication e teste direto, consumidores diretos indispensáveis (declarar antes). Entregar esquema congelado antes de implementação para regras; nenhum write em firestore.rules. Não alterar fluxos de retratos/PV/wizard.
+
+Reserva fechar_validacao: firestore.rules e teste/emulador isolado pertinente, índices apenas dos campos base64 se necessários, Testes/correcao-mapas-base64-regras.md. Aguardar esquema do produtor antes de editar regras. Revisar autorização mestre/visibilidade mapa/jogador e publicação completa/privacidade de bytes; não editar adapter/contratos/bootstrap.
+
+jogador_fechamento fica QA Chrome, sem produto; será acionado após fonte/regras prontas. Raiz coordena/revisa/QA mestre e registros Testes/swarm. Gate final somente após integração estável.
+
+## C03 base64 — integração revisada em 05/10/2026
+
+Adapter e regras harmonizados, sem timestamps fora do contrato. Regras e override `chunks.data` publicados no Firestore existente com status 0. Mestre confirmou upload de 4.447 bytes e de 1.573.919 bytes; leitura remota administrativa reconstruiu conteúdo e conferiu digests, 1 e 3 chunks respectivamente. Emulador autenticado executou 2 testes com round-trip do adapter real e ACL. Focos: 39 testes; gate atual: 1.090 passaram/3 ignorados, typecheck/build status 0. Reindexação: 8.562 nós/22.421 arestas.
+
+Produto devolvido pelos dois owners; nenhuma dependência ou faturamento ativado. Aceite final ainda aguarda QA Chrome jogador: renderização/reload/mobile e ocultação pareada. Raiz mantém ownership de consolidação e IAB mestre; jogador mantém Chrome e seu relatório. Não modificar produto nem repetir gates sem falha nova comprovada.
+
+Retomada após interrupção: workers anteriores indisponíveis no inventário. Produto permanece devolvido, gates preservados; raiz consolida apenas relatórios. Reserva QA final exclusivamente Chrome e `Testes/correcao-mapas-base64-jogador.md` para `jogador_base64_ocultacao`, Luna xhigh, sem produto/testes/deps. Critério fechado: mapa grande ocultado sai do atlas/UI após sync/reload; pequeno público permanece imagem real. Servidor Vite 5173 reiniciado sem alterar fonte.
+
+Atualização da retomada: `followup_task` do owner original foi aceito assincronamente e apareceu depois no inventário. Substituto `jogador_base64_ocultacao` interrompido imediatamente, sem reservar produto. Chrome/relatório novamente exclusivos de `jogador_fechamento`; não há dois operadores simultâneos autorizados.
+
+## C03 — aceite final em 05/10/2026
+
+MAP-001/CLOUD-001 no escopo da correção base64 aprovados. QA jogador confirmou grande ausente após ocultação/reload sem limpar cache; pequeno público continua imagem real. Mestre e jogador retomados após reinício Vite com dados persistidos. Gates atuais 1.090/3 ignorados, typecheck/build 0, regras 2/2 executadas separadamente, diff check limpo. Produto devolvido, QA/relatórios fechados, reservas corretivas C03 liberadas. Pendência anterior de Storage retirada: não é requisito de novos mapas base64. Outros gates históricos/dispositivos fora desta rodada não são promovidos por inferência.
+
+## C19 — investigação após captura do usuário
+
+Reserva read-only de sighting producer/fila/mapping/Rules/worker para diagnosticar_sighting, Luna xhigh. Nenhuma edição de produto/test/build/deploy até handback com mecanismo plausível comprovado. Raiz inspeciona Chrome da campanha afetada e consolida Testes. Não limpar dados/outbox nem trocar conta. Erro permission-denied está sendo apresentado como Conflito remoto; separar sintoma da causa.

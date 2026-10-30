@@ -1,0 +1,23 @@
+QA manual local — 2026-10-05
+Build: dist reconstruído após os gates finais; Chrome em http://localhost:5173.
+
+Ficha sintética consultada: Íria QA Mobile, Bardo humano nível 1, DEX 15 (+2), CAR 16 (+3), PV 1/10, CA 12, rapieira equipada.
+
+Ações:
+- Movimento exibido: "Restam 9 m de 9 m".
+- Rapieira exibida com ataque +4 e dano 1d8+2.
+- Revisão de ataque: CA obrigatória; efeito 1d20 +4 contra CA e dano 1d8 +2; custo Ação; confirmação desabilitada sem CA.
+- Captura: qa-attack-review.png.
+
+Magias e descanso:
+- Curar Ferimentos e Palavra Curativa exibidas como nível 1, com custo 2 e status disponível.
+- Revisão de Curar Ferimentos exibiu própria ficha, custo Tempo action, espaço 1º nível e botão de confirmação; revisão cancelada sem consumir slot.
+- Descanso longo exibiu PV 1 → 10 e nenhum Dado de Vida gasto; prévia não confirmada.
+- Captura: qa-heal-review.png.
+
+Compêndio:
+- Rota /compendium carregou 21 seções e 1.451 regras pelo catálogo local lazy.
+- Busca "ábaco" retornou Ábaco e Equipamento De Aventura; detalhe Ábaco mostrou fonte Capítulo 5 — Equipamento, p. 152.
+- Captura: qa-compendium-abaco.png.
+
+Limite da sessão: o badge exibiu "Mestre da campanha · erro de sincronização" durante a QA; não houve prova visual pareada de relay/recebimento entre duas sessões. Nenhuma confirmação de ação, vínculo, convite ou alteração de dados reais foi executada.

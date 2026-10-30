@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-10-05T18:58:12.803352+00:00",
+  "method": "Authenticated Firebase CLI account REST read; verifies persisted bytes, ACL proven separately by emulator and paired GUI",
+  "maps": [
+    {
+      "mapId": "12784595-31ad-4780-a40d-c9b450377b70",
+      "name": "correcao-mapa-fixture",
+      "storagePath": "campaigns/f77afb9b-4fe1-43c4-9406-f791c9706b73/maps/12784595-31ad-4780-a40d-c9b450377b70/content/86dc2072a10c0404d4a6c448f108f2f209672f7659af1a1b3e301f1079e28144",
+      "complete": true,
+      "size": 4447,
+      "chunkCount": 1,
+      "chunks": [
+        {
+          "index": 0,
+          "size": 4447,
+          "base64Chars": 5932,
+          "integrity": true
+        }
+      ],
+      "sha256": "86dc2072a10c0404d4a6c448f108f2f209672f7659af1a1b3e301f1079e28144",
+      "manifestHashMatches": true,
+      "mapHashMatches": true,
+      "visibleTo": [
+        "*"
+      ]
+    },
+    {
+      "mapId": "e02820f3-8cf7-4056-9adb-f68f03a9e7e1",
+      "name": "mapa-base64-grande-qa",
+      "storagePath": "campaigns/f77afb9b-4fe1-43c4-9406-f791c9706b73/maps/e02820f3-8cf7-4056-9adb-f68f03a9e7e1/content/f030ec309c602666666f6a38388fbc1942a7a338c095f12ca4559338fcd57532",
+      "complete": true,
+      "size": 1573919,
+      "chunkCount": 3,
+      "chunks": [
+        {
+          "index": 0,
+          "size": 655360,
+          "base64Chars": 873816,
+          "integrity": true
+        },
+        {
+          "index": 1,
+          "size": 655360,
+          "base64Chars": 873816,
+          "integrity": true
+        },
+        {
+          "index": 2,
+          "size": 263199,
+          "base64Chars": 350932,
+          "integrity": true
+        }
+      ],
+      "sha256": "f030ec309c602666666f6a38388fbc1942a7a338c095f12ca4559338fcd57532",
+      "manifestHashMatches": true,
+      "mapHashMatches": true,
+      "visibleTo": [
+        "*"
+      ]
+    }
+  ]
+}

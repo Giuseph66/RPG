@@ -25,12 +25,12 @@ describe("PWA infrastructure", () => {
     expect(readFileSync(resolve(process.cwd(), "public/offline.html"), "utf8")).toContain("Você está offline");
   });
 
-  it("mantém fallback de deep route e não mistura caches antigos no worker", () => {
+  it("mantém fallback de deep route e conserva corpus de abas anteriores", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/pwa-worker.js"), "utf8");
     expect(worker).toContain("shell.match(\"/index.html\")");
     expect(worker).toContain("SHELL_CACHE");
     expect(worker).toContain("name !== SHELL_CACHE");
-    expect(worker).toContain("name !== CORPUS_CACHE");
+    expect(worker).toContain("name === CORPUS_CACHE");
   });
 
   it("ignora Vary ao consultar o cache de corpus, evitando página em branco offline com CDNs que variam por Origin", () => {
@@ -99,6 +99,112 @@ describe("PWA infrastructure", () => {
     listeners.get("fetch")?.(apiEvent);
     expect(apiEvent.respondWith).not.toHaveBeenCalled();
     expect(cache.put).toHaveBeenCalledTimes(1);
+  });
+
+  it("atualiza o worker sem apagar chunks ainda usados pela aba anterior", async () => {
+    const source = readFileSync(resolve(process.cwd(), "public/pwa-worker.js"), "utf8");
+    const oldName = "rpg-companion-pwa-corpus-2026.09.10";
+    const chunk = "https://rpg.local/assets/creation-OLD.js";
+    const buckets = new Map<string, Map<string, Response>>([
+      [oldName, new Map([[chunk, new Response("old lazy chunk")]])],
+      ["rpg-companion-pwa-shell-2026.09.10", new Map()],
+      ["dados-do-usuario", new Map()],
+    ]);
+    const listeners = new Map<string, (event: any) => void>();
+    const storage = {
+      keys: async () => [...buckets.keys()],
+      delete: async (name: string) => buckets.delete(name),
+      open: async (name: string) => {
+        if (!buckets.has(name)) buckets.set(name, new Map());
+        const bucket = buckets.get(name)!;
+        return { match: async (request: Request | string) => bucket.get(typeof request === "string" ? request : request.url), put: async (request: Request | string, value: Response) => { bucket.set(typeof request === "string" ? request : request.url, value); } };
+      },
+    };
+    const self = { location: { origin: "https://rpg.local" }, clients: { claim: vi.fn(async () => undefined) }, addEventListener: (name: string, listener: (event: any) => void) => listeners.set(name, listener) };
+    const offline = vi.fn(async () => { throw new Error("offline"); });
+    new Function("self", "caches", "fetch", source)(self, storage, offline);
+    let activated: Promise<unknown> | undefined;
+    listeners.get("activate")!({ waitUntil: (promise: Promise<unknown>) => { activated = promise; } });
+    await activated;
+    expect(buckets.has(oldName)).toBe(true);
+    expect(buckets.has("rpg-companion-pwa-shell-2026.09.10")).toBe(false);
+    expect(buckets.has("dados-do-usuario")).toBe(true);
+    let response: Promise<Response> | undefined;
+    listeners.get("fetch")!({ request: new Request(chunk), respondWith: (value: Promise<Response>) => { response = value; } });
+    expect(await (await response!).text()).toBe("old lazy chunk");
+    expect(self.clients.claim).toHaveBeenCalledOnce();
+  });
+
+  it("preaquece chunks de rotas durante a ativação para suportar abertura offline sem visita prévia", async () => {
+    const source = readFileSync(resolve(process.cwd(), "public/pwa-worker.js"), "utf8");
+    type ActivateListener = (event: { readonly waitUntil: (promise: Promise<unknown>) => void }) => void;
+    const listeners = new Map<string, ActivateListener>();
+    const entries = new Map<string, Response>();
+    const cache = {
+      addAll: vi.fn(async () => undefined),
+      put: vi.fn(async (request: Request | string, response: Response) => {
+        entries.set(typeof request === "string" ? request : new URL(request.url).pathname, response);
+      }),
+      match: vi.fn(async (request: Request | string) => entries.get(typeof request === "string" ? request : new URL(request.url).pathname)),
+    };
+    const cacheStorage = {
+      open: vi.fn(async () => cache),
+      keys: vi.fn(async () => []),
+      delete: vi.fn(async () => true),
+    };
+    const workerSelf = {
+      location: { origin: "https://rpg.local" },
+      addEventListener: (type: string, listener: ActivateListener) => { listeners.set(type, listener); },
+      clients: { claim: vi.fn(async () => undefined) },
+      skipWaiting: vi.fn(async () => undefined),
+    };
+    const responses = new Map([
+      ["/index.html", '<script type="module" src="/assets/index-entry.js"></script>'],
+      ["/manifest.webmanifest", '{"icons":[{"src":"/icons/icon-192.png"},{"src":"/icons/icon-512.png"}]}'],
+      ["/assets/index-entry.js", '"assets/compendium-route.js" "assets/data-management-route.js" "assets/gi-icons.js" "assets/DiceOverlay.js"'],
+      ["/assets/compendium-route.js", '"assets/compendium.css"'],
+      ["/assets/data-management-route.js", '"assets/data-management.css"'],
+      ["/assets/gi-icons.js", "icons/icon-192.png"],
+      ["/assets/DiceOverlay.js", 'await import(`./static-catalog.js`);'],
+      ["/assets/static-catalog.js", 'await import("./static-catalog.css");'],
+      ["/assets/static-catalog.css", ".catalog {}"],
+      ["/assets/compendium.css", ".compendium {}"],
+      ["/assets/data-management.css", ".data {}"],
+      ["/icons/icon-192.png", "icon 192"],
+      ["/icons/icon-512.png", "icon 512"],
+      ["/dice/index.json", '{"dice":[{"id":"d20"}]}'],
+      ["/dice/d20.json", "meta"],
+      ["/dice/d20.glb", "model"],
+    ]);
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const path = typeof input === "string" ? input : new URL(input.toString()).pathname;
+      const body = responses.get(path);
+      return new Response(body ?? "missing", { status: body ? 200 : 404 });
+    });
+    const worker = new Function("self", "caches", "fetch", source) as (self: typeof workerSelf, caches: typeof cacheStorage, fetch: typeof fetcher) => void;
+    worker(workerSelf, cacheStorage, fetcher);
+
+    let activation: Promise<unknown> | undefined;
+    listeners.get("activate")?.({ waitUntil: (promise) => { activation = promise; } });
+    await activation;
+
+    expect([...entries.keys()]).toEqual(expect.arrayContaining([
+      "/assets/compendium-route.js",
+      "/assets/data-management-route.js",
+      "/assets/gi-icons.js",
+      "/assets/DiceOverlay.js",
+      "/assets/static-catalog.js",
+      "/assets/static-catalog.css",
+      "/assets/compendium.css",
+      "/assets/data-management.css",
+      "/icons/icon-192.png",
+      "/icons/icon-512.png",
+      "/dice/index.json",
+      "/dice/d20.json",
+      "/dice/d20.glb",
+    ]));
+    expect(fetcher).toHaveBeenCalledWith("/index.html");
+    expect(workerSelf.clients.claim).toHaveBeenCalledOnce();
   });
 
   it("limpa só caches PWA antigos e preserva caches de aplicação", () => {

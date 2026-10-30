@@ -12,6 +12,11 @@
       "collectionGroup": "portraits",
       "fieldPath": "data",
       "indexes": []
+    },
+    {
+      "collectionGroup": "chunks",
+      "fieldPath": "data",
+      "indexes": []
     }
   ]
 }

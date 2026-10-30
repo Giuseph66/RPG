@@ -2,6 +2,9 @@
 .eyebrow { margin: 0 0 var(--spacing-sm); color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
 .title { margin: 0; font-family: var(--typography-display-font-family); font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; }
 .intro { max-width: 55ch; margin: var(--spacing-md) 0 var(--spacing-xl); color: var(--color-text-muted); }
+.dataLink { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); margin: 0 0 var(--spacing-xl); padding: var(--spacing-md); border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border-soft)); border-radius: 8px; background: color-mix(in srgb, var(--color-surface) 82%, transparent); }
+.dataLink div { display: grid; gap: .2rem; }
+.dataLink span { color: var(--color-text-muted); font-size: .85rem; }
 .preview { position: relative; height: clamp(15rem, 58vw, 23rem); margin: 0 0 var(--spacing-lg); overflow: hidden; }
 .previewCanvas { position: relative; z-index: 1; width: 100%; height: 100%; }
 .colorControls { margin: 0; padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md); border: 1px solid color-mix(in srgb, var(--color-primary) 65%, var(--color-border-soft)); }
@@ -10,7 +13,7 @@
 .colorInput :global(label) { text-align: center; font-size: .78rem; }
 .colorInput :global(input[type="color"]) { width: 100%; height: 2.5rem; min-height: 0; padding: .15rem; cursor: pointer; background: transparent; }
 .panel :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
-@media (max-width: 680px) { .panel { padding: var(--spacing-lg) var(--spacing-md); } .colorControls { padding-inline: var(--spacing-sm); } }
+@media (max-width: 680px) { .panel { padding: var(--spacing-lg) var(--spacing-md); } .colorControls { padding-inline: var(--spacing-sm); } .dataLink { align-items: stretch; flex-direction: column; } }
 
 /* Personagem ativo (dropdown) */
 .characterPicker { position: relative; display: grid; gap: .35rem; margin: 0 0 var(--spacing-xl); }

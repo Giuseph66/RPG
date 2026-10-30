@@ -28,7 +28,7 @@ describe("SessionPanel", () => {
 
   it("cria uma sessão com número e título", async () => {
     const service = fakeSession();
-    const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} />);
+    const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} canManage />);
     await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Nova sessão"))!, new MouseEvent("click", { bubbles: true }));
     const inputs = [...mounted.container.querySelectorAll("input")];
     const setValue = (element: HTMLInputElement, value: string) => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); };
@@ -41,7 +41,7 @@ describe("SessionPanel", () => {
   it("cria sessão offline com identidade local, sem authSession", async () => {
     const service = fakeSession();
     Object.assign(service, { localActor: () => ({ source: "local" as const, accountId, email: null, displayName: "Jogador local" }) });
-    const mounted = await mount(<SessionPanel session={service} campaignId={campaignId} />);
+    const mounted = await mount(<SessionPanel session={service} campaignId={campaignId} canManage />);
     await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Nova sessão"))!, new MouseEvent("click", { bubbles: true }));
     const inputs = [...mounted.container.querySelectorAll("input")];
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -57,13 +57,65 @@ describe("SessionPanel", () => {
     const item = plannedSession();
     const setAttendance = vi.fn(async () => ok(item));
     Object.assign(service, { list: vi.fn(async () => ok([item] as const)), setAttendance });
-    const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} characters={[{ id: item.attendance[0].characterId, name: "Artemis", playerId: accountId }]} />);
+    const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} canManage characters={[{ id: item.attendance[0].characterId, name: "Artemis", playerId: accountId }]} />);
     expect(mounted.container.textContent).toContain("Presença");
     const checkbox = mounted.container.querySelector<HTMLInputElement>(`input[type="checkbox"]`)!;
     expect(checkbox.checked).toBe(true);
     checkbox.click();
     await fireEvent([...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Salvar presença"))!, new MouseEvent("click", { bubbles: true }));
     expect(setAttendance).toHaveBeenCalledWith(item.id, accountId, [{ characterId: item.attendance[0].characterId, playerId: accountId, present: false }]);
+    await mounted.unmount();
+  });
+
+  it("mostra erro remoto da sessão e permite tentar novamente", async () => {
+    const service = fakeSession();
+    const onRefreshSync = vi.fn(async () => undefined);
+    const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} syncState="error" syncMessage="A sessão continua neste aparelho." onRefreshSync={onRefreshSync} />);
+
+    expect(mounted.container.textContent).toContain("Erro de sincronização");
+    expect(mounted.container.textContent).toContain("A sessão continua neste aparelho.");
+    const retry = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Tentar sincronizar"));
+    expect(retry).toBeDefined();
+    await fireEvent(retry!, new MouseEvent("click", { bubbles: true }));
+    expect(onRefreshSync).toHaveBeenCalledOnce();
+    await mounted.unmount();
+  });
+
+  it("recarrega sessões quando chega um snapshot remoto", async () => {
+    const service = fakeSession();
+    const item = plannedSession();
+    const list = vi.fn()
+      .mockResolvedValueOnce(ok([] as const))
+      .mockResolvedValueOnce(ok([item] as const));
+    Object.assign(service, { list });
+    const mounted = await mount(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} syncHydration={{ revision: 1 }} />);
+    expect(mounted.container.textContent).toContain("Nenhuma sessão registrada ainda.");
+
+    await mounted.rerender(<SessionPanel session={service} authSession={authSession} campaignId={campaignId} syncHydration={{ revision: 2 }} />);
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(mounted.container.textContent).toContain("Sessão 1 · Sessão teste");
+    await mounted.unmount();
+  });
+
+  it("mantém a leitura para jogador e esconde comandos do mestre", async () => {
+    const service = fakeSession();
+    const item = { ...plannedSession(), status: "active" as const, notes: "Resumo compartilhado", encounter: { round: 2, activeCombatantKey: "character:" + plannedSession().attendance[0].characterId, combatants: [{ entityType: "character" as const, entityId: plannedSession().attendance[0].characterId, initiative: 15 }] } };
+    Object.assign(service, { list: vi.fn(async () => ok([item] as const)) });
+    const mounted = await mount(<SessionPanel session={service} authSession={{ uid: "player-1", email: "jogador@example.com" }} campaignId={campaignId} canManage={false} characters={[{ id: item.attendance[0].characterId, name: "Artemis", playerId: accountId, hitPoints: { current: 7, maximum: 10 } }]} />);
+
+    expect(mounted.container.textContent).toContain("Sessão 1 · Sessão teste");
+    expect(mounted.container.textContent).toContain("Resumo compartilhado");
+    expect(mounted.container.textContent).not.toContain("Nova sessão");
+    expect(mounted.container.textContent).not.toContain("Encerrar");
+    expect(mounted.container.textContent).not.toContain("Salvar notas");
+    expect(mounted.container.textContent).toContain("Ordem do encontro");
+    expect(mounted.container.textContent).toContain("PV 7/10");
+    expect(mounted.container.textContent).toContain("Em turno");
+    expect(mounted.container.textContent).toContain("Rodada 2");
+    expect(mounted.container.textContent).not.toContain("Próximo turno");
+    expect(mounted.container.textContent).not.toContain("Nova rodada");
+    expect(mounted.container.querySelector("select")).toBeNull();
+    expect(mounted.container.querySelector("textarea")?.readOnly).toBe(true);
     await mounted.unmount();
   });
 });

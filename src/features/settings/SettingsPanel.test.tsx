@@ -48,4 +48,13 @@ describe("SettingsPanel — personagem ativo", () => {
     expect(onResume).toHaveBeenCalledWith("d1");
     await unmount();
   });
+
+  it("expõe o acesso visível ao backup e recuperação", async () => {
+    const onOpen = vi.fn();
+    const { container, unmount } = await mount(<SettingsPanel onOpenDataManagement={onOpen} />);
+    expect(container.textContent).toContain("Backup e recuperação");
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Abrir backup")) as HTMLElement);
+    expect(onOpen).toHaveBeenCalledOnce();
+    await unmount();
+  });
 });

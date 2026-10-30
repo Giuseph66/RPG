@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-10-05T17:41:55.654986+00:00",
+  "checks": [
+    {
+      "check": "billing",
+      "status": 200,
+      "billingEnabled": false
+    },
+    {
+      "check": "bucket",
+      "status": 404,
+      "bucketExists": false
+    }
+  ]
+}

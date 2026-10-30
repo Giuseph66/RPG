@@ -100,6 +100,21 @@ describe("FirebaseAssetStorageAdapter", () => {
     expect(await adapter.upload(base)).toMatchObject({ ok: false, error: { code: "storage-unavailable", cause: "storage/network-request-failed" } });
   });
 
+  it("explica bucket ausente sem anunciar upload remoto concluído", async () => {
+    getMetadata.mockImplementationOnce(missing);
+    uploadBytes.mockRejectedValue({ code: "storage/unknown", status_: 404, customData: { serverResponse: "" } });
+    const adapter = createFirebaseAssetStorageAdapter({ app, isAuthenticated: () => true });
+
+    expect(await adapter.upload(base)).toMatchObject({
+      ok: false,
+      error: {
+        code: "storage-unavailable",
+        cause: "storage/unknown",
+        message: expect.stringContaining("bucket configurado do Firebase não existe"),
+      },
+    });
+  });
+
   it("torna delete idempotente para objeto ausente", async () => {
     deleteObject.mockRejectedValue({ code: "storage/object-not-found" });
     const adapter = createFirebaseAssetStorageAdapter({ app, isAuthenticated: () => true });

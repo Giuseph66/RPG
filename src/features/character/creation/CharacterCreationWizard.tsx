@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { Button, InlineStatus, Input, ProgressBar, Select, SectionCard } from "@components/ui";
-import type { CharacterDraft, CharacterDraftStep } from "@domain/contracts/character";
+import type { Character, CharacterDraft, CharacterDraftStep } from "@domain/contracts/character";
 import type { ChoiceDefinition, ChoiceSelection } from "@domain/contracts/primitives";
 import type { DefinitionRef } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
@@ -14,9 +14,9 @@ import {
 import { asCreationCatalog, CREATION_STEPS } from "@domain/character/creation/model";
 import type { CreationDecision, CreationCatalogInput, CreationIssue } from "@domain/character/creation";
 
-import { ABILITY_LABELS, formatRef } from "./mapping";
+import { ABILITY_LABELS, formatRef, SKILL_LABELS } from "./mapping";
 import { artworkForClass } from "../../../assets/art/fantasy";
-import type { CharacterCreationWizardProps } from "./types";
+import type { CharacterCreationWizardProps, CreationWizardService } from "./types";
 import styles from "./character-creation-wizard.module.css";
 
 type PresentationStep = "identity" | CharacterDraftStep;
@@ -49,13 +49,86 @@ function displayName(value: { readonly name?: string; readonly id: string }): st
   return value.name ?? formatRef(value.id);
 }
 
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => [key, stableValue(entry)]));
+  }
+  return value;
+}
+
+/**
+ * Ficha criada a partir do mesmo draft pode ser reencontrada após uma tentativa que
+ * persistiu antes de a UI receber a resposta. Revisão/data são metadados de persistência;
+ * ownerUid é preenchido pela sincronização. Todo o restante precisa ser igual para que a
+ * retomada seja tratada como retry, evitando substituir uma edição concorrente.
+ */
+function creationFingerprint(character: Character): string {
+  const { revision: _revision, updatedAt: _updatedAt, ownerUid: _ownerUid, ...creation } = character;
+  return JSON.stringify(stableValue(creation));
+}
+
+const LANGUAGE_LABELS: Readonly<Record<string, string>> = {
+  common: "Comum", dwarvish: "Anão", elvish: "Élfico", halfling: "Halfling", dragonborn: "Dracônico", gnomish: "Gnômico", orc: "Orc", abyssal: "Abissal", celestial: "Celestial", infernal: "Infernal", primordial: "Primordial", sylvan: "Silvestre", undercommon: "Subcomum",
+};
+const PROFICIENCY_LABELS: Readonly<Record<string, string>> = {
+  "proficiency.alchemist-supplies": "Suprimentos de alquimista", "proficiency.brewers-supplies": "Suprimentos de cervejeiro", "proficiency.carpenters-tools": "Ferramentas de carpinteiro", "proficiency.disguise-kit": "Kit de disfarce", "proficiency.herbalism-kit": "Kit de herbalismo", "proficiency.leatherworkers-tools": "Ferramentas de coureiro", "proficiency.masons-tools": "Ferramentas de pedreiro", "proficiency.navigator-tools": "Ferramentas de navegador", "proficiency.painters-supplies": "Suprimentos de pintor", "proficiency.potters-tools": "Ferramentas de ceramista", "proficiency.smiths-tools": "Ferramentas de ferreiro", "proficiency.thieves-tools": "Ferramentas de ladrão", "proficiency.vehicle-land": "Veículos terrestres", "proficiency.vehicle-water": "Veículos aquáticos", "proficiency.weavers-tools": "Ferramentas de tecelão", "proficiency.woodcarvers-tools": "Ferramentas de entalhador", "proficiency.musical-instrument": "Instrumento musical",
+};
+const OWNER_LABELS: Readonly<Record<string, string>> = { human: "Humano", elf: "Elfo", dwarf: "Anão", bard: "Bardo", fighter: "Guerreiro", rogue: "Ladino", wizard: "Mago", cleric: "Clérigo", druid: "Druida", entertainer: "Artista", soldier: "Soldado", acolyte: "Acólito", noble: "Nobre" };
+const CHOICE_KIND_LABELS: Readonly<Record<string, string>> = { skills: "Perícias", equipment: "Equipamento inicial", tools: "Ferramentas", language: "Idioma adicional", languages: "Idiomas", cantrips: "Truques", spells: "Magias" };
+const EQUIPMENT_BUNDLE_LABELS: Readonly<Record<string, string>> = {
+  "entertainer-pack": "Pacote de artista", "burglar-pack": "Pacote de assaltante", "dungeoneer-pack": "Pacote de aventureiro",
+  "diplomat-pack": "Pacote de diplomata", "scholar-pack": "Pacote de estudioso", "explorer-pack": "Pacote de explorador", "priest-pack": "Pacote de sacerdote",
+};
+const DETAIL_LABELS: Readonly<Record<string, string>> = { appearance: "Aparência", personalityTraits: "Traços de personalidade", ideals: "Ideais", bonds: "Vínculos", flaws: "Defeitos", history: "História" };
+
+function choiceLabel(choiceId: string): string {
+  const [owner, kind] = choiceId.split(".");
+  return `${CHOICE_KIND_LABELS[kind ?? ""] ?? formatRef(kind ?? choiceId)}${owner ? ` · ${OWNER_LABELS[owner] ?? formatRef(owner)}` : ""}`;
+}
+
+function optionLabel(value: string, pack: ReturnType<typeof asCreationCatalog>["rulePack"]): string {
+  if (ABILITY_LABELS[value as keyof typeof ABILITY_LABELS]) return ABILITY_LABELS[value as keyof typeof ABILITY_LABELS];
+  if (SKILL_LABELS[value as keyof typeof SKILL_LABELS]) return SKILL_LABELS[value as keyof typeof SKILL_LABELS];
+  if (LANGUAGE_LABELS[value]) return LANGUAGE_LABELS[value];
+  if (PROFICIENCY_LABELS[value]) return PROFICIENCY_LABELS[value];
+  const equipment = pack.equipment.get(value as DefinitionRef["entityId"]);
+  if (equipment) return equipment.name;
+  const spell = pack.spells.get(value as DefinitionRef["entityId"]);
+  if (spell) return spell.name;
+  return formatRef(value);
+}
+
+function scopedEquipmentOptions(pack: ReturnType<typeof asCreationCatalog>["rulePack"], owner: DefinitionRef, catalog: CreationCatalogInput, selectedIds: readonly string[]): { readonly value: string; readonly label: string }[] {
+  const classDefinition = pack.classes.get(owner.entityId);
+  const proficiencies = new Set(classDefinition?.initialProficiencies.map((ref) => String(ref.entityId)) ?? []);
+  const equipment = Array.from(pack.equipment.values()).filter((item) => {
+    if (item.category === "weapon") return Boolean(item.weapon && (proficiencies.has(`proficiency.${item.id}`) || proficiencies.has(`proficiency.${item.weapon.proficiencyCategory}-weapons`)));
+    if (item.category === "armor") return Boolean(item.armor && (proficiencies.has("proficiency.all-armor") || proficiencies.has(`proficiency.${item.armor.armorCategory}-armor`)));
+    if (item.category === "tool" && item.tool) {
+      if (proficiencies.has(`proficiency.${item.id}`)) return true;
+      if (item.tool.toolCategory === "musical-instrument") return proficiencies.has("proficiency.instrument") || proficiencies.has("proficiency.musical-instrument");
+      if (item.tool.toolCategory === "gaming-set") return proficiencies.has("proficiency.gaming-set");
+      if (item.tool.toolCategory === "artisan") return proficiencies.has("proficiency.artisan-tools");
+    }
+    return false;
+  }).map((item) => ({ value: String(item.id), label: item.name }));
+  const bundles = (asCreationCatalog(catalog).equipmentBundles ?? []).map((bundle) => ({ value: String(bundle.id), label: EQUIPMENT_BUNDLE_LABELS[String(bundle.id)] ?? formatRef(String(bundle.id)) }));
+  const options = new Map([...bundles, ...equipment].map((option) => [option.value, option]));
+  for (const selectedId of selectedIds) {
+    const selected = pack.equipment.get(selectedId as DefinitionRef["entityId"]);
+    if (selected) options.set(selectedId, { value: selectedId, label: selected.name });
+  }
+  return [...options.values()];
+}
+
 function issueForStep(issue: CreationIssue, step: PresentationStep): boolean {
   if (step === "identity") return issue.field === "name";
   if (step === "race") return /race|subrace|dragonborn|human\.language/i.test(issue.field);
-  if (step === "class") return /class|classes|fighter\.skills|choices\.fighter\.skills/i.test(issue.field);
-  if (step === "background") return /background|soldier\.tools|choices\.(?:acolyte|soldier|noble)/i.test(issue.field);
+  if (step === "class") return /class|classes|choices\.[^.]+\.skills/i.test(issue.field);
+  if (step === "background") return /background|choices\.[^.]+\.(?:tools|languages?)/i.test(issue.field);
   if (step === "ability-scores") return /ability/i.test(issue.field);
-  if (step === "equipment") return /equipment|pack/i.test(issue.field);
+  if (step === "equipment") return /equipment|pack|choices\.[^.]+\.equipment/i.test(issue.field);
   if (step === "spells") return /spell|cantrip/i.test(issue.field);
   if (step === "details") return false;
   return true;
@@ -63,10 +136,6 @@ function issueForStep(issue: CreationIssue, step: PresentationStep): boolean {
 
 function choiceOwnerRef(draft: CharacterDraft, choice: ChoiceDefinition, owner: DefinitionRef): DefinitionRef {
   return { ...owner, entityId: owner.entityId || choice.id as DefinitionRef["entityId"] };
-}
-
-function selectedValues(event: ChangeEvent<HTMLSelectElement>): string[] {
-  return Array.from(event.currentTarget.selectedOptions, (option) => option.value);
 }
 
 const TOOL_PROFICIENCY_OPTIONS = [
@@ -105,27 +174,33 @@ function ChoiceEditor({
   readonly onChange: (selection: ChoiceSelection) => void;
 }) {
   const pack = asCreationCatalog(catalog).rulePack;
+  const current = value?.selectedIds.map((entry) => String(entry.entityId)) ?? [];
   const options = useMemo(() => {
     if (choice.optionSet.kind === "explicit") {
-      return choice.optionSet.options.map((option) => ({ value: String(option.entityId), label: formatRef(String(option.entityId)) }));
+      return choice.optionSet.options.map((option) => ({ value: String(option.entityId), label: optionLabel(String(option.entityId), pack) }));
     }
     const selector = choice.optionSet.selector;
-    if (selector.kind === "any-skill") return ["athletics", "acrobatics", "sleight-of-hand", "stealth", "arcana", "history", "investigation", "nature", "religion", "animal-handling", "insight", "medicine", "perception", "survival", "performance", "deception", "intimidation", "persuasion"].map((id) => ({ value: id, label: formatRef(id) }));
+    if (selector.kind === "any-skill") return Object.entries(SKILL_LABELS).map(([value, label]) => ({ value, label }));
     if (selector.kind === "any-language") {
       const languageIds = new Set<string>();
       for (const race of pack.races.values()) for (const language of race.languages) languageIds.add(String(language));
-      return [...languageIds].sort().map((id) => ({ value: id, label: formatRef(id) }));
+      return [...languageIds].sort().map((id) => ({ value: id, label: optionLabel(id, pack) }));
     }
-    if (selector.kind === "any-tool-proficiency") return TOOL_PROFICIENCY_OPTIONS.map((id) => ({ value: id, label: formatRef(id) }));
+    if (selector.kind === "any-tool-proficiency") return TOOL_PROFICIENCY_OPTIONS.map((id) => ({ value: id, label: optionLabel(id, pack) }));
     if (selector.kind === "any-entity-of-type" && selector.entityType === "spell") {
-      return Array.from(pack.spells.values()).filter((spell) => !selector.filterTag || spell.tags.includes(selector.filterTag)).map((spell) => ({ value: String(spell.id), label: displayName(spell) }));
+      const classId = draft.partial.classes?.[0]?.classId;
+      const spellLevel = choice.kind === "cantrip" ? 0 : choice.kind === "spell" ? 1 : undefined;
+      return Array.from(pack.spells.values()).filter((spell) => {
+        if (selector.filterTag && !spell.tags.includes(selector.filterTag)) return false;
+        if (spellLevel !== undefined && spell.level !== spellLevel) return false;
+        return classId === undefined || spell.classes.some((entry) => String(entry) === String(classId));
+      }).map((spell) => ({ value: String(spell.id), label: displayName(spell) }));
     }
     if (selector.kind === "any-entity-of-type" && selector.entityType === "equipment") {
-      return Array.from(pack.equipment.values()).map((item) => ({ value: String(item.id), label: displayName(item) }));
+      return scopedEquipmentOptions(pack, owner, catalog, current);
     }
     return [];
-  }, [choice, pack]);
-  const current = value?.selectedIds.map((entry) => String(entry.entityId)) ?? [];
+  }, [catalog, choice, owner, pack, value]);
   const multiple = choice.count.max > 1;
   const update = (ids: readonly string[]) => onChange({
     choiceId: choice.id,
@@ -133,21 +208,9 @@ function ChoiceEditor({
     grantedAtLevel: 1,
     grantingRef: choiceOwnerRef(draft, choice, owner),
   });
-  return (
-    <div className={styles.choice}>
-      <Select
-        label={formatRef(choice.id)}
-        hint={`Escolha ${choice.count.min === choice.count.max ? choice.count.min : `${choice.count.min} a ${choice.count.max}`} opção${choice.count.max === 1 ? "" : "ões"}.`}
-        value={multiple ? current : current[0] ?? ""}
-        multiple={multiple}
-        onChange={(event) => update(multiple ? selectedValues(event) : event.currentTarget.value ? [event.currentTarget.value] : [])}
-        required={choice.count.min > 0}
-      >
-        {!multiple ? <option value="">Selecione uma opção</option> : null}
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </Select>
-    </div>
-  );
+  const hint = `Opcional · até ${choice.count.max} ${choice.count.max === 1 ? "opção" : "opções"}.`;
+  if (multiple) return <fieldset className={[styles.choice, styles.choiceFieldset].join(" ")} aria-label={choiceLabel(choice.id)}><legend>{choiceLabel(choice.id)}</legend><p className={styles.choiceHint}>{hint}</p><div className={styles.choiceOptions}>{options.map((option) => { const checked = current.includes(option.value); return <label className={[styles.choiceOption, checked ? styles.choiceOptionSelected : ""].filter(Boolean).join(" ")} key={option.value}><input type="checkbox" value={option.value} checked={checked} disabled={!checked && current.length >= choice.count.max} onChange={(event) => update(event.currentTarget.checked ? [...current, option.value] : current.filter((id) => id !== option.value))} /><span>{option.label}</span></label>; })}</div><p className={styles.choiceCount} aria-live="polite">{current.length} de {choice.count.max} selecionada(s)</p></fieldset>;
+  return <div className={styles.choice}><Select label={choiceLabel(choice.id)} hint={hint} value={current[0] ?? ""} onChange={(event) => update(event.currentTarget.value ? [event.currentTarget.value] : [])}><option value="">Nenhuma</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></div>;
 }
 
 function StepNavigation({ current, onStep }: { readonly current: PresentationStep; readonly onStep: (step: PresentationStep) => void }) {
@@ -162,24 +225,23 @@ function StepNavigation({ current, onStep }: { readonly current: PresentationSte
 
 export function CharacterCreationWizard({ draft: initialDraft, catalog, service, onDraftChange, onDraftSaved, onCreated, onCancel }: CharacterCreationWizardProps) {
   const [draft, setDraft] = useState(initialDraft);
-  const [step, setStep] = useState<PresentationStep>(initialDraft.partial.name?.trim() ? (initialDraft.currentStep === "review" ? "review" : initialDraft.currentStep) : "identity");
+  const [step, setStep] = useState<PresentationStep>(initialDraft.partial.name?.trim() && initialDraft.completedSteps.length > 0 ? (initialDraft.currentStep === "review" ? "review" : initialDraft.currentStep) : "identity");
   const [status, setStatus] = useState<"idle" | "saving-draft" | "draft-saved" | "confirming" | "confirmed" | "error">("idle");
   const [message, setMessage] = useState<string>();
   const [reviewIssues, setReviewIssues] = useState<readonly CreationIssue[]>([]);
   const [savedDraft, setSavedDraft] = useState(false);
   const confirming = useRef(false);
-  const draftSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const draftSaveQueue = useRef<Promise<Awaited<ReturnType<CreationWizardService["saveDraft"]>>>>(Promise.resolve({ ok: true, value: initialDraft }));
 
   const pack = asCreationCatalog(catalog).rulePack;
   const report = useMemo(() => validateCharacterCreation(catalog, draft), [catalog, draft]);
   const index = STEPS.indexOf(step);
   const stepIssues = report.issues.filter((issue) => issueForStep(issue, step));
-  const isStepValid = step === "review" ? report.valid : stepIssues.length === 0;
 
   const queueDraftSave = (nextDraft: CharacterDraft) => {
     if (!service) return undefined;
     const pending = draftSaveQueue.current.then(() => service.saveDraft(nextDraft));
-    draftSaveQueue.current = pending.then(() => undefined, () => undefined);
+    draftSaveQueue.current = pending;
     return pending;
   };
 
@@ -208,17 +270,8 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
     }
   };
 
+  // Navegação livre: pendências aparecem nas etapas e só bloqueiam a confirmação final.
   const goTo = (next: PresentationStep) => {
-    const nextIndex = STEPS.indexOf(next);
-    if (nextIndex > index) {
-      for (const candidate of STEPS.slice(index, nextIndex)) {
-        const pending = report.issues.find((issue) => issueForStep(issue, candidate));
-        if (pending) {
-          setMessage(pending.message ?? "Resolva as pendências desta etapa para continuar.");
-          return;
-        }
-      }
-    }
     setMessage(undefined);
     setStep(next);
   };
@@ -249,6 +302,13 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
     }
     confirming.current = true;
     setStatus("confirming");
+    const latestDraftSave = await draftSaveQueue.current;
+    if (!latestDraftSave.ok) {
+      confirming.current = false;
+      setStatus("error");
+      setMessage(latestDraftSave.error.message);
+      return;
+    }
     const materialized = materializeCharacter(catalog, draft);
     if (!materialized.ok) {
       confirming.current = false;
@@ -256,16 +316,46 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
       setMessage(materialized.error.map((issue) => issue.message).join(" "));
       return;
     }
-    const saved = await service.saveCharacter(materialized.value.character, asRevision(0));
+    const intended = materialized.value.character;
+    if (service.loadCharacter) {
+      const existing = await service.loadCharacter(intended.id);
+      if (!existing.ok && existing.error.code !== "not-found") {
+        confirming.current = false;
+        setStatus("error");
+        setMessage(existing.error.message);
+        return;
+      }
+      if (existing.ok) {
+        if (!service.canReuseCharacter?.(existing.value)) {
+          confirming.current = false;
+          setStatus("error");
+          setMessage("Este personagem pertence a outra conta e não pode ser substituído.");
+          return;
+        }
+        if (creationFingerprint(existing.value) !== creationFingerprint(intended)) {
+          confirming.current = false;
+          setStatus("error");
+          setMessage("Este personagem já foi alterado. Recarregue a ficha antes de confirmar.");
+          return;
+        }
+        const deleted = await service.deleteDraft(draft.id);
+        setStatus("confirmed");
+        setMessage(deleted.ok ? "Personagem criado." : "Personagem criado. Não foi possível remover o rascunho salvo.");
+        onCreated?.(existing.value, existing.value.revision);
+        return;
+      }
+    }
+    const saved = await service.saveCharacter(intended, asRevision(0));
     if (!saved.ok) {
       confirming.current = false;
       setStatus("error");
       setMessage(saved.error.message);
       return;
     }
+    const deleted = await service.deleteDraft(draft.id);
     setStatus("confirmed");
-    setMessage("Personagem criado.");
-    onCreated?.(materialized.value.character, saved.value);
+    setMessage(deleted.ok ? "Personagem criado." : "Personagem criado. Não foi possível remover o rascunho salvo.");
+    onCreated?.(intended, saved.value);
   };
 
   const race = draft.partial.raceRef ? pack.races.get(draft.partial.raceRef.entityId) : undefined;
@@ -276,24 +366,24 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   const raceChoices = [...(race?.choices ?? []), ...(draft.partial.subraceRef ? pack.subraces.get(draft.partial.subraceRef.entityId)?.choices ?? [] : [])];
   const backgroundChoices = [...(background?.toolChoices ?? []), ...(background?.languageChoices ?? [])];
   const choices = [...raceChoices.map((choice) => ({ choice, owner: draft.partial.raceRef })), ...classChoices.map((choice) => ({ choice, owner: draft.partial.classes?.[0] ? refFor(draft, draft.partial.classes[0].classId) : undefined })), ...backgroundChoices.map((choice) => ({ choice, owner: draft.partial.backgroundRef }))].filter((entry): entry is { choice: ChoiceDefinition; owner: DefinitionRef } => entry.owner !== undefined);
-  const equipmentChoices = choices.filter(({ choice }) => !/spell|cantrip/i.test(choice.id));
-  const spellChoices = choices.filter(({ choice }) => /spell|cantrip/i.test(choice.id));
+  const equipmentChoices = choices.filter(({ choice }) => choice.kind === "equipment-pack");
+  const spellChoices = choices.filter(({ choice }) => choice.kind === "spell" || choice.kind === "cantrip");
   const heroArtwork = classArtwork(String(classDefinition?.id ?? ""));
   const characterName = draft.partial.name?.trim() || "Aventureiro sem nome";
 
   const renderStep = (): ReactNode => {
     switch (step) {
-      case "identity": return <SectionCard heading="Quem está chegando?" headingLevel={2}><div className={styles.formGrid}><Input label="Nome do personagem" required value={draft.partial.name ?? ""} error={stepIssues.find((issue) => issue.field === "name")?.message} onChange={(event) => commitDraft({ kind: "identity", name: event.currentTarget.value })} /><Input label="Nome do jogador" value={draft.partial.playerName ?? ""} onChange={(event) => commitDraft({ kind: "identity", name: draft.partial.name ?? "", playerName: event.currentTarget.value })} /></div></SectionCard>;
-      case "race": return <SectionCard heading="Escolha uma raça" headingLevel={2}><Select label="Raça" required value={String(draft.partial.raceRef?.entityId ?? "")} error={stepIssues.find((issue) => /raceRef/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "race", raceRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma raça</option>{Array.from(pack.races.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select>{race?.subraceIds.length ? <Select label="Sub-raça" required value={String(draft.partial.subraceRef?.entityId ?? "")} onChange={(event) => commitDraft({ kind: "race", raceRef: draft.partial.raceRef!, subraceRef: event.currentTarget.value ? refFor(draft, event.currentTarget.value) : undefined })}><option value="">Selecione uma sub-raça</option>{race.subraceIds.map((id) => { const entry = pack.subraces.get(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{raceChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.raceRef!} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
+      case "identity": return <SectionCard heading="Quem está chegando?" headingLevel={2}><div className={styles.formGrid}><Input label="Nome do personagem" hint="Opcional · sem nome, vira “Aventureiro sem nome”." value={draft.partial.name ?? ""} error={stepIssues.find((issue) => issue.field === "name")?.message} onChange={(event) => commitDraft({ kind: "identity", name: event.currentTarget.value })} /><Input label="Nome do jogador" value={draft.partial.playerName ?? ""} onChange={(event) => commitDraft({ kind: "identity", name: draft.partial.name ?? "", playerName: event.currentTarget.value })} /></div></SectionCard>;
+      case "race": return <SectionCard heading="Escolha uma raça" headingLevel={2}><Select label="Raça" required value={String(draft.partial.raceRef?.entityId ?? "")} error={stepIssues.find((issue) => /raceRef/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "race", raceRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma raça</option>{Array.from(pack.races.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select>{race?.subraceIds.length ? <Select label="Sub-raça" value={String(draft.partial.subraceRef?.entityId ?? "")} onChange={(event) => commitDraft({ kind: "race", raceRef: draft.partial.raceRef!, subraceRef: event.currentTarget.value ? refFor(draft, event.currentTarget.value) : undefined })}><option value="">Nenhuma</option>{race.subraceIds.map((id) => { const entry = pack.subraces.get(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{raceChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.raceRef!} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
       case "class": return <SectionCard heading="Escolha uma classe" headingLevel={2}><Select label="Classe" required value={String(draft.partial.classes?.[0]?.classId ?? "")} error={stepIssues.find((issue) => /class|classes/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma classe</option>{Array.from(pack.classes.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select><div className={styles.classGrid} aria-label="Artes das classes">{Array.from(pack.classes.values()).map((entry) => { const artwork = classArtwork(String(entry.id)); const selectedClass = String(draft.partial.classes?.[0]?.classId ?? "") === String(entry.id); return <button type="button" className={[styles.classTile, selectedClass ? styles.classTileSelected : ""].filter(Boolean).join(" ")} aria-pressed={selectedClass} key={entry.id} onClick={() => commitDraft({ kind: "class", classRef: refFor(draft, String(entry.id)) })}><img src={artwork.src} alt="" /><span>{displayName(entry)}</span></button>; })}</div>{classDefinition?.skillChoices ? <ChoiceEditor draft={draft} choice={classDefinition.skillChoices} owner={refFor(draft, classDefinition.id)} catalog={catalog} value={selectedChoices.get(classDefinition.skillChoices.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} /> : null}</SectionCard>;
       case "background": return <SectionCard heading="Escolha um antecedente" headingLevel={2}><Select label="Antecedente" required value={String(draft.partial.backgroundRef?.entityId ?? "")} error={stepIssues.find((issue) => /background/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "background", backgroundRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione um antecedente</option>{Array.from(pack.backgrounds.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select>{backgroundChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.backgroundRef!} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
-      case "ability-scores": return <SectionCard heading="Defina os atributos" headingLevel={2}><Select label="Método" required value={draft.partial.abilityGeneration?.method ?? ""} onChange={(event) => { const method = event.currentTarget.value as NonNullable<typeof draft.partial.abilityGeneration>["method"]; const previous = draft.partial.abilityGeneration?.baseScores ?? { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }; commitDraft({ kind: "ability-scores", method: { method, baseScores: previous } }); }}><option value="">Selecione um método</option><option value="standard-array">Matriz padrão</option><option value="point-buy">Compra de pontos</option><option value="rolled">Rolagem</option><option value="manual">Manual</option></Select><div className={styles.abilityInputs}>{ABILITIES.map((ability) => <Input key={ability} label={ABILITY_LABELS[ability]} type="number" min={1} max={30} value={draft.partial.abilityGeneration?.baseScores[ability] || ""} onChange={(event) => { const current = draft.partial.abilityGeneration; if (!current) return; commitDraft({ kind: "ability-scores", method: { ...current, baseScores: { ...current.baseScores, [ability]: Number(event.currentTarget.value) } } }); }} />)}</div>{stepIssues.filter((issue) => /ability/.test(issue.field)).map((issue) => <p className={styles.error} key={`${issue.field}-${issue.message}`}>{issue.message}</p>)}</SectionCard>;
+      case "ability-scores": return <SectionCard heading="Defina os atributos" headingLevel={2}><Select label="Método" hint="Opcional · atributos em branco ficam com 10." value={draft.partial.abilityGeneration?.method ?? ""} onChange={(event) => { const method = event.currentTarget.value as NonNullable<typeof draft.partial.abilityGeneration>["method"]; const previous = draft.partial.abilityGeneration?.baseScores ?? { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }; commitDraft({ kind: "ability-scores", method: { method, baseScores: previous } }); }}><option value="">Selecione um método</option><option value="standard-array">Matriz padrão</option><option value="point-buy">Compra de pontos</option><option value="rolled">Rolagem</option><option value="manual">Manual</option></Select><div className={styles.abilityInputs}>{ABILITIES.map((ability) => <Input key={ability} label={ABILITY_LABELS[ability]} type="number" min={1} max={30} value={draft.partial.abilityGeneration?.baseScores[ability] || ""} onChange={(event) => { const current = draft.partial.abilityGeneration ?? { method: "manual" as const, baseScores: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } }; commitDraft({ kind: "ability-scores", method: { ...current, baseScores: { ...current.baseScores, [ability]: Number(event.currentTarget.value) } } }); }} />)}</div>{stepIssues.filter((issue) => /ability/.test(issue.field)).map((issue) => <p className={styles.error} key={`${issue.field}-${issue.message}`}>{issue.message}</p>)}</SectionCard>;
       case "equipment": return <SectionCard heading="Escolha o equipamento" headingLevel={2}>{equipmentChoices.length ? equipmentChoices.map(({ choice, owner }) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={owner} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "equipment", selections: [selection] })} />) : <p className={styles.muted}>O catálogo atual não publicou escolhas de equipamento para esta combinação.</p>}</SectionCard>;
       case "spells": return <SectionCard heading="Escolha as magias iniciais" headingLevel={2}>{spellChoices.length ? spellChoices.map(({ choice, owner }) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={owner} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "spells", selections: [selection] })} />) : <p className={styles.muted}>Esta combinação não possui escolhas de magia publicadas no catálogo atual.</p>}</SectionCard>;
-      case "details": return <SectionCard heading="Conte a história" headingLevel={2}><div className={styles.formGrid}>{(["appearance", "personalityTraits", "ideals", "bonds", "flaws", "history"] as const).map((field) => <label className={styles.textareaField} key={field}><span>{formatRef(field)}</span><textarea value={field === "appearance" || field === "history" ? draft.partial[field] ?? "" : (draft.partial[field] ?? []).join("\n")} onChange={(event) => { const value = field === "appearance" || field === "history" ? event.currentTarget.value : event.currentTarget.value.split("\n").filter(Boolean); commitDraft({ kind: "details", details: { [field]: value } as never }); }} /></label>)}</div></SectionCard>;
-      case "review": return <SectionCard heading="Revise antes de confirmar" headingLevel={2}><div className={styles.summary}><p><strong>Nome:</strong> {draft.partial.name || "Pendente"}</p><p><strong>Raça:</strong> {race?.name ?? "Pendente"}</p><p><strong>Classe:</strong> {classDefinition?.name ?? "Pendente"}</p><p><strong>Antecedente:</strong> {background?.name ?? "Pendente"}</p><p><strong>Atributos:</strong> {draft.partial.abilityGeneration ? ABILITIES.map((ability) => `${ABILITY_LABELS[ability]} ${draft.partial.abilityGeneration?.baseScores[ability]}`).join(" · ") : "Pendente"}</p><p><strong>Escolhas resolvidas:</strong> {draft.partial.choices?.length ?? 0}</p></div>{(reviewIssues.length || !report.valid) ? <div className={styles.issues} role="alert"><strong>Pendências</strong><ul>{(reviewIssues.length ? reviewIssues : report.issues).map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message} <small>({issue.field})</small></li>)}</ul></div> : <InlineStatus tone="success">Tudo pronto para criar o personagem.</InlineStatus>}</SectionCard>;
+      case "details": return <SectionCard heading="Conte a história" headingLevel={2}><div className={styles.formGrid}>{(["appearance", "personalityTraits", "ideals", "bonds", "flaws", "history"] as const).map((field) => <label className={styles.textareaField} key={field}><span>{DETAIL_LABELS[field]}</span><textarea value={field === "appearance" || field === "history" ? draft.partial[field] ?? "" : (draft.partial[field] ?? []).join("\n")} onChange={(event) => { const value = field === "appearance" || field === "history" ? event.currentTarget.value : event.currentTarget.value.split("\n").filter(Boolean); commitDraft({ kind: "details", details: { [field]: value } as never }); }} /></label>)}</div></SectionCard>;
+      case "review": return <SectionCard heading="Revise antes de confirmar" headingLevel={2}><div className={styles.summary}><p><strong>Nome:</strong> {draft.partial.name?.trim() || "Aventureiro sem nome"}</p><p><strong>Raça:</strong> {race?.name ?? "Pendente"}</p><p><strong>Classe:</strong> {classDefinition?.name ?? "Pendente"}</p><p><strong>Antecedente:</strong> {background?.name ?? "Pendente"}</p><p><strong>Atributos:</strong> {ABILITIES.map((ability) => `${ABILITY_LABELS[ability]} ${draft.partial.abilityGeneration?.baseScores[ability] || (draft.partial.abilityGeneration?.method === "point-buy" ? 8 : 10)}`).join(" · ")}</p><p><strong>Escolhas resolvidas:</strong> {draft.partial.choices?.length ?? 0}</p></div>{(reviewIssues.length || !report.valid) ? <div className={styles.issues} role="alert"><strong>Pendências</strong><ul>{(reviewIssues.length ? reviewIssues : report.issues).map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message} <small>({issue.field})</small></li>)}</ul></div> : <InlineStatus tone="success">Tudo pronto para criar o personagem.</InlineStatus>}</SectionCard>;
     }
   };
 
-  return <section className={styles.wizard} aria-labelledby="creation-title"><header className={styles.header}><div><p className={styles.eyebrow}>NOVA FICHA</p><h1 id="creation-title">Criação de personagem</h1><p className={styles.subtitle}>Etapa {index + 1} de {STEPS.length}: {STEP_LABELS[step]}</p></div><Button variant="ghost" onClick={onCancel}>Cancelar</Button></header><aside className={styles.dossier} aria-label="Resumo da ficha em criação"><div className={styles.portrait}><img src={heroArtwork.src} alt={heroArtwork.alt} /></div><div className={styles.dossierCopy}><p>Crônica em construção</p><h2>{characterName}</h2><span>{race?.name ?? "Origem pendente"} · {classDefinition?.name ?? "Vocação pendente"}</span></div><dl className={styles.dossierStats}><div><dt>Etapa</dt><dd>{index + 1}/{STEPS.length}</dd></div><div><dt>Origem</dt><dd>{race?.name ?? "—"}</dd></div><div><dt>Vocação</dt><dd>{classDefinition?.name ?? "—"}</dd></div></dl></aside><div className={styles.progress}><ProgressBar value={index + 1} max={STEPS.length} label={`Progresso: etapa ${index + 1} de ${STEPS.length}`} /></div><StepNavigation current={step} onStep={goTo} />{message ? <InlineStatus tone={status === "error" ? "error" : status === "confirmed" ? "success" : "info"} assertive={status === "error"}>{message}</InlineStatus> : null}<div className={styles.content}>{renderStep()}</div><footer className={styles.footer}><div className={styles.footerLeft}>{service ? <Button variant="ghost" busy={status === "saving-draft"} disabled={savedDraft || status === "confirming" || status === "confirmed"} onClick={() => void saveDraft()}>{savedDraft ? "Rascunho salvo" : "Salvar rascunho"}</Button> : null}</div><div className={styles.footerActions}>{index > 0 ? <Button variant="ghost" onClick={() => setStep(STEPS[index - 1])}>Voltar</Button> : null}{index < STEPS.length - 1 ? <Button disabled={!isStepValid} disabledReason={stepIssues[0]?.message} onClick={() => setStep(STEPS[index + 1])}>Continuar</Button> : <Button busy={status === "confirming"} disabled={!service || !report.valid || status === "confirmed"} disabledReason={!service ? "Serviço de persistência indisponível." : !report.valid ? "Resolva as pendências da revisão." : undefined} onClick={() => void confirm()}>{status === "confirmed" ? "Personagem criado" : "Confirmar personagem"}</Button>}</div></footer></section>;
+  return <section className={styles.wizard} aria-labelledby="creation-title"><header className={styles.header}><div><p className={styles.eyebrow}>NOVA FICHA</p><h1 id="creation-title">Criação de personagem</h1><p className={styles.subtitle}>Etapa {index + 1} de {STEPS.length}: {STEP_LABELS[step]}</p></div><Button variant="ghost" onClick={onCancel}>Cancelar</Button></header><aside className={styles.dossier} aria-label="Resumo da ficha em criação"><div className={styles.portrait}><img src={heroArtwork.src} alt={heroArtwork.alt} /></div><div className={styles.dossierCopy}><p>Crônica em construção</p><h2>{characterName}</h2><span>{race?.name ?? "Origem pendente"} · {classDefinition?.name ?? "Vocação pendente"}</span></div><dl className={styles.dossierStats}><div><dt>Etapa</dt><dd>{index + 1}/{STEPS.length}</dd></div><div><dt>Origem</dt><dd>{race?.name ?? "—"}</dd></div><div><dt>Vocação</dt><dd>{classDefinition?.name ?? "—"}</dd></div></dl></aside><div className={styles.progress}><ProgressBar value={index + 1} max={STEPS.length} label={`Progresso: etapa ${index + 1} de ${STEPS.length}`} /></div><StepNavigation current={step} onStep={goTo} />{message ? <InlineStatus tone={status === "error" ? "error" : status === "confirmed" ? "success" : "info"} assertive={status === "error"}>{message}</InlineStatus> : null}<div className={styles.content}>{renderStep()}</div><footer className={styles.footer}><div className={styles.footerLeft}>{service ? <Button variant="ghost" busy={status === "saving-draft"} disabled={savedDraft || status === "confirming" || status === "confirmed"} onClick={() => void saveDraft()}>{savedDraft ? "Rascunho salvo" : "Salvar rascunho"}</Button> : null}</div><div className={styles.footerActions}>{index > 0 ? <Button variant="ghost" onClick={() => setStep(STEPS[index - 1])}>Voltar</Button> : null}{index < STEPS.length - 1 ? <Button onClick={() => goTo(STEPS[index + 1])}>Continuar</Button> : <Button busy={status === "confirming"} disabled={!service || !report.valid || status === "confirmed"} disabledReason={!service ? "Serviço de persistência indisponível." : !report.valid ? "Resolva as pendências da revisão." : undefined} onClick={() => void confirm()}>{status === "confirmed" ? "Personagem criado" : "Confirmar personagem"}</Button>}</div></footer></section>;
 }

@@ -22,7 +22,7 @@ describe("Compendium", () => {
 
   it("collapses and expands category tiles with an accessible control", async () => {
     const { container, unmount } = await mount(<Compendium entries={[]} filters={{ query: "" }} categories={[{ id: "spell", label: "Magia", status: "available" }]} />);
-    const toggle = container.querySelector(".categoryToggle") as HTMLButtonElement;
+    const toggle = container.querySelector('button[aria-controls="compendium-category-grid"]') as HTMLButtonElement;
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(container.querySelector("#compendium-category-grid")).not.toBeNull();
     await fireEvent(toggle, new MouseEvent("click", { bubbles: true }));
@@ -47,7 +47,7 @@ describe("Compendium", () => {
   it("clears an active category when pressed again", async () => {
     const onFiltersChange = vi.fn();
     const { container, unmount } = await mount(<Compendium entries={[]} filters={{ query: "", category: "spell" }} categories={[{ id: "spell", label: "Magia", status: "available" }]} onFiltersChange={onFiltersChange} />);
-    const category = container.querySelector('[aria-labelledby="compendium-categories-title"] button') as HTMLButtonElement;
+    const category = container.querySelector('#compendium-category-grid button[aria-pressed="true"]') as HTMLButtonElement;
     await fireEvent(category, new MouseEvent("click", { bubbles: true }));
     expect(onFiltersChange).toHaveBeenLastCalledWith({ query: "", category: undefined });
     await unmount();
@@ -63,7 +63,7 @@ describe("Compendium", () => {
   });
 
   it("opens selected result in an accessible dialog with source", async () => {
-    const { container, unmount } = await mount(<Compendium entries={entries} filters={{ query: "" }} />);
+    const { container, unmount } = await mount(<Compendium entries={entries} filters={{ query: "cura" }} />);
     const result = container.querySelector('[aria-labelledby="compendium-results-title"] li button') as HTMLButtonElement;
     await fireEvent(result, new MouseEvent("click", { bubbles: true }));
     const dialog = container.querySelector('[role="dialog"]');

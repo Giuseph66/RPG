@@ -29,6 +29,21 @@ export class CompendiumService {
   }
 
   getIndex(): readonly CompendiumIndexEntry[] { return this.index; }
+  /**
+   * Adds a deferred catalog slice without recreating the service or its favorites.
+   * Bootstrap can use this to load the large static book catalog only when the
+   * compendium surface is requested.
+   */
+  addItems(items: readonly CompendiumCatalogItem[]): void {
+    let changed = false;
+    for (const item of items) {
+      const entry = createIndexEntry(item);
+      if (this.entriesByKey.has(entry.key)) continue;
+      this.entriesByKey.set(entry.key, { entry, definition: item.definition });
+      changed = true;
+    }
+    if (changed) this.index = [...this.entriesByKey.values()].map(({ entry }) => entry).sort((a, b) => a.key.localeCompare(b.key, "en"));
+  }
   getCategories(): readonly CompendiumCategory[] {
     return COMPENDIUM_CATEGORIES.map((category) => {
       const hasEntries = categoryEntries(this.index, category.id).length > 0;

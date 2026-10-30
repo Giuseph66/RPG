@@ -105,7 +105,10 @@ export class IndexedDbOutboxRepository implements OutboxRepository {
       if (!valid.ok) return valid;
       const operation = valid.value;
       const retryable = operation.status === "failed" && (options.includeFailed === true || (operation.nextRetryAt !== undefined && operation.nextRetryAt <= now));
-      if (operation.status === "pending" || retryable || (operation.status === "conflict" && options.includeConflicts === true)) operations.push(operation);
+      // Se a aba caiu depois de marcar a operação como syncing, não há outro
+      // estado que a devolva à fila. A aplicação remota usa operationId e é
+      // idempotente, portanto a próxima drenagem pode retomar esse registro.
+      if (operation.status === "pending" || operation.status === "syncing" || retryable || (operation.status === "conflict" && options.includeConflicts === true)) operations.push(operation);
     }
     operations.sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.operationId.localeCompare(right.operationId));
     return ok(options.limit === undefined ? operations : operations.slice(0, options.limit));

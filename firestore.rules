@@ -77,6 +77,37 @@ service cloud.firestore {
         allow delete: if self(uid) && resource.data.ownerUid == uid &&
           hasRecordIdentity(resource.data, characterId);
       }
+
+      // Retratos privados novos usam o namespace da conta. Os registros legados
+      // da coleção raiz seguem as regras de posse do caminho compatível.
+      match /portraits/{portraitId} {
+        function validPrivatePortrait(data) {
+          return hasRecordIdentity(data, portraitId) && data.ownerUid == uid &&
+            data.keys().hasOnly(['id', 'ownerUid', 'mediaType', 'sha256', 'width', 'height', 'data', 'createdAt', 'updatedAt', 'revision', 'schemaVersion', 'operationId']) &&
+            data.data is string && data.data.size() > 0 && data.data.size() <= 900000 &&
+            data.sha256 is string && data.sha256.matches('^[a-f0-9]{64}$') &&
+            data.mediaType in ['image/webp', 'image/jpeg'] &&
+            (!('width' in data) || (data.width is int && data.width > 0 && data.width <= 1024)) &&
+            (!('height' in data) || (data.height is int && data.height > 0 && data.height <= 1024));
+        }
+        allow get: if self(uid) && (resource == null || resource.data.ownerUid == uid && resource.data.id == portraitId);
+        allow list: if false;
+        allow create: if self(uid) && validPrivatePortrait(request.resource.data);
+        allow update: if self(uid) && resource.data.ownerUid == uid &&
+          validPrivatePortrait(request.resource.data) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'operationId', 'revision']) &&
+          revisionAdvances(resource.data, request.resource.data);
+        allow delete: if self(uid) && resource.data.ownerUid == uid;
+      }
+    }
+
+    // A sincronização descobre os convites e campanhas consultando o grupo
+    // `members` por accountId. A regra aninhada usa o ID do documento e não
+    // consegue provar essa consulta de grupo; autorize apenas a lista filtrada
+    // para a própria conta. As regras específicas abaixo continuam controlando
+    // leituras e escritas pontuais de cada vínculo.
+    match /{path=**}/members/{memberUid} {
+      allow list: if signedIn() && resource.data.accountId == request.auth.uid;
     }
 
     match /campaigns/{campaignId} {
@@ -293,11 +324,133 @@ service cloud.firestore {
           protectedFieldsUnchanged(resource.data, request.resource.data) &&
           revisionAdvances(resource.data, request.resource.data);
         allow delete: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, mapId);
+
+        // Imagem base64 do mapa: o mestre prepara uma versão em estado staged,
+        // grava os chunks e só então pode marcá-la completa. O mapa precisa
+        // apontar para a versão completa antes que um jogador possa lê-la.
+        match /content/{contentSha256} {
+          function contentPath() {
+            return 'campaigns/' + campaignId + '/maps/' + mapId + '/content/' + contentSha256;
+          }
+
+          function validContentDigest(value) {
+            return value is string && value.matches('^[a-f0-9]{64}$') && value == contentSha256;
+          }
+
+          function validContentManifest(data) {
+            return data.keys().hasOnly(['schemaVersion', 'kind', 'campaignId', 'mapId', 'ownerUid', 'sha256', 'mediaType', 'size', 'chunkSize', 'chunkCount', 'complete']) &&
+              data.schemaVersion == 1 && data.kind == 'map-image' &&
+              data.campaignId == campaignId && data.mapId == mapId &&
+              data.ownerUid == get(/databases/$(database)/documents/campaigns/$(campaignId)).data.ownerUid &&
+              validContentDigest(data.sha256) &&
+              data.mediaType in ['image/png', 'image/jpeg', 'image/webp'] &&
+              data.size is int && data.size > 0 && data.size <= 10485760 &&
+              data.chunkSize == 655360 &&
+              data.chunkCount is int && data.chunkCount > 0 && data.chunkCount <= 16 &&
+              data.size > (data.chunkCount - 1) * data.chunkSize &&
+              data.size <= data.chunkCount * data.chunkSize &&
+              data.complete is bool;
+          }
+
+          function mapReferencesContent() {
+            return get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)).data.image is map &&
+              get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)).data.image.storagePath == contentPath() &&
+              get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)).data.image.sha256 == contentSha256;
+          }
+
+          function mapIsVisibleToCaller() {
+            return get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)).data.visibleTo is list &&
+              (request.auth.uid in get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)).data.visibleTo ||
+                '*' in get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)).data.visibleTo);
+          }
+
+          function playerCanReadManifest() {
+            return signedIn() && activeMember(campaignId, request.auth.uid) && resource != null &&
+              validContentManifest(resource.data) && resource.data.complete == true &&
+              mapReferencesContent() && mapIsVisibleToCaller();
+          }
+
+          allow get: if campaignOwner(campaignId) || playerCanReadManifest();
+          allow list: if campaignOwner(campaignId);
+          allow create: if campaignOwner(campaignId) &&
+            validContentManifest(request.resource.data) && request.resource.data.ownerUid == request.auth.uid &&
+            request.resource.data.complete == false;
+          allow update: if campaignOwner(campaignId) &&
+            resource != null && validContentManifest(resource.data) && validContentManifest(request.resource.data) &&
+            resource.data.ownerUid == request.auth.uid && resource.data.complete == false &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['complete']);
+          allow delete: if campaignOwner(campaignId) && resource != null &&
+            validContentManifest(resource.data) && resource.data.ownerUid == request.auth.uid;
+
+          match /chunks/{chunkIndex} {
+            function canonicalChunkIndex(data) {
+              return (chunkIndex == '0' && data.index == 0) ||
+                (chunkIndex == '1' && data.index == 1) ||
+                (chunkIndex == '2' && data.index == 2) ||
+                (chunkIndex == '3' && data.index == 3) ||
+                (chunkIndex == '4' && data.index == 4) ||
+                (chunkIndex == '5' && data.index == 5) ||
+                (chunkIndex == '6' && data.index == 6) ||
+                (chunkIndex == '7' && data.index == 7) ||
+                (chunkIndex == '8' && data.index == 8) ||
+                (chunkIndex == '9' && data.index == 9) ||
+                (chunkIndex == '10' && data.index == 10) ||
+                (chunkIndex == '11' && data.index == 11) ||
+                (chunkIndex == '12' && data.index == 12) ||
+                (chunkIndex == '13' && data.index == 13) ||
+                (chunkIndex == '14' && data.index == 14) ||
+                (chunkIndex == '15' && data.index == 15);
+            }
+
+            function expectedChunkSize(data, manifest) {
+              return (data.index < manifest.chunkCount - 1 && data.size == manifest.chunkSize) ||
+                (data.index == manifest.chunkCount - 1 &&
+                  ((manifest.size % manifest.chunkSize == 0 && data.size == manifest.chunkSize) ||
+                    (manifest.size % manifest.chunkSize != 0 && data.size == manifest.size % manifest.chunkSize)));
+            }
+
+            function validContentChunk(data, manifest) {
+              return data.keys().hasOnly(['schemaVersion', 'index', 'chunkCount', 'size', 'sha256', 'data']) &&
+                data.schemaVersion == 1 && data.index is int && data.index >= 0 && data.index <= 15 &&
+                canonicalChunkIndex(data) && data.chunkCount == manifest.chunkCount && data.index < manifest.chunkCount &&
+                data.size is int && data.size > 0 && data.size <= manifest.chunkSize && expectedChunkSize(data, manifest) &&
+                data.sha256 is string && data.sha256.matches('^[a-f0-9]{64}$') &&
+                data.data is string && data.data.size() > 0 && data.data.size() <= 873816 &&
+                data.data.matches('^[A-Za-z0-9+/]*={0,2}$');
+            }
+
+            function playerCanReadChunk() {
+              return signedIn() && activeMember(campaignId, request.auth.uid) && resource != null &&
+                get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data.complete == true &&
+                validContentManifest(get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data) &&
+                validContentChunk(resource.data, get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data) &&
+                mapReferencesContent() && mapIsVisibleToCaller();
+            }
+
+            allow get: if campaignOwner(campaignId) || playerCanReadChunk();
+            allow list: if campaignOwner(campaignId);
+            allow create: if campaignOwner(campaignId) &&
+              validContentManifest(get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data) &&
+              get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data.complete == false &&
+              validContentChunk(request.resource.data, get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data);
+            allow update: if campaignOwner(campaignId) &&
+              validContentManifest(get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data) &&
+              resource != null && validContentChunk(resource.data, get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data) &&
+              validContentChunk(request.resource.data, get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data) &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([]);
+            allow delete: if campaignOwner(campaignId) &&
+              resource != null && validContentChunk(resource.data, get(/databases/$(database)/documents/campaigns/$(campaignId)/maps/$(mapId)/content/$(contentSha256)).data);
+          }
+        }
       }
 
       // Registro completo de criaturas: exclusivo do mestre.
       match /creatures/{creatureId} {
-        allow read: if campaignOwner(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, creatureId));
+        // A identidade do documento pode ser validada em uma leitura pontual;
+        // uma lista autorizada pelo mestre precisa ser expressa separadamente,
+        // pois `resource` não representa todos os documentos da consulta.
+        allow get: if campaignOwner(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, creatureId));
+        allow list: if campaignOwner(campaignId);
         allow create: if campaignOwner(campaignId) && hasCampaignRecordIdentity(request.resource.data, campaignId, creatureId) &&
           request.resource.data.ownerUid == request.auth.uid;
         allow update: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, creatureId) &&

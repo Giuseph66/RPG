@@ -4,7 +4,7 @@
  * O worker usa estes nomes para nunca tocar em caches de domínio ou em
  * IndexedDB. A versão precisa mudar quando o shell/worker publicado mudar.
  */
-export const PWA_VERSION = "2026.09.12";
+export const PWA_VERSION = "2026.10.05";
 export const PWA_WORKER_URL = "/pwa-worker.js";
 export const PWA_MANIFEST_URL = "/manifest.webmanifest";
 
@@ -57,5 +57,5 @@ export function isCurrentPwaCache(cacheName: string): boolean {
 }
 
 export function shouldDeletePwaCache(cacheName: string): boolean {
-  return isPwaCache(cacheName) && !isCurrentPwaCache(cacheName);
+  return cacheName.startsWith(`${PWA_CACHE_PREFIX}-shell-`) && !isCurrentPwaCache(cacheName);
 }

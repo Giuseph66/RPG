@@ -78,3 +78,27 @@ Ativar e publicar o projeto Firebase, depois validar duas contas reais e sincron
 - [x] **DICE-003** — Catálogo 3D e orçamento de renderização · `DONE` · modelos e performance alinhados.
 - [x] **RULE-003** — Correção de regras e relacionamentos · `DONE` · domínio, dispatcher e efeitos aceitos.
 - [ ] **QA-005** — Aceite offline-first, visual e 3D · `BLOCKED` · gates locais aceitos; Firebase real/dispositivos pendentes.
+
+## Correções após QA de 04/10/2026
+
+Reabertura vigente de CLOUD-001/MAP-001/JOUR-001, RULE-002/003/SPELL-002/UI-003/STATE-001/UI-002/CORE-001/002 e CHAR-002/003/UI-001/COMP-001/DATA-006. Três executores Luna xhigh, com paths disjuntos e handoffs registrados em [TASKS](TASKS.md#reabertura-corretiva--qa-de-04102026). QA-004/005 e REL-001 aguardam revisão integrada; gates históricos não constituem aceite das correções. Desempenho e reteste serão a segunda onda.
+
+## Reabertura C03 — orientação base64 do usuário (05/10/2026)
+
+Usuário reafirmou armazenamento dos mapas em base64. A premissa de Storage obrigatório foi rejeitada; MAP-001/CLOUD-001 e QA pertinente reabertos, sem ativar faturamento. Claude permanece indisponível pelo override vigente; reutilizar Luna xhigh, até3 filhos/profundidade1. Migration: preservar mapas antigos/local/retry/offline e publicar novos em base64 no Firestore, inclusive imagens grandes dentro do limite vigente10MiB, com fragmentos se necessário.
+
+Reserva fechar_sync_retratos: contrato de transporte de mapas/AssetTransfer, novo adapter Firestore base64 e teste direto, integração bootstrap/cloud exports, map-publication e teste direto, consumidores diretos indispensáveis (declarar antes). Entregar esquema congelado antes de implementação para regras; nenhum write em firestore.rules. Não alterar fluxos de retratos/PV/wizard.
+
+Reserva fechar_validacao: firestore.rules e teste/emulador isolado pertinente, índices apenas dos campos base64 se necessários, Testes/correcao-mapas-base64-regras.md. Aguardar esquema do produtor antes de editar regras. Revisar autorização mestre/visibilidade mapa/jogador e publicação completa/privacidade de bytes; não editar adapter/contratos/bootstrap.
+
+jogador_fechamento fica QA Chrome, sem produto; será acionado após fonte/regras prontas. Raiz coordena/revisa/QA mestre e registros Testes/swarm. Gate final somente após integração estável.
+
+## C03 base64 — integração revisada em 05/10/2026
+
+Adapter e regras harmonizados, sem timestamps fora do contrato. Regras e override `chunks.data` publicados no Firestore existente com status 0. Mestre confirmou upload de 4.447 bytes e de 1.573.919 bytes; leitura remota administrativa reconstruiu conteúdo e conferiu digests, 1 e 3 chunks respectivamente. Emulador autenticado executou 2 testes com round-trip do adapter real e ACL. Focos: 39 testes; gate atual: 1.090 passaram/3 ignorados, typecheck/build status 0. Reindexação: 8.562 nós/22.421 arestas.
+
+Produto devolvido pelos dois owners; nenhuma dependência ou faturamento ativado. Aceite final ainda aguarda QA Chrome jogador: renderização/reload/mobile e ocultação pareada. Raiz mantém ownership de consolidação e IAB mestre; jogador mantém Chrome e seu relatório. Não modificar produto nem repetir gates sem falha nova comprovada.
+
+## C03 — aceite final em 05/10/2026
+
+MAP-001/CLOUD-001 no escopo da correção base64 aprovados. QA jogador confirmou grande ausente após ocultação/reload sem limpar cache; pequeno público continua imagem real. Mestre e jogador retomados após reinício Vite com dados persistidos. Gates atuais 1.090/3 ignorados, typecheck/build 0, regras 2/2 executadas separadamente, diff check limpo. Produto devolvido, QA/relatórios fechados, reservas corretivas C03 liberadas. Pendência anterior de Storage retirada: não é requisito de novos mapas base64. Outros gates históricos/dispositivos fora desta rodada não são promovidos por inferência.

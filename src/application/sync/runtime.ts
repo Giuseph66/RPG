@@ -95,15 +95,24 @@ export function createSyncRuntime(options: SyncRuntimeOptions): SyncRuntime {
     remoteChain = remoteChain.then(async () => {
       if (!active || session?.uid !== uid) return;
       const pending = await options.outbox.listPending();
-      if (!pending.ok) return;
+      if (!pending.ok) {
+        publish({ state: "error", uid, lastReport: current.lastReport, lastHydration: current.lastHydration, lastError: pending.error });
+        return;
+      }
       const hydrated = await hydration.hydrate({ ownerUid: uid, pull: update, pending: pending.value, clock: options.clock });
       if (!hydrated.ok) {
         console.error("[sync] Atualização em tempo real não foi aplicada", { code: hydrated.error.code, message: hydrated.error.message });
+        if (active && session?.uid === uid) publish({ state: "error", uid, lastReport: current.lastReport, lastHydration: current.lastHydration, lastError: hydrated.error });
         return;
       }
       if (hydrated.value.applied > 0 && active && session?.uid === uid) publish({ ...current, lastHydration: hydrated.value });
     }).catch((cause) => {
       console.error("[sync] Atualização em tempo real falhou", { message: cause instanceof Error ? cause.message : String(cause) });
+      if (active && session?.uid === uid) publish({ state: "error", uid, lastReport: current.lastReport, lastHydration: current.lastHydration, lastError: {
+        code: "storage-unavailable",
+        message: "Não foi possível aplicar a atualização remota nesta sessão.",
+        cause: cause instanceof Error ? cause.message : String(cause),
+      } });
     });
   }
 

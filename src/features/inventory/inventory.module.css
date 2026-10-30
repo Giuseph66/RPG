@@ -75,7 +75,7 @@ tbody tr:hover { background: color-mix(in srgb, var(--color-primary) 7%, transpa
   td[data-label="Ações"]::before, td[data-label="Propriedades"]::before { content: none; }
   td[data-label="Ações"] { flex: 1 0 auto; justify-content: end; margin-left: auto; }
   td.emptyCell { display: none; }
-  .quantity { width: 3.5rem; min-height: 2.25rem; padding: 0 .35rem; text-align: center; }
+  .quantity { width: 3.5rem; min-height: 2.75rem; padding: 0 .35rem; text-align: center; }
   .description { max-width: none; }
   .actions { min-width: 0; justify-content: end; }
 }

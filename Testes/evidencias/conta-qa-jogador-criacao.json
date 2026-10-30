@@ -1,0 +1,7 @@
+{
+  "httpStatus": 200,
+  "created": true,
+  "method": "Firebase REST",
+  "purpose": "Conta sintética para teste multiusuário",
+  "credentialsSavedInReport": false
+}

@@ -43,14 +43,14 @@ function GuessForm({ sighting, guess, onSave }: { readonly sighting: CreatureSig
       {CREATURE_KINDS.filter((kind) => kind !== "unknown").map((kind) => <button key={kind} type="button" aria-pressed={draft.kind === kind} onClick={() => setDraft((current) => ({ ...current, kind }))}><CreatureKindIcon kind={kind} size={16} />{kindLabel(kind)}</button>)}
     </div></fieldset>}
     <div className={styles.formGrid}>
-      {sighting.revealed.name !== undefined ? null : <label className={[styles.field, styles.wide].join(" ")}><span>Como você a chama</span><input maxLength={80} value={draft.name} placeholder="Ex.: o vulto do pântano" onChange={(event) => setDraft((current) => ({ ...current, name: event.currentTarget.value }))} /></label>}
+      {sighting.revealed.name !== undefined ? null : <label className={[styles.field, styles.wide].join(" ")}><span>Como você a chama</span><input maxLength={80} value={draft.name} placeholder="Ex.: o vulto do pântano" onChange={(event) => { const value = event.currentTarget.value; setDraft((current) => ({ ...current, name: value })); }} /></label>}
       {openFields.map((field) => <label key={field} className={[styles.field, wide(field) ? styles.wide : ""].join(" ")}>
         <span>{GUESS_LABELS[field]}</span>
         {wide(field)
           ? <textarea rows={2} maxLength={field === "abilities" ? 1200 : 600} placeholder={GUESS_PLACEHOLDERS[field]} value={draft.fields?.[field] ?? ""} onChange={(event) => setField(field, event.currentTarget.value)} />
           : <input maxLength={field === "race" ? 80 : 40} placeholder={GUESS_PLACEHOLDERS[field]} value={draft.fields?.[field] ?? ""} onChange={(event) => setField(field, event.currentTarget.value)} />}
       </label>)}
-      <label className={[styles.field, styles.wide].join(" ")}><span>O que você acha</span><textarea rows={3} maxLength={800} value={draft.note} placeholder="Intenções, pistas, o que você notou…" onChange={(event) => setDraft((current) => ({ ...current, note: event.currentTarget.value }))} /></label>
+      <label className={[styles.field, styles.wide].join(" ")}><span>O que você acha</span><textarea rows={3} maxLength={800} value={draft.note} placeholder="Intenções, pistas, o que você notou…" onChange={(event) => { const value = event.currentTarget.value; setDraft((current) => ({ ...current, note: value })); }} /></label>
     </div>
     {status ? <InlineStatus tone={status.tone}>{status.text}</InlineStatus> : null}
     <div className={styles.formActions}><Button type="submit" size="sm" disabled={busy}>{busy ? "Guardando…" : guess ? "Atualizar palpite" : "Guardar palpite"}</Button></div>

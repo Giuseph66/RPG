@@ -2,9 +2,52 @@ import { type SpellDefinition } from "@domain/contracts/definitions/spell";
 import { asCentimeters, asCopperPieces } from "@domain/contracts/primitives";
 import { isEntityId, type EntityId } from "@domain/contracts/ids";
 import { RULESET_ID, spellId, spellSource } from "./common";
+import { EXTRACTED_PHB_SPELLS, type ExtractedBookSpell } from "./spells-book-catalog";
 
 const classes = (...ids: string[]): readonly EntityId[] => ids.map(spellId);
 const instant = { kind: "instantaneous" as const, endTriggers: [] as const };
+
+const BARD_INITIAL_CATALOG_IDS = [
+  "ilusao-menor", "maos-magicas", "prestidigitacao", "zombaria-viciosa",
+  "disfarcar-se", "enfeiticar-pessoa", "fogo-das-fadas", "heroismo", "onda-trovejante", "sussurros-dissonantes",
+] as const;
+
+const schoolByPtBr: Readonly<Record<string, SpellDefinition["school"]>> = {
+  abjuração: "abjuration", conjuração: "conjuration", adivinhação: "divination", encantamento: "enchantment",
+  evocação: "evocation", ilusão: "illusion", necromancia: "necromancy", transmutação: "transmutation",
+};
+
+function extractedCastingTime(value: ExtractedBookSpell["castingTime"]): SpellDefinition["castingTime"] {
+  if (value.includes("ação bônus")) return { kind: "bonus-action" };
+  if (value.includes("reação")) return { kind: "reaction" };
+  if (value.includes("minuto")) return { kind: "minutes", amount: 1, unit: "minute" };
+  if (value.includes("hora")) return { kind: "hours", amount: 1, unit: "hour" };
+  return { kind: "action" };
+}
+
+function extractedComponents(value: ExtractedBookSpell["components"]): SpellDefinition["components"] {
+  const verbal = /\bV\b/.test(value);
+  const somatic = /\bS\b/.test(value);
+  return value.includes("M") ? { verbal, somatic, material: { descriptionSummary: value, consumed: /consumid/i.test(value) } } : { verbal, somatic };
+}
+
+/** Publicação de opções do catálogo textual sem promover prosa a efeito automatizado. */
+function assistedFromBook(entry: ExtractedBookSpell): SpellDefinition {
+  return {
+    id: spellId(entry.id), name: entry.name, tags: ["book-catalog", ...(entry.level === 0 ? ["cantrip"] : [])],
+    sourceRefs: [spellSource(entry.source.printedPage, entry.source.pdfPage, entry.name)], level: entry.level,
+    school: schoolByPtBr[entry.schoolPtBr] ?? "transmutation", castingTime: extractedCastingTime(entry.castingTime), range: { kind: "special" },
+    components: extractedComponents(entry.components), duration: { kind: "special", endTriggers: [{ kind: "table-decision", description: "Duração publicada no catálogo textual; modelagem estruturada pendente." }] },
+    concentration: entry.duration.includes("Concentração"), ritual: entry.ritual, classes: entry.classes.map((classId) => spellId(classId)),
+    targetType: { type: "mixed", restrictions: ["Alvo e efeito aguardam modelagem estruturada; a entrada permanece bloqueada."], visibilityRequired: false },
+    attackType: "none", damage: [], healing: [], higherLevels: entry.higherLevels ? { kind: "custom", description: entry.higherLevels } : { kind: "none" },
+    effects: [], automationStatus: "blocked", pendingDecisionIds: ["PEND-SPELL-STRUCTURE"],
+  };
+}
+
+const assistedBardInitialSpells = EXTRACTED_PHB_SPELLS
+  .filter((entry) => (BARD_INITIAL_CATALOG_IDS as readonly string[]).includes(entry.id))
+  .map(assistedFromBook);
 
 /**
  * Conteúdo estruturado coberto por esta entrega. A prosa integral do PDF não é embutida;
@@ -20,7 +63,7 @@ export const spells: readonly SpellDefinition[] = [
     targetType: { type: "creature", count: 1, restrictions: ["não afeta mortos-vivos ou constructos"], visibilityRequired: false },
     attackType: "none", damage: [],
     // A habilidade vem da fonte de conjuração (bard=CAR, cleric/druid=SAB), não da magia.
-    healing: [{ expression: { quantity: 1, faces: 8 } }],
+    healing: [{ expression: { quantity: 1, faces: 8 }, bonusPerCastingSourceAbility: true }],
     higherLevels: { kind: "extra-healing-dice-per-slot-level", diceIncrease: { quantity: 1, faces: 8 } },
     effects: [], automationStatus: "automated", pendingDecisionIds: [],
   },
@@ -68,7 +111,7 @@ export const spells: readonly SpellDefinition[] = [
     classes: classes("bard", "cleric", "druid"),
     targetType: { type: "creature", count: 1, restrictions: ["criatura visível; não afeta mortos-vivos ou constructos"], visibilityRequired: true },
     // A habilidade vem da fonte de conjuração (bard=CAR, cleric/druid=SAB), não da magia.
-    attackType: "none", damage: [], healing: [{ expression: { quantity: 1, faces: 4 } }],
+    attackType: "none", damage: [], healing: [{ expression: { quantity: 1, faces: 4 }, bonusPerCastingSourceAbility: true }],
     higherLevels: { kind: "extra-healing-dice-per-slot-level", diceIncrease: { quantity: 1, faces: 4 } },
     effects: [], automationStatus: "automated", pendingDecisionIds: [],
   },
@@ -85,8 +128,8 @@ export const spells: readonly SpellDefinition[] = [
   },
 ] as const;
 
-export const SPELL_DEFINITIONS = spells;
-export const spellsById: ReadonlyMap<EntityId, SpellDefinition> = new Map(spells.map((spell) => [spell.id, spell]));
+export const SPELL_DEFINITIONS: readonly SpellDefinition[] = [...spells, ...assistedBardInitialSpells];
+export const spellsById: ReadonlyMap<EntityId, SpellDefinition> = new Map(SPELL_DEFINITIONS.map((spell) => [spell.id, spell]));
 
 export function findSpell(spellIdValue: string): SpellDefinition | undefined {
   return isEntityId(spellIdValue) ? spellsById.get(spellIdValue) : undefined;
@@ -99,7 +142,7 @@ export function findSpell(spellIdValue: string): SpellDefinition | undefined {
 export const SPELL_CATALOG_COVERAGE = {
   status: "partial" as const,
   sourceId: RULESET_ID,
-  includedIds: spells.map((spell) => spell.id),
+  includedIds: SPELL_DEFINITIONS.map((spell) => spell.id),
   unresolved: "As demais magias e listas do capítulo 11 ainda aguardam catalogação campo a campo a partir do PDF local.",
 } as const;
 

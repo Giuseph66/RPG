@@ -29,6 +29,7 @@ describe("feature registry", () => {
     expect("component" in registry.inventory).toBe(false);
     expect("components" in registry.journey).toBe(false);
     expect("component" in registry.compendium).toBe(false);
+    expect(registry.compendium.loadCatalog).toBeTypeOf("function");
     expect(registry.compendium.bindProps({ filters: { query: "smoke" } }).entries[0]?.title).toBe("Magia smoke");
     expect(registry.compendium.bindProps({}).categories?.length).toBeGreaterThan(0);
     expect(registry.actions.bindProps({}).onIntent).toBe(actionDispatcher);

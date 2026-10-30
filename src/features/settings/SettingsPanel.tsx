@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Input } from "@components/ui";
+import { Button, Input } from "@components/ui";
 import type { AppSettings, DiceColorHex } from "@application/ports/settings-repository";
 import type { SettingsStore } from "@application/settings";
 import { Dice3D, type Dice3DHandle } from "@features/dice3d";
@@ -32,6 +32,8 @@ export interface SettingsPanelProps {
   /** Rascunhos de criação; aparecem na seção "Em criação" do dropdown. */
   readonly drafts?: readonly SettingsDraftOption[];
   readonly onResumeDraft?: (id: string) => void;
+  /** Abre a área de backup e recuperação dos dados locais. */
+  readonly onOpenDataManagement?: () => void;
 }
 
 const DICE_COLORS = { face: "#14100d", edge: "#D0AB72", shadow: "#090706" } as const;
@@ -108,7 +110,7 @@ function CharacterDropdown({ characters, activeCharacterId, onSelect, onCreate, 
 }
 
 /** Settings stay a utility surface; persistence is optional until composition injects it. */
-export function SettingsPanel({ store, characters = [], activeCharacterId, onSelectCharacter, onCreateCharacter, drafts = [], onResumeDraft }: SettingsPanelProps) {
+export function SettingsPanel({ store, characters = [], activeCharacterId, onSelectCharacter, onCreateCharacter, drafts = [], onResumeDraft, onOpenDataManagement }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings>(store?.getSnapshot().value ?? FALLBACK);
   const previewRef = useRef<Dice3DHandle>(null);
 
@@ -156,6 +158,7 @@ export function SettingsPanel({ store, characters = [], activeCharacterId, onSel
       <p className={styles.eyebrow}>FERRAMENTAS DA MESA</p>
       <h1 id="settings-title" className={styles.title} tabIndex={-1}>Definição do dado</h1>
       <p className={styles.intro}>Escolha as cores usadas por todos os dados da mesa.</p>
+      {onOpenDataManagement ? <div className={styles.dataLink}><div><strong>Backup e recuperação</strong><span>Exporte ou restaure seus dados locais.</span></div><Button variant="secondary" onClick={onOpenDataManagement}>Abrir backup</Button></div> : null}
       <div className={styles.preview}>
         <Dice3D
           ref={previewRef}

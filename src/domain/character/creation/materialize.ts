@@ -39,12 +39,7 @@ function initialEquipment(
     const bundle = catalog.equipmentBundles?.find((candidate) => candidate.id === selectedRef.entityId);
     if (bundle) {
       for (const grant of bundle.grants) refs.push(grant);
-      for (const choice of bundle.choices) {
-        // A bundle-level unresolved choice stays explicit; accepting it would invent equipment.
-        if (choice.count.min > 0) return err([{
-          code: "required-choice", field: `equipment.${choice.id}`, message: `Escolha interna do pacote "${bundle.id}" não foi resolvida.`, sourceRefs: choice.sourceRefs,
-        }]);
-      }
+      // Escolhas internas do pacote ficam em aberto; não inventamos equipamento por elas.
       continue;
     }
     if (pack.equipment.has(selectedRef.entityId)) refs.push({ equipmentRef: selectedRef, quantity: 1 });
@@ -77,6 +72,17 @@ function spellState(draft: CharacterDraft, catalog: CreationCatalog, options: Ma
   };
 }
 
+/** Atributos não preenchidos (ausentes ou 0) viram 10, ou 8 na compra de pontos. */
+function withDefaultScores(generation: CharacterDraft["partial"]["abilityGeneration"]): AbilityGeneration {
+  const fallback = generation?.method === "point-buy" ? 8 : 10;
+  const scores = generation?.baseScores;
+  const fill = (value: number | undefined) => (value ? value : fallback);
+  return {
+    ...(generation ?? { method: "manual" as const }),
+    baseScores: { str: fill(scores?.str), dex: fill(scores?.dex), con: fill(scores?.con), int: fill(scores?.int), wis: fill(scores?.wis), cha: fill(scores?.cha) },
+  } as AbilityGeneration;
+}
+
 export function materializeCharacter(input: CreationCatalogInput, draft: CharacterDraft, options: MaterializeOptions = {}): Result<MaterializedCharacter, readonly CreationIssue[]> {
   const catalog = asCreationCatalog(input);
   const validation = validateCharacterCreation(catalog, draft);
@@ -86,12 +92,12 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const equipment = initialEquipment(draft, catalog, options);
   if (!equipment.ok) return equipment;
   const classRef = partial.classes?.[0];
-  if (!classRef || !partial.raceRef || !partial.backgroundRef || !partial.abilityGeneration) return err([{
+  if (!classRef || !partial.raceRef || !partial.backgroundRef) return err([{
     code: "required-choice", field: "partial", message: "Decisões essenciais estão ausentes.",
   }]);
   const classDefinition = pack.classes.get(classRef.classId);
   if (!classDefinition) return err([{ code: "invalid-reference", field: "classes[0]", message: "Classe não encontrada." }]);
-  const abilityGeneration = partial.abilityGeneration as AbilityGeneration;
+  const abilityGeneration = withDefaultScores(partial.abilityGeneration);
   const levelClass: ClassLevel = { classId: classRef.classId, level: 1, ...(classRef.subclassId ? { subclassId: classRef.subclassId } : {}), choices: [] };
   const now = options.now ?? draft.updatedAt;
   const revision: Revision = options.revision ?? asRevision(0);
@@ -99,7 +105,7 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const hpGainId = makeId(options, "progression", 0);
   const character: Character = {
     id: draft.id, schemaVersion: CHARACTER_SCHEMA_VERSION, revision, rulesetRef: draft.rulesetRef, createdAt: draft.createdAt, updatedAt: now,
-    name: partial.name!.trim(), ...(partial.playerName === undefined ? {} : { playerName: partial.playerName }), raceRef: partial.raceRef, ...(partial.subraceRef ? { subraceRef: partial.subraceRef } : {}), backgroundRef: partial.backgroundRef,
+    name: partial.name?.trim() || "Aventureiro sem nome", ...(partial.playerName === undefined ? {} : { playerName: partial.playerName }), raceRef: partial.raceRef, ...(partial.subraceRef ? { subraceRef: partial.subraceRef } : {}), backgroundRef: partial.backgroundRef,
     appearance: partial.appearance ?? "", personalityTraits: partial.personalityTraits ?? [], ideals: partial.ideals ?? [], bonds: partial.bonds ?? [], flaws: partial.flaws ?? [], history: partial.history ?? "",
     classes: [levelClass], abilityGeneration, choices: partial.choices ?? [], progressionHistory: [{ id: hpGainId, classId: classDefinition.id, level: 1, hitPointGain: { kind: "first-level-max", amount: classDefinition.hitDie }, choices: [], recordedAt: now }],
     xp: 0, inspiration: false, hp: { current: classDefinition.hitDie, temp: 0 }, hitDiceSpent: [{ classId: classDefinition.id, hitDie: classDefinition.hitDie, spent: 0 }], deathSaves: { successes: 0, failures: 0, stable: false }, conditions: [],

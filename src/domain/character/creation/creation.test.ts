@@ -45,6 +45,27 @@ describe("domínio de criação", () => {
     expect(unresolvedReport.issues.some((entry) => entry.code === "unresolved-source")).toBe(true);
   });
 
+  it("materializa ficha mínima só com raça, classe e antecedente", () => {
+    const minimal = draft({ raceRef: ref("elf"), backgroundRef: ref("acolyte"), classes: [{ classId: asEntityId("cleric"), level: 1, choices: [] }] });
+    const report = validateCharacterCreation(catalog(), minimal);
+    expect(report.issues).toEqual([]);
+    const result = materializeCharacter(catalog(), minimal);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.character.name).toBe("Aventureiro sem nome");
+    expect(result.value.character.abilityGeneration.baseScores).toEqual({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+  });
+
+  it("aceita atributos parciais e compra de pontos abaixo do orçamento", () => {
+    const partialScores = draft({
+      raceRef: ref("human"), backgroundRef: ref("soldier"), classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }],
+      abilityGeneration: { method: "point-buy", baseScores: { str: 15, dex: 0, con: 13, int: 0, wis: 0, cha: 0 } },
+    });
+    expect(validateCharacterCreation(catalog(), partialScores).valid).toBe(true);
+    const materialized = materializeCharacter(catalog(), partialScores);
+    expect(materialized.ok && materialized.value.character.abilityGeneration.baseScores.dex).toBe(8);
+  });
+
   it("aplica decisões sem mutar o draft anterior", () => {
     const initial = draft();
     const result = applyCreationDecision(initial, { kind: "race", raceRef: ref("human") });
@@ -74,6 +95,50 @@ describe("domínio de criação", () => {
       expect(result.value.derived.hitPointsMax.value).toBe(12);
       expect(result.value.character.hp.current).toBe(12);
       expect(result.value.derived.proficiencyBonus.value).toBe(2);
+    }
+  });
+
+  it("valida acesso e nível nas escolhas iniciais de magia da classe", () => {
+    const invalid = draft({
+      name: "Bardo", raceRef: ref("human"), backgroundRef: ref("soldier"),
+      classes: [{ classId: asEntityId("bard"), level: 1, choices: [] }],
+      abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 15, con: 13, int: 10, wis: 12, cha: 14 } },
+      choices: [
+        { choiceId: "bard.cantrips.1", selectedIds: [ref("cure-wounds"), ref("cure-wounds")], grantedAtLevel: 1, grantingRef: ref("bard") },
+        { choiceId: "bard.spells.1", selectedIds: [ref("fire-bolt"), ref("fire-bolt"), ref("fire-bolt"), ref("fire-bolt")], grantedAtLevel: 1, grantingRef: ref("bard") },
+      ],
+    });
+    const issues = validateCharacterCreation(catalog(), invalid).issues;
+    expect(issues.some((entry) => entry.field === "choices.bard.cantrips.1" && entry.message.includes("nível 0"))).toBe(true);
+    expect(issues.some((entry) => entry.field === "choices.bard.spells.1" && entry.message.includes("classe \"bard\""))).toBe(true);
+    expect(issues.some((entry) => entry.field === "choices.bard.spells.1" && entry.message.includes("nível de magia disponível"))).toBe(true);
+  });
+
+  it("cria um Bardo nível 1 com as opções de magia publicadas pelo pack real", () => {
+    const value = draft({
+      name: "Bardo real", raceRef: ref("human"), backgroundRef: ref("soldier"),
+      classes: [{ classId: asEntityId("bard"), level: 1, choices: [] }],
+      abilityGeneration: { method: "standard-array", baseScores: { str: 8, dex: 15, con: 13, int: 10, wis: 12, cha: 14 } },
+      choices: [
+        { choiceId: "human.language", selectedIds: [ref("elvish")], grantedAtLevel: 1, grantingRef: ref("human") },
+        { choiceId: "bard.skills", selectedIds: [ref("performance"), ref("insight"), ref("deception")], grantedAtLevel: 1, grantingRef: ref("bard") },
+        { choiceId: "bard.equipment", selectedIds: [ref("entertainer-pack")], grantedAtLevel: 1, grantingRef: ref("bard") },
+        { choiceId: "soldier.tools", selectedIds: [ref("proficiency.gaming-set"), ref("proficiency.vehicle-land")], grantedAtLevel: 1, grantingRef: ref("soldier") },
+        { choiceId: "bard.cantrips.1", selectedIds: [ref("prestidigitacao"), ref("zombaria-viciosa")], grantedAtLevel: 1, grantingRef: ref("bard") },
+        { choiceId: "bard.spells.1", selectedIds: [ref("cure-wounds"), ref("disfarcar-se"), ref("enfeiticar-pessoa"), ref("fogo-das-fadas")], grantedAtLevel: 1, grantingRef: ref("bard") },
+      ],
+    });
+    const validation = validateCharacterCreation(catalog(), value);
+    expect(validation).toEqual({ valid: true, issues: [] });
+
+    const result = materializeCharacter(catalog(), value, { revision: asRevision(0) });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.character.castingSources[0]?.ability).toBe("cha");
+      expect(result.value.character.castingSources[0]?.knownSpellRefs.map((spell) => String(spell.entityId))).toEqual([
+        "prestidigitacao", "zombaria-viciosa", "cure-wounds", "disfarcar-se", "enfeiticar-pessoa", "fogo-das-fadas",
+      ]);
+      expect(result.value.character.spellSlots).toHaveLength(1);
     }
   });
 });

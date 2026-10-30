@@ -31,7 +31,7 @@ export interface AppShellProps {
   readonly isCampaignMaster?: boolean;
   readonly campaignRole?: "master" | "player";
   /** Estado da conexão em tempo real: "live" (verde) ou "down" (vermelho); ausente = sem conta conectada. */
-  readonly connection?: "live" | "down";
+  readonly connection?: "live" | "down" | "pending" | "error";
   readonly bootState?: BootState;
   readonly bootErrorMessage?: string;
   readonly children?: ReactNode;

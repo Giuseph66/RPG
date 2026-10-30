@@ -99,8 +99,8 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: var(--size-touch-target);
+  height: var(--size-touch-target);
   padding: 0;
   color: var(--color-secondary);
   background: none;
@@ -154,7 +154,7 @@
  * layout shell, which otherwise splits "Deslocamento" mid-word on narrow tiles. */
 .statLabel { overflow-wrap: normal; word-break: keep-all; white-space: nowrap; color: #CDBFAE; font-size: .8rem; line-height: 1.1; }
 .statValue { display: inline-flex; align-items: baseline; gap: .1rem; color: var(--color-text); font-family: var(--typography-numeric-font-family); font-size: 1.45rem; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.statValue .roll { min-height: 0; min-width: 0; padding: 0 .15rem; color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; background: none; border: 0; }
+.statValue .roll { min-height: var(--size-touch-target); min-width: var(--size-touch-target); padding: 0 .15rem; color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; background: none; border: 0; }
 .statValueSub { color: var(--color-text); font-size: 1em; font-weight: inherit; }
 /* Anchored to the tile's left edge (not centered): the PV tile is the leftmost,
  * so centering would push the popover off a narrow viewport. */
@@ -197,7 +197,7 @@
 .panelHeading::first-letter { font-size: 1.12em; }
 .panelHeadingRule { display: block; height: 1px; margin-top: -.2rem; background: linear-gradient(90deg, rgba(208, 171, 114, .95), rgba(190, 144, 91, .45) 65%, rgba(190, 144, 91, .12)); }
 .panelBody { display: grid; gap: var(--spacing-sm); }
-.panelLink { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .25rem; padding: .2rem 0; color: var(--color-secondary); background: none; border: 0; font-family: var(--typography-body-font-family); font-size: .95rem; cursor: pointer; white-space: nowrap; }
+.panelLink { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .25rem; min-height: var(--size-touch-target); padding: .2rem .25rem; color: var(--color-secondary); background: none; border: 0; font-family: var(--typography-body-font-family); font-size: .95rem; cursor: pointer; white-space: nowrap; }
 .panelLink svg { width: .85rem; height: .85rem; }
 .panelLink:hover { color: #F6DFAE; }
 .muted { margin: 0; color: var(--color-text-muted); font-size: .88rem; }
@@ -237,7 +237,7 @@ button.skillRow:focus-visible { outline: 2px solid var(--color-focus); outline-o
 .ability:hover { border-color: var(--color-secondary); }
 .abilityShort { color: #DCCDB9; font-size: .82rem; letter-spacing: .04em; }
 .ability strong { font-family: var(--typography-display-font-family); font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--color-text); }
-.ability strong .roll { min-height: 0; min-width: 0; padding: 0 .1rem; color: inherit; font-family: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: 0; background: none; border: 0; }
+.ability strong .roll { min-height: var(--size-touch-target); min-width: var(--size-touch-target); padding: 0 .1rem; color: inherit; font-family: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: 0; background: none; border: 0; }
 .modifier { color: #CDBFAE; font-family: var(--typography-numeric-font-family); font-size: .95rem; }
 .ability .provenance { display: none; }
 
@@ -271,8 +271,8 @@ button.skillRow:focus-visible { outline: 2px solid var(--color-focus); outline-o
 /* Resistências / condições / sessão */
 .actionList, .conditionList, .resourceList, .sessionList { display: grid; gap: .2rem; }
 .panel .actionList { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem .5rem; }
-.panel .actionRow { gap: .5rem; min-height: 2.6rem; padding: 0 .2rem 0 .6rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 4px; }
-.panel .actionRow .roll { min-height: 2.2rem; min-width: 2.6rem; padding-inline: .3rem; color: var(--color-text); font-size: 1rem; background: none; border: 0; }
+.panel .actionRow { gap: .5rem; min-height: var(--size-touch-target); padding: 0 .2rem 0 .6rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 4px; }
+.panel .actionRow .roll { min-height: var(--size-touch-target); min-width: var(--size-touch-target); padding-inline: .3rem; color: var(--color-text); font-size: 1rem; background: none; border: 0; }
 .panel .actionRow .value { padding-right: .4rem; }
 .actionRow, .resourceRow, .detailLine, .sessionList p { display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); margin: 0; }
 .sessionList p { justify-content: space-between; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent); }
@@ -280,7 +280,7 @@ button.skillRow:focus-visible { outline: 2px solid var(--color-focus); outline-o
 .actionName, .resourceRow strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: .55rem; height: .55rem; flex: 0 0 auto; border: 1px solid var(--color-border); border-radius: 50%; }
 .dotActive { background: var(--color-xp); border-color: var(--color-xp); }
-.roll { min-height: 2rem; min-width: 3rem; padding-inline: .5rem; color: var(--color-primary); font-family: var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
+.roll { min-height: var(--size-touch-target); min-width: var(--size-touch-target); padding-inline: .5rem; color: var(--color-primary); font-family: var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
 .value { font-family: var(--typography-numeric-font-family); font-variant-numeric: tabular-nums; }
 .provenance { color: var(--color-primary); font-size: .7rem; }
 .provenance summary { cursor: pointer; min-height: 1.4rem; }
@@ -319,7 +319,7 @@ button.skillRow:focus-visible { outline: 2px solid var(--color-focus); outline-o
 .detailColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-lg); }
 .pendingList { margin: 0; padding-left: 1.2rem; color: var(--color-warning); }
 
-.sheet :where(input, select, textarea) { background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
+.sheet :where(input:not([type="checkbox"]), select, textarea) { min-height: var(--size-touch-target); background: var(--color-background); border-color: var(--color-border); color: var(--color-text); }
 .sheet :where(input, select, textarea):focus-visible { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 35%, transparent); outline: none; }
 .actionRow:hover, .resourceRow:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
 
@@ -340,7 +340,7 @@ button.heroArt:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .hpAmount { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: var(--color-text-muted); font-size: .85rem; }
 .hpAmount input { width: 6rem; padding: .4rem .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); font-size: 1rem; font-variant-numeric: tabular-nums; }
 .hpButtons { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
-.hpButtons button { min-height: 2.3rem; border: 1px solid transparent; border-radius: var(--radius-control); color: #F7EEE2; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
+.hpButtons button { min-height: var(--size-touch-target); border: 1px solid transparent; border-radius: var(--radius-control); color: #F7EEE2; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; }
 .hpDamage { background: linear-gradient(180deg, #9E2323, #6B1515); border-color: #C2484D !important; }
 .hpHeal { background: linear-gradient(180deg, #5E7A3E, #3F5429); border-color: #829B5F !important; }
 .hpTempButton { background: linear-gradient(180deg, #3F5E8F, #2A3F63); border-color: #7694C9 !important; }
@@ -348,7 +348,7 @@ button.heroArt:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .hpButtons button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .hpHint { margin: 0; color: var(--color-text-muted); font-size: .72rem; line-height: 1.3; }
 .hpManual { color: var(--color-text-muted); font-size: .78rem; }
-.hpManual summary { cursor: pointer; min-height: 1.5rem; }
+.hpManual summary { display: flex; align-items: center; cursor: pointer; min-height: var(--size-touch-target); }
 .hpManual .hpField { margin-top: .35rem; }
 
 .saveBar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem .75rem; color: var(--color-text-muted); font-size: .85rem; background: rgba(17, 25, 28, .85); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
@@ -362,7 +362,7 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .itemBadge { flex: 0 0 auto; padding: .1rem .4rem; color: #0B0D0E; background: var(--color-xp); border-radius: 999px; font-size: .68rem; font-weight: 700; }
 .emptySpells { display: grid; justify-items: start; gap: .5rem; }
 .emptySpells :global(svg) { width: .9rem; height: .9rem; }
-.moreLink { justify-self: start; padding: .2rem 0; color: var(--color-secondary); background: none; border: 0; font: inherit; font-size: .85rem; cursor: pointer; }
+.moreLink { justify-self: start; min-height: var(--size-touch-target); padding: .2rem .25rem; color: var(--color-secondary); background: none; border: 0; font: inherit; font-size: .85rem; cursor: pointer; }
 .moreLink:hover { color: #F6DFAE; }
 
 /* Magias: Truques | Magias lado a lado, linhas compactas como Resistências */
@@ -371,7 +371,7 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .spellColumnTitle { display: flex; align-items: center; justify-content: space-between; gap: .4rem; margin: 0; padding-bottom: .25rem; color: var(--color-secondary); border-bottom: 1px solid rgba(190, 144, 91, .28); font-family: var(--typography-heading-font-family); font-size: .92rem; letter-spacing: .03em; }
 .spellColumnTitle span { min-width: 1.4rem; padding: 0 .35rem; color: var(--color-text-muted); background: rgba(0, 0, 0, .35); border: 1px solid rgba(190, 144, 91, .3); border-radius: 999px; font-family: var(--typography-numeric-font-family); font-size: .72rem; text-align: center; }
 .spellList { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
-.spellRow { display: flex; align-items: center; gap: .45rem; min-height: 2.6rem; padding: .25rem .4rem .25rem .3rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 4px; cursor: default; }
+.spellRow { display: flex; align-items: center; gap: .45rem; min-height: var(--size-touch-target); padding: .25rem .4rem .25rem .3rem; background: linear-gradient(180deg, rgba(20, 24, 26, .9), rgba(10, 12, 13, .95)); border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); border-radius: 4px; cursor: default; }
 .spellRow .spellIcon { width: 1.8rem; height: 1.8rem; font-size: 1.05rem; }
 .spellRow:hover { border-color: color-mix(in srgb, var(--color-secondary) 70%, transparent); }
 .spellRowInfo { display: grid; flex: 1; min-width: 0; line-height: 1.15; }
@@ -394,7 +394,7 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .conditionChips { display: grid; gap: .4rem; margin: 0 0 .6rem; padding: 0; list-style: none; }
 .conditionChip { display: flex; align-items: center; gap: .5rem; padding: .35rem .4rem .35rem .5rem; background: rgba(208, 171, 114, .07); border: 1px solid rgba(208, 171, 114, .3); border-radius: 4px; }
 .conditionOrigin { flex: 1; min-width: 0; overflow: hidden; color: var(--color-text-muted); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
-.chipRemove { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; color: var(--color-text-muted); background: none; border: 1px solid transparent; border-radius: 50%; cursor: pointer; }
+.chipRemove { display: grid; place-items: center; width: var(--size-touch-target); height: var(--size-touch-target); color: var(--color-text-muted); background: none; border: 1px solid transparent; border-radius: 50%; cursor: pointer; }
 .chipRemove:hover { color: #FF8A8A; border-color: rgba(194, 72, 77, .6); }
 .conditionAdd { display: flex; gap: .4rem; }
 .conditionAdd select { flex: 1; min-width: 0; min-height: 2.3rem; padding: 0 .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); }
@@ -404,7 +404,7 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .saveMarkGroup legend { float: left; color: var(--color-text-muted); font-size: .9rem; }
 .saveMarkGroup legend strong { margin-left: .25rem; color: var(--color-text); font-variant-numeric: tabular-nums; }
 .saveMarkRow { display: flex; gap: .45rem; margin-left: auto; }
-.saveMark { position: relative; display: grid; place-items: center; width: 2rem; height: 2rem; cursor: pointer; }
+.saveMark { position: relative; display: grid; place-items: center; width: var(--size-touch-target); height: var(--size-touch-target); cursor: pointer; }
 .saveMark input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 .saveMark span { width: 1.5rem; height: 1.5rem; border: 2px solid; border-radius: 4px; background: rgba(0, 0, 0, .35); transition: background-color var(--motion-feedback) var(--motion-easing), box-shadow var(--motion-feedback) var(--motion-easing); }
 .saveMarkSuccess span { border-color: #6F9A4A; }
