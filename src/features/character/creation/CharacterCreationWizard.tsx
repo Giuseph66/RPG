@@ -202,7 +202,9 @@ function ChoiceEditor({
     grantingRef: choiceOwnerRef(draft, choice, owner),
   });
   const hint = `Opcional · até ${limit.max} ${limit.max === 1 ? "opção" : "opções"}${limit.basis ? ` (${limit.basis})` : ""}.`;
-  if (multiple) return <fieldset className={[styles.choice, styles.choiceFieldset].join(" ")} aria-label={choiceLabel(choice.id, pack)}><legend>{choiceLabel(choice.id, pack)}</legend><p className={styles.choiceHint}>{hint}</p><div className={styles.choiceOptions}>{options.map((option) => {
+  // Conjuradores que preparam (Clérigo, Druida): o limite é de preparadas, não de magias conhecidas.
+  const preparedNote = limit.basis ? "Estas são as magias preparadas agora. Você prepara da lista inteira da classe e pode trocar a lista ao fim de cada descanso longo (em Gerenciar magias, na ficha). Os espaços de magia, que dizem quantas vezes você conjura, são separados." : undefined;
+  if (multiple) return <fieldset className={[styles.choice, styles.choiceFieldset].join(" ")} aria-label={choiceLabel(choice.id, pack)}><legend>{choiceLabel(choice.id, pack)}</legend><p className={styles.choiceHint}>{hint}</p>{preparedNote ? <p className={styles.choiceHint}>{preparedNote}</p> : null}<div className={styles.choiceOptions}>{options.map((option) => {
     const checked = current.includes(option.value);
     const info = isSpell ? spellInfo?.(option.value) : undefined;
     const input = <input type="checkbox" value={option.value} checked={checked} disabled={!checked && current.length >= limit.max} onChange={(event) => update(event.currentTarget.checked ? [...current, option.value] : current.filter((id) => id !== option.value))} />;

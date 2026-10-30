@@ -207,6 +207,7 @@ describe("CharacterCreationWizard", () => {
       expect(dialog.textContent).toContain("Livro do Jogador, p. 224");
       expect((mounted.container.querySelector('input[value="bordao-mistico"]') as HTMLInputElement).checked).toBe(false);
       expect(mounted.container.textContent).toContain("até 1 opção (nível 1 + mod. de Sabedoria +0, mínimo 1)");
+      expect(mounted.container.textContent).toContain("pode trocar a lista ao fim de cada descanso longo");
     } finally {
       await mounted.unmount();
     }
