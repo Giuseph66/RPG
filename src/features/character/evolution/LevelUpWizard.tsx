@@ -7,10 +7,13 @@ import type { Ability, ChoiceDefinition, ChoiceSelection } from "@domain/contrac
 import type { ProgressionHitPointGain } from "@domain/contracts/character";
 import { asEntityId, asIsoTimestamp, type DefinitionRef, type Uuid } from "@domain/contracts/ids";
 import { buildLevelUpPreview, type LevelUpRequest } from "@domain/character/progression";
-import { choiceFlavor, choiceTitle, evolveCharacter, explicitOptionsFor, featOptionsFor, spellOptionsForChoice, type ChoiceOptionView, type EvolutionViewContext } from "@domain/character/evolution";
+import { allotmentsOf, castingSourcesOf, CLASS_CASTING, preparedLimitFor, projectClasses, choiceFlavor, choiceTitle, evolveCharacter, explicitOptionsFor, featOptionsFor, spellOptionsForChoice, type ChoiceOptionView, type EvolutionViewContext } from "@domain/character/evolution";
 
 import { ABILITY_LABELS, formatRef, LANGUAGE_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, TOOL_PROFICIENCY_OPTIONS } from "../creation/mapping";
 import { OptionList, SpellPicker } from "./ChoiceViews";
+import { guideFor } from "./guides";
+import { SubclassPicker } from "./SubclassPicker";
+import { spellBrief } from "../spell-info";
 import type { LevelUpWizardProps } from "./types";
 import styles from "./level-up.module.css";
 
@@ -20,7 +23,7 @@ const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const satisfies 
 
 type HpMode = "average" | "rolled" | "manual";
 
-export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo, racialTraits = [], newId, onConfirm, onCancel }: LevelUpWizardProps) {
+export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo, subclassInfo, racialTraits = [], newId, onConfirm, onCancel }: LevelUpWizardProps) {
   const totalLevel = character.classes.reduce((sum, entry) => sum + entry.level, 0);
   const [classId, setClassId] = useState<string>(String(character.classes[0]?.classId ?? ""));
   const [subclassId, setSubclassId] = useState<string>();
@@ -85,7 +88,8 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
     const selected = selections[choice.id] ?? [];
     const max = choice.count.max;
     const title = choiceTitle(choice.id);
-    const heading = <h3>{title}</h3>;
+    const guide = guideFor(choice.id);
+    const heading = <><h3>{title}</h3>{guide ? <details className={styles.guide} open><summary>O que é e como escolher</summary><p>{guide.what}</p><ul>{guide.how.map((line) => <li key={line}>{line}</li>)}</ul></details> : null}</>;
     if (flavor === "asi") {
       const options = ABILITIES.map((ability) => ({ id: ability, label: `${ABILITY_LABELS[ability]} (${scores[ability] ?? "?"})`, ...((scores[ability] ?? 0) >= 20 ? { disabledReason: "Já está em 20." } : {}) }));
       return <div key={choice.id} className={styles.choice}>{heading}<p className={styles.hint}>Um atributo recebe +2; dois atributos recebem +1 cada. Ou escolha um talento abaixo, no lugar do aumento.</p><OptionList options={options} selected={selected} max={2} onChange={(ids) => setChoice(choice.id, ids)} /></div>;
@@ -125,7 +129,7 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
     else if (flavor === "languages") options = Object.entries(LANGUAGE_LABELS).map(([id, label]) => ({ id, label }));
     else if (flavor === "tools") options = TOOL_PROFICIENCY_OPTIONS.map((id) => ({ id, label: PROFICIENCY_LABELS[id] ?? formatRef(id) }));
     if (options.length === 0) return <div key={choice.id} className={styles.choice}>{heading}<p className={styles.muted}>Nenhuma opção disponível agora.</p></div>;
-    return <div key={choice.id} className={styles.choice}>{heading}<p className={styles.hint}>Opcional · até {max} {max === 1 ? "opção" : "opções"}.</p><OptionList options={options} selected={selected} max={max} onChange={(ids) => setChoice(choice.id, ids)} {...(featureInfo ? { onInfo: (id: string) => { if (featureInfo(id)) setInfoId(id); } } : {})} /></div>;
+    return <div key={choice.id} className={styles.choice}>{heading}<p className={styles.hint}>Opcional · até {max} {max === 1 ? "opção" : "opções"}.</p><OptionList options={options} selected={selected} max={max} onChange={(ids) => setChoice(choice.id, ids)} {...(featureInfo ? { onInfo: (id: string) => { if (featureInfo(id)) setInfoId(id); }, brief: (id: string) => { const detail = featureInfo(id); return detail ? spellBrief(detail.paragraphs.join(" "), 200) : undefined; } } : {})} /></div>;
   };
 
   const confirm = async () => {
@@ -140,6 +144,18 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
   const featureRefs = preview?.ok ? preview.value.featureRefs : [];
   const resources = preview?.ok ? preview.value.resources : [];
   const unlocks = racialTraits.filter((trait) => trait.level === totalLevel + 1);
+  // Espaços de magia e magias preparadas antes e depois deste nível.
+  const slotsBefore = allotmentsOf(castingSourcesOf(character.classes));
+  const slotsAfter = allotmentsOf(castingSourcesOf(projectClasses(character, classId, targetLevel, subclassId)));
+  const slotChanges = slotsAfter.flatMap((entry) => {
+    const was = slotsBefore.find((old) => old.kind === entry.kind && old.slotLevel === entry.slotLevel)?.count ?? 0;
+    return was === entry.count ? [] : [`${entry.kind === "pact" ? "Espaços de pacto" : "Espaços de magia"} do ${entry.slotLevel}º círculo: ${was} → ${entry.count}`];
+  });
+  const casting = CLASS_CASTING[classId];
+  const castingModifier = casting ? derived?.abilityScores.find((entry) => entry.ability === casting.ability)?.modifier.value ?? 0 : 0;
+  const preparedNow = casting && currentLevel >= casting.startLevel ? preparedLimitFor(classId, currentLevel, castingModifier) : undefined;
+  const preparedNext = casting && targetLevel >= casting.startLevel ? preparedLimitFor(classId, targetLevel, castingModifier) : undefined;
+  const preparedChange = preparedNext !== undefined && preparedNext !== preparedNow ? `Magias preparadas: até ${preparedNext}${preparedNow !== undefined ? ` (antes ${preparedNow})` : ""}. Ajuste a lista em Gerenciar magias na ficha.` : undefined;
   const info = infoId ? featureInfo?.(infoId) : undefined;
   const subclassOptions = definition ? definition.subclassIds.map((id) => pack.subclasses.get(id)).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)) : [];
   const newClassOptions = [...pack.classes.values()].filter((entry) => !character.classes.some((owned) => owned.classId === entry.id));
@@ -174,13 +190,10 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
           <p className={styles.hint}>Você ganha {hpGain + conModifier} PV neste nível (mínimo 1 pelas regras).</p>
         </fieldset>
         {needsSubclass ? (
-          <Select label={`Subclasse (${definition?.name ?? ""})`} hint="A classe pede subclasse neste nível; dá para escolher depois." value={subclassId ?? ""} onChange={(event) => { setSubclassId(event.currentTarget.value || undefined); setSelections({}); }}>
-            <option value="">Escolher depois</option>
-            {subclassOptions.map((entry) => <option key={String(entry.id)} value={String(entry.id)}>{entry.name}</option>)}
-          </Select>
+          <SubclassPicker label={`Subclasse de ${definition?.name ?? "classe"}: escolha o caminho do seu personagem`} options={subclassOptions.map((entry) => ({ id: String(entry.id), name: entry.name }))} value={subclassId} onChange={(id) => { setSubclassId(id); setSelections({}); }} {...(subclassInfo ? { info: subclassInfo } : {})} />
         ) : null}
         <h3>O que você ganha</h3>
-        {featureRefs.length === 0 && resources.length === 0 && unlocks.length === 0 ? <p className={styles.muted}>Este nível não traz características novas além das escolhas.</p> : (
+        {featureRefs.length === 0 && resources.length === 0 && unlocks.length === 0 && slotChanges.length === 0 && !preparedChange ? <p className={styles.muted}>Este nível não traz características novas além das escolhas.</p> : (
           <ul className={styles.gains}>
             {featureRefs.map((ref) => {
               const id = String(ref.entityId);
@@ -188,6 +201,8 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
             })}
             {resources.map((resource) => <li key={String(resource.definitionRef.entityId)}><span>{resource.definition?.name ?? formatRef(String(resource.definitionRef.entityId))} (recurso)</span></li>)}
             {unlocks.map((trait) => <li key={trait.name}><span>{trait.name} (raça)</span><small>{trait.description}</small></li>)}
+            {slotChanges.map((line) => <li key={line}><span>{line}</span></li>)}
+            {preparedChange ? <li key="prepared"><span>{preparedChange}</span></li> : null}
           </ul>
         )}
       </SectionCard>

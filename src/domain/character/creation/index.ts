@@ -14,3 +14,5 @@ export type {
   MaterializeOptions,
   MaterializedCharacter,
 } from "./model";
+export { backgroundOverview, buildCreationSummary } from "./summary";
+export type { BackgroundOverview, BackgroundOverviewLine, CreationSummary, SummaryAbility, SummaryConflict, SummaryLabels, SummaryLine, SummarySource, SummarySourceKind, SummaryStep } from "./summary";

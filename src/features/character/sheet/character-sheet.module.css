@@ -516,3 +516,12 @@ button.itemRow:focus-visible { outline: 2px solid var(--color-focus); outline-of
 .evolutionList { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
 .evolutionList li { display: grid; gap: .1rem; padding: .4rem .6rem; border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); border-radius: 4px; }
 .evolutionList span { color: var(--color-text-muted); font-size: .85rem; }
+
+.slotList { display: flex; flex-wrap: wrap; gap: .4rem .9rem; margin: 0 0 var(--spacing-sm); padding: 0 0 var(--spacing-sm); list-style: none; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); }
+.slotList li { display: flex; align-items: center; gap: .45rem; }
+.slotLabel { color: var(--color-text-muted); font-size: .8rem; }
+.slotPips { display: inline-flex; gap: .25rem; }
+.pipFull, .pipSpent { width: .8rem; height: .8rem; border: 1px solid var(--color-secondary); border-radius: 50%; }
+.pipFull { background: var(--color-secondary); }
+.pipSpent { background: transparent; opacity: .5; }
+.slotList small { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }

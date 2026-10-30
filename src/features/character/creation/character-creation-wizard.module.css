@@ -217,3 +217,7 @@
   .abilityName { grid-column: 1 / -1; }
   .abilityControl { justify-content: flex-start; }
 }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 25rem); gap: var(--spacing-lg); align-items: start; }
+.summaryAside { position: sticky; top: var(--spacing-md); max-height: calc(100vh - 2rem); overflow-y: auto; }
+@media (max-width: 1000px) { .workspace { grid-template-columns: 1fr; } .summaryAside { position: static; max-height: none; } }

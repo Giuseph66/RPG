@@ -1,0 +1,25 @@
+.group { min-width: 0; margin: 0 0 var(--spacing-md); padding: 0; border: 0; }
+.group legend { padding: 0; margin-bottom: var(--spacing-xs); font-weight: 600; }
+.optional { margin-left: .4rem; color: var(--color-text-muted); font-size: .75rem; font-weight: 400; }
+.hint { margin: 0 0 var(--spacing-sm); color: var(--color-text-muted); font-size: .8125rem; }
+.list { display: grid; gap: var(--spacing-xs); }
+.card { display: grid; gap: .4rem; padding: .6rem .8rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-background); transition: border-color 160ms ease-out; }
+.card:hover, .card:focus-within { border-color: var(--color-primary); }
+.cardOn { border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-background)); }
+label.card { display: flex; align-items: flex-start; gap: var(--spacing-sm); cursor: pointer; }
+.main { display: flex; align-items: flex-start; gap: var(--spacing-sm); cursor: pointer; }
+.card input[type="radio"] { flex: 0 0 auto; margin-top: .3rem; width: 1.15rem; height: 1.15rem; accent-color: var(--color-secondary); }
+.body { display: grid; gap: .3rem; min-width: 0; }
+.line { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.label { color: var(--color-text-muted); font-size: .75rem; margin-right: .2rem; }
+.chip { padding: .05rem .5rem; border: 1px solid var(--color-border-soft); border-radius: 999px; font-size: .8rem; }
+.chipWarn { border-color: var(--color-danger); color: var(--color-danger); }
+.badge { margin-left: .5rem; padding: .05rem .5rem; border: 1px solid var(--color-danger); border-radius: 999px; color: var(--color-danger); font-size: .72rem; font-weight: 600; }
+.meta { color: var(--color-text-muted); font-size: .78rem; line-height: 1.4; }
+.warn { color: var(--color-danger); font-size: .8rem; line-height: 1.4; }
+.more { justify-self: start; min-height: var(--size-touch-target); padding: .2rem .6rem; border: 0; background: transparent; color: var(--color-primary); font: inherit; text-decoration: underline; cursor: pointer; }
+.more:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.detail { display: grid; gap: .3rem; padding-top: .5rem; border-top: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); font-size: .9rem; line-height: 1.5; }
+.detail h4 { margin: .4rem 0 0; color: var(--color-secondary); font-size: .9rem; }
+.detail p, .detail ul { margin: 0; }
+.detail ul { padding-left: 1.1rem; }

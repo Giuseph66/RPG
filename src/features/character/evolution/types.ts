@@ -31,6 +31,8 @@ export interface LevelUpWizardProps {
   readonly pack: RulePack;
   readonly spellInfo?: SpellInfoLookup;
   readonly featureInfo?: FeatureInfoLookup;
+  /** Introdução e características da subclasse, para decidir antes de escolher. */
+  readonly subclassInfo?: SubclassInfoLookup;
   /** Características raciais com nível mínimo; o wizard mostra as que passam a valer. */
   readonly racialTraits?: readonly RacialUnlock[];
   /** Gerador de ids novos (espaços de magia, histórico, rolagens). */
@@ -38,3 +40,18 @@ export interface LevelUpWizardProps {
   readonly onConfirm: (next: Character) => Promise<EvolutionResult> | EvolutionResult;
   readonly onCancel: () => void;
 }
+
+export interface SubclassFeatureInfo {
+  readonly level: number;
+  readonly name: string;
+  readonly paragraphs: readonly string[];
+}
+
+/** O que a subclasse é e o que ela concede em cada nível, com o texto do livro. */
+export interface SubclassInfo {
+  readonly name: string;
+  readonly intro: readonly string[];
+  readonly features: readonly SubclassFeatureInfo[];
+}
+
+export type SubclassInfoLookup = (subclassId: string) => SubclassInfo | undefined;

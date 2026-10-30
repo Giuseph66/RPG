@@ -63,3 +63,16 @@ export const TOOL_PROFICIENCY_OPTIONS = [
   "proficiency.woodcarvers-tools",
   "proficiency.musical-instrument",
 ] as const;
+
+/** Proficiências de grupo (armaduras, armas, instrumentos) que não são itens do catálogo. */
+export const PROFICIENCY_GROUP_LABELS: Readonly<Record<string, string>> = {
+  "proficiency.light-armor": "Armaduras leves", "proficiency.medium-armor": "Armaduras médias", "proficiency.heavy-armor": "Armaduras pesadas",
+  "proficiency.all-armor": "Todas as armaduras", "proficiency.shield": "Escudos", "proficiency.simple-weapons": "Armas simples",
+  "proficiency.martial-weapons": "Armas marciais", "proficiency.instrument": "Instrumentos musicais", "proficiency.gaming-set": "Jogos",
+  "proficiency.artisan-tools": "Ferramentas de artesão",
+};
+
+export function formatWeight(grams: number): string {
+  if (grams >= 1000) return `${(grams / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`;
+  return `${grams.toLocaleString("pt-BR")} g`;
+}

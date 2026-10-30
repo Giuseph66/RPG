@@ -34,7 +34,7 @@ import { createRuleLookup } from "./rule-lookup";
 import { generateNpcCharacter } from "@application/character/generate-npc-character";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
-import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
+import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, subclassInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
 
 const LazyCampaignLog = lazy(() => import("@features/campaign-log").then((module) => ({ default: module.CampaignLog })));
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
@@ -336,16 +336,18 @@ function CharacterSelectionRoute({ registry, navigate }: { readonly registry: Fe
 
 function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {
   const validId = isUuid(id) ? asUuid(id) : undefined;
-  const [blocks, setBlocks] = useState<readonly { readonly id: string; readonly text: string; readonly printedPages: readonly number[] }[]>([]);
+  const [blocks, setBlocks] = useState<readonly { readonly id: string; readonly name: string; readonly text: string; readonly printedPages: readonly number[] }[]>([]);
+  const [sections, setSections] = useState<readonly { readonly className: string; readonly text: string }[]>([]);
   useEffect(() => {
     if (validId && character?.value?.id !== validId) void registry.character.service.select(validId);
   }, [character?.value?.id, registry.character.service, validId]);
   useEffect(() => {
     let active = true;
-    void import("@data/correto/descricoes/features").then((module) => { if (active) setBlocks(module.PHB_FEATURE_DESCRIPTIONS.featureBlocks); });
+    void import("@data/correto/descricoes/features").then((module) => { if (active) setBlocks(module.PHB_FEATURE_DESCRIPTIONS.featureBlocks); if (active) setSections(module.PHB_FEATURE_DESCRIPTIONS.classFeatureSections); });
     return () => { active = false; };
   }, []);
   const featureInfo = useMemo(() => featureInfoFor(pack, blocks), [pack, blocks]);
+  const subclassInfo = useMemo(() => subclassInfoFor(pack, sections, blocks), [pack, sections, blocks]);
   const Wizard = LazyLevelUp;
   if (!validId) return <PendingDestination title="Subir de nível" reasons={["O identificador da ficha é inválido."]} />;
   if (!pack) return <PendingDestination title="Subir de nível" reasons={["O catálogo de regras ainda não foi carregado."]} />;
@@ -360,7 +362,7 @@ function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { rea
     navigate(`/character/${current.id}`);
     return { ok: true };
   };
-  return <Wizard character={current} {...(derived ? { derived } : {})} pack={pack} spellInfo={spellInfoFor(pack)} featureInfo={featureInfo} racialTraits={racialTraitsFor(pack, current)} newId={() => asUuid(crypto.randomUUID())} onConfirm={confirm} onCancel={() => navigate(`/character/${current.id}`)} />;
+  return <Wizard character={current} {...(derived ? { derived } : {})} pack={pack} spellInfo={spellInfoFor(pack)} featureInfo={featureInfo} subclassInfo={subclassInfo} racialTraits={racialTraitsFor(pack, current)} newId={() => asUuid(crypto.randomUUID())} onConfirm={confirm} onCancel={() => navigate(`/character/${current.id}`)} />;
 }
 
 function CharacterDetailRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {

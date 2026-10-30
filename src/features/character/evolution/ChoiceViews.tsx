@@ -9,12 +9,14 @@ import type { SpellInfoLookup } from "../spell-info";
 import styles from "./level-up.module.css";
 
 /** Lista de opções com limite: radio quando só uma, caixas de seleção quando várias. */
-export function OptionList({ options, selected, max, onChange, onInfo }: {
+export function OptionList({ options, selected, max, onChange, onInfo, brief }: {
   readonly options: readonly ChoiceOptionView[];
   readonly selected: readonly string[];
   readonly max: number;
   readonly onChange: (ids: readonly string[]) => void;
   readonly onInfo?: (id: string) => void;
+  /** Resumo de uma linha mostrado abaixo do nome da opção. */
+  readonly brief?: (id: string) => string | undefined;
 }) {
   const single = max === 1;
   const toggle = (id: string) => {
@@ -34,6 +36,7 @@ export function OptionList({ options, selected, max, onChange, onInfo }: {
               <span className={styles.optionText}>
                 <span className={styles.optionName}>{option.label}</span>
                 {option.disabledReason ? <small className={styles.optionReason}>{option.disabledReason}</small> : null}
+                {brief?.(option.id) ? <span className={styles.brief}>{brief(option.id)}</span> : null}
               </span>
             </label>
             {onInfo ? <IconButton variant="ghost" className={styles.infoButton} label={`Descrição de ${option.label}`} icon={<Info size={20} />} onClick={() => onInfo(option.id)} /> : null}

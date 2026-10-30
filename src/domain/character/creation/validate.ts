@@ -1,5 +1,5 @@
 import { type CharacterDraft, type CharacterDraftPartial } from "@domain/contracts/character";
-import { type DefinitionRef } from "@domain/contracts/ids";
+import { type DefinitionRef, type EntityId } from "@domain/contracts/ids";
 import { type ChoiceDefinition, type ChoiceSelection, type Ability } from "@domain/contracts/primitives";
 import { type ClassDefinition } from "@domain/contracts/definitions/class";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
@@ -152,7 +152,7 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   for (const selection of selections) if (!knownIds.has(selection.choiceId)) issues.push(issue("invalid-choice", `choices.${selection.choiceId}`, `Escolha "${selection.choiceId}" não é concedida por raça, classe, sub-raça ou antecedente.`));
 
   const proficiencies = new Set<string>();
-  const addProficiency = (value: string, field: string) => { if (proficiencies.has(value)) issues.push(issue("duplicate-choice", field, `Proficiência "${value}" foi concedida mais de uma vez.`)); else proficiencies.add(value); };
+  const addProficiency = (value: string, field: string) => { if (proficiencies.has(value)) issues.push(issue("duplicate-choice", field, `Proficiência em ${pack.equipment.get(value.replace(/^proficiency\./, "") as EntityId)?.name ?? value} foi concedida mais de uma vez; escolha outra.`)); else proficiencies.add(value); };
   if (race) for (const proficiency of race.proficiencies) addProficiency(String(proficiency.entityId), "proficiencies");
   if (partial.subraceRef) for (const trait of pack.subraces.get(partial.subraceRef.entityId)?.traits ?? []) for (const modifier of trait.modifiers) if (modifier.operator === "grant-proficiency") addProficiency(modifier.id, "proficiencies");
   if (classDefinition) for (const proficiency of classDefinition.initialProficiencies) addProficiency(String(proficiency.entityId), "proficiencies");

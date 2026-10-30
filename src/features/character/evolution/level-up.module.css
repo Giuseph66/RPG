@@ -48,3 +48,25 @@
 .info { display: grid; gap: var(--spacing-sm); line-height: 1.55; }
 .info p { margin: 0; }
 @media (max-width: 680px) { .header { align-items: stretch; flex-direction: column; } .swap { grid-template-columns: 1fr; } .footer > * { flex: 1; } }
+.subclassGroup { min-width: 0; margin: 0 0 var(--spacing-md); padding: 0; border: 0; }
+.subclassGroup legend { padding: 0; margin-bottom: var(--spacing-sm); font-weight: 600; }
+.subclassList { display: grid; gap: var(--spacing-xs); }
+.subclassCard { display: grid; gap: .4rem; padding: .6rem .8rem; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-background); }
+.subclassCard:hover, .subclassCard:focus-within { border-color: var(--color-primary); }
+.subclassCardOn { border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 12%, var(--color-background)); }
+.subclassMain { display: flex; align-items: flex-start; gap: var(--spacing-sm); cursor: pointer; }
+.subclassMain input, .subclassCard > input { flex: 0 0 auto; margin-top: .3rem; width: 1.15rem; height: 1.15rem; accent-color: var(--color-secondary); }
+label.subclassCard { display: flex; align-items: flex-start; gap: var(--spacing-sm); cursor: pointer; }
+.subclassBody { display: grid; gap: .25rem; min-width: 0; }
+.subclassBrief { font-size: .875rem; line-height: 1.45; }
+.subclassGains, .subclassBody small { color: var(--color-text-muted); font-size: .78rem; line-height: 1.4; }
+.subclassMore { justify-self: start; min-height: var(--size-touch-target); padding: .2rem .6rem; border: 0; background: transparent; color: var(--color-primary); font: inherit; text-decoration: underline; cursor: pointer; }
+.subclassMore:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.subclassDetail { display: grid; gap: var(--spacing-sm); padding-top: .5rem; border-top: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); font-size: .9rem; line-height: 1.55; }
+.subclassDetail p { margin: 0; }
+.subclassDetail h4 { margin: .25rem 0 0; color: var(--color-secondary); font-size: .95rem; }
+.guide { margin: var(--spacing-xs) 0 var(--spacing-sm); padding: .6rem .8rem; border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent); border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-primary) 6%, transparent); font-size: .875rem; line-height: 1.5; }
+.guide summary { cursor: pointer; font-weight: 600; color: var(--color-primary); }
+.guide p { margin: .4rem 0 0; }
+.guide ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+.brief { color: var(--color-text); font-size: .85rem; line-height: 1.4; }

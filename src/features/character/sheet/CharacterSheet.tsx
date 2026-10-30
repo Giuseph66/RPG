@@ -58,6 +58,8 @@ import {
   formatSpellLevel,
   preparedSpellCount,
 } from "./mapping";
+import { SUBCLASS_BONUS_CANTRIPS } from "@domain/character/evolution/spell-rules";
+import { spellsKnownAt } from "@domain/character/evolution/spell-tables";
 import { EditCharacterModal, PortraitModal, SpellManagerModal } from "./SheetEditors";
 import { SpellIcon } from "./SpellIcon";
 import { useRuleHint, type RuleHintProps, type RuleQuery } from "@features/compendium";
@@ -375,6 +377,19 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const sourceLevel = character.classes.find((entry) => String(entry.classId) === sourceClassId)?.level ?? totalLevel;
   const sourceModifier = source ? abilityMap.get(source.ability)?.modifier.value ?? 0 : 0;
   const knownCaster = sourceClassId ? KNOWN_SPELL_CLASSES.has(sourceClassId) : false;
+  // Truques que a subclasse concede além da tabela da classe (Domínio da Natureza, Círculo da Terra).
+  const bonusCantrips = character.classes.filter((entry) => {
+    const bonus = entry.subclassId ? SUBCLASS_BONUS_CANTRIPS[String(entry.subclassId)] : undefined;
+    return bonus !== undefined && entry.level >= bonus.level;
+  }).length;
+  const cantripTotalLimit = sourceClassId && cantripsKnown(sourceClassId, sourceLevel) !== undefined ? (cantripsKnown(sourceClassId, sourceLevel) as number) + bonusCantrips : undefined;
+  const leveledTotalLimit = sourceClassId ? (preparedSpellCount(sourceClassId, sourceLevel, sourceModifier) ?? (knownCaster ? spellsKnownAt(sourceClassId, sourceLevel) : undefined)) : undefined;
+  const slotGroups = [...character.spellSlots.reduce((groups, slot) => {
+    const key = `${slot.kind}:${slot.slotLevel}`;
+    const group = groups.get(key) ?? { kind: slot.kind, level: slot.slotLevel, total: 0, spent: 0 };
+    groups.set(key, { ...group, total: group.total + 1, spent: group.spent + (slot.spent > 0 ? 1 : 0) });
+    return groups;
+  }, new Map<string, { kind: string; level: number; total: number; spent: number }>()).values()].sort((a, b) => a.level - b.level);
 
   const updateSpells = (ids: ReadonlySet<string>) => {
     if (!source) return;
@@ -523,6 +538,17 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
           </Panel>
         ) : null}
         <Panel heading="Magias" headingLevel={2} className={styles.spellPanel} hint={rule({ category: "rules", title: "Conjurando Uma Magia" })} action={spellOptions && source && canEdit ? <PanelLink label="Gerenciar" onClick={() => setManagingSpells(true)} /> : undefined}>
+          {source && slotGroups.length > 0 ? (
+            <ul className={styles.slotList} aria-label="Espaços de magia">
+              {slotGroups.map((group) => (
+                <li key={`${group.kind}-${group.level}`} aria-label={`${group.kind === "pact" ? "Pacto, " : ""}${group.level}º círculo: ${group.total - group.spent} de ${group.total} disponíveis`}>
+                  <span className={styles.slotLabel}>{group.kind === "pact" ? `Pacto ${group.level}º` : `${group.level}º círculo`}</span>
+                  <span className={styles.slotPips} aria-hidden="true">{Array.from({ length: group.total }, (_, index) => <span key={index} className={index < group.total - group.spent ? styles.pipFull : styles.pipSpent} />)}</span>
+                  <small>{group.total - group.spent}/{group.total}</small>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {!source ? <p className={styles.muted}>Esta classe não conjura magias neste nível.</p> : spellEntries.length === 0 ? (
             <div className={styles.emptySpells}>
               <p className={styles.muted}>Nenhuma magia selecionada.</p>
@@ -532,7 +558,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             <div className={styles.spellColumns}>
               {([["Truques", cantripEntries, "Truques"], ["Magias", leveledEntries, "Magias Conhecidas E Preparadas"]] as const).map(([label, entries, ruleTitle]) => (
                 <section key={label} className={styles.spellColumn} aria-label={label}>
-                  <h3 {...rule({ category: "rules", title: ruleTitle })} className={styles.spellColumnTitle}>{label}<span>{entries.length}</span></h3>
+                  <h3 {...rule({ category: "rules", title: ruleTitle })} className={styles.spellColumnTitle}>{label}<span>{entries.length}{(label === "Truques" ? cantripTotalLimit : leveledTotalLimit) !== undefined ? `/${label === "Truques" ? cantripTotalLimit : leveledTotalLimit}` : ""}</span></h3>
                   {entries.length === 0 ? <p className={styles.muted}>{label === "Truques" ? "Nenhum truque." : "Nenhuma magia."}</p> : (
                     <ul className={styles.spellList}>{entries.map((entry) => {
                       const spellName = entry.option?.name ?? name("spell", entry.ref);
@@ -628,8 +654,8 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
           spellInfo={spellInfo}
           selected={selectedSpellIds}
           onChange={updateSpells}
-          cantripLimit={sourceClassId ? cantripsKnown(sourceClassId, sourceLevel) : undefined}
-          leveledLimit={sourceClassId ? preparedSpellCount(sourceClassId, sourceLevel, sourceModifier) : undefined}
+          cantripLimit={cantripTotalLimit}
+          leveledLimit={leveledTotalLimit}
           leveledLabel={knownCaster ? "Magias conhecidas" : "Magias preparadas"}
         />
       ) : null}

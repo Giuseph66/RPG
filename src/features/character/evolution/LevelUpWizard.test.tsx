@@ -47,12 +47,43 @@ describe("LevelUpWizard", () => {
     }
   });
 
-  it("mostra a escolha de subclasse e permite adiar", async () => {
+  it("avisa o ganho de espaços de magia e o novo limite de preparadas", async () => {
     const mounted = await mount(<LevelUpWizard character={druid()} pack={pack} newId={newId} onConfirm={async () => ({ ok: true })} onCancel={() => undefined} />);
     try {
       await click(button(mounted.container, "Continuar"));
-      const select = mounted.container.querySelector("select") as HTMLSelectElement;
-      expect([...select.options].map((option) => option.textContent)).toEqual(expect.arrayContaining(["Escolher depois", "Círculo da Terra", "Círculo da Lua"]));
+      expect(mounted.container.textContent).toContain("Espaços de magia do 1º círculo: 2 → 3");
+      expect(mounted.container.textContent).toMatch(/Magias preparadas: até \d+ \(antes \d+\)/);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("mostra a escolha de subclasse, com o que cada uma faz, e permite adiar", async () => {
+    const subclassInfo = (id: string) => (id === "circle-of-the-land" ? { name: "Círculo da Terra", intro: ["O Círculo da Terra é constituído por místicos e sábios que guardam ritos antigos."], features: [{ level: 2, name: "Truque adicional", paragraphs: ["Você aprende um truque de druida adicional."] }] } : undefined);
+    const mounted = await mount(<LevelUpWizard character={druid()} pack={pack} newId={newId} subclassInfo={subclassInfo} onConfirm={async () => ({ ok: true })} onCancel={() => undefined} />);
+    try {
+      await click(button(mounted.container, "Continuar"));
+      const text = mounted.container.textContent ?? "";
+      expect(text).toContain("Escolher depois");
+      expect(text).toContain("Círculo da Terra");
+      expect(text).toContain("Círculo da Lua");
+      expect(text).toContain("O Círculo da Terra é constituído por místicos");
+      expect(text).toContain("nível 2: Truque adicional");
+      await click(button(mounted.container, "Ver o que Círculo da Terra faz"));
+      expect(mounted.container.textContent).toContain("Você aprende um truque de druida adicional.");
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("explica o que é e como escolher em cada escolha da classe", async () => {
+    const mounted = await mount(<LevelUpWizard character={druid()} pack={pack} newId={newId} onConfirm={async () => ({ ok: true })} onCancel={() => undefined} />);
+    try {
+      await click(button(mounted.container, "Continuar"));
+      const select = mounted.container.querySelector('input[type="radio"][name^="subclass"]:not(:checked)') as HTMLInputElement;
+      await click(select);
+      await click(button(mounted.container, "Continuar"));
+      expect(mounted.container.textContent).toContain("O que é e como escolher");
     } finally {
       await mounted.unmount();
     }

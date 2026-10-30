@@ -15,7 +15,7 @@ import type { SpellInfo, SpellInfoLookup } from "@features/character/spell-info"
 import { carryingCapacityGrams, encumbranceThresholdsGrams } from "@data/rules/encumbrance";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
 import { OPTION_GROUPS } from "@data/evolution/options";
-import type { FeatureInfo, FeatureInfoLookup, RacialUnlock } from "@features/character/evolution";
+import type { FeatureInfo, FeatureInfoLookup, RacialUnlock, SubclassInfo, SubclassInfoLookup } from "@features/character/evolution";
 
 /** Itens concretos do catálogo (sem escolhas abstratas como "símbolo sagrado à escolha"). */
 export function equipmentCatalog(pack: RulePack | undefined): readonly InventoryCatalogOption[] {
@@ -317,4 +317,57 @@ export function racialTraitsFor(pack: RulePack | undefined, character: Character
     const description = modifier.target.kind === "custom" ? modifier.target.description : trait.description;
     return [{ name: trait.name, description, level: modifier.predicate.level }];
   }));
+}
+
+export interface ClassTextSection { readonly className: string; readonly text: string }
+
+/** Parágrafos que o livro escreve logo após o título da subclasse, até o próximo título em caixa alta. */
+function introAfterHeading(text: string, subclassName: string): readonly string[] {
+  const target = subclassName.toUpperCase();
+  const lines = text.split("\n").map((line) => line.trim());
+  const start = lines.findIndex((line) => line === target || (line.length >= 10 && target.startsWith(line) && line === line.toUpperCase()));
+  if (start < 0) return [];
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const heading = line.length > 3 && line === line.toUpperCase() && /[A-ZÀ-Ú]{3}/.test(line) && !/\d/.test(line) && line.length < 60;
+    if (heading) break;
+    if (!/^\d+$/.test(line)) body.push(line);
+  }
+  return reflow(body.join("\n"));
+}
+
+/** Introdução e características por nível de cada subclasse, para decidir antes de escolher. */
+const SMALL_WORDS = new Set(["da", "de", "do", "das", "dos", "e", "a", "o", "em", "com", "para", "no", "na"]);
+/** "Caminho Da Floresta" vira "Caminho da Floresta": preposições em minúscula, exceto no início. */
+function titleCase(name: string): string {
+  return name.split(" ").map((word, index) => (index > 0 && SMALL_WORDS.has(word.toLowerCase()) ? word.toLowerCase() : word)).join(" ");
+}
+
+export interface SubclassTextBlock { readonly id: string; readonly name: string; readonly text: string }
+
+export function subclassInfoFor(pack: RulePack | undefined, sections: readonly ClassTextSection[], blocks: readonly SubclassTextBlock[]): SubclassInfoLookup {
+  const cache = new Map<string, SubclassInfo | undefined>();
+  return (subclassId) => {
+    if (cache.has(subclassId)) return cache.get(subclassId);
+    const subclass = pack?.subclasses.get(subclassId as never);
+    let info: SubclassInfo | undefined;
+    if (subclass && pack) {
+      const className = pack.classes.get(subclass.classId)?.name;
+      const section = sections.find((entry) => entry.className === className);
+      // O nível de cada característica está no texto ("A partir do 6° nível…"); entram só os blocos com nível.
+      const features = blocks.filter((block) => block.id.startsWith(`${subclassId}.`)).flatMap((block) => {
+        const opening = block.text.split("\n").slice(1, 5);
+        // Tabelas de magias por nível ("Nível de Druida / Magias") não são características.
+        if (/^N[íi]vel d/i.test(opening[0] ?? "")) return [];
+        const level = /(\d+)\s*[°º]/.exec(opening.join(" "))?.[1];
+        if (!level) return [];
+        const paragraphs = reflow(block.text.split("\n").slice(1).join("\n")).filter((paragraph) => !/^\d+$/.test(paragraph));
+        return [{ level: Number(level), name: titleCase(block.name), paragraphs }];
+      }).sort((a, b) => a.level - b.level);
+      const intro = section ? introAfterHeading(section.text, subclass.name) : [];
+      if (intro.length > 0 || features.length > 0) info = { name: subclass.name, intro, features };
+    }
+    cache.set(subclassId, info);
+    return info;
+  };
 }
