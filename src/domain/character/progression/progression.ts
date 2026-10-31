@@ -167,11 +167,15 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
   if (targetClassLevel >= classDefinition.subclassSelectionLevel && !subclass) errors.push({ ...issue("required-choice", "subclassId", `A classe pede subclasse a partir do nível ${classDefinition.subclassSelectionLevel}; você pode escolhê-la depois.`, classDefinition.sourceRefs), blocking: false });
   const gathered = choicesFor(character, pack, classDefinition, targetClassLevel, subclass);
   errors.push(...gathered.issues);
+  // Talento escolhido no lugar do aumento: o +1 de atributo dos talentos "meio-talento" (Atleta, Observador…) é uma escolha própria.
+  const pickedFeats = (input.choices.find((selection) => selection.choiceId === `${String(input.classId)}.feat.${targetClassLevel}`)?.selectedIds ?? []).map((ref) => pack.feats.get(ref.entityId));
+  const featChoices = pickedFeats.flatMap((feat) => (feat?.choices ?? []).filter((entry) => entry.kind === "ability-score-increase").map((entry): ChoiceDefinition => ({ ...entry, count: { min: 0, max: entry.count.max } })));
+  const allChoices = [...gathered.choices, ...featChoices.filter((entry) => !gathered.choices.some((existing) => existing.id === entry.id))];
   errors.push(...validateHitPointGain(input.hitPointGain, classDefinition, targetClassLevel));
   const choices = character.choices;
-  for (const choice of gathered.choices) errors.push(...validChoiceSelection(pack, choice, input.choices.find((selection) => selection.choiceId === choice.id)));
-  errors.push(...validateEvolutionChoices({ character, pack, classId: String(input.classId), targetLevel: targetClassLevel, ...(subclass ? { subclassId: String(subclass.id) } : {}), choices: input.choices, definitions: gathered.choices, ...(input.abilityScores ? { abilityScores: input.abilityScores } : {}) }));
-  const knownChoiceIds = new Set(gathered.choices.map((choice) => choice.id));
+  for (const choice of allChoices) errors.push(...validChoiceSelection(pack, choice, input.choices.find((selection) => selection.choiceId === choice.id)));
+  errors.push(...validateEvolutionChoices({ character, pack, classId: String(input.classId), targetLevel: targetClassLevel, ...(subclass ? { subclassId: String(subclass.id) } : {}), choices: input.choices, definitions: allChoices, ...(input.abilityScores ? { abilityScores: input.abilityScores } : {}) }));
+  const knownChoiceIds = new Set(allChoices.map((choice) => choice.id));
   const submittedChoiceIds = new Set<string>();
   for (const selection of input.choices) {
     if (submittedChoiceIds.has(selection.choiceId)) errors.push(issue("duplicate-choice", `choices.${selection.choiceId}`, `A escolha "${selection.choiceId}" foi enviada mais de uma vez.`));
@@ -192,7 +196,7 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
     resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => sameResourceRef(resource.definitionRef, change.resourceRef))?.spent ?? 0 });
   }
   const xpRequired = pack.progression.table[currentTotal]?.xpThreshold ?? Number.POSITIVE_INFINITY;
-  return ok({ classId: input.classId, targetClassLevel, totalLevel: currentTotal + 1, proficiencyBonus: pack.progression.table[currentTotal]?.proficiencyBonus ?? 0, xpRequired, hitPointGain: input.hitPointGain, featureRefs: gathered.featureRefs, resources, choices: gathered.choices, pending: errors, valid: errors.every((entry) => !entry.blocking) });
+  return ok({ classId: input.classId, targetClassLevel, totalLevel: currentTotal + 1, proficiencyBonus: pack.progression.table[currentTotal]?.proficiencyBonus ?? 0, xpRequired, hitPointGain: input.hitPointGain, featureRefs: gathered.featureRefs, resources, choices: allChoices, pending: errors, valid: errors.every((entry) => !entry.blocking) });
 }
 
 function fallbackId(character: Character, purpose: string, index: number): ReturnType<typeof asUuid> {

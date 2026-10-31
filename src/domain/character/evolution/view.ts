@@ -50,6 +50,7 @@ const TITLES: readonly (readonly [RegExp, string])[] = [
   [/knowledge-domain\.languages/, "Bênçãos do Conhecimento: idiomas"],
   [/knowledge-domain\.skills-expertise/, "Bênçãos do Conhecimento: perícias"],
   [/nature-domain\.skill/, "Acólito da Natureza: perícia"],
+  [/^[a-z-]+\.ability$/, "Talento: +1 em um atributo"],
 ];
 
 export function choiceTitle(choiceId: string): string {

@@ -1,4 +1,5 @@
 import { type Character, type ClassLevel, type ProgressionHistoryEntry } from "@domain/contracts/character";
+import { RACIAL_SPELLS } from "@domain/character/evolution/racial-spells";
 import { type Explanation, type CharacterDerived, type Contribution, type SkillDerived, type AbilityScoreDerived, type SavingThrowDerived, type AttackOption, type SpellcastingSourceDerived, type ResourceCapacityDerived } from "@domain/contracts/derived";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { type EquipmentDefinition } from "@domain/contracts/definitions/equipment";
@@ -364,7 +365,9 @@ function deriveSpells(
     if (state.grantingRef.rulesetId !== pack.manifest.id) {
       return err(appError.missingRuleset({ id: state.grantingRef.rulesetId, version: pack.manifest.version }, "Referência estrangeira em castingSources.grantingRef."));
     }
-    const source = pack.classes.get(state.grantingRef.entityId)?.spellcasting ?? pack.subclasses.get(state.grantingRef.entityId)?.spellcasting;
+    const racial = RACIAL_SPELLS[String(state.grantingRef.entityId)];
+    const source = pack.classes.get(state.grantingRef.entityId)?.spellcasting ?? pack.subclasses.get(state.grantingRef.entityId)?.spellcasting
+      ?? (racial ? { ability: racial.ability, kind: "known" as const, progressionType: "none-with-feature" as const, ritualCasting: false, spellcastingFocusAllowed: false } : undefined);
     if (!source) return err(appError.unresolvedRule(`Origem de conjuração "${state.grantingRef.entityId}" sem descritor de conjuração suportado.`));
     const ability = modifierByAbility(scores, state.ability);
     const target = { kind: "spell-save-dc" as const, castingSourceRef: state.grantingRef };

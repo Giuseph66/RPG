@@ -23,6 +23,10 @@ const GUIDES: readonly (readonly [RegExp, ChoiceGuide])[] = [
     what: "Um talento dá uma habilidade especial no lugar do aumento de atributo. Alguns exigem atributo mínimo, conjuração ou proficiência.",
     how: ["Se o seu atributo principal já está em 20 (ou perto), o talento costuma render mais que o aumento.", "Opções com requisito não atendido aparecem em cinza, com o motivo."],
   }],
+  [/^[a-z-]+\.ability$/, {
+    what: "Alguns talentos (Atleta, Observador, Lutador de Taverna, Mestre de Armas, Armadura Leve/Moderada) também dão +1 em um atributo à sua escolha, entre os que o talento permite.",
+    how: ["Prefira o atributo ímpar: +1 nele já sobe o modificador.", "Se deixar em branco, o talento vale sem o +1."],
+  }],
   [/fighting-style/, {
     what: "Um estilo de combate é uma especialidade fixa que melhora a forma como você luta. Não dá para escolher o mesmo estilo duas vezes.",
     how: ["Combine com a arma: Arquearia para arco ou besta; Duelismo para arma de uma mão; Combate com Armas Grandes para duas mãos; Duas Armas para duas armas leves.", "Defesa serve a quem usa armadura e Proteção a quem usa escudo para guardar aliados."],
@@ -81,6 +85,7 @@ const GUIDES: readonly (readonly [RegExp, ChoiceGuide])[] = [
     what: "Truques são magias simples que não gastam espaço e podem ser usadas à vontade.",
     how: ["Escolha pelo menos um truque de dano para ataques à distância e alguns utilitários.", "Ao abrir o ⓘ você vê alcance, tempo de conjuração e como o dano cresce com o nível."],
   }],
+  [/school-of-illusion\.cantrip/, { what: "A Escola de Ilusão aprimora Ilusão Menor: se você já a conhecia, aprende outro truque de mago sem contar nos seus truques conhecidos.", how: ["Se você ainda não conhece Ilusão Menor, ela entra de graça e esta escolha fica vazia."] }],
   [/spell-swap/, { what: "Ao subir de nível, quem conhece uma lista fixa de magias pode trocar uma magia conhecida por outra da mesma lista.", how: ["Troque uma magia que você nunca usa por outra que combine com o grupo."] }],
   [/magical-secrets|additional-secrets/, { what: "Segredos Mágicos deixam o bardo aprender magias de qualquer classe. Elas contam como magias de bardo.", how: ["Pegue o que falta ao grupo: cura de outra lista, dano de área do mago, utilidades do clérigo."] }],
   [/arcanum/, { what: "A Arcana Mística é uma magia de 6º a 9º nível que o bruxo lança uma vez por descanso longo, sem gastar espaço.", how: ["Escolha uma magia de alto impacto, já que só dá para usá-la uma vez ao dia."] }],

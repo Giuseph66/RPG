@@ -113,7 +113,7 @@ export const PHB_PTBR_LOCAL_2017_MANIFEST: RulePackManifest = {
     race: "ac43b3c6",
     subrace: "5c9dc84a",
     class: "b23a2e99",
-    subclass: "128ecaf5",
+    subclass: "0a8e16ba",
     background: "80d1be8a",
     feat: "2bd75a8f",
     feature: "51fa37d5",

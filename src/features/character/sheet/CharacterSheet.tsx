@@ -58,7 +58,7 @@ import {
   formatSpellLevel,
   preparedSpellCount,
 } from "./mapping";
-import { SUBCLASS_BONUS_CANTRIPS } from "@domain/character/evolution/spell-rules";
+import { bonusCantripCount } from "@domain/character/evolution/spell-rules";
 import { spellsKnownAt } from "@domain/character/evolution/spell-tables";
 import { EditCharacterModal, PortraitModal, SpellManagerModal } from "./SheetEditors";
 import { SpellIcon } from "./SpellIcon";
@@ -363,7 +363,9 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
 
   // Magias: conhecidas + preparadas + grimório, sem duplicatas.
   const spellById = new Map((spellOptions ?? []).map((option) => [String(option.ref.entityId), option]));
-  const source = castingSources[0];
+  // A gestão de magias é só das fontes de classe (ou de subclasse de terço); fontes raciais são fixas.
+  const isClassSource = (entry: (typeof castingSources)[number]): boolean => character.classes.some((owned) => String(owned.classId) === String(entry.grantingRef.entityId) || (owned.subclassId !== undefined && String(owned.subclassId) === String(entry.grantingRef.entityId)));
+  const source = castingSources.find(isClassSource);
   const sourceClassId = source ? String(source.grantingRef.entityId) : undefined;
   const spellEntries = castingSources.flatMap((entry) => [...new Map([...entry.knownSpellRefs, ...entry.preparedSpellRefs, ...entry.spellbookRefs].map((ref) => [String(ref.entityId), ref])).values()].map((ref) => ({
     ref,
@@ -378,10 +380,9 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const sourceModifier = source ? abilityMap.get(source.ability)?.modifier.value ?? 0 : 0;
   const knownCaster = sourceClassId ? KNOWN_SPELL_CLASSES.has(sourceClassId) : false;
   // Truques que a subclasse concede além da tabela da classe (Domínio da Natureza, Círculo da Terra).
-  const bonusCantrips = character.classes.filter((entry) => {
-    const bonus = entry.subclassId ? SUBCLASS_BONUS_CANTRIPS[String(entry.subclassId)] : undefined;
-    return bonus !== undefined && entry.level >= bonus.level;
-  }).length;
+  // Truques raciais (ex.: Alto Elfo) não contam no limite de truques da classe.
+  const racialCantrips = castingSources.filter((entry) => !isClassSource(entry)).flatMap((entry) => entry.knownSpellRefs).filter((ref) => (spellById.get(String(ref.entityId))?.level ?? 1) === 0).length;
+  const bonusCantrips = bonusCantripCount(character.classes) + racialCantrips;
   const cantripTotalLimit = sourceClassId && cantripsKnown(sourceClassId, sourceLevel) !== undefined ? (cantripsKnown(sourceClassId, sourceLevel) as number) + bonusCantrips : undefined;
   const leveledTotalLimit = sourceClassId ? (preparedSpellCount(sourceClassId, sourceLevel, sourceModifier) ?? (knownCaster ? spellsKnownAt(sourceClassId, sourceLevel) : undefined)) : undefined;
   const slotGroups = [...character.spellSlots.reduce((groups, slot) => {
@@ -549,7 +550,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
               ))}
             </ul>
           ) : null}
-          {!source ? <p className={styles.muted}>Esta classe não conjura magias neste nível.</p> : spellEntries.length === 0 ? (
+          {!source && spellEntries.length === 0 ? <p className={styles.muted}>Esta classe não conjura magias neste nível.</p> : spellEntries.length === 0 ? (
             <div className={styles.emptySpells}>
               <p className={styles.muted}>Nenhuma magia selecionada.</p>
               {spellOptions && canEdit ? <Button size="sm" variant="secondary" onClick={() => setManagingSpells(true)}>Escolher magias</Button> : null}

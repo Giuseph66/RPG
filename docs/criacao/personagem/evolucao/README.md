@@ -873,3 +873,22 @@ Pontos de decisão que pedem a sua escolha antes de implementar: (a) Paladino e 
 ## Índice estruturado
 
 O arquivo `indice.json` ao lado deste documento contém os mesmos dados em forma de grafo (classes, subclasses, características base, recursos, lacunas e arestas entre eles), para consulta por ferramentas. Gerado a partir do pack exportado; regenerar quando o pack mudar.
+
+## Auditoria "concedido mas não chega à ficha" (2026-10-30)
+
+Origem: bruxo Corruptor não via a lista ampliada do patrono. Varredura de todos os casos parecidos:
+
+| Caso | Situação |
+| --- | --- |
+| Lista ampliada dos patronos (Arquifada, Corruptor, Grande Antigo) | Corrigido: entra nas opções e na validação de magias do bruxo. |
+| Magias de domínio (7) e juramento (3), sempre preparadas | Corrigido (`granted-spells.ts`). |
+| Rastreador Subterrâneo (Disfarçar-se) | Corrigido. |
+| Terreno do Círculo da Terra (8 terrenos) | Corrigido (`terrain-spells.ts`). |
+| Luz (Domínio da Luz), Ilusão Menor (Escola de Ilusão), Mãos Mágicas (Trapaceiro Arcano), Convocar Familiar (Pacto da Corrente) | Corrigido (`applyAutomaticSpells`). |
+| Truques extras (Natureza, Círculo da Terra, Ilusão) | Contados no limite exibido. |
+| Magias raciais: Tiefling, Elfo Negro, Gnomo da Floresta | Corrigido (`racial-spells.ts`); liberadas por nível total. |
+| Truque do Alto Elfo (`high-elf.cantrip`) | Corrigido: antes era ignorado. |
+| +1 de atributo dos talentos Atleta/Observador/etc. | Corrigido: oferecido ao escolher o talento no nível. |
+| Espaços de magia (1 por círculo no bardo) | Corrigido anteriormente. |
+
+Pendências conhecidas (narrativas ou sem modelo): Alterar-se do Círculo da Lua, Caminhante Espiritual do Totem (ritual), Ladrão de Magias do Trapaceiro Arcano (temporário), usos por descanso das magias raciais de círculo, e sub-escolhas dos talentos Perito, Iniciado em Magia, Conjurador Ritualista, Atirador de Magias e Adepto Elemental (não são pedidas no nível).

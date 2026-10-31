@@ -98,6 +98,7 @@ export function validateEvolutionChoices(input: EvolutionValidationInput): reado
         }
         continue;
       }
+      if (parsed.key === "school-of-illusion" && ids.length > 0 && !context.knownSpells.has("ilusao-menor")) issues.push(issue("invalid-choice", field, "O truque extra da Escola de Ilusão só vale para quem já conhecia Ilusão Menor; sem ela, você a recebe de graça."));
       const fromSpellbook = parsed.kind === "spell-mastery" || parsed.kind === "signature-spells";
       for (const id of ids) {
         const problem = spellProblem(pack, id, constraint);

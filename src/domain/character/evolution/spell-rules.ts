@@ -24,7 +24,19 @@ export function parseEvolutionChoiceId(choiceId: string): ParsedEvolutionChoice 
 export const SUBCLASS_BONUS_CANTRIPS: Readonly<Record<string, { readonly classId: string; readonly listClassId: string; readonly level: number }>> = {
   "nature-domain": { classId: "cleric", listClassId: "druid", level: 1 },
   "circle-of-the-land": { classId: "druid", listClassId: "druid", level: 2 },
+  // Escola de Ilusão: se já conhece Ilusão Menor, aprende outro truque de mago (validado em validate.ts).
+  "school-of-illusion": { classId: "wizard", listClassId: "wizard", level: 2 },
 };
+
+/** Truques extras que a subclasse concede além da tabela da classe (para o limite exibido na ficha). */
+export function bonusCantripCount(classes: readonly { readonly classId: unknown; readonly level: number; readonly subclassId?: unknown }[]): number {
+  return classes.filter((entry) => {
+    const subclassId = entry.subclassId ? String(entry.subclassId) : undefined;
+    const bonus = subclassId ? SUBCLASS_BONUS_CANTRIPS[subclassId] : undefined;
+    if (bonus) return entry.level >= bonus.level;
+    return subclassId === "light-domain";
+  }).length;
+}
 
 export const ARCANUM_LEVEL: Readonly<Record<number, number>> = { 11: 6, 13: 7, 15: 8, 17: 9 };
 

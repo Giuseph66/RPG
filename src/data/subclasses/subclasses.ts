@@ -1,6 +1,7 @@
 import { type SubclassDefinition } from "@domain/contracts/definitions/class";
 import { asEntityId } from "@domain/contracts/ids";
 import { choice, featureRef, ref, source } from "@data/classes/common";
+import { SUBCLASS_GRANTED_SPELLS } from "./granted-spells";
 import { CANTRIPS_KNOWN, SPELLS_KNOWN, SUBCLASS_CASTING } from "@domain/character/evolution/spell-tables";
 
 type SubclassSpec = { id: string; name: string; classId: string; selectionLevel: number; levels: readonly number[]; page: number; pdfPage: number };
@@ -17,7 +18,10 @@ const EXPANDED_SPELLS: Readonly<Record<string, readonly (readonly [string, strin
 
 /** Círculo N fica disponível ao bruxo no nível 2N − 1 (Magia de Pacto). */
 function expandedSpellGrants(subclassId: string): SubclassDefinition["spellGrants"] {
-  return (EXPANDED_SPELLS[subclassId] ?? []).flatMap((spells, index) => spells.map((spellId) => ({ level: index * 2 + 1, spellRef: ref(spellId), alwaysPrepared: false })));
+  const expanded = (EXPANDED_SPELLS[subclassId] ?? []).flatMap((spells, index) => spells.map((spellId) => ({ level: index * 2 + 1, spellRef: ref(spellId), alwaysPrepared: false })));
+  // Magias de domínio, de juramento e do conclave: sempre preparadas no nível indicado.
+  const always = (SUBCLASS_GRANTED_SPELLS[subclassId] ?? []).flatMap(([level, spells]) => spells.map((spellId) => ({ level, spellRef: ref(spellId), alwaysPrepared: true })));
+  return [...expanded, ...always];
 }
 
 const specs: readonly SubclassSpec[] = ([

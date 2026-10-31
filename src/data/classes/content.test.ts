@@ -100,12 +100,17 @@ describe("catálogo DATA-005", () => {
     const ranger = classes.find((entry) => entry.id === "ranger");
     expect(ranger?.subclassIds).toEqual(["beast-conclave", "hunter-conclave", "deep-stalker-conclave"]);
     expect(subclasses.filter((entry) => entry.classId === "ranger")).toHaveLength(3);
-    // Só os patronos do bruxo concedem magias (Lista de Magia Expandida): 10 cada, sem ficarem sempre preparadas.
-    expect(subclasses.filter((entry) => entry.spellGrants.length > 0).map((entry) => entry.id).sort()).toEqual(["the-archfey", "the-fiend", "the-great-old-one"]);
-    for (const patron of subclasses.filter((entry) => entry.spellGrants.length > 0)) {
+    // Concedem magias: 7 domínios, 3 juramentos, 3 patronos e o Rastreador Subterrâneo (tabelas do livro).
+    expect(subclasses.filter((entry) => entry.spellGrants.length > 0).map((entry) => entry.id).sort()).toEqual([
+      "deep-stalker-conclave", "knowledge-domain", "life-domain", "light-domain", "nature-domain", "oath-of-devotion", "oath-of-the-ancients", "oath-of-vengeance",
+      "tempest-domain", "the-archfey", "the-fiend", "the-great-old-one", "trickery-domain", "war-domain",
+    ]);
+    // Patronos só ampliam a lista (não ficam preparadas); domínios e juramentos ficam sempre preparadas.
+    for (const patron of subclasses.filter((entry) => ["the-archfey", "the-fiend", "the-great-old-one"].includes(String(entry.id)))) {
       expect(patron.spellGrants).toHaveLength(10);
       expect(patron.spellGrants.every((grant) => !grant.alwaysPrepared && [1, 3, 5, 7, 9].includes(grant.level))).toBe(true);
     }
+    expect(subclasses.find((entry) => entry.id === "deep-stalker-conclave")?.spellGrants.map((grant) => grant.level)).toEqual([3, 5, 9, 13, 17]);
   });
 
   it("expõe pendências de fonte sem transformar lacunas em defaults", () => {

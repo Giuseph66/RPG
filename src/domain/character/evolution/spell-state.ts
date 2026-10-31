@@ -4,6 +4,9 @@ import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import { asEntityId, asUuid, type DefinitionRef, type Uuid } from "@domain/contracts/ids";
 import { allotmentsOf, castingSourcesOf, type CastingSource } from "./context";
 import { parseEvolutionChoiceId, SUBCLASS_BONUS_CANTRIPS } from "./spell-rules";
+import { CIRCLE_TERRAIN_SPELLS } from "./terrain-spells";
+import { chosenOptionIds } from "./context";
+import { RACIAL_SPELLS, racialSpellKeys } from "./racial-spells";
 
 export interface SpellSyncOptions {
   readonly idGenerator?: (purpose: string, index: number) => Uuid;
@@ -105,12 +108,38 @@ function applySelections(pack: RulePack, active: readonly CastingSource[], selec
   }
 }
 
-/** Mãos Mágicas é concedida de graça pelo Trapaceiro Arcano no 3º nível. */
-function applyAutomaticSpells(pack: RulePack, active: readonly CastingSource[], next: Mutable, options: SpellSyncOptions, newId: NewId): void {
-  const trickster = active.find((entry) => entry.key === "arcane-trickster");
-  if (!trickster || !pack.spells.has(asEntityId("maos-magicas"))) return;
-  const index = next.sources.findIndex((entry) => String(entry.grantingRef.entityId) === "arcane-trickster");
-  if (index >= 0) addSpell(next, index, "known", { rulesetId: pack.manifest.id, entityId: asEntityId("maos-magicas") }, options.autoPrepare === true, newId);
+/** Magias que características concedem de graça (não contam nos limites): Mãos Mágicas, Luz, Ilusão Menor, Convocar Familiar. */
+function applyAutomaticSpells(character: Character, pack: RulePack, active: readonly CastingSource[], next: Mutable, options: SpellSyncOptions, newId: NewId): void {
+  const ref = (id: string): DefinitionRef => ({ rulesetId: pack.manifest.id, entityId: asEntityId(id) });
+  const grant = (key: string, spellId: string): void => {
+    const index = next.sources.findIndex((entry) => String(entry.grantingRef.entityId) === key);
+    if (index >= 0 && pack.spells.has(asEntityId(spellId))) addSpell(next, index, "known", ref(spellId), options.autoPrepare === true, newId);
+  };
+  const subclassOf = (classId: string): string | undefined => character.classes.find((entry) => String(entry.classId) === classId)?.subclassId as string | undefined;
+  if (active.some((entry) => entry.key === "arcane-trickster")) grant("arcane-trickster", "maos-magicas");
+  if (active.some((entry) => entry.key === "cleric") && subclassOf("cleric") === "light-domain") grant("cleric", "luz");
+  if (active.some((entry) => entry.key === "wizard") && subclassOf("wizard") === "school-of-illusion") grant("wizard", "ilusao-menor");
+  if (active.some((entry) => entry.key === "warlock") && chosenOptionIds(character.choices).has("pact-boon.chain")) grant("warlock", "convocar-familiar");
+}
+
+/** Magias da raça: fonte própria, com a habilidade da raça, liberadas pelo nível total do personagem. */
+function applyRacialSpells(character: Character, pack: RulePack, selections: readonly ChoiceSelection[], next: Mutable, options: SpellSyncOptions, newId: NewId): void {
+  const totalLevel = character.classes.reduce((sum, entry) => sum + entry.level, 0);
+  const picked = [...character.choices, ...selections];
+  for (const key of racialSpellKeys(character)) {
+    const rule = RACIAL_SPELLS[key];
+    if (!rule) continue;
+    if (!next.sources.some((entry) => String(entry.grantingRef.entityId) === key)) {
+      next.sources.push({ id: newId("casting-source"), grantingRef: { rulesetId: pack.manifest.id, entityId: asEntityId(key) }, ability: rule.ability, knownSpellRefs: [], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [] });
+    }
+    const index = next.sources.findIndex((entry) => String(entry.grantingRef.entityId) === key);
+    for (const grant of rule.spells) {
+      if (grant.level <= totalLevel && pack.spells.has(asEntityId(grant.spellId))) addSpell(next, index, "known", { rulesetId: pack.manifest.id, entityId: asEntityId(grant.spellId) }, false, newId);
+    }
+    for (const selection of picked.filter((entry) => entry.choiceId === rule.cantripChoice)) {
+      for (const spellRef of selection.selectedIds) if (pack.spells.has(spellRef.entityId)) addSpell(next, index, "known", spellRef, false, newId);
+    }
+  }
 }
 
 /** Espaços de magia: um registro por espaço, preservando os gastos ao crescer ou trocar de círculo. */
@@ -146,6 +175,26 @@ function syncSlots(active: readonly CastingSource[], next: Mutable, newId: NewId
   });
 }
 
+/** Magias do Círculo da Terra: dependem do terreno escolhido e ficam sempre preparadas. */
+function applyTerrainSpells(character: Character, pack: RulePack, active: readonly CastingSource[], next: Mutable): void {
+  const druid = character.classes.find((entry) => String(entry.classId) === "druid");
+  const terrain = [...chosenOptionIds(character.choices)].find((id) => id.startsWith("druid-terrain."))?.replace("druid-terrain.", "");
+  const sourceIndex = next.sources.findIndex((source) => String(source.grantingRef.entityId) === "druid");
+  if (!druid || String(druid.subclassId) !== "circle-of-the-land" || !terrain || sourceIndex < 0 || !active.some((source) => source.key === "druid")) return;
+  for (const [level, spellIds] of CIRCLE_TERRAIN_SPELLS[terrain] ?? []) {
+    if (level > druid.level) continue;
+    for (const spellId of spellIds) {
+      if (!pack.spells.has(asEntityId(spellId))) continue;
+      const spellRef: DefinitionRef = { rulesetId: pack.manifest.id, entityId: asEntityId(spellId) };
+      const source = next.sources[sourceIndex];
+      next.sources[sourceIndex] = { ...source, preparedSpellRefs: withRef(source.preparedSpellRefs, spellRef) };
+      const existing = next.prepared.findIndex((selection) => selection.castingSourceId === source.id && sameRef(selection.spellRef, spellRef));
+      if (existing >= 0) next.prepared[existing] = { ...next.prepared[existing], alwaysPrepared: true };
+      else next.prepared.push({ castingSourceId: source.id, spellRef, alwaysPrepared: true });
+    }
+  }
+}
+
 /** Concessões da subclasse: magias sempre preparadas a partir do nível indicado. */
 function applySubclassGrants(character: Character, pack: RulePack, active: readonly CastingSource[], next: Mutable): void {
   for (const entry of character.classes) {
@@ -176,8 +225,10 @@ export function syncSpellcasting(character: Character, pack: RulePack, selection
   const newId = idFactory(character, options);
   ensureSources(pack, active, next, newId);
   applySelections(pack, active, selections, next, options, newId);
-  applyAutomaticSpells(pack, active, next, options, newId);
+  applyAutomaticSpells(character, pack, active, next, options, newId);
   applySubclassGrants(character, pack, active, next);
+  applyTerrainSpells(character, pack, active, next);
+  applyRacialSpells(character, pack, selections, next, options, newId);
   syncSlots(active, next, newId);
   const hitDiceSpent = character.classes.map((entry) => {
     const existing = character.hitDiceSpent.find((dice) => dice.classId === entry.classId);
