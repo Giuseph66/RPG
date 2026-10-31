@@ -16,7 +16,7 @@ import {
   validateCharacterCreation,
 } from "@domain/character/creation";
 import { asCreationCatalog, CREATION_STEPS } from "@domain/character/creation/model";
-import { expandedSpellIds } from "@domain/character/evolution/spell-rules";
+import { bonusCantripListOf, expandedSpellIds, level1BonusCantripChoice } from "@domain/character/evolution/spell-rules";
 import type { CreationDecision, CreationCatalogInput, CreationIssue } from "@domain/character/creation";
 
 import { ABILITY_LABELS, formatRef, LANGUAGE_LABELS, PROFICIENCY_GROUP_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, TOOL_PROFICIENCY_OPTIONS } from "./mapping";
@@ -188,6 +188,8 @@ function ChoiceEditor({
       return Array.from(pack.spells.values()).filter((spell) => {
         if (selector.filterTag && !spell.tags.includes(selector.filterTag)) return false;
         if (spellLevel !== undefined && spell.level !== spellLevel) return false;
+        const bonusList = bonusCantripListOf(choice.id);
+        if (bonusList) return spell.classes.some((entry) => String(entry) === bonusList);
         return !classScoped || expanded.has(String(spell.id)) || spell.classes.some((entry) => String(entry) === String(classId));
       }).map((spell) => ({ value: String(spell.id), label: displayName(spell) }));
     }
@@ -384,8 +386,9 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   const backgroundChoices = [...(background?.toolChoices ?? []), ...(background?.languageChoices ?? [])];
   const choices = [...raceChoices.map((choice) => ({ choice, owner: draft.partial.raceRef })), ...classChoices.map((choice) => ({ choice, owner: draft.partial.classes?.[0] ? refFor(draft, draft.partial.classes[0].classId) : undefined })), ...backgroundChoices.map((choice) => ({ choice, owner: draft.partial.backgroundRef }))].filter((entry): entry is { choice: ChoiceDefinition; owner: DefinitionRef } => entry.owner !== undefined);
   const equipmentChoices = choices.filter(({ choice }) => choice.kind === "equipment-pack");
-  const spellChoices = choices.filter(({ choice }) => choice.kind === "spell" || choice.kind === "cantrip");
   const level1Subclass = draft.partial.classes?.[0]?.subclassId ? pack.subclasses.get(draft.partial.classes[0].subclassId) : undefined;
+  const bonusCantrip = level1BonusCantripChoice(level1Subclass);
+  const spellChoices = [...choices, ...(bonusCantrip && level1Subclass ? [{ choice: bonusCantrip, owner: refFor(draft, level1Subclass.id) }] : [])].filter(({ choice }) => choice.kind === "spell" || choice.kind === "cantrip");
   const subclassChoices = (level1Subclass?.featureGrants.filter((grant) => grant.level <= 1) ?? []).flatMap((grant) => pack.features.get(grant.featureRef.entityId)?.choices ?? []);
   // Escolhas da classe no 1º nível que não são perícias, equipamento nem magias (Estilo de Luta, Especialização, Inimigo Favorito…).
   const classOptionChoices = [...(classDefinition?.progression[0]?.choicesGranted ?? []), ...subclassChoices].filter((choice) => !["equipment-pack", "spell", "cantrip", "ability-score-increase", "feat"].includes(choice.kind));

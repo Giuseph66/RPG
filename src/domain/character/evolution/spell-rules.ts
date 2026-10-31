@@ -38,6 +38,19 @@ export function bonusCantripCount(classes: readonly { readonly classId: unknown;
   }).length;
 }
 
+/** Lista de classe do truque extra de uma escolha de subclasse (`<subclasse>.cantrip.<nível>`), se houver. */
+export function bonusCantripListOf(choiceId: string): string | undefined {
+  const match = /^(.+)\.cantrip\.\d+$/.exec(choiceId);
+  return match ? SUBCLASS_BONUS_CANTRIPS[match[1]]?.listClassId : undefined;
+}
+
+/** Escolha do truque extra que a subclasse concede já no 1º nível (Domínio da Natureza); `undefined` quando não há. */
+export function level1BonusCantripChoice(subclass: { readonly id: unknown; readonly classId: unknown; readonly sourceRefs: readonly import("@domain/contracts/primitives").SourceRef[] } | undefined): import("@domain/contracts/primitives").ChoiceDefinition | undefined {
+  const bonus = subclass ? SUBCLASS_BONUS_CANTRIPS[String(subclass.id)] : undefined;
+  if (!subclass || !bonus || bonus.level !== 1 || bonus.classId !== String(subclass.classId)) return undefined;
+  return { id: `${String(subclass.id)}.cantrip.1`, kind: "cantrip", count: { min: 0, max: 1 }, optionSet: { kind: "selector", selector: { kind: "any-entity-of-type", entityType: "spell", filterTag: "cantrip" } }, prerequisites: [], unique: true, sourceRefs: subclass.sourceRefs };
+}
+
 export const ARCANUM_LEVEL: Readonly<Record<number, number>> = { 11: 6, 13: 7, 15: 8, 17: 9 };
 
 /** Escolas do Cavaleiro Místico e do Trapaceiro Arcano; a regra livra as magias dos níveis 8, 14 e 20. */

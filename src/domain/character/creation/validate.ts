@@ -4,7 +4,7 @@ import { type ChoiceDefinition, type ChoiceSelection, type Ability } from "@doma
 import { type ClassDefinition } from "@domain/contracts/definitions/class";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { creationChoiceLimit } from "./limits";
-import { expandedSpellIds } from "@domain/character/evolution/spell-rules";
+import { bonusCantripListOf, expandedSpellIds, level1BonusCantripChoice } from "@domain/character/evolution/spell-rules";
 import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, type CreationIssue, type CreationValidationReport, ABILITIES } from "./model";
 
 const standardArray = [8, 10, 12, 13, 14, 15];
@@ -59,6 +59,9 @@ function validateChoice(
       else {
         if (selector.filterTag && !spell.tags.includes(selector.filterTag)) issues.push(issue("invalid-choice", field, `Magia "${key}" não satisfaz o filtro "${selector.filterTag}".`));
         const classSpellChoice = classId !== undefined && choice.id.startsWith(`${classId}.`) && (choice.kind === "cantrip" || choice.kind === "spell");
+        const bonusList = bonusCantripListOf(choice.id);
+        if (bonusList && !spell.classes.some((entry) => String(entry) === bonusList)) issues.push(issue("invalid-choice", field, `Magia "${key}" não está na lista de magias de ${bonusList === "druid" ? "druida" : bonusList}.`));
+        if (bonusList && spell.level !== 0) issues.push(issue("invalid-choice", field, `Magia "${key}" não é um truque.`));
         if (classSpellChoice && !extraSpellIds.has(key) && !spell.classes.some((entry) => String(entry) === classId)) issues.push(issue("invalid-choice", field, `Magia "${key}" não está disponível para a classe "${classId}".`));
         if (classSpellChoice && choice.kind === "cantrip" && spell.level !== 0) issues.push(issue("invalid-choice", field, `A escolha de truques aceita somente magias de nível 0; "${key}" é nível ${spell.level}.`));
         if (classSpellChoice && choice.kind === "spell" && (spell.level === 0 || (classLevel !== undefined && spell.level > classLevel))) issues.push(issue("invalid-choice", field, `A magia "${key}" excede o nível de magia disponível para a classe (nível ${classLevel ?? 1}).`));
@@ -139,6 +142,8 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   // Subclasse escolhida no 1º nível (Clérigo, Bruxo, Feiticeiro): as escolhas da característica do nível 1 valem na criação.
   const level1Subclass = classEntry?.subclassId ? pack.subclasses.get(classEntry.subclassId) : undefined;
   for (const grant of level1Subclass?.featureGrants.filter((entry) => entry.level <= 1) ?? []) choices.push(...(pack.features.get(grant.featureRef.entityId)?.choices ?? []));
+  const bonusCantrip = level1BonusCantripChoice(level1Subclass);
+  if (bonusCantrip) choices.push(bonusCantrip);
   if (background) choices.push(...background.toolChoices, ...background.languageChoices);
   if (background) for (const grant of background.equipment) if (!pack.equipment.has(grant.equipmentRef.entityId)) issues.push(issue("unresolved-source", "background.equipment", `Equipamento inicial "${grant.equipmentRef.entityId}" não está publicado no catálogo.`));
   const selections = partial.choices ?? [];
