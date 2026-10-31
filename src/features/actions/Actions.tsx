@@ -29,6 +29,7 @@ import { ABILITY_LABELS, SKILL_ABILITY, SKILL_LABELS } from "@features/character
 import { LoadPanel, loadSpeedPenaltyCm, loadTier } from "./LoadPanel";
 import { RestPanel, type RestKind } from "./RestPanel";
 import { TurnPanel } from "./TurnPanel";
+import { useRuleHint, type RuleQuery } from "@features/compendium";
 import styles from "./actions.module.css";
 
 const KIND_LABELS: Record<ActionCapabilityKind, string> = {
@@ -202,9 +203,20 @@ function CostList({ costs }: { readonly costs?: readonly ActionCost[] }) {
   return <ul className={styles.costList}>{costs.map((cost, index) => <li key={`${cost.label}-${index}`}><span>{cost.label}</span><strong>{cost.value ?? (cost.remaining === undefined ? "—" : `${cost.remaining} restantes`)}</strong></li>)}</ul>;
 }
 
+/** Regra do compêndio ligada ao card (toque longo): magia, arma, item ou descanso; sem correspondência, nada acontece. */
+function ruleQueryFor(capability: ActionCapability): RuleQuery | undefined {
+  if (capability.kind === "spell") return { category: "spell", title: capability.label.replace(/\s*\((truque|nível \d+)\)$/, "") };
+  if (capability.kind === "attack") return { category: "equipment", title: capability.label.replace(/^Atacar com /, "") };
+  if (capability.kind === "item") return { category: "equipment", title: capability.label };
+  if (capability.kind === "concentration") return { category: "rules", title: "Concentração" };
+  if (capability.kind === "rest") return { category: "rules", title: capability.label };
+  return undefined;
+}
+
 function CapabilityCard({ capability, preview, state, selected, onSelect }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly selected: boolean; readonly onSelect: () => void }) {
   const costs = capability.costs ?? previewCosts(preview);
-  return <article className={[styles.capability, capability.kind === "concentration" ? styles.concentrationCard : "", selected ? styles.selected : "", state.status !== "available" ? styles[state.status] : ""].filter(Boolean).join(" ")}>
+  const rule = useRuleHint();
+  return <article {...rule(ruleQueryFor(capability))} className={[styles.capability, capability.kind === "concentration" ? styles.concentrationCard : "", selected ? styles.selected : "", state.status !== "available" ? styles[state.status] : ""].filter(Boolean).join(" ")}>
     <button className={styles.capabilityButton} type="button" aria-label={`Revisar capacidade: ${capability.label}`} aria-pressed={selected} onClick={onSelect}>
       <span className={styles.capabilityIcon} aria-hidden="true">{KIND_SYMBOLS[capability.kind]}</span>
       <span className={styles.capabilityCopy}>

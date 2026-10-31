@@ -37,6 +37,17 @@ tbody th { min-width: 13rem; font-weight: 400; }
 .description { max-width: 32ch; margin: var(--spacing-xs) 0 0; color: var(--color-text-muted); font-size: .8rem; font-weight: 400; }
 .numeric { color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .quantity { width: 6rem; }
+.stepper { display: inline-flex; align-items: center; gap: var(--spacing-xs); }
+.stepper .quantity { width: 3.25rem; padding: 0 .25rem; text-align: center; -moz-appearance: textfield; appearance: textfield; }
+.stepper .quantity::-webkit-outer-spin-button, .stepper .quantity::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
+.stepButton { display: inline-grid; place-items: center; width: var(--size-touch-target, 2.75rem); height: var(--size-touch-target, 2.75rem); padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+.stepButton:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+.stepButton:active:not(:disabled) { transform: scale(.94); }
+.stepButton:disabled { cursor: not-allowed; opacity: .55; }
+.stepRemove { color: var(--color-danger, #d9534f); }
+.stepRemove:hover:not(:disabled) { border-color: var(--color-danger, #d9534f); color: var(--color-danger, #d9534f); }
+.itemButtons { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.removeIcon { display: none; }
 .propertyList, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
 .proficiencyList { display: grid; gap: var(--spacing-xs); margin: 0; padding: 0; list-style: none; color: var(--color-text-muted); font-size: .8rem; }
 .proficiencyList li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
@@ -66,18 +77,32 @@ tbody tr:hover { background: color-mix(in srgb, var(--color-primary) 7%, transpa
   .tableWrap { overflow: visible; }
   table { display: block; min-width: 0; }
   thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  tbody { display: grid; }
-  tr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs) var(--spacing-md); padding: var(--spacing-sm) 0; border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
-  tr:first-child { border-top: 0; }
-  th, td { display: flex; align-items: center; gap: .3rem; min-width: 0; padding: 0; border: 0; }
-  tbody th { flex: 1 1 100%; flex-direction: column; align-items: start; gap: .1rem; min-width: 0; }
-  td::before { content: attr(data-label); color: var(--color-text-muted); font-size: .72rem; }
-  td[data-label="Ações"]::before, td[data-label="Propriedades"]::before { content: none; }
-  td[data-label="Ações"] { flex: 1 0 auto; justify-content: end; margin-left: auto; }
+  tbody { display: grid; gap: var(--spacing-sm); }
+  /* Cada item vira um cartão: nome e remover em cima; quantidade, peso e valor no meio; botões embaixo. */
+  tr {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: var(--spacing-sm) var(--spacing-md); align-items: center;
+    grid-template-areas: "name name remove" "qty weight value" "props props props" "btns btns btns";
+    padding: var(--spacing-md); border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent); border-radius: var(--radius-surface); background: color-mix(in srgb, var(--color-background) 55%, transparent);
+  }
+  tr.equippedRow { border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
+  th, td { display: flex; min-width: 0; padding: 0; border: 0; }
+  tbody th { grid-area: name; flex-direction: column; align-items: start; gap: .15rem; min-width: 0; }
+  td[data-label="Qtd."] { grid-area: qty; }
+  td[data-label="Peso"] { grid-area: weight; }
+  td[data-label="Valor"] { grid-area: value; }
+  td[data-label="Peso"], td[data-label="Valor"] { flex-direction: column; align-items: center; gap: .1rem; padding: .35rem .25rem; border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-border) 22%, transparent); text-align: center; }
+  td[data-label="Peso"]::before, td[data-label="Valor"]::before { content: attr(data-label); color: var(--color-text-muted); font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; }
+  td[data-label="Propriedades"] { grid-area: props; }
   td.emptyCell { display: none; }
-  .quantity { width: 3.5rem; min-height: 2.75rem; padding: 0 .35rem; text-align: center; }
+  /* A célula de ações e o grupo somem do layout para os botões ocuparem as áreas do cartão. */
+  td[data-label="Ações"], .actions { display: contents; }
+  .itemButtons { grid-area: btns; display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+  .itemButtons:empty { display: none; }
+  .itemButtons > * { flex: 1 1 8rem; min-height: 2.75rem; }
+  .removeButton { grid-area: remove; justify-self: end; align-self: start; min-width: 2.75rem; min-height: 2.75rem; padding: 0; }
+  .removeText { display: none; }
+  .removeIcon { display: block; }
   .description { max-width: none; }
-  .actions { min-width: 0; justify-content: end; }
 }
 
 /* ------------------------------------------------------------------ */

@@ -365,9 +365,24 @@ function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { rea
   return <Wizard character={current} {...(derived ? { derived } : {})} pack={pack} spellInfo={spellInfoFor(pack)} featureInfo={featureInfo} subclassInfo={subclassInfo} racialTraits={racialTraitsFor(pack, current)} newId={() => asUuid(crypto.randomUUID())} onConfirm={confirm} onCancel={() => navigate(`/character/${current.id}`)} />;
 }
 
+/**
+ * Liga o toque longo (abrir a regra do compêndio) aos filhos. O catálogo do livro (atributos,
+ * perícias, magias, condições…) carrega sob demanda, então a busca é refeita quando ele chega.
+ */
+function RuleLookupBoundary({ registry, children }: { readonly registry: FeatureRegistry; readonly children: ReactNode }) {
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  useEffect(() => {
+    let active = true;
+    registry.compendium.loadCatalog().then(() => { if (active) setCatalogLoaded(true); }, () => undefined);
+    return () => { active = false; };
+  }, [registry.compendium]);
+  const lookup = useMemo(() => createRuleLookup(registry.compendium.service), [registry.compendium.service, catalogLoaded]);
+  const RuleProvider = LazyRuleLookupProvider;
+  return <RuleProvider lookup={lookup}>{children}</RuleProvider>;
+}
+
 function CharacterDetailRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {
   const validId = isUuid(id) ? asUuid(id) : undefined;
-  const ruleLookup = useMemo(() => createRuleLookup(registry.compendium.service), [registry.compendium.service]);
   useEffect(() => {
     if (validId && character?.value?.id !== validId) void registry.character.service.select(validId);
   }, [character?.value?.id, registry.character.service, validId]);
@@ -399,8 +414,7 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
     onLevelUp: () => navigate(`/character/${currentCharacter.id}/evolve`),
     conditionOptions: conditionOptionsFor(pack),
   });
-  const RuleProvider = LazyRuleLookupProvider;
-  return <RuleProvider lookup={ruleLookup}><div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div></RuleProvider>;
+  return <RuleLookupBoundary registry={registry}><div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div></RuleLookupBoundary>;
 }
 
 function JournalRoute({ registry, campaign, viewerId, role = "master", authors, authorFilter, refreshKey, onSaved }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly viewerId?: string; readonly role?: "master" | "player"; readonly authors?: readonly { readonly id: string; readonly name: string }[]; readonly authorFilter?: string; readonly refreshKey?: object; readonly onSaved?: () => void }) {
@@ -1154,7 +1168,7 @@ function renderRegistryRoute(
   if (match.kind === "actions") {
     const ActionPage = LazyActions;
     const derived = currentCharacter ? registry.character.bindSheetProps({ character: currentCharacter }).derived : undefined;
-    const content = <ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} restInfo={currentCharacter ? restInfoFor(currentCharacter, derived, pack) : undefined} carrying={currentCharacter ? carryingFor(currentCharacter, derived, pack) : undefined} walkSpeedCm={walkSpeedFor(derived)} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} historyPanel={currentCharacter?.campaignId ? <CampaignLogRoute registry={registry} campaignId={String(currentCharacter.campaignId)} focusCharacterId={String(currentCharacter.id)} /> : undefined} />;
+    const content = <RuleLookupBoundary registry={registry}><ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} restInfo={currentCharacter ? restInfoFor(currentCharacter, derived, pack) : undefined} carrying={currentCharacter ? carryingFor(currentCharacter, derived, pack) : undefined} walkSpeedCm={walkSpeedFor(derived)} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} historyPanel={currentCharacter?.campaignId ? <CampaignLogRoute registry={registry} campaignId={String(currentCharacter.campaignId)} focusCharacterId={String(currentCharacter.id)} /> : undefined} /></RuleLookupBoundary>;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
   if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} campaignRole={campaignRole} match={match} navigate={navigate} pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;

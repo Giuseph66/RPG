@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { AppModal, Badge, Button, InlineStatus } from "@components/ui";
+import { Minus, Plus, Trash } from "@phosphor-icons/react";
 import { useRuleHint } from "@features/compendium";
 import type { CoinDenomination } from "@domain/contracts/primitives";
 
@@ -77,27 +78,37 @@ function sendIntent(onIntent: InventoryProps["onIntent"], intent: InventoryInten
   onIntent?.(intent);
 }
 
-function QuantityField({ entry, onIntent, onInvalid }: { readonly entry: InventoryItemView; readonly onIntent: InventoryProps["onIntent"]; readonly onInvalid: (message: string) => void }) {
+function QuantityField({ entry, onIntent, onInvalid, onRemove }: { readonly entry: InventoryItemView; readonly onIntent: InventoryProps["onIntent"]; readonly onInvalid: (message: string) => void; readonly onRemove: (entry: InventoryItemView) => void }) {
+  const quantity = entry.item.quantity;
+  const set = (next: number) => {
+    onInvalid("");
+    sendIntent(onIntent, { kind: "set-quantity", itemId: entry.item.id, quantity: next });
+  };
+  // Com 1 unidade, "−" tira o item do inventário (a mesma remoção do botão Remover).
+  const lastUnit = quantity <= 1;
   return (
-    <input
-      className={styles.quantity}
-      aria-label={`Quantidade de ${entry.name}`}
-      type="number"
-      min={1}
-      step={1}
-      inputMode="numeric"
-      value={entry.item.quantity}
-      disabled={!onIntent}
-      onChange={(event) => {
-        const quantity = Number(event.currentTarget.value);
-        if (!isValidQuantity(quantity)) {
-          onInvalid("A quantidade deve ser um inteiro maior que zero.");
-          return;
-        }
-        onInvalid("");
-        sendIntent(onIntent, { kind: "set-quantity", itemId: entry.item.id, quantity });
-      }}
-    />
+    <div className={styles.stepper}>
+      <button type="button" className={[styles.stepButton, lastUnit ? styles.stepRemove : ""].filter(Boolean).join(" ")} aria-label={lastUnit ? `Diminuir quantidade de ${entry.name} (remove o item)` : `Diminuir quantidade de ${entry.name}`} disabled={!onIntent} onClick={() => (lastUnit ? onRemove(entry) : set(quantity - 1))}><Minus size={18} weight="bold" aria-hidden="true" /></button>
+      <input
+        className={styles.quantity}
+        aria-label={`Quantidade de ${entry.name}`}
+        type="number"
+        min={1}
+        step={1}
+        inputMode="numeric"
+        value={quantity}
+        disabled={!onIntent}
+        onChange={(event) => {
+          const next = Number(event.currentTarget.value);
+          if (!isValidQuantity(next)) {
+            onInvalid("A quantidade deve ser um inteiro maior que zero.");
+            return;
+          }
+          set(next);
+        }}
+      />
+      <button type="button" className={styles.stepButton} aria-label={`Aumentar quantidade de ${entry.name}`} disabled={!onIntent} onClick={() => set(quantity + 1)}><Plus size={18} weight="bold" aria-hidden="true" /></button>
+    </div>
   );
 }
 
@@ -117,15 +128,17 @@ function ItemRow({ entry, onIntent, onInvalidQuantity, onRemove, onConsumed }: {
         {entry.category ? <span className={styles.itemMeta}>{CATEGORY_LABELS[entry.category] ?? entry.category}</span> : null}
         {entry.description ? <p className={styles.description}>{entry.description}</p> : null}
       </th>
-      <td data-label="Qtd."><QuantityField entry={entry} onIntent={onIntent} onInvalid={onInvalidQuantity} /></td>
+      <td data-label="Qtd."><QuantityField entry={entry} onIntent={onIntent} onInvalid={onInvalidQuantity} onRemove={onRemove} /></td>
       <td data-label="Peso" className={styles.numeric}>{entry.unitWeightGrams === undefined || Number(entry.unitWeightGrams) === 0 ? <span title="O livro não informa peso para este item.">—</span> : formatWeight(Number(entry.unitWeightGrams) * entry.item.quantity)}</td>
       <td data-label="Valor" className={styles.numeric}>{entry.unitValueCp === undefined ? "—" : formatValue(Number(entry.unitValueCp) * entry.item.quantity)}</td>
       <td data-label="Propriedades" className={properties.length === 0 ? styles.emptyCell : undefined}><div className={styles.propertyList}>{properties.length === 0 ? <span className={styles.muted}>—</span> : properties.map((property) => <Badge key={property}>{property}</Badge>)}</div></td>
       <td data-label="Ações">
         <div className={styles.actions}>
-          {equippable ? <Button size="sm" variant={equipped ? "secondary" : "primary"} aria-pressed={equipped} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => sendIntent(onIntent, equipped ? { kind: "unequip", itemId: entry.item.id } : { kind: "equip", itemId: entry.item.id })}>{equipped ? "Desequipar" : "Equipar"}</Button> : null}
-          {entry.consumable?.consumeOnUse ? <Button size="sm" variant="secondary" disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onConsumed(entry)}>Consumir</Button> : null}
-          <Button size="sm" variant="ghost" className={styles.removeButton} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onRemove(entry)}>Remover</Button>
+          <div className={styles.itemButtons}>
+            {equippable ? <Button size="sm" variant={equipped ? "secondary" : "primary"} aria-pressed={equipped} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => sendIntent(onIntent, equipped ? { kind: "unequip", itemId: entry.item.id } : { kind: "equip", itemId: entry.item.id })}>{equipped ? "Desequipar" : "Equipar"}</Button> : null}
+            {entry.consumable?.consumeOnUse ? <Button size="sm" variant="secondary" disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onConsumed(entry)}>Consumir</Button> : null}
+          </div>
+          <Button size="sm" variant="ghost" className={styles.removeButton} aria-label={`Remover ${entry.name}`} disabled={!onIntent} disabledReason={onIntent ? undefined : "Operações de inventário indisponíveis."} onClick={() => onRemove(entry)}><span className={styles.removeText}>Remover</span><Trash className={styles.removeIcon} size={20} aria-hidden="true" /></Button>
         </div>
       </td>
     </tr>

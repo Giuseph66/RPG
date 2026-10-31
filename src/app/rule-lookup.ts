@@ -15,10 +15,13 @@ export function createRuleLookup(service: CompendiumService): RuleLookup {
   let byId: Map<string, CompendiumIndexEntry> | undefined;
   const details = new Map<string, CompendiumDetail | null>();
 
+  let indexedCount = -1;
   const build = () => {
+    const index = service.getIndex();
+    indexedCount = index.length;
     byTitle = new Map();
     byId = new Map();
-    for (const entry of service.getIndex()) {
+    for (const entry of index) {
       const titleKey = `${entry.category}|${normalize(entry.title)}`;
       if (!byTitle.has(titleKey)) byTitle.set(titleKey, entry);
       const idKey = `${entry.category}|${entry.ref.entityId}`;
@@ -27,7 +30,8 @@ export function createRuleLookup(service: CompendiumService): RuleLookup {
   };
 
   return ({ category, title, entityId }) => {
-    if (!byTitle || !byId) build();
+    // O catálogo do livro pode chegar depois (carga sob demanda): reindexa quando o total muda.
+    if (!byTitle || !byId || service.getIndex().length !== indexedCount) { build(); details.clear(); }
     const entry = byTitle!.get(`${category}|${normalize(title)}`) ?? (entityId ? byId!.get(`${category}|${entityId}`) : undefined);
     if (!entry) return undefined;
     const cached = details.get(entry.key);

@@ -42,6 +42,22 @@ describe("Inventory", () => {
     await unmount();
   });
 
+  it("os botões + e − ajustam a quantidade e o − com 1 unidade remove o item", async () => {
+    const onIntent = vi.fn();
+    const { container, unmount } = await mount(<Inventory items={[item("sword", 3)]} currency={currency} onIntent={onIntent} />);
+    const click = async (label: string) => fireEvent(container.querySelector(`button[aria-label="${label}"]`) as HTMLElement, new MouseEvent("click", { bubbles: true }));
+    await click("Aumentar quantidade de Espada longa");
+    expect(onIntent).toHaveBeenLastCalledWith({ kind: "set-quantity", itemId: "sword", quantity: 4 });
+    await click("Diminuir quantidade de Espada longa");
+    expect(onIntent).toHaveBeenLastCalledWith({ kind: "set-quantity", itemId: "sword", quantity: 2 });
+    await unmount();
+    const single = await mount(<Inventory items={[item("sword", 1)]} currency={currency} onIntent={onIntent} />);
+    const minus = single.container.querySelector('button[aria-label="Diminuir quantidade de Espada longa (remove o item)"]') as HTMLElement;
+    await fireEvent(minus, new MouseEvent("click", { bubbles: true }));
+    expect(onIntent).toHaveBeenLastCalledWith({ kind: "remove", itemId: "sword", equipped: false });
+    await single.unmount();
+  });
+
   it("emits equip and unequip intents and keeps the equipped indicator visible", async () => {
     const onIntent = vi.fn();
     const { container, unmount } = await mount(<Inventory items={[item("sword", 1)]} currency={currency} onIntent={onIntent} />);
