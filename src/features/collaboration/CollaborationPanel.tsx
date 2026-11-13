@@ -127,7 +127,7 @@ function DeathSaveMarks({ label, count, tone }: { readonly label: string; readon
   </span>;
 }
 
-function CharacterCard({ character, onEdit, onOpen, onDelete }: { readonly character: CollaborationCharacter; readonly onEdit?: () => void; readonly onOpen?: () => void; readonly onDelete?: () => void }) {
+function CharacterCard({ character, onEdit, onOpen, onUnlink, onDelete, busy = false }: { readonly character: CollaborationCharacter; readonly onEdit?: () => void; readonly onOpen?: () => void; readonly onUnlink?: () => void; readonly onDelete?: () => void; readonly busy?: boolean }) {
   const status = vitality(character);
   const hp = character.hitPoints;
   const maximum = hp?.maximum;
@@ -189,8 +189,9 @@ function CharacterCard({ character, onEdit, onOpen, onDelete }: { readonly chara
     </div>
 
     {onEdit ? <button type="button" className={styles.cardAction} onClick={onEdit}><GiQuillInk aria-hidden="true" /> Ajustar estado</button> : null}
-    {onOpen || onDelete ? <div className={styles.sheetActions}>
+    {onOpen || onUnlink || onDelete ? <div className={styles.sheetActions}>
       {onOpen ? <button type="button" onClick={onOpen}>Editar ficha</button> : null}
+      {onUnlink ? <button type="button" disabled={busy} onClick={onUnlink} title="Tira a ficha desta campanha sem apagá-la">Desvincular</button> : null}
       {onDelete ? <button type="button" data-danger="true" onClick={onDelete}>Excluir</button> : null}
     </div> : null}
   </li>;
@@ -391,8 +392,11 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
     const result = await onUnlinkCharacter(character.id, selectedCampaign.id, character.revision);
     setBusy(false);
     if (!result.ok) { setMessage(result.error.message); return; }
-    setCharacterLinks((current) => current.map((item) => item.id === character.id ? { ...item, campaignId: undefined, revision: result.value } : item));
-    setMessage("Personagem desvinculado da campanha.");
+    // Ficha de outro jogador sai deste aparelho junto com a mesa; a própria volta para a lista sem campanha.
+    setCharacterLinks((current) => ownsSheet(character)
+      ? current.map((item) => item.id === character.id ? { ...item, campaignId: undefined, revision: result.value } : item)
+      : current.filter((item) => item.id !== character.id));
+    setMessage(ownsSheet(character) ? "Personagem desvinculado da campanha." : "Personagem desvinculado da campanha; a ficha continua com o jogador.");
   }
 
   function openCharacterEdit(character: CollaborationCharacter) {
@@ -462,7 +466,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
             <span className={styles.masterPanelTagline}>{partyCharacters.length} {partyCharacters.length === 1 ? "aventureiro" : "aventureiros"} na jornada</span>
           </div>
           <span className={styles.masterPanelRule} aria-hidden="true" />
-          {partyCharacters.length ? <ul className={styles.characterGrid}>{partyCharacters.map((character) => <CharacterCard key={String(character.id)} character={character} onEdit={onUpdateCharacter ? () => openCharacterEdit(character) : undefined} onOpen={onOpenCharacter && ownsSheet(character) ? () => onOpenCharacter(character.id) : undefined} onDelete={onDeleteCharacter && ownsSheet(character) ? () => { setDeleteError(undefined); setDeletingCharacter(character); } : undefined} />)}</ul> : <div className={styles.masterEmpty}><GiThreeFriends aria-hidden="true" /><p>Nenhuma ficha vinculada a {selectedCampaign.name}. Vincule um personagem local abaixo para acompanhar o grupo.</p></div>}
+          {partyCharacters.length ? <ul className={styles.characterGrid}>{partyCharacters.map((character) => <CharacterCard key={String(character.id)} character={character} onEdit={onUpdateCharacter ? () => openCharacterEdit(character) : undefined} onOpen={onOpenCharacter && ownsSheet(character) ? () => onOpenCharacter(character.id) : undefined} onUnlink={onUnlinkCharacter ? () => void unlinkCharacter(character) : undefined} busy={busy} onDelete={onDeleteCharacter && ownsSheet(character) ? () => { setDeleteError(undefined); setDeletingCharacter(character); } : undefined} />)}</ul> : <div className={styles.masterEmpty}><GiThreeFriends aria-hidden="true" /><p>A campanha {selectedCampaign.name} ainda não tem aventureiros. Vincule uma ficha em “Fichas da campanha”, logo abaixo, para acompanhar vida e condições do grupo aqui.</p></div>}
         </section>
 
         {historyPanel}
@@ -476,11 +480,11 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
           <span className={styles.masterPanelRule} aria-hidden="true" />
           <p className={styles.masterMuted}>Associe uma ficha local à campanha para exibir seus pontos de vida e condições aqui.</p>
           {unlinkedCharacters.length ? <ul className={styles.linkList}>{unlinkedCharacters.map((character) => <li key={String(character.id)}>
-            <span className={styles.linkInitials} aria-hidden="true">{character.portraitUrl ? <img src={character.portraitUrl} alt="" /> : characterInitials(character.name)}</span>
-            <span className={styles.linkCopy}><strong>{character.name || "Personagem sem nome"}</strong><small>{character.className || "Classe não informada"}{character.totalLevel ? ` · Nível ${character.totalLevel}` : ""}</small></span>
+            <span className={styles.linkInitials} aria-hidden="true">{character.portraitUrl || character.classId ? <img src={character.portraitUrl ?? artworkForClass(classArtworkAliases[character.classId?.toLowerCase() ?? ""] ?? character.classId).src} alt="" /> : characterInitials(character.name)}{character.totalLevel ? <span className={styles.linkLevel}>{character.totalLevel}</span> : null}</span>
+            <span className={styles.linkCopy}><strong>{character.name || "Personagem sem nome"}</strong><small>{character.className || "Classe não informada"}{character.totalLevel ? ` · Nível ${character.totalLevel}` : ""}</small>{character.playerName ? <small className={styles.linkPlayer}><GiPerson aria-hidden="true" /> {character.playerName}</small> : null}</span>
             <span className={styles.linkActions}>
+              {onLinkCharacter ? <button type="button" className={styles.linkButton} data-primary="true" disabled={busy} onClick={() => void linkCharacter(character)}><GiLinkedRings aria-hidden="true" /> Vincular</button> : null}
               {onOpenCharacter && ownsSheet(character) ? <button type="button" className={styles.linkButton} onClick={() => onOpenCharacter(character.id)}><GiQuillInk aria-hidden="true" /> Editar</button> : null}
-              {onLinkCharacter ? <button type="button" className={styles.linkButton} disabled={busy} onClick={() => void linkCharacter(character)}><GiLinkedRings aria-hidden="true" /> Vincular</button> : null}
               {onDeleteCharacter && ownsSheet(character) ? <button type="button" className={styles.linkButton} data-danger="true" disabled={busy} onClick={() => { setDeleteError(undefined); setDeletingCharacter(character); }}>Excluir</button> : null}
             </span>
           </li>)}</ul> : <p className={styles.masterMuted}>Não há fichas locais sem campanha.</p>}
@@ -566,7 +570,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
       <div className={styles.masterWorkspace} id={masterTab === "participants" ? undefined : `master-panel-${masterTab}`} role={masterTab === "participants" ? undefined : "tabpanel"} aria-labelledby={masterTab === "participants" ? undefined : `master-tab-${masterTab}`} tabIndex={masterTab === "participants" ? undefined : 0}>
         {masterTab === "characters" ? <section className={styles.partySection}>
           <div className={styles.partyHeading}><div><h3>Elenco da campanha</h3><p>Vida, defesa e efeitos ativos de cada ficha.</p></div><span>{partyCharacters.length} fichas</span></div>
-          {partyCharacters.length ? <ul className={styles.rosterList}>{partyCharacters.map((character) => <CharacterStatusRow key={String(character.id)} character={character} />)}</ul> : <p className={styles.emptyRoster}>Nenhuma ficha vinculada. Vincule personagens abaixo para acompanhar o estado do grupo.</p>}
+          {partyCharacters.length ? <ul className={styles.rosterList}>{partyCharacters.map((character) => <CharacterStatusRow key={String(character.id)} character={character} />)}</ul> : <p className={styles.emptyRoster}>O elenco ainda está vazio. Vincule fichas em “Vincular personagens”, abaixo, para ver vida, defesa e efeitos de cada personagem.</p>}
         </section> : null}
         {masterTab === "overview" ? <aside className={styles.attentionPanel} aria-labelledby="attention-title">
           <p className={styles.eyebrow}>VIGILÂNCIA</p><h3 id="attention-title">Pontos de atenção</h3>

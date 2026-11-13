@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 import { AppModal, Badge, IconButton, InlineStatus, Input } from "@components/ui";
 import { BookOpen, BookmarkSimple, Books, Brain, CaretDown, CircleNotch, X, Crosshair, FirstAidKit, MagnifyingGlass, Shield, Sparkle, Sword, UsersThree } from "@phosphor-icons/react";
@@ -115,12 +115,14 @@ function ActiveFilters({ filters, categories, onClear }: { readonly filters: Com
   return <div className={styles.activeFilters} aria-label="Filtros ativos">{chips.map((chip) => <span className={styles.filterChip} key={chip.key}><small>{chip.label}</small><strong>{chip.value}</strong><button type="button" aria-label={`Limpar ${chip.label.toLocaleLowerCase("pt-BR")}`} onClick={chip.clear}><X size={13} weight="bold" aria-hidden="true" /></button></span>)}</div>;
 }
 
-export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], totalEntries, selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className }: CompendiumProps) {
+export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], totalEntries, selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className, creaturePanel }: CompendiumProps) {
   const [selectedEntry, setSelectedEntry] = useState<CompendiumDetail | undefined>(undefined);
   const [detailOpen, setDetailOpen] = useState(Boolean(selected));
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
   const [queryInput, setQueryInput] = useState(filters.query);
   const [isSearching, setIsSearching] = useState(false);
+  const [activeSection, setActiveSection] = useState<"rules" | "creatures">("rules");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const favoriteKeys = new Set(favorites.filter((favorite) => favorite.exists).map((favorite) => favorite.key));
   const orphanFavorites = favorites.filter((favorite) => !favorite.exists);
   const activeDetail = selected ?? selectedEntry;
@@ -144,7 +146,20 @@ export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = []
     setIsSearching(true);
     updateFilter({ query: queryInput });
   };
-  return <section className={[styles.page, className ?? ""].filter(Boolean).join(" ")} aria-label="Compêndio de regras">
+  const moveSectionFocus = (event: KeyboardEvent<HTMLButtonElement>, current: number) => {
+    const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : event.key === "ArrowRight" ? (current + 1) % 2 : event.key === "ArrowLeft" ? (current + 1) % 2 : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    setActiveSection(next === 0 ? "rules" : "creatures");
+    tabRefs.current[next]?.focus();
+  };
+  return <section className={[styles.page, className ?? ""].filter(Boolean).join(" ")} aria-label="Compêndio">
+    {creaturePanel ? <div className={styles.sectionTabs} role="tablist" aria-label="Seções do compêndio">
+      <button ref={(node) => { tabRefs.current[0] = node; }} id="compendium-rules-tab" type="button" role="tab" tabIndex={activeSection === "rules" ? 0 : -1} aria-selected={activeSection === "rules"} aria-controls="compendium-rules-panel" onKeyDown={(event) => moveSectionFocus(event, 0)} onClick={() => setActiveSection("rules")}>Regras</button>
+      <button ref={(node) => { tabRefs.current[1] = node; }} id="compendium-creatures-tab" type="button" role="tab" tabIndex={activeSection === "creatures" ? 0 : -1} aria-selected={activeSection === "creatures"} aria-controls="compendium-creatures-panel" onKeyDown={(event) => moveSectionFocus(event, 1)} onClick={() => setActiveSection("creatures")}>Criaturas</button>
+    </div> : null}
+    {creaturePanel ? <div id="compendium-creatures-panel" role="tabpanel" aria-labelledby="compendium-creatures-tab" hidden={activeSection !== "creatures"}>{creaturePanel}</div> : null}
+    <div id="compendium-rules-panel" role={creaturePanel ? "tabpanel" : undefined} aria-labelledby={creaturePanel ? "compendium-rules-tab" : undefined} hidden={Boolean(creaturePanel) && activeSection !== "rules"}>
     <div className={styles.search}><div className={styles.searchField}><button type="button" className={styles.searchButton} aria-label={isSearching ? "Buscando" : "Buscar"} aria-busy={isSearching} onClick={handleSearch}>{isSearching ? <CircleNotch className={styles.searchSpinner} size={19} aria-hidden="true" /> : <MagnifyingGlass size={19} aria-hidden="true" />}</button><Input label="Buscar por nome, categoria ou tag" placeholder="Buscar por nome, categoria ou tag" value={queryInput} onChange={(event) => setQueryInput(event.currentTarget.value)} /></div><label className={styles.favoriteFilter}><input type="checkbox" checked={filters.favoriteOnly ?? false} onChange={(event) => updateFilter({ favoriteOnly: event.currentTarget.checked })} /> <BookmarkSimple size={17} aria-hidden="true" /><span>Somente favoritos</span></label></div>
     {status === "loading" ? <InlineStatus tone="info">Carregando índice local…</InlineStatus> : null}
     {status === "error" ? <InlineStatus tone="error" assertive>{error ?? "Não foi possível carregar o compêndio local."}</InlineStatus> : null}
@@ -154,6 +169,7 @@ export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = []
       <ActiveFilters filters={filters} categories={categories} onClear={updateFilter} />{entries.length === 0 ? <p className={styles.empty}><Books size={28} weight="duotone" aria-hidden="true" /><span>Nenhum resultado para estes filtros.</span></p> : <ul>{entries.map((entry) => <li key={entry.key}><button type="button" className={activeDetail?.key === entry.key ? styles.activeResult : undefined} aria-current={activeDetail?.key === entry.key ? "true" : undefined} aria-haspopup="dialog" onClick={() => { onSelect?.(entry); setSelectedEntry(entry as CompendiumDetail); setDetailOpen(true); }}><span><strong>{entry.title}</strong><small>{categoryName(entry.category)}{entry.summary ? ` · ${entry.summary}` : ""}</small></span>{favoriteKeys.has(entry.key) ? <BookmarkSimple size={17} weight="fill" aria-label="Favorito" /> : null}</button></li>)}</ul>}</section> : null}
     {orphanFavorites.length > 0 ? <section className={styles.orphansPanel} aria-labelledby="orphan-favorites-title"><h2 id="orphan-favorites-title">Favoritos órfãos</h2><p className={styles.muted}>Alguns favoritos não existem no pack atual.</p><ul className={styles.orphans}>{orphanFavorites.map((favorite) => <li key={favorite.key}>{favorite.ref.kind === "static" ? favorite.ref.category : favorite.ref.entityType} · {favorite.ref.entityId}</li>)}</ul></section> : null}
     {activeDetail ? <AppModal open={detailOpen} title="Regra" titleClassName={styles.modalTitle} onClose={() => setDetailOpen(false)} dismissOnBackdrop closeClassName={styles.detailClose} headerActions={onToggleFavorite ? <IconButton className={styles.favoriteIcon} label={favoriteKeys.has(activeDetail.key) ? "Remover favorito" : "Favoritar"} icon={<BookmarkSimple size={19} weight={favoriteKeys.has(activeDetail.key) ? "fill" : "regular"} />} variant="ghost" aria-pressed={favoriteKeys.has(activeDetail.key)} onClick={() => onToggleFavorite(activeDetail)} /> : undefined} className={styles.detailModal}><CompendiumDetailPanel detail={activeDetail} /></AppModal> : null}
+    </div>
   </section>;
 }
 

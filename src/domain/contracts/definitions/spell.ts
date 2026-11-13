@@ -177,6 +177,12 @@ export interface SpellComponentContext {
   readonly consumedItemRef?: DefinitionRef;
 }
 
+/** Variante explicitamente concedida por uma característica para uma magia específica. */
+export interface FeatureCastingOption {
+  readonly kind: "drop-concentration";
+  readonly durationMinutes: number;
+}
+
 export interface CastRequest {
   readonly commandId: CommandId;
   readonly characterId: Uuid;
@@ -185,6 +191,10 @@ export interface CastRequest {
   readonly castingSourceId: Uuid;
   readonly mode: CastMode;
   readonly resourcePoolId?: Uuid;
+  /** Pool de usos por descanso para uma conjuração concedida por característica/raça. */
+  readonly resourceStateId?: Uuid;
+  /** Variante assistida de concentração disponível somente para a concessão feature validada. */
+  readonly featureCastingOption?: FeatureCastingOption;
   readonly slotLevel?: number;
   readonly targetContext: SpellTargetContext;
   readonly componentContext: SpellComponentContext;

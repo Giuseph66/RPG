@@ -230,6 +230,8 @@ export type RuleModifierTarget =
   | { readonly kind: "armor-class" }
   | { readonly kind: "initiative" }
   | { readonly kind: "speed"; readonly speedKind: "walk" | "fly" | "swim" | "climb" | "burrow" }
+  /** Copia o valor já efetivo de outro deslocamento, antes dos modificadores próprios do destino. */
+  | { readonly kind: "speed-copy"; readonly speedKind: "fly" | "swim" | "climb" | "burrow"; readonly from: "walk" }
   | { readonly kind: "hit-points-max" }
   | { readonly kind: "hit-points-per-level" }
   | { readonly kind: "proficiency-bonus" }
@@ -276,6 +278,7 @@ export type RuleModifierPredicate =
   | { readonly kind: "min-condition-severity"; readonly conditionRef: DefinitionRef; readonly severity: number }
   | { readonly kind: "while-wearing-armor-category"; readonly armorCategory: ArmorCategory }
   | { readonly kind: "while-not-wearing-armor" }
+  | { readonly kind: "while-not-wearing-armor-categories"; readonly armorCategories: readonly ArmorCategory[] }
   | { readonly kind: "while-wielding-shield" }
   | { readonly kind: "while-concentrating" }
   | { readonly kind: "min-class-level"; readonly classRef: DefinitionRef; readonly level: number }

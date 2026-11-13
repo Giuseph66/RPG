@@ -10,6 +10,7 @@
 import {
   CREATURE_SCHEMA_VERSION,
   creatureFromLegacyNpc,
+  isCreatureProposal,
   projectSighting,
   sameSightingContent,
   sightingId,
@@ -19,8 +20,10 @@ import {
   type CreatureGuess,
   type CreatureKind,
   type CreatureRecord,
+  type CreatureProposal,
   type CreatureSighting,
 } from "@domain/campaign/creatures";
+import { isBeastDefinition, isCreatureStatBlock, type CreatureStatBlock } from "@domain/creatures";
 import { type NpcRecord } from "@domain/contracts/campaign";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { type AccountId, type Uuid } from "@domain/contracts/ids";
@@ -35,6 +38,7 @@ export interface CreatureServiceOptions {
   readonly repository: JourneyVisibilityRepository;
   readonly unitOfWork?: UnitOfWork;
   readonly syncOutbox?: SyncOutboxService;
+  readonly currentAccountId?: () => AccountId | undefined;
   readonly clock: Clock;
   readonly idGenerator: IdGenerator;
 }
@@ -49,6 +53,35 @@ export interface GuessInput {
   readonly fields?: CreatureGuess["fields"];
 }
 
+export interface CreatureProposalInput {
+  readonly campaignId: Uuid;
+  readonly proposedBy: AccountId;
+  readonly statBlock: CreatureStatBlock;
+  readonly suggestionReasons: readonly string[];
+}
+
+export interface CreatureProposalListFilter {
+  readonly accountId: AccountId;
+  readonly scope: "own" | "all";
+}
+
+export interface CreatureProposalReviewInput {
+  readonly campaignId: Uuid;
+  readonly proposalId: string;
+  readonly expectedRevision: Revision;
+  readonly reviewedBy: AccountId;
+  readonly reviewerRole: "owner" | "player";
+  readonly decision: "approve" | "reject";
+  readonly reviewNote?: string;
+  /** Bloco final arbitrado pelo mestre; permite aprovar rascunhos sem ND conhecido. */
+  readonly reviewedStatBlock?: CreatureStatBlock;
+}
+
+export interface CreatureProposalReviewResult {
+  readonly proposal: CreatureProposal;
+  readonly creature?: CreatureRecord;
+}
+
 export interface CreatureService {
   listCreatures(campaignId: Uuid): Promise<Result<readonly CreatureRecord[], AppError>>;
   create(campaignId: Uuid, content: CreatureContent): Promise<Result<CreatureRecord, AppError>>;
@@ -59,6 +92,9 @@ export interface CreatureService {
   listSightings(campaignId: Uuid, accountId?: AccountId): Promise<Result<readonly CreatureSighting[], AppError>>;
   listGuesses(campaignId: Uuid, accountId?: AccountId): Promise<Result<readonly CreatureGuess[], AppError>>;
   saveGuess(input: GuessInput): Promise<Result<CreatureGuess, AppError>>;
+  submitProposal(input: CreatureProposalInput): Promise<Result<CreatureProposal, AppError>>;
+  listProposals(campaignId: Uuid, filter: CreatureProposalListFilter): Promise<Result<readonly CreatureProposal[], AppError>>;
+  reviewProposal(input: CreatureProposalReviewInput): Promise<Result<CreatureProposalReviewResult, AppError>>;
   /** Move `Campaign.npcs` antigos para registros privados do mestre. Devolve quantos foram criados. */
   importLegacyNpcs(campaignId: Uuid, npcs: readonly NpcRecord[]): Promise<Result<number, AppError>>;
 }
@@ -124,7 +160,42 @@ export function createCreatureService(options: CreatureServiceOptions): Creature
   }
 
   function content(creature: CreatureRecord): CreatureContent {
-    return { kind: creature.kind, name: creature.name, appearance: creature.appearance, race: creature.race, description: creature.description, hitPoints: creature.hitPoints, armorClass: creature.armorClass, abilities: creature.abilities, notes: creature.notes, ...(creature.characterRef ? { characterRef: creature.characterRef } : {}) };
+    return { kind: creature.kind, name: creature.name, appearance: creature.appearance, race: creature.race, description: creature.description, hitPoints: creature.hitPoints, armorClass: creature.armorClass, abilities: creature.abilities, notes: creature.notes, ...(creature.characterRef ? { characterRef: creature.characterRef } : {}), ...(creature.statBlock ? { statBlock: creature.statBlock } : {}) };
+  }
+
+  function proposalError(message: string, field = "proposal"): Result<never, AppError> {
+    return err(appError.validation(field, message));
+  }
+
+  function proposalCreature(proposal: CreatureProposal, statBlock: CreatureStatBlock): CreatureRecord {
+    const now = clock.now();
+    return {
+      id: idGenerator.uuid(),
+      campaignId: proposal.campaignId,
+      schemaVersion: CREATURE_SCHEMA_VERSION,
+      revision: asRevision(0),
+      kind: statBlock.creatureType === "beast" ? "animal" : statBlock.creatureType === "humanoid" ? "npc" : "enemy",
+      name: statBlock.name,
+      appearance: "",
+      race: statBlock.creatureType,
+      description: proposal.suggestionReasons.join("\n"),
+      hitPoints: `${statBlock.hitPoints.average}${statBlock.hitPoints.hitDice ? ` (${statBlock.hitPoints.hitDice})` : ""}`,
+      armorClass: `${statBlock.armorClass}${statBlock.armorClassNote ? ` (${statBlock.armorClassNote})` : ""}`,
+      abilities: ["actions", "traits", "spellcasting"].filter((field) => field in statBlock).join(", "),
+      notes: "",
+      statBlock,
+      // A aprovação devolve a proposta ao próprio proponente; o Mestre ainda controla
+      // os demais jogadores com revelações independentes do registro de criatura.
+      reveals: [{ accountId: proposal.proposedBy, fields: ["name", "kind", "statBlock"] }],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  function isApplicableProposalStatBlock(value: unknown): value is CreatureStatBlock {
+    return isCreatureStatBlock(value) && isBeastDefinition(value) && value.challengeRating !== null &&
+      value.scaling === undefined && value.hitPoints.average >= 1 &&
+      Object.values(value.abilityScores).every((score) => Number.isInteger(score) && score >= 1 && score <= 30);
   }
 
   return {
@@ -134,13 +205,16 @@ export function createCreatureService(options: CreatureServiceOptions): Creature
       const valid = validateCreatureContent(input);
       if (!valid.ok) return valid;
       const now = clock.now();
+      const currentAccountId = options.currentAccountId?.();
       const creature: CreatureRecord = {
         ...valid.value,
         id: idGenerator.uuid(),
         campaignId,
         schemaVersion: CREATURE_SCHEMA_VERSION,
         revision: asRevision(0),
-        reveals: [],
+        reveals: valid.value.statBlock && currentAccountId
+          ? [{ accountId: currentAccountId, fields: ["name", "kind", "statBlock"] }]
+          : [],
         createdAt: now,
         updatedAt: now,
       };
@@ -215,6 +289,86 @@ export function createCreatureService(options: CreatureServiceOptions): Creature
         if (!saved.ok) return saved;
         const queued = await enqueue("guess", input.campaignId, id, base, saved.value, context);
         return queued.ok ? saved : queued;
+      });
+    },
+
+    async submitProposal(input) {
+      if (!isCreatureStatBlock(input.statBlock) || !isBeastDefinition(input.statBlock)) return proposalError("Sugestão de animal precisa ser uma besta individual com bloco de estatísticas válido.", "statBlock");
+      if (input.statBlock.scaling !== undefined || input.statBlock.hitPoints.average < 1 ||
+        Object.values(input.statBlock.abilityScores).some((score) => !Number.isInteger(score) || score < 1 || score > 30)) {
+        return proposalError("Use PV positivos, atributos inteiros de 1 a 30 e estatísticas não escaláveis.", "statBlock");
+      }
+      if (input.suggestionReasons.length < 1 || input.suggestionReasons.length > 8 || input.suggestionReasons.some((reason) => typeof reason !== "string" || !reason.trim() || reason.length > 240)) {
+        return proposalError("Inclua de 1 a 8 explicações curtas e não vazias para a sugestão.", "suggestionReasons");
+      }
+      const now = clock.now();
+      const proposal: CreatureProposal = {
+        id: `proposal__${idGenerator.uuid()}`,
+        campaignId: input.campaignId,
+        schemaVersion: CREATURE_SCHEMA_VERSION,
+        revision: asRevision(0),
+        proposedBy: input.proposedBy,
+        status: "pending",
+        statBlock: input.statBlock,
+        suggestionReasons: input.suggestionReasons.map((reason) => reason.trim()),
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (!isCreatureProposal(proposal)) return proposalError("A proposta gerada não passou pela validação estrutural.");
+      return run(async (context) => {
+        const saved = await repository.save("proposal", proposal, asRevision(0), context);
+        if (!saved.ok) return saved;
+        const queued = await enqueue("proposal", input.campaignId, proposal.id, asRevision(0), saved.value, context);
+        return queued.ok ? saved : queued;
+      });
+    },
+
+    async listProposals(campaignId, filter) {
+      const listed = await repository.list("proposal", campaignId);
+      return listed.ok ? ok(listed.value.filter((proposal) => filter.scope === "all" || proposal.proposedBy === filter.accountId)) : listed;
+    },
+
+    async reviewProposal(input) {
+      if (input.reviewerRole !== "owner") return proposalError("Somente o mestre pode revisar uma proposta.", "reviewerRole");
+      if (input.reviewNote !== undefined && (typeof input.reviewNote !== "string" || input.reviewNote.length > 500)) return proposalError("A nota de revisão aceita até 500 caracteres.", "reviewNote");
+      if (input.decision === "reject" && input.reviewedStatBlock !== undefined) return proposalError("Só uma proposta aprovada pode receber bloco revisado.", "reviewedStatBlock");
+      if (input.decision === "approve" && !unitOfWork) return err(appError.validation("unitOfWork", "A aprovação precisa de uma transação para salvar proposta e criatura atomicamente."));
+      return run(async (context) => {
+        const currentResult = await repository.get("proposal", input.proposalId, context);
+        if (!currentResult.ok) return currentResult;
+        const current = currentResult.value;
+        if (!current || current.campaignId !== input.campaignId) return err(appError.notFound("creature-proposal", input.proposalId));
+        if (current.status !== "pending") {
+          if (current.status !== (input.decision === "approve" ? "approved" : "rejected")) return proposalError("Esta proposta já recebeu uma decisão diferente.", "decision");
+          const creature = current.creatureId ? await repository.get("creature", current.creatureId, context) : undefined;
+          if (creature && !creature.ok) return creature;
+          return ok({ proposal: current, ...(creature?.ok && creature.value ? { creature: creature.value } : {}) });
+        }
+        if (current.revision !== input.expectedRevision) return err(appError.conflict(input.expectedRevision, current.revision));
+        let creature: CreatureRecord | undefined;
+        const reviewedStatBlock = input.reviewedStatBlock ?? current.statBlock;
+        if (input.decision === "approve") {
+          if (!isApplicableProposalStatBlock(reviewedStatBlock)) return proposalError("A aprovação precisa de uma besta individual, estática e com ND aplicável, PV positivos e atributos válidos.", "reviewedStatBlock");
+          creature = proposalCreature(current, reviewedStatBlock);
+          const persisted = await persist(creature, context);
+          if (!persisted.ok) return persisted;
+          creature = persisted.value;
+        }
+        const now = clock.now();
+        const next: CreatureProposal = {
+          ...current,
+          status: input.decision === "approve" ? "approved" : "rejected",
+          reviewedBy: input.reviewedBy,
+          reviewedAt: now,
+          ...(input.reviewNote === undefined ? {} : { reviewNote: input.reviewNote.trim() }),
+          ...(input.reviewedStatBlock === undefined ? {} : { reviewedStatBlock: input.reviewedStatBlock }),
+          ...(creature ? { creatureId: creature.id } : {}),
+          updatedAt: now,
+        };
+        const saved = await repository.save("proposal", next, input.expectedRevision, context);
+        if (!saved.ok) return saved;
+        const queued = await enqueue("proposal", input.campaignId, next.id, input.expectedRevision, saved.value, context);
+        return queued.ok ? ok({ proposal: saved.value, ...(creature ? { creature } : {}) }) : queued;
       });
     },
 

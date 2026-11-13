@@ -1,7 +1,7 @@
 import { type CharacterDraft, type CharacterDraftPartial, type CharacterDraftStep } from "@domain/contracts/character";
 import { type DefinitionRef, type IsoTimestamp, type RulesetRef, type Uuid } from "@domain/contracts/ids";
 import { type Ability, type ChoiceSelection, type SourceRef } from "@domain/contracts/primitives";
-import { type RulePack } from "@domain/contracts/definitions/rulepack";
+import { type OptionalRuleContentPack, type RulePack } from "@domain/contracts/definitions/rulepack";
 
 export interface CreationEquipmentBundle {
   readonly id: import("@domain/contracts/ids").EntityId;
@@ -18,6 +18,7 @@ export type CreationDecision =
   | { readonly kind: "choices"; readonly selections: readonly ChoiceSelection[] }
   | { readonly kind: "equipment"; readonly selections: readonly ChoiceSelection[] }
   | { readonly kind: "spells"; readonly selections: readonly ChoiceSelection[] }
+  | { readonly kind: "supplements"; readonly selectedSupplementIds: readonly import("@domain/contracts/ids").EntityId[]; readonly selections: readonly import("@domain/contracts/character").OptionalRuleSelection[] }
   | { readonly kind: "details"; readonly details: Pick<CharacterDraftPartial, "appearance" | "personalityTraits" | "ideals" | "bonds" | "flaws" | "history"> };
 
 export interface CreateCharacterDraftInput {
@@ -52,6 +53,8 @@ export interface CreationValidationReport {
 
 export interface CreationCatalog {
   readonly rulePack: RulePack;
+  /** Disponível para escolha explícita; sua presença não ativa nenhum suplemento. */
+  readonly optionalRulePacks?: readonly OptionalRuleContentPack[];
   /** Bundles são publicados em data/equipment, mas não fazem parte do RulePack contract. */
   readonly equipmentBundles?: readonly CreationEquipmentBundle[];
 }
@@ -59,7 +62,11 @@ export interface CreationCatalog {
 export type CreationCatalogInput = CreationCatalog | RulePack;
 
 export function asCreationCatalog(input: CreationCatalogInput): CreationCatalog {
-  return "rulePack" in input ? input : { rulePack: input };
+  if ("rulePack" in input) return {
+    ...input,
+    optionalRulePacks: input.optionalRulePacks ?? [...(input.rulePack.optionalRulePacks?.values() ?? [])],
+  };
+  return { rulePack: input, optionalRulePacks: [...(input.optionalRulePacks?.values() ?? [])] };
 }
 
 export interface MaterializeOptions {

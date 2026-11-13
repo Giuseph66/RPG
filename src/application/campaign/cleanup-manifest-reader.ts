@@ -72,9 +72,9 @@ export function createLocalCampaignCleanupManifestReader(
       if (!maps.ok) return maps;
       if (!memberships.ok) return memberships;
       if (!sessions.ok) return sessions;
-      const journeyIds: Record<"creature" | "sighting" | "guess", readonly string[]> = { creature: [], sighting: [], guess: [] };
+      const journeyIds: Record<"creature" | "sighting" | "guess" | "proposal", readonly string[]> = { creature: [], sighting: [], guess: [], proposal: [] };
       if (options.journey) {
-        for (const kind of ["creature", "sighting", "guess"] as const) {
+        for (const kind of ["creature", "sighting", "guess", "proposal"] as const) {
           const listed = await options.journey.list(kind, campaignId, context);
           if (!listed.ok) return listed;
           journeyIds[kind] = uniqueStrings(listed.value.map((item) => item.id));
@@ -120,7 +120,7 @@ export function createLocalCampaignCleanupManifestReader(
         journalIds,
         mapIds,
         sessionIds,
-        ...(options.journey ? { creatureIds: journeyIds.creature, sightingIds: journeyIds.sighting, guessIds: journeyIds.guess } : {}),
+        ...(options.journey ? { creatureIds: journeyIds.creature, sightingIds: journeyIds.sighting, guessIds: journeyIds.guess, proposalIds: journeyIds.proposal } : {}),
         assets,
       });
     },

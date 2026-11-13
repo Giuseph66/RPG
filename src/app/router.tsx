@@ -3,23 +3,27 @@ import type { ReactNode } from "react";
 
 import { AppShell, type AppShellProps } from "@components/layout/AppShell";
 import { Button, InlineStatus } from "@components/ui";
-import type { Character, CharacterDraft, ManualAdjustment } from "@domain/contracts/character";
+import type { BeastSightingState, Character, CharacterDraft, EquipmentDisposition, ManualAdjustment } from "@domain/contracts/character";
 import { appError, err, ok } from "@domain/contracts/errors";
 import type { CharacterSummary } from "@domain/contracts/character";
 import type { DraftSummary } from "@features/character/selection";
 import type { Campaign, JournalEntry, MapRecord } from "@domain/contracts/campaign";
-import type { CreatureGuess, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
+import type { CreatureGuess, CreatureProposal, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
 import type { JourneyPlayer } from "@features/journey/creatures";
 import type { JournalDraft, JournalDraftState } from "@domain/campaign/journal";
 import { createJournalDraft, draftFromJournalEntry } from "@domain/campaign/journal";
-import { asAccountId, asIsoTimestamp, asUuid, isUuid, type EntityId, type Uuid } from "@domain/contracts/ids";
+import { asAccountId, asCommandId, asIsoTimestamp, asUuid, isUuid, type DefinitionRef, type EntityId, type Uuid } from "@domain/contracts/ids";
 import { parseBackupJson, serializeBackup } from "@application/transfer";
 import type { RecoveryRecordView } from "@application/transfer/types";
 import type { DataManagementIntent } from "@features/data-management";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { Revision } from "@domain/contracts/versioning";
 import type { StoreStatus } from "@application/state";
+import type { Command } from "@domain/contracts/rules";
+import { readTurnActionBudget, spendTurnActionAfterSuccess } from "@features/actions";
 import type { ActionCapability, ActionsDice, ActionsRollRequest } from "@features/actions";
+import type { EligibleBeastSuggestion } from "@domain/rules/wild-shape";
+import { suggestCreatureStatBlock, type CreatureStatBlock, type CreatureStatBlockSuggestionInput } from "@domain/creatures";
 import type { SettingsCharacterOption, SettingsDraftOption } from "@features/settings";
 import type { HomeCampaign, HomeCharacter, HomeDraft } from "@features/home";
 import { DRAFT_STEP_LABELS } from "@features/character/selection/types";
@@ -49,6 +53,7 @@ const LazyCreatureBoard = lazy(() => import("@features/journey/creatures").then(
 const LazyPlayerCreatureBoard = lazy(() => import("@features/journey/creatures").then((module) => ({ default: module.PlayerCreatureBoard })));
 const LazyJournalWorkspace = lazy(() => import("@features/journey/journal").then((module) => ({ default: module.JournalWorkspace })));
 const LazyCompendium = lazy(() => import("@features/compendium").then((module) => ({ default: module.Compendium })));
+const LazyCreatureCatalog = lazy(() => import("@features/compendium").then((module) => ({ default: module.CreatureCatalog })));
 const LazyRuleLookupProvider = lazy(() => import("@features/compendium").then((module) => ({ default: module.RuleLookupProvider })));
 const LazyDataManagementPanel = lazy(() => import("@features/data-management").then((module) => ({ default: module.DataManagementPanel })));
 const LazySettingsPanel = lazy(() => import("@features/settings").then((module) => ({ default: module.SettingsPanel })));
@@ -351,7 +356,7 @@ function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { rea
   const Wizard = LazyLevelUp;
   if (!validId) return <PendingDestination title="Subir de nível" reasons={["O identificador da ficha é inválido."]} />;
   if (!pack) return <PendingDestination title="Subir de nível" reasons={["O catálogo de regras ainda não foi carregado."]} />;
-  if (character?.status === "hydrating" || character?.value?.id !== validId) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
+  if (character?.value?.id !== validId) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
   const current = character.value;
   const derived = registry.character.bindSheetProps({ character: current }).derived;
   const confirm = async (next: Character) => {
@@ -383,14 +388,43 @@ function RuleLookupBoundary({ registry, children }: { readonly registry: Feature
 
 function CharacterDetailRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {
   const validId = isUuid(id) ? asUuid(id) : undefined;
+  const wildShape = registry.creatures?.wildShape;
+  const [eligibleBeasts, setEligibleBeasts] = useState<readonly EligibleBeastSuggestion[]>([]);
+  const [catalogError, setCatalogError] = useState<string>();
+  const turnBudget = useMemo(() => validId ? readTurnActionBudget(String(validId)) : undefined, [validId, character?.value?.revision]);
   useEffect(() => {
     if (validId && character?.value?.id !== validId) void registry.character.service.select(validId);
   }, [character?.value?.id, registry.character.service, validId]);
+  useEffect(() => {
+    if (!validId || character?.value?.id !== validId || !wildShape) { setEligibleBeasts([]); setCatalogError(undefined); return; }
+    let active = true;
+    void wildShape.listEligibleBeasts(validId).then((result) => {
+      if (!active) return;
+      setEligibleBeasts(result.ok ? result.value : []);
+      setCatalogError(result.ok ? undefined : result.error.message);
+    }, (reason: unknown) => {
+      if (active) { setEligibleBeasts([]); setCatalogError(reason instanceof Error ? reason.message : "Não foi possível carregar as bestas elegíveis."); }
+    });
+    return () => { active = false; };
+  }, [character?.value?.id, character?.value?.revision, validId, wildShape]);
   const Sheet = LazyCharacterSheet;
+  // Só a primeira leitura mostra "Carregando": uma re-hidratação do sync (o mestre mexeu no PV)
+  // mantém a ficha na tela em vez de desmontá-la e perder a rolagem.
   if (!validId) return <PendingDestination title="Personagem" reasons={["O identificador da ficha é inválido."]} />;
   if (character?.status === "error") return <section aria-live="assertive"><h1>Não foi possível carregar o personagem</h1><InlineStatus tone="error">{character.errorMessage ?? "A ficha não está disponível neste dispositivo."}</InlineStatus></section>;
-  if (character?.status === "hydrating" || character?.value?.id !== validId) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
+  if (character?.value?.id !== validId) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
   const currentCharacter = character.value;
+  const effectiveCharacter = wildShape?.effective(currentCharacter) ?? currentCharacter;
+  const derived = registry.character.bindSheetProps({ character: effectiveCharacter }).derived;
+  const enterCostResult = turnBudget && wildShape ? wildShape.actionCost(currentCharacter.id, turnBudget.availableActions, "enter") : undefined;
+  const exitCostResult = turnBudget && wildShape ? wildShape.actionCost(currentCharacter.id, turnBudget.availableActions, "exit") : undefined;
+  const actionBudgetError = enterCostResult && !enterCostResult.ok ? enterCostResult.error.message : exitCostResult && !exitCostResult.ok ? exitCostResult.error.message : undefined;
+  const plannedCosts = turnBudget && wildShape ? {
+    tracked: true,
+    ...(enterCostResult?.ok && enterCostResult.value ? { enterCost: enterCostResult.value } : {}),
+    ...(exitCostResult?.ok && exitCostResult.value ? { exitCost: exitCostResult.value } : {}),
+    ...(actionBudgetError ? { error: actionBudgetError } : {}),
+  } : undefined;
   const Inventory = LazyInventory;
   const inventory = currentCharacter.inventory.map((item) => {
     const definition = pack?.equipment.get(item.equipmentRef.entityId);
@@ -406,6 +440,8 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
   });
   const sheetProps = registry.character.bindSheetProps({
     character: currentCharacter,
+    effectiveCharacter,
+    ...(derived ? { derived } : {}),
     status: character.status,
     error: character.errorMessage,
     equipmentInfo: (entityId) => equipmentInfo(pack, entityId),
@@ -413,6 +449,43 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
     spellInfo: spellInfoFor(pack),
     onLevelUp: () => navigate(`/character/${currentCharacter.id}/evolve`),
     conditionOptions: conditionOptionsFor(pack),
+    ...(wildShape ? { wildShape: {
+      eligibleBeasts,
+      ...(catalogError ? { catalogError } : {}),
+      ...(plannedCosts ? { actionBudget: plannedCosts } : {}),
+      onEnter: async (beastRef: DefinitionRef, equipmentDisposition: EquipmentDisposition, actionCost?: "action" | "bonus-action") => {
+        const result = await wildShape.enter({ characterId: currentCharacter.id, expectedRevision: currentCharacter.revision, beastRef, equipmentDisposition, ...(actionCost ? { actionCost } : {}), ...(turnBudget ? { availableActions: turnBudget.availableActions } : {}) });
+        if (turnBudget && actionCost) spendTurnActionAfterSuccess(String(currentCharacter.id), actionCost, result.ok ? result.value.result.status : "error");
+        if (result.ok && result.value.result.status === "success") {
+          void registry.character.service.select(currentCharacter.id);
+        }
+        return result;
+      },
+      onExit: async (actionCost?: "action" | "bonus-action") => {
+        const result = await wildShape.exit({ characterId: currentCharacter.id, expectedRevision: currentCharacter.revision, ...(turnBudget ? { availableActions: turnBudget.availableActions } : {}) });
+        if (turnBudget && actionCost) spendTurnActionAfterSuccess(String(currentCharacter.id), actionCost, result.ok ? result.value.result.status : "error");
+        if (result.ok && result.value.result.status === "success") {
+          void registry.character.service.select(currentCharacter.id);
+        }
+        return result;
+      },
+      onAdvanceTime: async (minutes: number) => {
+        const result = await wildShape.advanceTime({ characterId: currentCharacter.id, expectedRevision: currentCharacter.revision, minutes });
+        if (result.ok && result.value.result.status === "success") void registry.character.service.select(currentCharacter.id);
+        return result;
+      },
+      onHitPoints: async (kind: "damage" | "heal" | "temp", amount: number) => {
+        const base = { commandId: asCommandId(crypto.randomUUID()), characterId: currentCharacter.id, expectedRevision: currentCharacter.revision };
+        const command: Command = kind === "damage"
+          ? { ...base, kind: "apply-damage", payload: { amount, damageType: "bludgeoning", diceResultIds: [] } }
+          : kind === "heal"
+            ? { ...base, kind: "apply-healing", payload: { amount, diceResultIds: [] } }
+            : { ...base, kind: "apply-temp-hp", payload: { amount, diceResultIds: [], stacking: "highest-wins" } };
+        const result = await wildShape.dispatchCommand({ characterId: currentCharacter.id, expectedRevision: currentCharacter.revision, command });
+        if (result.ok && result.value.result.status === "success") void registry.character.service.select(currentCharacter.id);
+        return result;
+      },
+    } } : {}),
   });
   return <RuleLookupBoundary registry={registry}><div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div></RuleLookupBoundary>;
 }
@@ -674,7 +747,7 @@ function CollaborationRoute({ registry, campaign, navigate, view, playerOnly = f
           classId: summary.classSummary[0]?.classId,
           ...(active && portraitUrl ? { portraitUrl } : {}),
           totalLevel: summary.totalLevel,
-          hitPoints: { current: character.hp.current, temporary: character.hp.temp, ...(derived ? { maximum: derived.hitPointsMax.value } : {}) },
+          hitPoints: { current: character.transformation?.formHp.current ?? character.hp.current, temporary: character.transformation?.formHp.temp ?? character.hp.temp, ...(derived ? { maximum: derived.hitPointsMax.value } : {}) },
           ...(derived ? { armorClass: derived.armorClass.value, initiative: derived.initiative.value } : {}),
           conditions: character.conditions.map((condition) => displayDefinition("condition", condition.definitionRef.entityId)),
           conditionIds: character.conditions.map((condition) => String(condition.definitionRef.entityId)),
@@ -754,7 +827,11 @@ function CollaborationRoute({ registry, campaign, navigate, view, playerOnly = f
         const previous = current.manualAdjustments.find((entry) => entry.id === adjustment.id);
         return { id: adjustment.id, target: { kind: adjustment.target }, value: { kind: "number" as const, amount: adjustment.amount }, reason: adjustment.reason.trim(), createdAt: previous?.createdAt ?? asIsoTimestamp(new Date().toISOString()), ...(previous?.sourceRef ? { sourceRef: previous.sourceRef } : {}) };
       })];
-      return registry.character.service.saveCharacter({ ...current, hp: { ...current.hp, current: values.hp, temp: values.tempHp }, conditions: [...existing, ...added], manualAdjustments }, expectedRevision);
+      return registry.character.service.saveSheetState(characterId, expectedRevision, {
+        hp: { current: values.hp, temp: values.tempHp },
+        conditions: [...existing, ...added],
+        manualAdjustments,
+      });
     }}
   />;
 }
@@ -764,6 +841,8 @@ type JourneyRole = "master" | "player";
 interface JourneyData {
   readonly players: readonly JourneyPlayer[];
   readonly creatures: readonly CreatureRecord[];
+  readonly proposals: readonly CreatureProposal[];
+  readonly proposalError?: string;
   readonly sightings: readonly CreatureSighting[];
   readonly guesses: readonly CreatureGuess[];
   readonly journal: readonly JournalEntry[];
@@ -772,7 +851,7 @@ interface JourneyData {
   readonly loaded: boolean;
 }
 
-const EMPTY_JOURNEY: JourneyData = { players: [], creatures: [], sightings: [], guesses: [], journal: [], maps: 0, loaded: false };
+const EMPTY_JOURNEY: JourneyData = { players: [], creatures: [], proposals: [], sightings: [], guesses: [], journal: [], maps: 0, loaded: false };
 
 /** Mapas que a conta pode ver: tudo para o mestre, só o liberado para o jogador. */
 function visibleMaps(maps: readonly MapRecord[], role: JourneyRole, viewerId?: string): readonly MapRecord[] {
@@ -789,11 +868,24 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
   const session = registry.account.auth?.currentSession() ?? null;
   const viewerId = session ? asAccountId(session.uid) : registry.membership?.localActor()?.accountId;
   const creaturesService = registry.journey.creatures;
+  const publishedCreatureCatalog = registry.creatures?.wildShape.listCatalog({});
   const [campaigns, setCampaigns] = useState<readonly Campaign[]>(activeCampaign ? [activeCampaign] : []);
   const [availableCharacters, setAvailableCharacters] = useState<readonly CharacterSummary[]>([]);
   const [data, setData] = useState<JourneyData>(EMPTY_JOURNEY);
   const [version, setVersion] = useState(0);
   const [journalAuthor, setJournalAuthor] = useState<string>();
+  const suggestionCatalog = new globalThis.Map<string, CreatureStatBlock>();
+  if (publishedCreatureCatalog?.ok) for (const block of publishedCreatureCatalog.value) suggestionCatalog.set(String(block.id), block);
+  if (master) {
+    for (const creature of data.creatures) if (creature.statBlock) suggestionCatalog.set(String(creature.statBlock.id), creature.statBlock);
+  } else {
+    for (const sighting of data.sightings) if (sighting.revealed.statBlock) suggestionCatalog.set(String(sighting.revealed.statBlock.id), sighting.revealed.statBlock);
+  }
+  const onSuggestCreatureStatBlock = (role: "master" | "player-beast") => (input: Omit<CreatureStatBlockSuggestionInput, "catalog">) => {
+    if (!publishedCreatureCatalog) return err(appError.validation("creatureCatalog", "O catálogo de criaturas não está disponível."));
+    if (!publishedCreatureCatalog.ok) return publishedCreatureCatalog;
+    return suggestCreatureStatBlock({ ...input, role, catalog: suggestionCatalog.values() });
+  };
   const reload = useCallback(() => setVersion((value) => value + 1), []);
   useEffect(() => {
     let active = true;
@@ -812,12 +904,13 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
     if (!campaignId) { setData(EMPTY_JOURNEY); return; }
     let active = true;
     void (async () => {
-      const [memberships, characters, creatures, sightings, guesses, journal, maps, sessions] = await Promise.all([
+      const [memberships, characters, creatures, sightings, guesses, proposals, journal, maps, sessions] = await Promise.all([
         master && registry.membership && viewerId ? registry.membership.listMemberships({ actorId: viewerId, campaignId }) : undefined,
         registry.character.list?.(),
         master ? creaturesService?.listCreatures(campaignId) : undefined,
         master ? undefined : creaturesService?.listSightings(campaignId, viewerId),
         creaturesService?.listGuesses(campaignId, master ? undefined : viewerId),
+        creaturesService && viewerId ? creaturesService.listProposals(campaignId, { accountId: viewerId, scope: master ? "all" : "own" }) : undefined,
         registry.journey.listJournalEntries?.(campaignId),
         registry.journey.service.listMaps(campaignId),
         master ? registry.session?.list(campaignId) : undefined,
@@ -835,6 +928,8 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
       setData({
         players,
         creatures: creatures?.ok ? creatures.value : [],
+        proposals: proposals?.ok ? proposals.value : [],
+        ...(proposals && !proposals.ok ? { proposalError: proposals.error.message } : {}),
         sightings: sightings?.ok ? sightings.value : [],
         guesses: guesses?.ok ? guesses.value : [],
         // Jogador só lê o próprio diário, mesmo que algo antigo tenha ficado neste aparelho.
@@ -862,7 +957,7 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
   }, [campaignId, creaturesService, legacyNpcs.length, master, registry.journey.service, reload]);
 
   const Journey = LazyJourneyCampaign;
-  const Map = LazyMapWorkspace;
+  const MapWorkspace = LazyMapWorkspace;
   const Creatures = LazyCreatureBoard;
   const PlayerCreatures = LazyPlayerCreatureBoard;
   const campaignProps = registry.journey.bindCampaignProps({
@@ -933,12 +1028,26 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
     },
   } : undefined;
   const mutate = <T,>(result: Promise<import("@domain/contracts/errors").Result<T, import("@domain/contracts/errors").AppError>>) => result.then((value) => { if (value.ok) reload(); return value; });
+  const onReviewProposal = master && campaignId && creaturesService && viewerId ? async (proposalId: CreatureProposal["id"], decision: "approve" | "reject", reviewNote?: string, reviewedStatBlock?: import("@domain/creatures").CreatureStatBlock) => {
+    const proposal = data.proposals.find((item) => item.id === proposalId);
+    if (!proposal) return err(appError.validation("proposalId", "Atualize a lista antes de revisar esta sugestão."));
+    return mutate(creaturesService.reviewProposal({
+      campaignId, proposalId, expectedRevision: proposal.revision, reviewedBy: viewerId, reviewerRole: "owner", decision,
+      ...(reviewNote === undefined ? {} : { reviewNote }),
+      ...(reviewedStatBlock === undefined ? {} : { reviewedStatBlock }),
+    }));
+  } : undefined;
+  const onSubmitProposal = !master && campaignId && creaturesService && viewerId ? (
+    statBlock: import("@domain/creatures").CreatureStatBlock,
+    suggestionReasons: readonly string[],
+  ) => mutate(creaturesService.submitProposal({ campaignId, proposedBy: viewerId, statBlock, suggestionReasons }))
+    : undefined;
   const creaturesPanel = !campaignId || !creaturesService ? undefined : master
-    ? <Creatures {...sheetTools} creatures={data.creatures} guesses={data.guesses} players={data.players} loading={!data.loaded} {...creatureActions} />
-    : <PlayerCreatures sightings={data.sightings} guesses={data.guesses} loading={!data.loaded} onSaveGuess={viewerId ? (creatureId, guess) => mutate(creaturesService.saveGuess({ campaignId, creatureId, accountId: viewerId, ...guess })) : undefined} />;
+    ? <Creatures {...sheetTools} creatures={data.creatures} guesses={data.guesses} players={data.players} loading={!data.loaded} proposals={data.proposals} proposalLoading={!data.loaded} proposalError={data.proposalError} onReviewProposal={onReviewProposal} onSuggestStatBlock={onSuggestCreatureStatBlock("master")} {...creatureActions} />
+    : <PlayerCreatures sightings={data.sightings} guesses={data.guesses} loading={!data.loaded} proposals={data.proposals} proposalLoading={!data.loaded} proposalError={data.proposalError} onSubmitProposal={onSubmitProposal} onSuggestStatBlock={onSuggestCreatureStatBlock("player-beast")} onSaveGuess={viewerId ? (creatureId, guess) => mutate(creaturesService.saveGuess({ campaignId, creatureId, accountId: viewerId, ...guess })) : undefined} />;
 
   const publication = registry.journey.mapPublication;
-  const mapPanel = <Map campaignId={campaignId} canManage={master}
+  const mapPanel = <MapWorkspace campaignId={campaignId} canManage={master}
     listMaps={async (id) => { const result = await registry.journey.service.listMaps(id); return result.ok ? ok(visibleMaps(result.value, role, viewerId)) : result; }}
     getAsset={registry.journey.getLocalAsset}
     loadImage={publication ? (map) => publication.loadImage(map) : undefined}
@@ -1003,7 +1112,7 @@ function SessionRoute({ registry, match, campaign, canManage = false, syncState,
         const playerId = summary.ownerUid ? asAccountId(String(summary.ownerUid)) : fallbackPlayerId;
         if (!loaded.ok) return { id: summary.id, name: summary.name, playerId };
         const derived = registry.character.bindSheetProps({ character: loaded.value }).derived;
-        return { id: summary.id, name: summary.name, playerId, initiative: derived?.initiative.value, hitPoints: { current: loaded.value.hp.current, maximum: derived?.hitPointsMax.value } };
+        return { id: summary.id, name: summary.name, playerId, initiative: derived?.initiative.value, hitPoints: { current: loaded.value.transformation?.formHp.current ?? loaded.value.hp.current, maximum: derived?.hitPointsMax.value } };
       }));
       if (active) setCharacters(options);
     });
@@ -1029,7 +1138,7 @@ function campaignStatus(status: StoreStatus | undefined): "idle" | "loading" | "
   return "idle";
 }
 
-function CompendiumRoute({ registry }: { readonly registry: FeatureRegistry }): ReactNode {
+function CompendiumRoute({ registry, character }: { readonly registry: FeatureRegistry; readonly character?: Character }): ReactNode {
   const service = registry.compendium.service;
   const [filters, setFilters] = useState<CompendiumFilters>({ query: "" });
   const [selected, setSelected] = useState<CompendiumDetail | undefined>();
@@ -1037,7 +1146,41 @@ function CompendiumRoute({ registry }: { readonly registry: FeatureRegistry }): 
   const [catalogReady, setCatalogReady] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [favoriteRevision, setFavoriteRevision] = useState(0);
+  const [beastSightings, setBeastSightings] = useState<readonly BeastSightingState[]>([]);
+  const [campaignCreatureDefinitions, setCampaignCreatureDefinitions] = useState<readonly CreatureStatBlock[]>([]);
+  const [sightingsLoading, setSightingsLoading] = useState(false);
+  const [sightingsError, setSightingsError] = useState<string>();
+  const [campaignCatalogError, setCampaignCatalogError] = useState<string>();
   void favoriteRevision;
+
+  const wildShape = registry.creatures?.wildShape;
+  const catalogResult = wildShape?.listCatalog({ selectedSupplementIds: character?.selectedSupplementIds });
+  const creatureDefinitions = useMemo(() => {
+    const merged = new Map<EntityId, CreatureStatBlock>();
+    for (const definition of catalogResult?.ok ? catalogResult.value : []) merged.set(definition.id, definition);
+    for (const definition of campaignCreatureDefinitions) if (!merged.has(definition.id)) merged.set(definition.id, definition);
+    return [...merged.values()];
+  }, [campaignCreatureDefinitions, catalogResult?.ok ? catalogResult.value : undefined]);
+  useEffect(() => {
+    if (!wildShape || !character) { setBeastSightings([]); setSightingsError(undefined); setSightingsLoading(false); return; }
+    setSightingsLoading(false);
+    const result = wildShape.listSightings(character.id);
+    if (result.ok) { setBeastSightings(result.value); setSightingsError(undefined); }
+    else { setBeastSightings([]); setSightingsError(result.error.message); }
+  }, [wildShape, character?.id, character?.revision]);
+
+  useEffect(() => {
+    if (!wildShape || !character) { setCampaignCreatureDefinitions([]); setCampaignCatalogError(undefined); return; }
+    let active = true;
+    void wildShape.listCampaignCatalog(character.id).then((result) => {
+      if (!active) return;
+      setCampaignCreatureDefinitions(result.ok ? result.value : []);
+      setCampaignCatalogError(result.ok ? undefined : result.error.message);
+    }, (reason: unknown) => {
+      if (active) { setCampaignCreatureDefinitions([]); setCampaignCatalogError(reason instanceof Error ? reason.message : "Não foi possível carregar as criaturas compartilhadas da campanha."); }
+    });
+    return () => { active = false; };
+  }, [wildShape, character?.id, character?.revision]);
 
   useEffect(() => {
     let active = true;
@@ -1110,6 +1253,18 @@ function CompendiumRoute({ registry }: { readonly registry: FeatureRegistry }): 
     if (result.value.status === "loaded") setFilters((current) => ({ ...current, category }));
   };
 
+  const CreatureCatalogComponent = LazyCreatureCatalog;
+  const creaturePanel = wildShape ? <CreatureCatalogComponent creatures={creatureDefinitions} sightings={beastSightings} characterName={character?.name} loading={sightingsLoading} error={sightingsError ?? campaignCatalogError ?? (catalogResult && !catalogResult.ok ? catalogResult.error.message : undefined)} onMarkSeen={character ? async (creature) => {
+    const beastRef: DefinitionRef = { rulesetId: character.rulesetRef.id, entityId: creature.id };
+    const result = await wildShape.markSeen({ characterId: character.id, expectedRevision: character.revision, beastRef });
+    if (result.ok) {
+      const refreshed = wildShape.listSightings(character.id);
+      if (refreshed.ok) setBeastSightings(refreshed.value);
+      void registry.character.service.select(character.id);
+    }
+    return result;
+  } : undefined} /> : <InlineStatus tone="info">O runtime do catálogo de criaturas ainda não está disponível.</InlineStatus>;
+
   const CompendiumComponent = LazyCompendium;
   return (
     <CompendiumComponent
@@ -1126,6 +1281,7 @@ function CompendiumRoute({ registry }: { readonly registry: FeatureRegistry }): 
         onSelect,
         onToggleFavorite,
         onLoadCategory,
+        creaturePanel,
       })}
     />
   );
@@ -1173,7 +1329,7 @@ function renderRegistryRoute(
   }
   if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} campaignRole={campaignRole} match={match} navigate={navigate} pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
   if (match.kind === "compendium") {
-    return <CompendiumRoute registry={registry} />;
+    return <CompendiumRoute registry={registry} character={currentCharacter} />;
   }
   if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
   if (match.kind === "session") return <SessionRoute registry={registry} match={match} campaign={campaign} canManage={isCampaignMaster || (!signedIn && !campaignRole)} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
@@ -1261,6 +1417,18 @@ export function connectionFor(syncState: AccountSyncState | undefined, signedIn:
 /** Small History API router: keeps the shell usable without adding a package. */
 export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
+  // A ficha é a tela mais aberta e seus chunks são pesados no celular. Baixá-los quando o
+  // navegador estiver ocioso evita a espera em "Carregando destino" no primeiro "Editar ficha".
+  useEffect(() => {
+    if (!registry || typeof window === "undefined") return;
+    const prefetch = () => { void import("@features/character/sheet"); void import("@features/inventory"); void import("@features/compendium"); };
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(prefetch, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = setTimeout(prefetch, 2500);
+    return () => clearTimeout(timer);
+  }, [registry]);
   const accountAuth = registry?.account.auth;
   const membership = registry?.membership;
   const [accountSession, setAccountSession] = useState(() => accountAuth?.currentSession() ?? null);

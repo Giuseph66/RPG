@@ -4,6 +4,7 @@ import { CHARACTER_SCHEMA_VERSION, type Character } from "@domain/contracts/char
 import { CAMPAIGN_SCHEMA_VERSION, type Asset, type Campaign, type JournalEntry, type MapRecord } from "@domain/contracts/campaign";
 import { asIsoTimestamp, isUuid, type RulesetRef, type Uuid } from "@domain/contracts/ids";
 import type { DiceRoll } from "@domain/contracts/dice";
+import { isCreatureGuess, isCreatureProposal, isCreatureRecord, isCreatureSighting, sightingId, type CreatureGuess, type CreatureProposal, type CreatureRecord, type CreatureSighting } from "@domain/campaign/creatures";
 import type { BackupMigration } from "@infrastructure/persistence/migrations";
 import { CURRENT_BACKUP_SCHEMA_VERSION, migratePayload } from "@infrastructure/persistence/migrations";
 import type { BackupService } from "@application/ports/backup-service";
@@ -76,14 +77,30 @@ function validateEnvelope(value: unknown, maxAssetBytes: number): Result<BackupE
   if (value.kind !== "character" && value.kind !== "campaign") return fail("kind", "Tipo de backup inválido.");
   if (typeof value.rootId !== "string" || !isUuid(value.rootId)) return fail("rootId", "rootId inválido.");
   if (!isRecord(value.records) || !Array.isArray(value.records.characters) || !Array.isArray(value.records.campaigns) || !Array.isArray(value.records.journalEntries) || !Array.isArray(value.records.maps) || !Array.isArray(value.records.rolls) || !Array.isArray(value.records.favorites) || !Array.isArray(value.assets)) return fail("records", "Coleções do backup estão inválidas.");
-  if ([value.records.characters, value.records.campaigns, value.records.journalEntries, value.records.maps, value.records.rolls, value.records.favorites, value.assets].some((collection) => collection.length > MAX_COLLECTION_ITEMS)) return fail("records", "Backup contém coleções excessivamente grandes.");
-  if (!value.records.characters.every(isObjectWithId) || !value.records.campaigns.every(isObjectWithId) || !value.records.journalEntries.every(isObjectWithId) || !value.records.maps.every(isObjectWithId) || !value.records.rolls.every(isObjectWithId) || !value.records.favorites.every((id) => typeof id === "string" && isUuid(id)) || !value.assets.every((asset) => validateAsset(asset, maxAssetBytes))) return fail("records", "Registro ou asset inválido.");
-  const recordIds = [...(value.records.characters as unknown as readonly { id: string }[]), ...(value.records.campaigns as unknown as readonly { id: string }[]), ...(value.records.journalEntries as unknown as readonly { id: string }[]), ...(value.records.maps as unknown as readonly { id: string }[]), ...(value.records.rolls as unknown as readonly { id: string }[]), ...(value.assets as unknown as readonly { id: string }[])].map((record) => record.id);
-  if (new Set(recordIds).size !== recordIds.length) return fail("records", "IDs duplicados dentro do backup.");
+  const optionalCollections = ["creatures", "sightings", "guesses", "proposals"] as const;
+  if (optionalCollections.some((key) => value.records[key] !== undefined && !Array.isArray(value.records[key]))) return fail("records", "Coleções de criaturas estão inválidas.");
+  const records = {
+    ...value.records,
+    creatures: (value.records.creatures ?? []) as unknown[],
+    sightings: (value.records.sightings ?? []) as unknown[],
+    guesses: (value.records.guesses ?? []) as unknown[],
+    proposals: (value.records.proposals ?? []) as unknown[],
+  };
+  const collections = [records.characters, records.campaigns, records.journalEntries, records.maps, records.rolls, records.favorites, records.creatures, records.sightings, records.guesses, records.proposals, value.assets] as readonly unknown[][];
+  if (collections.some((collection) => collection.length > MAX_COLLECTION_ITEMS)) return fail("records", "Backup contém coleções excessivamente grandes.");
+  if (!records.characters.every(isObjectWithId) || !records.campaigns.every(isObjectWithId) || !records.journalEntries.every(isObjectWithId) || !records.maps.every(isObjectWithId) || !records.rolls.every(isObjectWithId) || !records.favorites.every((id) => typeof id === "string" && isUuid(id)) || !records.creatures.every(isCreatureRecord) || !records.sightings.every(isCreatureSighting) || !records.guesses.every(isCreatureGuess) || !records.proposals.every(isCreatureProposal) || !value.assets.every((asset) => validateAsset(asset, maxAssetBytes))) return fail("records", "Registro ou asset inválido.");
+  const idCollections = [records.characters, records.campaigns, records.journalEntries, records.maps, records.rolls, records.creatures, records.sightings, records.guesses, records.proposals, value.assets] as readonly unknown[][];
+  if (idCollections.some((collection) => {
+    const ids = collection.map((record) => (record as { readonly id: string }).id);
+    return new Set(ids).size !== ids.length;
+  })) return fail("records", "IDs duplicados dentro de uma coleção do backup.");
+  const rootRecords = value.kind === "character" ? records.characters : records.campaigns;
+  if (!rootRecords.some((record) => (record as { readonly id: string }).id === value.rootId)) return fail("rootId", "O agregado raiz não existe no backup.");
+  if (value.kind === "character" && (records.campaigns.length || records.journalEntries.length || records.maps.length || records.creatures.length || records.sightings.length || records.guesses.length || records.proposals.length)) return fail("kind", "Backup de personagem não pode conter dados da campanha.");
   if (!isRecord(value.manifest) || !isRecord(value.manifest.counts) || !isRecord(value.manifest.hashes)) return fail("manifest", "Manifesto inválido.");
   if (!Array.isArray(value.rulesetRefs) || !value.rulesetRefs.every((ref) => isRecord(ref) && typeof ref.id === "string" && typeof ref.version === "string")) return fail("rulesetRefs", "Referência de ruleset inválida.");
   if (typeof value.exportedAt !== "string" || typeof value.appVersion !== "string") return fail("envelope", "Metadados do backup inválidos.");
-  return ok(value as unknown as BackupEnvelope);
+  return ok({ ...value, records } as unknown as BackupEnvelope);
 }
 
 function isObjectWithId(value: unknown): value is Record<string, unknown> { return isRecord(value) && typeof value.id === "string" && isUuid(value.id); }
@@ -99,8 +116,8 @@ export function parseBackupJson(input: string, options: { readonly maxBytes?: nu
 }
 
 function toAsset(asset: Asset): ExportedAsset { return { id: asset.id, mediaType: asset.mediaType, encoding: "base64", bytes: encodeBase64(asset.bytes), hash: hashBytes(asset.bytes), width: asset.width, height: asset.height }; }
-function emptyRecords() { return { characters: [] as readonly Character[], campaigns: [] as readonly Campaign[], journalEntries: [] as readonly JournalEntry[], maps: [] as readonly MapRecord[], rolls: [] as readonly DiceRoll[], favorites: [] as readonly Uuid[] }; }
-function counts(records: ReturnType<typeof emptyRecords>, assets: readonly ExportedAsset[]): Readonly<Record<string, number>> { return { characters: records.characters.length, campaigns: records.campaigns.length, journalEntries: records.journalEntries.length, maps: records.maps.length, rolls: records.rolls.length, favorites: records.favorites.length, assets: assets.length }; }
+function emptyRecords() { return { characters: [] as readonly Character[], campaigns: [] as readonly Campaign[], journalEntries: [] as readonly JournalEntry[], maps: [] as readonly MapRecord[], rolls: [] as readonly DiceRoll[], favorites: [] as readonly Uuid[], creatures: [] as readonly CreatureRecord[], sightings: [] as readonly CreatureSighting[], guesses: [] as readonly CreatureGuess[], proposals: [] as readonly CreatureProposal[] }; }
+function counts(records: ReturnType<typeof emptyRecords>, assets: readonly ExportedAsset[]): Readonly<Record<string, number>> { return { characters: records.characters.length, campaigns: records.campaigns.length, journalEntries: records.journalEntries.length, maps: records.maps.length, rolls: records.rolls.length, favorites: records.favorites.length, creatures: records.creatures.length, sightings: records.sightings.length, guesses: records.guesses.length, proposals: records.proposals.length, assets: assets.length }; }
 
 function refsFor(records: ReturnType<typeof emptyRecords>, assets: readonly ExportedAsset[]): Set<string> {
   const refs = new Set<string>();
@@ -134,8 +151,12 @@ export class DefaultBackupService implements BackupService {
     for (const summary of characters.value) { const character = await this.options.characters.get(summary.id); if (!character.ok) return character; fullCharacters.push(character.value); if (character.value.portraitAssetId) { const asset = await assetFor(character.value.portraitAssetId, this.options.assets); if (!asset.ok) return asset; assets.push(toAsset(asset.value)); } }
     const journalResult = await this.options.campaigns.listJournalEntries(campaignId); if (!journalResult.ok) return journalResult;
     const mapsResult = await this.options.campaigns.listMaps(campaignId); if (!mapsResult.ok) return mapsResult;
+    const creaturesResult = await this.options.journey.list("creature", campaignId); if (!creaturesResult.ok) return creaturesResult;
+    const sightingsResult = await this.options.journey.list("sighting", campaignId); if (!sightingsResult.ok) return sightingsResult;
+    const guessesResult = await this.options.journey.list("guess", campaignId); if (!guessesResult.ok) return guessesResult;
+    const proposalsResult = await this.options.journey.list("proposal", campaignId); if (!proposalsResult.ok) return proposalsResult;
     for (const map of mapsResult.value) { const asset = await assetFor(map.assetId, this.options.assets); if (!asset.ok) return asset; if (!assets.some((entry) => entry.id === asset.value.id)) assets.push(toAsset(asset.value)); }
-    const records = { ...emptyRecords(), campaigns: [campaign.value], characters: fullCharacters, journalEntries: journalResult.value, maps: mapsResult.value };
+    const records = { ...emptyRecords(), campaigns: [campaign.value], characters: fullCharacters, journalEntries: journalResult.value, maps: mapsResult.value, creatures: creaturesResult.value, sightings: sightingsResult.value, guesses: guessesResult.value, proposals: proposalsResult.value };
     return this.envelope("campaign", campaign.value.id, records, assets, campaign.value.rulesetRef);
   }
 
@@ -162,8 +183,13 @@ export class DefaultBackupService implements BackupService {
     const raw = input as unknown;
     if (hasForbiddenKey(raw)) return fail("json", "Payload rejeitado por profundidade, número inválido ou chave proibida.");
     const checked = validateEnvelope(raw, this.options.maxAssetBytes ?? DEFAULT_MAX_ASSET_BYTES); if (!checked.ok) return checked;
-    const allIds = [...envelopeIds(checked.value)];
-    if (new Set(allIds).size !== allIds.length) return fail("records", "IDs duplicados dentro do backup.");
+    const allIds = envelopeIds(checked.value);
+    const sightings = new Set((checked.value.records.sightings ?? []).map((record) => record.id));
+    const guesses = new Set((checked.value.records.guesses ?? []).map((record) => record.id));
+    const allowedProjectionIds = new Set([...sightings].filter((id) => guesses.has(id)));
+    const countsById = new Map<string, number>();
+    for (const id of allIds) countsById.set(id, (countsById.get(id) ?? 0) + 1);
+    if ([...countsById].some(([id, count]) => count > 1 && !(count === 2 && allowedProjectionIds.has(id)))) return fail("records", "IDs duplicados dentro do backup.");
     if (byteLength(JSON.stringify(checked.value)) > (this.options.maxImportBytes ?? DEFAULT_MAX_BYTES)) return err(appError.quotaExceeded("Backup excede o limite de tamanho."));
     const migrated = migratePayload(checked.value, checked.value.schemaVersion, this.options.migrations, CURRENT_BACKUP_SCHEMA_VERSION); if (!migrated.ok) return migrated;
     return ok(migrated.value as BackupEnvelope);
@@ -186,8 +212,18 @@ export class DefaultBackupService implements BackupService {
 
   private remap(envelope: BackupEnvelope): BackupEnvelope {
     if (!this.options.idGenerator) throw new Error("copy exige IdGenerator injetado.");
-    const ids = idsIn(envelope); const map = new Map<string, string>(); for (const id of ids) map.set(id, this.options.idGenerator.uuid());
-    const rewrite = (value: unknown): unknown => { if (typeof value === "string") return map.get(value) ?? value; if (Array.isArray(value)) return value.map(rewrite); if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, rewrite(child)])); return value; };
+    const map = new Map<string, string>();
+    for (const id of idsIn(envelope)) map.set(id, this.options.idGenerator.uuid());
+    for (const proposal of envelope.records.proposals ?? []) map.set(proposal.id, `proposal__${this.options.idGenerator.uuid()}`);
+    for (const sighting of envelope.records.sightings ?? []) map.set(sighting.id, sightingId(map.get(sighting.creatureId) ?? sighting.creatureId, sighting.accountId));
+    for (const guess of envelope.records.guesses ?? []) map.set(guess.id, sightingId(map.get(guess.creatureId) ?? guess.creatureId, guess.accountId));
+    const identityFields = new Set(["accountId", "proposedBy", "reviewedBy"]);
+    const rewrite = (value: unknown, field?: string): unknown => {
+      if (typeof value === "string") return field && identityFields.has(field) ? value : map.get(value) ?? value;
+      if (Array.isArray(value)) return value.map((item) => rewrite(item, field));
+      if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, rewrite(child, key)]));
+      return value;
+    };
     const mapped = rewrite(envelope) as BackupEnvelope;
     return { ...mapped, rootId: map.get(envelope.rootId) as Uuid };
   }
@@ -197,7 +233,7 @@ function idsIn(envelope: BackupEnvelope): string[] {
   return [...new Set(envelopeIds(envelope))];
 }
 function envelopeIds(envelope: BackupEnvelope): string[] {
-  const ids = [...envelope.records.characters, ...envelope.records.campaigns, ...envelope.records.journalEntries, ...envelope.records.maps, ...envelope.records.rolls, ...envelope.assets].map((record) => record.id);
+  const ids = [...envelope.records.characters, ...envelope.records.campaigns, ...envelope.records.journalEntries, ...envelope.records.maps, ...envelope.records.rolls, ...(envelope.records.creatures ?? []), ...(envelope.records.sightings ?? []), ...(envelope.records.guesses ?? []), ...(envelope.records.proposals ?? []), ...envelope.assets].map((record) => record.id);
   for (const campaign of envelope.records.campaigns) {
     for (const quest of campaign.quests) ids.push(quest.id);
     for (const npc of campaign.npcs) ids.push(npc.id);
@@ -206,6 +242,8 @@ function envelopeIds(envelope: BackupEnvelope): string[] {
 }
 function brokenReferences(envelope: BackupEnvelope): ImportConflict[] {
   const ids = new Set(idsIn(envelope)); const conflicts: ImportConflict[] = [];
+  const campaignIds = new Set(envelope.records.campaigns.map((record) => record.id));
+  const creatureIds = new Set((envelope.records.creatures ?? []).map((record) => record.id));
   for (const character of envelope.records.characters) {
     if (character.campaignId && !ids.has(character.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: character.id, targetId: character.campaignId });
     if (character.portraitAssetId && !ids.has(character.portraitAssetId)) conflicts.push({ kind: "broken-reference", referrerId: character.id, targetId: character.portraitAssetId });
@@ -219,6 +257,22 @@ function brokenReferences(envelope: BackupEnvelope): ImportConflict[] {
     if (!ids.has(map.assetId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: map.assetId });
     if (!ids.has(map.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: map.campaignId });
     for (const pin of map.pins) if (pin.locationId && !ids.has(pin.locationId)) conflicts.push({ kind: "broken-reference", referrerId: map.id, targetId: pin.locationId });
+  }
+  for (const creature of envelope.records.creatures ?? []) {
+    if (!campaignIds.has(creature.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: creature.id, targetId: creature.campaignId });
+    if (creature.characterRef && !ids.has(creature.characterRef)) conflicts.push({ kind: "broken-reference", referrerId: creature.id, targetId: creature.characterRef });
+  }
+  for (const sighting of envelope.records.sightings ?? []) {
+    if (!campaignIds.has(sighting.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: sighting.id as Uuid, targetId: sighting.campaignId });
+    if (!creatureIds.has(sighting.creatureId)) conflicts.push({ kind: "broken-reference", referrerId: sighting.id as Uuid, targetId: sighting.creatureId });
+  }
+  for (const guess of envelope.records.guesses ?? []) {
+    if (!campaignIds.has(guess.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: guess.id as Uuid, targetId: guess.campaignId });
+    if (!creatureIds.has(guess.creatureId)) conflicts.push({ kind: "broken-reference", referrerId: guess.id as Uuid, targetId: guess.creatureId });
+  }
+  for (const proposal of envelope.records.proposals ?? []) {
+    if (!campaignIds.has(proposal.campaignId)) conflicts.push({ kind: "broken-reference", referrerId: proposal.id as Uuid, targetId: proposal.campaignId });
+    if (proposal.creatureId && !creatureIds.has(proposal.creatureId)) conflicts.push({ kind: "broken-reference", referrerId: proposal.id as Uuid, targetId: proposal.creatureId });
   }
   return conflicts;
 }

@@ -9,6 +9,7 @@ import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, typ
 import { validateCharacterCreation } from "./validate";
 import { syncSpellcasting } from "@domain/character/evolution/spell-state";
 import { defaultBaseScore } from "./limits";
+import { composeOptionalRuleContent } from "./optional-rules";
 
 function fallbackId(purpose: string, index: number): Uuid {
   const namespace = [...purpose].reduce((sum, character) => (sum * 31 + character.charCodeAt(0)) & 0xffffff, 0);
@@ -65,7 +66,10 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const catalog = asCreationCatalog(input);
   const validation = validateCharacterCreation(catalog, draft);
   if (!validation.valid) return err(issuesAsError(validation.issues));
-  const pack = catalog.rulePack;
+  const rawPack = catalog.rulePack;
+  const composition = composeOptionalRuleContent(rawPack, draft.partial.selectedSupplementIds ?? [], draft.partial.optionalRuleSelections ?? []);
+  if (!composition.ok) return err([{ code: "invalid-choice", field: "field" in composition.error ? composition.error.field : "optionalRuleSelections", message: composition.error.message }]);
+  const pack = composition.value;
   const partial = draft.partial;
   const equipment = initialEquipment(draft, catalog, options);
   if (!equipment.ok) return equipment;
@@ -83,6 +87,8 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
   const hpGainId = makeId(options, "progression", 0);
   const base: Character = {
     id: draft.id, schemaVersion: CHARACTER_SCHEMA_VERSION, revision, rulesetRef: draft.rulesetRef, createdAt: draft.createdAt, updatedAt: now,
+    ...(draft.partial.selectedSupplementIds?.length ? { selectedSupplementIds: draft.partial.selectedSupplementIds } : {}),
+    ...(draft.partial.optionalRuleSelections?.length ? { optionalRuleSelections: draft.partial.optionalRuleSelections } : {}),
     name: partial.name?.trim() || "Aventureiro sem nome", ...(partial.playerName === undefined ? {} : { playerName: partial.playerName }), raceRef: partial.raceRef, ...(partial.subraceRef ? { subraceRef: partial.subraceRef } : {}), ...(partial.backgroundRef ? { backgroundRef: partial.backgroundRef } : {}),
     appearance: partial.appearance ?? "", personalityTraits: partial.personalityTraits ?? [], ideals: partial.ideals ?? [], bonds: partial.bonds ?? [], flaws: partial.flaws ?? [], history: partial.history ?? "",
     classes: [levelClass], abilityGeneration, choices: partial.choices ?? [], progressionHistory: [{ id: hpGainId, classId: classDefinition.id, level: 1, hitPointGain: { kind: "first-level-max", amount: classDefinition.hitDie }, choices: [], recordedAt: now }],
@@ -91,8 +97,8 @@ export function materializeCharacter(input: CreationCatalogInput, draft: Charact
     castingSources: [], spellSlots: [], spellbookEntries: [], preparedSelections: [], manualAdjustments: [],
   };
   const context = options.context ?? { gameTime: { day: 0, hour: 0, minute: 0 }, availableActions: [], tablePolicies: [] };
-  const character = syncSpellcasting(base, pack, partial.choices ?? [], { autoPrepare: true, ...(options.idGenerator ? { idGenerator: options.idGenerator } : {}) });
-  const derived = deriveCharacter(character, pack, context);
+  const character = syncSpellcasting(base, rawPack, partial.choices ?? [], { autoPrepare: true, ...(options.idGenerator ? { idGenerator: options.idGenerator } : {}) });
+  const derived = deriveCharacter(character, rawPack, context);
   if (!derived.ok) return err([{ code: derived.error.code === "unresolved-rule" ? "unresolved-source" : "invalid-reference", field: "derived", message: derived.error.message }]);
   return ok({ character: { ...character, hp: { current: derived.value.hitPointsMax.value, temp: 0 } }, derived: derived.value });
 }

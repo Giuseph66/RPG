@@ -1,13 +1,13 @@
 import { type Character, type ConditionInstance } from "@domain/contracts/character";
-import { type ClassDefinition } from "@domain/contracts/definitions/class";
+import { type ClassDefinition, type SubclassDefinition } from "@domain/contracts/definitions/class";
 import { type ConditionDefinition } from "@domain/contracts/definitions/condition";
 import { type EquipmentDefinition } from "@domain/contracts/definitions/equipment";
 import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
 import { type SpellDefinition } from "@domain/contracts/definitions/spell";
 import { type DiceRoll } from "@domain/contracts/dice";
 import { type AppError, err, ok, type Result } from "@domain/contracts/errors";
-import { type DefinitionRef, type EntityId, type Uuid } from "@domain/contracts/ids";
-import { type SourceRef } from "@domain/contracts/primitives";
+import { asEntityId, type DefinitionRef, type EntityId, type Uuid } from "@domain/contracts/ids";
+import { type Ability, type SourceRef } from "@domain/contracts/primitives";
 import {
   type CharacterCommandOutcome,
   type CharacterCommandService,
@@ -16,10 +16,11 @@ import { type CharacterApplicationService } from "./service";
 import { type DamageDefense, resolveCombatCommand } from "@domain/rules/combat";
 import { applyCondition, removeCondition } from "@domain/rules/conditions";
 import { type RestInput, resolveRest } from "@domain/rules/rest";
-import { spendResource } from "@domain/rules/resources";
+import { spendResource, useTireless } from "@domain/rules/resources";
 import { castSpell, type SpellResolutionContext } from "@domain/spells";
 import { consumeItem } from "@domain/inventory/operations";
 import { type Command, type Effect, type RuleError, type RuleResult } from "@domain/contracts/rules";
+import { type WildShapeResolutionContext, resolveAdvanceWildShapeTime, resolveEnterWildShape, resolveExitWildShape, resolveMarkBeastSeen, exitReasonFromState } from "@domain/rules/wild-shape";
 
 const SOURCE: SourceRef = {
   sourceId: "phb-ptbr-local-2017" as SourceRef["sourceId"],
@@ -38,6 +39,7 @@ export interface CharacterCommandResolutionContext {
   readonly damageTypes?: ReadonlyMap<Uuid, import("@domain/contracts/primitives").DamageType>;
   /** Aceita chave pelo estado do recurso ou pela definição, conforme o derivador disponível. */
   readonly resourceCapacities?: ReadonlyMap<string, number>;
+  readonly abilityModifiers?: Readonly<Partial<Record<Ability, number>>>;
   readonly resourceDefinitions?: ReadonlyMap<EntityId, ResourceDefinition>;
   readonly spellDefinitions?: ReadonlyMap<EntityId, SpellDefinition>;
   readonly conditionDefinitions?: ReadonlyMap<EntityId, ConditionDefinition>;
@@ -51,8 +53,11 @@ export interface CharacterCommandResolutionContext {
   readonly freeHands?: boolean;
   readonly equipmentDefinitions?: ReadonlyMap<EntityId, EquipmentDefinition>;
   readonly classDefinitions?: ReadonlyMap<EntityId, ClassDefinition>;
+  readonly subclassDefinitions?: ReadonlyMap<EntityId, SubclassDefinition>;
   readonly rest?: Omit<RestInput, "restKind" | "hitDiceSpent">;
   readonly spell?: Omit<SpellResolutionContext, "processedCommandIds">;
+  /** Catálogo, tempo, ações e IDs fornecidos pela composição da aplicação. */
+  readonly wildShape?: WildShapeResolutionContext;
 }
 
 function rejected(message: string, code: RuleError["code"] = "invalid-command"): RuleResult {
@@ -70,6 +75,31 @@ function success(character: Character, nextState: Character, effects: readonly E
     effects,
     explanations: [{ value: description, contributions: [{ sourceRef: SOURCE, description }] }],
     sourceRefs: [SOURCE],
+  };
+}
+
+function closeTransformationWhenUnconscious(
+  command: Command,
+  result: RuleResult,
+  context: CharacterCommandResolutionContext,
+): RuleResult {
+  if (result.status !== "success" || !result.nextState.transformation) return result;
+  const reason = exitReasonFromState(result.nextState);
+  if (!reason) return result;
+  const exited = resolveExitWildShape(result.nextState, {
+    commandId: command.commandId,
+    characterId: result.nextState.id,
+    expectedRevision: result.nextState.revision,
+    kind: "exit-wild-shape",
+    payload: { reason },
+  }, { availableActions: context.wildShape?.availableActions ?? context.availableActions ?? [] });
+  if (exited.status !== "success") return exited;
+  return {
+    ...result,
+    nextState: exited.nextState,
+    effects: [...result.effects, ...exited.effects],
+    explanations: [...(result.explanations ?? []), ...(exited.explanations ?? [])],
+    sourceRefs: [...new Set([...(result.sourceRefs ?? []), ...(exited.sourceRefs ?? [])])],
   };
 }
 
@@ -95,6 +125,8 @@ function spellRequest(command: Extract<Command, { readonly kind: "cast-spell" }>
     castingSourceId: command.payload.castingSourceId,
     mode: command.payload.mode,
     resourcePoolId: command.payload.resourcePoolId,
+    resourceStateId: command.payload.resourceStateId,
+    featureCastingOption: command.payload.featureCastingOption,
     slotLevel: command.payload.slotLevel,
     targetContext: command.payload.targetContext,
     componentContext: command.payload.componentContext,
@@ -133,6 +165,19 @@ export function resolveCharacterCommand(character: Character, command: Command, 
   if (command.expectedRevision !== character.revision) return rejected(`Revisão esperada ${command.expectedRevision} difere da revisão atual ${character.revision}.`, "concurrent-modification");
   if (context.processedCommandIds?.has(String(command.commandId))) return success(character, character, [], "Comando já processado; nenhum efeito foi reaplicado.");
 
+  if (character.transformation && command.kind !== "exit-wild-shape") {
+    const forcedReason = exitReasonFromState(character);
+    if (forcedReason) {
+      return resolveExitWildShape(character, {
+        commandId: command.commandId,
+        characterId: character.id,
+        expectedRevision: character.revision,
+        kind: "exit-wild-shape",
+        payload: { reason: forcedReason },
+      }, { availableActions: context.wildShape?.availableActions ?? context.availableActions ?? [] });
+    }
+  }
+
   switch (command.kind) {
     case "apply-damage":
     case "apply-healing":
@@ -149,22 +194,78 @@ export function resolveCharacterCommand(character: Character, command: Command, 
       });
     case "resolve-saving-throw":
       return resolveSavingThrow(character, command, context);
+    case "mark-beast-seen":
+      return context.wildShape
+        ? resolveMarkBeastSeen(character, command, context.wildShape)
+        : rejected("Catálogo e tempo de jogo não foram compostos para registrar o avistamento.", "unresolved-rule");
+    case "enter-wild-shape":
+      return context.wildShape
+        ? resolveEnterWildShape(character, command, context.wildShape)
+        : rejected("Catálogo, tempo, ações ou PV máximos não foram compostos para Forma Selvagem.", "unresolved-rule");
+    case "exit-wild-shape":
+      return resolveExitWildShape(character, command, { availableActions: context.wildShape?.availableActions ?? context.availableActions ?? [] });
+    case "advance-wild-shape-time":
+      return resolveAdvanceWildShapeTime(character, command);
     case "spend-resource": {
       const capacity = capacityFor(character, command.payload.resourceStateId, context);
       if (capacity === undefined) return rejected("Capacidade do recurso não foi derivada para este comando; nenhuma quantidade foi inventada.", "unsupported-ruleset");
       return spendResource(character, { ...command.payload, capacity });
+    }
+    case "use-tireless": {
+      const capacity = capacityFor(character, command.payload.resourceStateId, context);
+      if (capacity === undefined) return rejected("Capacidade de Incansável não foi derivada para esta ficha; nenhum recurso foi gasto.", "unsupported-ruleset");
+      const resource = character.resources.find((entry) => entry.id === command.payload.resourceStateId);
+      const definition = resource ? context.resourceDefinitions?.get(resource.definitionRef.entityId) : undefined;
+      if (!resource || !definition || definition.ownerRef.rulesetId !== command.payload.sourceRef.rulesetId ||
+        definition.ownerRef.entityId !== command.payload.sourceRef.entityId || definition.ownerRef.entityId !== asEntityId("ranger.tireless")) {
+        return rejected("A origem/recurso da feature Incansável não corresponde à definição ativa.", "invalid-context");
+      }
+      const roll = context.diceResults?.get(command.payload.rollId);
+      if (!roll) return needsInput("Informe a rolagem d8 vinculada ao comando Incansável.", command.payload.rollId);
+      const wisdomModifier = context.abilityModifiers?.wis;
+      if (wisdomModifier === undefined) return rejected("Modificador de Sabedoria não foi derivado; Incansável não foi gasto.", "unresolved-rule");
+      return useTireless(character, {
+        resourceStateId: command.payload.resourceStateId,
+        capacity,
+        rollId: command.payload.rollId,
+        roll,
+        wisdomModifier,
+        sourceRef: command.payload.sourceRef,
+      });
     }
     case "rest":
       return resolveRest(character, { ...context.rest, ...command.payload, resourceDefinitions: context.resourceDefinitions ? new Map([...context.resourceDefinitions].map(([id, definition]) => [String(id), definition])) : undefined });
     case "cast-spell": {
       const spell = context.spellDefinitions?.get(command.payload.spellRef.entityId);
       if (!spell) return rejected(`Definição da magia ${command.payload.spellRef.entityId} não foi encontrada no rule pack.`, "unsupported-ruleset");
-      return castSpell(character, spell, spellRequest(command), {
+      let request = spellRequest(command);
+      let canSpeak = context.spell?.canSpeak ?? context.canSpeak;
+      let freeHands = context.spell?.freeHands ?? context.freeHands;
+      if (character.transformation) {
+        const druidLevel = character.classes.find((entry) => entry.classId === "druid")?.level ?? 0;
+        const castingSource = character.castingSources.find((entry) => entry.id === command.payload.castingSourceId);
+        if (druidLevel < 18) return rejected("O Druida só pode conjurar magias em Forma Selvagem a partir do nível 18.", "invalid-context");
+        if (castingSource?.grantingRef.entityId !== asEntityId("druid") || !spell.classes.includes(asEntityId("druid"))) {
+          return rejected("Magias em Forma Selvagem precisam ser magias de Druida concedidas pela fonte Druida.", "invalid-context");
+        }
+        canSpeak = true;
+        freeHands = true;
+        const material = spell.components.material;
+        if (druidLevel < 20 && material) {
+          return rejected("Magias da Besta permitem componentes verbais e somáticos, mas ainda não permitem componentes materiais.", "invalid-context");
+        }
+        if (druidLevel >= 20 && material && material.costCp === undefined && !material.consumed && material.requiredItemKind === undefined) {
+          request = { ...request, componentContext: { ...request.componentContext, materialProvided: true, focusUsed: false } };
+        }
+      }
+      const castResult = castSpell(character, spell, request, {
         ...context.spell,
+        classId: context.spell?.classId ?? character.castingSources.find((entry) => entry.id === command.payload.castingSourceId)?.spellListClassId,
         classDefinition: context.spell?.classDefinition ?? classDefinitionFor(command, character, context),
+        subclassDefinitions: context.spell?.subclassDefinitions ?? context.subclassDefinitions,
         availableActions: context.spell?.availableActions ?? context.availableActions,
-        canSpeak: context.spell?.canSpeak ?? context.canSpeak,
-        freeHands: context.spell?.freeHands ?? context.freeHands,
+        canSpeak,
+        freeHands,
         // A entrada canônica não pode cair no adaptador legado: efeitos de
         // magia exigem um mapa (mesmo vazio) para que a ausência de rolagens
         // resulte em `needsInput`, sem gasto parcial.
@@ -178,7 +279,12 @@ export function resolveCharacterCommand(character: Character, command: Command, 
         spellAttackHit: context.spellAttackHit,
         spellSaveSucceeded: context.spellSaveSucceeded,
         defense: context.defense,
+        resourceCapacities: new Map(character.resources.flatMap((resource) => {
+          const capacity = capacityFor(character, resource.id, context);
+          return capacity === undefined ? [] : [[String(resource.id), capacity] as const];
+        })),
       });
+      return closeTransformationWhenUnconscious(command, castResult, context);
     }
     case "consume-item": {
       const equipment = context.equipmentDefinitions?.get(command.payload.equipmentRef.entityId);
@@ -189,7 +295,8 @@ export function resolveCharacterCommand(character: Character, command: Command, 
       const instance: ConditionInstance = command.payload.conditionInstance;
       const definition = context.conditionDefinitions?.get(instance.definitionRef.entityId);
       if (!definition) return rejected(`Definição da condição ${instance.definitionRef.entityId} não foi encontrada no rule pack.`, "unsupported-ruleset");
-      return applyCondition(character, instance, definition, { conditionImmunities: context.conditionImmunities });
+      const applied = applyCondition(character, instance, definition, { conditionImmunities: context.conditionImmunities });
+      return closeTransformationWhenUnconscious(command, applied, context);
     }
     case "remove-condition":
       return removeCondition(character, command.payload.conditionInstanceId, command.payload.sourceRef);

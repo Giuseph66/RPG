@@ -1,16 +1,17 @@
-import { type CreatureGuess, type CreatureRecord, type CreatureSighting } from "@domain/campaign/creatures";
+import { type CreatureGuess, type CreatureProposal, type CreatureRecord, type CreatureSighting } from "@domain/campaign/creatures";
 import { type AppError, type Result } from "@domain/contracts/errors";
 import { type Uuid } from "@domain/contracts/ids";
 import { type Revision } from "@domain/contracts/versioning";
 
 import { type TransactionContext } from "./unit-of-work";
 
-export type JourneyVisibilityKind = "creature" | "sighting" | "guess";
+export type JourneyVisibilityKind = "creature" | "sighting" | "guess" | "proposal";
 
 export interface JourneyVisibilityRecordMap {
   readonly creature: CreatureRecord;
   readonly sighting: CreatureSighting;
   readonly guess: CreatureGuess;
+  readonly proposal: CreatureProposal;
 }
 
 /**

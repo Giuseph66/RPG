@@ -73,7 +73,7 @@ export interface SpellConstraint {
 /** Magias que a subclasse acrescenta à lista da classe sem deixá-las sempre preparadas. */
 export function expandedSpellIds(pack: RulePack | undefined, subclassId: string | undefined, classLevel: number): ReadonlySet<string> {
   const subclass = subclassId && pack ? pack.subclasses.get(subclassId as EntityId) : undefined;
-  return new Set((subclass?.spellGrants ?? []).filter((grant) => !grant.alwaysPrepared && grant.level <= classLevel).map((grant) => String(grant.spellRef.entityId)));
+  return new Set((subclass?.spellGrants ?? []).filter((grant) => !grant.alwaysPrepared && !grant.knownWithoutCount && grant.level <= classLevel).map((grant) => String(grant.spellRef.entityId)));
 }
 
 export function spellConstraintFor(parsed: ParsedEvolutionChoice, sources: readonly CastingSource[], pack?: RulePack): SpellConstraint | undefined {

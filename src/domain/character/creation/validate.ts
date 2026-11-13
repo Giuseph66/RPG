@@ -6,6 +6,7 @@ import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { creationChoiceLimit } from "./limits";
 import { bonusCantripListOf, expandedSpellIds, level1BonusCantripChoice } from "@domain/character/evolution/spell-rules";
 import { asCreationCatalog, type CreationCatalogInput, type CreationCatalog, type CreationIssue, type CreationValidationReport, ABILITIES } from "./model";
+import { composeOptionalRuleContent } from "./optional-rules";
 
 const standardArray = [8, 10, 12, 13, 14, 15];
 const skills = new Set(["athletics", "acrobatics", "sleight-of-hand", "stealth", "arcana", "history", "investigation", "nature", "religion", "animal-handling", "insight", "medicine", "perception", "survival", "performance", "deception", "intimidation", "persuasion"]);
@@ -97,9 +98,12 @@ function abilityIssues(generation: CharacterDraftPartial["abilityGeneration"]): 
 
 export function validateCharacterCreation(input: CreationCatalogInput, draft: CharacterDraft): CreationValidationReport {
   const catalog = asCreationCatalog(input);
-  const { rulePack: pack, equipmentBundles } = catalog;
+  const { equipmentBundles } = catalog;
   const partial = draft.partial;
   const issues: CreationIssue[] = [];
+  const composed = composeOptionalRuleContent(catalog.rulePack, partial.selectedSupplementIds ?? [], partial.optionalRuleSelections ?? []);
+  const pack = composed.ok ? composed.value : catalog.rulePack;
+  if (!composed.ok) issues.push(issue("invalid-choice", "field" in composed.error ? composed.error.field : "optionalRuleSelections", composed.error.message));
   for (const pending of draft.pendingValidations) issues.push(issue("unresolved-source", `${pending.step}.${pending.field}`, pending.message));
   if (draft.schemaVersion !== 1) issues.push(issue("invalid-reference", "schemaVersion", "Schema de draft incompatível."));
   if (draft.rulesetRef.id !== pack.manifest.id || draft.rulesetRef.version !== pack.manifest.version) issues.push(issue("invalid-reference", "rulesetRef", "O draft deve apontar para a versão exata do rule pack."));
@@ -115,6 +119,16 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
     if (partial.subraceRef) {
       if (!local(partial.subraceRef, pack) || !pack.subraces.has(partial.subraceRef.entityId)) issues.push(issue("invalid-reference", "subraceRef", "Sub-raça não encontrada neste ruleset."));
       else if (pack.subraces.get(partial.subraceRef.entityId)?.raceId !== race.id) issues.push(issue("invalid-choice", "subraceRef", "A sub-raça não pertence à raça escolhida."));
+    }
+    // A racial source with a chosen ability cannot be materialized without its
+    // choice: otherwise syncSpellcasting silently omits that source entirely.
+    for (const source of race.spellcastingSources ?? []) {
+      if (!source.ability && source.abilityChoiceId) {
+        const selection = (partial.choices ?? []).find((entry) => entry.choiceId === source.abilityChoiceId);
+        if (!selection || selection.selectedIds.length === 0) {
+          issues.push(issue("required-choice", `choices.${source.abilityChoiceId}`, `Escolha o atributo de conjuração exigido pela fonte racial (${source.abilityOptions?.join(", ") ?? "opções publicadas"}).`, source.sourceRefs));
+        }
+      }
     }
   }
   const classEntry = partial.classes?.[0];
@@ -138,7 +152,10 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   const choices: ChoiceDefinition[] = [];
   if (race) choices.push(...race.choices);
   if (partial.subraceRef) choices.push(...(pack.subraces.get(partial.subraceRef.entityId)?.choices ?? []));
-  if (classDefinition) choices.push(classDefinition.skillChoices, ...classDefinition.initialEquipmentChoices, ...(classDefinition.progression[0]?.choicesGranted ?? []));
+  if (classDefinition) {
+    choices.push(classDefinition.skillChoices, ...classDefinition.initialEquipmentChoices, ...(classDefinition.progression[0]?.choicesGranted ?? []));
+    for (const featureRef of classDefinition.progression[0]?.featureRefs ?? []) choices.push(...(pack.features.get(featureRef.entityId)?.choices ?? []));
+  }
   // Subclasse escolhida no 1º nível (Clérigo, Bruxo, Feiticeiro): as escolhas da característica do nível 1 valem na criação.
   const level1Subclass = classEntry?.subclassId ? pack.subclasses.get(classEntry.subclassId) : undefined;
   for (const grant of level1Subclass?.featureGrants.filter((entry) => entry.level <= 1) ?? []) choices.push(...(pack.features.get(grant.featureRef.entityId)?.choices ?? []));

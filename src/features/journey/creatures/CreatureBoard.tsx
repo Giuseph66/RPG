@@ -17,6 +17,9 @@ import {
   type CreatureRecord,
 } from "@domain/campaign/creatures";
 import type { AccountId, Uuid } from "@domain/contracts/ids";
+import { StatBlock } from "@components/creatures/StatBlock";
+import { StatBlockEditor } from "@components/creatures/StatBlockEditor";
+import { CreatureProposalBoard } from "./CreatureProposalBoard";
 
 import { CreatureKindIcon, CreatureToolbar, countByKind, kindLabel, matchesQuery } from "./shared";
 import type { CreatureBoardProps, CreatureFilter, JourneyPlayer } from "./types";
@@ -41,11 +44,13 @@ type Focus = AccountId | typeof ALL;
 const EMPTY_CONTENT: CreatureContent = { kind: "unknown", name: "", appearance: "", race: "", description: "", hitPoints: "", armorClass: "", abilities: "", notes: "" };
 
 function contentOf(creature: CreatureRecord): CreatureContent {
-  return { kind: creature.kind, name: creature.name, appearance: creature.appearance, race: creature.race, description: creature.description, hitPoints: creature.hitPoints, armorClass: creature.armorClass, abilities: creature.abilities, notes: creature.notes, ...(creature.characterRef ? { characterRef: creature.characterRef } : {}) };
+  return { kind: creature.kind, name: creature.name, appearance: creature.appearance, race: creature.race, description: creature.description, hitPoints: creature.hitPoints, armorClass: creature.armorClass, abilities: creature.abilities, notes: creature.notes, ...(creature.characterRef ? { characterRef: creature.characterRef } : {}), ...(creature.statBlock ? { statBlock: creature.statBlock } : {}) };
 }
 
 function fieldValue(creature: CreatureRecord, field: CreatureField): string {
-  return field === "kind" ? kindLabel(creature.kind) : creature[field];
+  if (field === "kind") return kindLabel(creature.kind);
+  if (field === "statBlock") return creature.statBlock ? "Bloco completo disponível" : "";
+  return creature[field];
 }
 
 /** Quantas contas do foco enxergam o campo (ou a presença, quando `field` é omitido). */
@@ -56,7 +61,7 @@ function coverage(creature: CreatureRecord, accounts: readonly AccountId[], fiel
   }).length;
 }
 
-function CreatureForm({ draft, onChange }: { readonly draft: CreatureContent; readonly onChange: (patch: Partial<CreatureContent>) => void }) {
+function CreatureForm({ draft, onChange, onStatBlockValidityChange, onSuggestStatBlock }: { readonly draft: CreatureContent; readonly onChange: (patch: Partial<CreatureContent>) => void; readonly onStatBlockValidityChange: (valid: boolean) => void; readonly onSuggestStatBlock?: CreatureBoardProps["onSuggestStatBlock"] }) {
   const text = (field: keyof CreatureContent, label: string, options: { readonly multiline?: boolean; readonly max: number; readonly placeholder?: string; readonly wide?: boolean }) => <label className={[styles.field, options.wide ? styles.wide : ""].join(" ")}>
     <span>{label}</span>
     {options.multiline
@@ -71,6 +76,7 @@ function CreatureForm({ draft, onChange }: { readonly draft: CreatureContent; re
     {text("hitPoints", "Pontos de vida", { max: 40, placeholder: "Ex.: 37 (5d10+10)" })}
     {text("armorClass", "Classe de armadura", { max: 40, placeholder: "Ex.: 14" })}
     {text("abilities", "Habilidades e magias", { multiline: true, max: 1200, placeholder: "Ataques, magias, resistências…", wide: true })}
+    <div className={[styles.field, styles.wide].join(" ")}><StatBlockEditor value={draft.statBlock} name={draft.name} onChange={(statBlock) => onChange({ statBlock })} onValidityChange={onStatBlockValidityChange} onSuggest={onSuggestStatBlock} /></div>
     {text("description", "O que se sabe", { multiline: true, max: 1200, placeholder: "História, motivação, rumores", wide: true })}
     {text("notes", "Notas do mestre (nunca reveladas)", { multiline: true, max: 2000, placeholder: "Segredos, planos, ganchos", wide: true })}
   </div>;
@@ -154,7 +160,8 @@ function RevealPanel({ creature, players, busy, onChange }: { readonly creature:
   const [focus, setFocus] = useState<Focus>(ALL);
   if (players.length === 0) return <section className={styles.reveal} aria-label="Ficha da criatura">
     <div className={styles.noPlayers}><UsersThree size={22} weight="duotone" aria-hidden="true" /><p><strong>Nenhum jogador ativo</strong><span>Quando jogadores entrarem na campanha, cada informação ganha um olho para você revelar.</span></p></div>
-    <ul className={styles.fieldList}>{CREATURE_FIELDS.filter((field) => field !== "kind").map((field) => <li key={field} data-revealed="none"><div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS[field]}</span><p className={creature[field].trim() ? undefined : styles.emptyValue}>{creature[field].trim() || "Não preenchido"}</p></div></li>)}
+    <ul className={styles.fieldList}>{CREATURE_FIELDS.filter((field) => field !== "kind" && field !== "statBlock").map((field) => <li key={field} data-revealed="none"><div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS[field]}</span><p className={creature[field].trim() ? undefined : styles.emptyValue}>{creature[field].trim() || "Não preenchido"}</p></div></li>)}
+      <li data-revealed="none"><div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS.statBlock}</span>{creature.statBlock ? <StatBlock creature={creature.statBlock} headingLevel={3} /> : <p className={styles.emptyValue}>Não preenchido</p>}</div></li>
       <li data-revealed="locked"><div><span className={styles.fieldLabel}>Notas do mestre</span><p className={creature.notes.trim() ? undefined : styles.emptyValue}>{creature.notes.trim() || "Sem notas"}</p></div><span className={styles.lock} title="Nunca é revelado"><LockSimple size={18} aria-hidden="true" /></span></li></ul>
   </section>;
   const accounts = focus === ALL ? players.map((player) => player.accountId) : [focus];
@@ -184,9 +191,9 @@ function RevealPanel({ creature, players, busy, onChange }: { readonly creature:
         const seen = coverage(creature, accounts, field);
         const on = seen === accounts.length;
         const partial = seen > 0 && !on;
-        const empty = field !== "kind" && !value.trim();
+        const empty = field === "statBlock" ? creature.statBlock === undefined : field !== "kind" && !value.trim();
         return <li key={field} data-revealed={on ? "all" : partial ? "some" : "none"}>
-          <div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS[field]}</span><p className={empty ? styles.emptyValue : undefined}>{empty ? "Não preenchido" : value}</p></div>
+          <div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS[field]}</span>{field === "statBlock" && creature.statBlock ? <><p>{value}</p><StatBlock creature={creature.statBlock} headingLevel={3} /></> : <p className={empty ? styles.emptyValue : undefined}>{empty ? "Não preenchido" : value}</p>}</div>
           <button type="button" className={styles.eye} aria-pressed={on} disabled={busy || empty} aria-label={`${on ? "Ocultar" : "Revelar"} ${CREATURE_FIELD_LABELS[field].toLocaleLowerCase("pt-BR")} para ${focusName}`} onClick={() => onChange(setRevealField(creature, accounts, field, !on))}>
             {on ? <Eye size={19} weight="fill" aria-hidden="true" /> : <EyeSlash size={19} aria-hidden="true" />}{focus === ALL && accounts.length > 1 ? <small>{seen}/{accounts.length}</small> : null}
           </button>
@@ -234,6 +241,7 @@ export function CreatureBoard(props: CreatureBoardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sheet, setSheet] = useState<SheetChoice>(NO_SHEET);
   const [confirmSheetDelete, setConfirmSheetDelete] = useState(false);
+  const [statBlockValid, setStatBlockValid] = useState(true);
   const sideBySide = useMediaQuery("(min-width: 1400px)");
 
   // A gravação local responde antes do recarregamento da lista; a versão mais nova vence.
@@ -248,7 +256,7 @@ export function CreatureBoard(props: CreatureBoardProps) {
 
   const remember = (creature: CreatureRecord) => setSaved((current) => ({ ...current, [creature.id]: creature }));
   const close = () => { if (busy) return; setOpenId(undefined); setMode("view"); setMessage(undefined); setConfirmDelete(false); setConfirmSheetDelete(false); };
-  const beginCreate = () => { setDraft(EMPTY_CONTENT); setSheet(NO_SHEET); setMode("create"); setOpenId(undefined); setMessage(undefined); };
+  const beginCreate = () => { setDraft(EMPTY_CONTENT); setSheet(NO_SHEET); setStatBlockValid(true); setMode("create"); setOpenId(undefined); setMessage(undefined); };
   const persist = async (next: CreatureRecord) => {
     if (!onSave) return;
     setBusy(true); setMessage(undefined);
@@ -310,7 +318,8 @@ export function CreatureBoard(props: CreatureBoardProps) {
   const formOpen = mode === "create" || (mode === "edit" && open !== undefined);
   const dialogTitle = mode === "create" ? "Nova criatura" : mode === "edit" ? `Editar ${open?.name ?? "criatura"}` : open?.name ?? "Criatura";
 
-  return <section className={styles.board} aria-labelledby="creature-board-title">
+  return <>
+  <section className={styles.board} aria-labelledby="creature-board-title">
     <header className={styles.boardHeading}>
       <div><p className={styles.eyebrow}>Jornada · Elenco</p><h2 id="creature-board-title">NPCs, ameaças e criaturas</h2><p>Toque em uma carta para decidir o que cada jogador descobre.</p></div>
     </header>
@@ -333,13 +342,13 @@ export function CreatureBoard(props: CreatureBoardProps) {
         </button></li>;
       })}</ul>}
 
-    <AppModal open={formOpen || open !== undefined} title={dialogTitle} onClose={close} className={styles.dialog} aside={mode === "view" && open && sideBySide ? { title: "Palpites dos jogadores", children: <GuessList guesses={guessesFor(open.id)} players={players} showHeading={false} /> } : undefined} headerActions={mode === "view" && open ? <>{onSave ? <Button size="sm" variant="ghost" aria-label={`Editar ${open.name}`} onClick={() => { setDraft(contentOf(open)); setSheet({ ...NO_SHEET, mode: open.characterRef ? "existing" : "none" }); setMode("edit"); }}><PencilSimple size={17} aria-hidden="true" /></Button> : null}{onDelete ? <Button size="sm" variant="ghost" aria-label={`Remover ${open.name}`} onClick={() => setConfirmDelete(true)}><Trash size={17} aria-hidden="true" /></Button> : null}</> : undefined}>
+    <AppModal open={formOpen || open !== undefined} title={dialogTitle} onClose={close} className={styles.dialog} aside={mode === "view" && open && sideBySide ? { title: "Palpites dos jogadores", children: <GuessList guesses={guessesFor(open.id)} players={players} showHeading={false} /> } : undefined} headerActions={mode === "view" && open ? <>{onSave ? <Button size="sm" variant="ghost" aria-label={`Editar ${open.name}`} onClick={() => { setDraft(contentOf(open)); setSheet({ ...NO_SHEET, mode: open.characterRef ? "existing" : "none" }); setStatBlockValid(true); setMode("edit"); }}><PencilSimple size={17} aria-hidden="true" /></Button> : null}{onDelete ? <Button size="sm" variant="ghost" aria-label={`Remover ${open.name}`} onClick={() => setConfirmDelete(true)}><Trash size={17} aria-hidden="true" /></Button> : null}</> : undefined}>
       {message ? <InlineStatus tone="error" assertive>{message}</InlineStatus> : null}
       {formOpen ? <form className={styles.form} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <CreatureForm draft={draft} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} />
+        <CreatureForm key={mode === "create" ? "new-creature" : open?.id} draft={draft} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} onStatBlockValidityChange={setStatBlockValid} onSuggestStatBlock={props.onSuggestStatBlock} />
         <SheetSection choice={sheet} onChoice={(next) => { setSheet(next); if (next.mode === "generate" && next.race && !draft.race.trim()) { const name = props.raceOptions?.find((option) => String(option.id) === next.race)?.name; if (name) setDraft((current) => ({ ...current, race: current.race.trim() ? current.race : name })); } }} draft={draft} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} tools={props} otherLinked={otherLinked} editing={mode === "edit" ? open : undefined} onDeleteSheet={() => { setMode("view"); setConfirmSheetDelete(true); }} />
         <p className={styles.hint}>Tudo começa oculto. Depois de salvar, use o olho de cada informação para revelá-la.</p>
-        <div className={styles.formActions}><Button type="button" variant="ghost" disabled={busy} onClick={() => mode === "create" ? close() : setMode("view")}>Cancelar</Button><Button type="submit" disabled={busy || !draft.name.trim() || Boolean(sheetProblem(sheet, draft)) || (sheet.mode === "existing" && !draft.characterRef)}>{busy ? (sheet.mode === "generate" ? "Criando ficha…" : "Salvando…") : sheet.mode === "generate" ? (mode === "create" ? "Criar ficha e adicionar ao elenco" : "Criar ficha e salvar") : mode === "create" ? "Adicionar ao elenco" : "Salvar alterações"}</Button></div>
+        <div className={styles.formActions}><Button type="button" variant="ghost" disabled={busy} onClick={() => mode === "create" ? close() : setMode("view")}>Cancelar</Button><Button type="submit" disabled={busy || !statBlockValid || !draft.name.trim() || Boolean(sheetProblem(sheet, draft)) || (sheet.mode === "existing" && !draft.characterRef)}>{busy ? (sheet.mode === "generate" ? "Criando ficha…" : "Salvando…") : sheet.mode === "generate" ? (mode === "create" ? "Criar ficha e adicionar ao elenco" : "Criar ficha e salvar") : mode === "create" ? "Adicionar ao elenco" : "Salvar alterações"}</Button></div>
       </form> : open ? <div className={styles.detail}>
         <div className={styles.detailKind} data-kind={open.kind}><CreatureKindIcon kind={open.kind} size={18} />{kindLabel(open.kind)}{open.characterRef && onOpenSheet ? <button type="button" className={styles.textAction} onClick={() => onOpenSheet(open.characterRef!)}>Editar ficha</button> : null}{open.characterRef && props.onDeleteSheet ? <button type="button" className={[styles.textAction, styles.dangerAction].join(" ")} onClick={() => setConfirmSheetDelete(true)}>Excluir ficha</button> : null}</div>
         {confirmSheetDelete ? <div className={styles.confirm}><span>Excluir a ficha de {open.name}? Atributos, PV e equipamento serão apagados. A criatura continua no elenco, sem ficha.</span><div className={styles.inlineActions}><Button size="sm" variant="danger" disabled={busy} onClick={() => void removeSheet()}>Excluir ficha</Button><Button size="sm" variant="ghost" onClick={() => setConfirmSheetDelete(false)}>Manter</Button></div></div> : null}
@@ -348,6 +357,7 @@ export function CreatureBoard(props: CreatureBoardProps) {
         {sideBySide ? null : <GuessList guesses={guessesFor(open.id)} players={players} hideWhenEmpty />}
       </div> : null}
     </AppModal>
-  </section>;
+  </section>
+  {props.onReviewProposal ? <CreatureProposalBoard mode="master" proposals={props.proposals ?? []} loading={props.proposalLoading} error={props.proposalError} onReview={props.onReviewProposal} /> : null}
+  </>;
 }
-

@@ -18,3 +18,12 @@
 | R-14 | Opção V2 parece disponível na V1. | Promessa enganosa e ficha inválida. | CHAR-004/UI-003 | Rotular suporte/pendência e bloquear comando afetado com motivo; não apagar documentação. |
 
 Riscos não são defeitos já comprovados da aplicação: nenhuma aplicação foi iniciada. Na execução, cada ocorrência ganha responsável, evidência, impacto, plano e condição de fechamento. Não ampliar escopo por riscos hipotéticos sem necessidade.
+# Riscos da rodada SUP — 11/11/2026
+
+- Perda de ficha/PV: snapshot íntegro, comandos atômicos e prova de retorno/excedente/recarga antes do aceite.
+- Mistura de versões: Fada/Tasha explícitos, preservação do Patrulheiro local e referências por regra.
+- Extração de tabelas/colunas: conferir páginas dúbias visualmente, inventariar mídia e não preencher lacunas por memória.
+- Propostas indevidas: separar catálogo, avistamento, aprovação do mestre e criatura efetivamente utilizável; validar entradas/importação e permissões.
+- Concorrência: contratos primeiro, ownership disjunto e preservação dos dois diffs preexistentes do wizard.
+
+SUP — risco de fidelidade ao complemento: revisão de Tasha p.51–56 detectou progressão de Consciência Primordial, efeitos do Andarilho Feérico, duração de Véu da Natureza, recursos por proficiência e lista expandida incompletos/incorretos no pacote intermediário. Correção com SUP-01 e suporte contratual SUP-02, seguida de provas do fluxo real, é condição de aceite. Catálogo de campanha deve servir jogador comum/offline sem expor propostas pendentes de terceiros; aprovação não concede avistamento.

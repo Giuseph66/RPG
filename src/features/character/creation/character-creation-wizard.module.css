@@ -27,6 +27,28 @@
 .spellMeta { color: var(--color-text-muted); font-size: .78rem; }
 .spellBrief { color: var(--color-text); font-size: .875rem; line-height: 1.4; }
 .spellScaling { color: var(--color-secondary); font-size: .8rem; line-height: 1.35; }
+.supplementBlock { display:grid; gap:var(--spacing-sm); margin-bottom:var(--spacing-lg); padding:var(--spacing-md); border:1px solid var(--color-border-soft); border-radius:var(--radius-control); background:color-mix(in srgb,var(--color-secondary) 4%,var(--color-background)); }
+.supplementBlock > div:first-child { display:grid; gap:.25rem; }
+.supplementBlock h3 { margin:0; color:var(--color-secondary); font-family:var(--typography-heading-font-family); font-size:1rem; }
+.supplementBlock > div:first-child p { max-width:54rem; margin:0; color:var(--color-text-muted); font-size:.84rem; line-height:1.45; }
+.supplementList { display: grid; gap: var(--spacing-sm); }
+.supplementCard { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--spacing-sm); min-width: 0; padding: var(--spacing-md); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-background); cursor: pointer; }
+.supplementCard:has(input:checked) { border-color: var(--color-secondary); background: color-mix(in srgb, var(--color-secondary) 8%, var(--color-background)); }
+.supplementCard input { width: 1.2rem; height: 1.2rem; margin-top: .1rem; accent-color: var(--color-secondary); }
+.supplementCard > span { display: grid; gap: .28rem; min-width: 0; }
+.supplementCard strong { color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1rem; }
+.supplementCard span span { color: var(--color-text-muted); font-size: .88rem; line-height: 1.45; }
+.supplementCard small,.supplementOption > small { color: var(--color-text-muted); font-size: .75rem; line-height: 1.4; }
+.supplementOptions { display: grid; gap: var(--spacing-sm); margin-top: var(--spacing-lg); padding-top: var(--spacing-md); border-top: 1px solid var(--color-border-soft); }
+.supplementOptions h3 { margin: 0; font-family: var(--typography-heading-font-family); }
+.supplementOptions > p,.supplementOption > p { margin: 0; color: var(--color-text-muted); font-size: .84rem; line-height: 1.45; }
+.supplementOption { display: grid; gap: var(--spacing-xs); min-width: 0; padding: var(--spacing-sm); border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); }
+.supplementOption legend,.supplementSpells legend { padding-inline: .25rem; color: var(--color-secondary); font-size: .84rem; font-weight: 700; }
+.supplementChoice,.supplementSpells { display: grid; gap: .35rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.supplementChoice label,.supplementSpells label,.supplementToggle { display: flex; align-items: flex-start; gap: .5rem; min-height: var(--size-touch-target); padding: .35rem .45rem; border-radius: var(--radius-control); color: var(--color-text); font-size: .86rem; cursor: pointer; }
+.supplementChoice label:hover,.supplementSpells label:hover,.supplementToggle:hover { background: var(--color-surface-elevated); }
+.supplementChoice input,.supplementSpells input,.supplementToggle input { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin-top: .12rem; accent-color: var(--color-secondary); }
+.supplementSpells { margin-top: var(--spacing-xs); padding-top: var(--spacing-xs); border-top: 1px solid var(--color-border-soft); }
 .spellInfoButton { flex: 0 0 auto; }
 .summary { display: grid; gap: .25rem; }
 .summary p { margin: 0; color: var(--color-text-muted); }

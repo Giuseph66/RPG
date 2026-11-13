@@ -54,6 +54,8 @@ export interface AttackDamagePart {
 
 export interface AttackOption {
   readonly sourceRef: DefinitionRef;
+  /** Nome publicado da ação quando o ataque vem de uma forma, companion ou outra fonte nomeada. */
+  readonly label?: string;
   readonly attackModifier: Explanation<number>;
   readonly damageParts: readonly AttackDamagePart[];
 }
@@ -80,6 +82,8 @@ export interface CharacterDerived {
   readonly characterRevision: Revision;
   readonly rulesetRef: RulesetRef;
   readonly abilityScores: readonly AbilityScoreDerived[];
+  /** Bônus aditivos genéricos em testes de atributo; não alteram salvaguardas ou ataques. */
+  readonly abilityCheckBonuses?: readonly { readonly ability: Ability; readonly bonus: Explanation<number> }[];
   readonly skills: readonly SkillDerived[];
   readonly savingThrows: readonly SavingThrowDerived[];
   readonly armorClass: Explanation<number>;

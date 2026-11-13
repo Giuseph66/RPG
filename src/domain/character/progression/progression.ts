@@ -1,5 +1,5 @@
 import type { Character, ClassLevel, ProgressionHitPointGain } from "@domain/contracts/character";
-import { asUuid, isUuid, type EntityId } from "@domain/contracts/ids";
+import { asEntityId, asUuid, isUuid, type EntityId } from "@domain/contracts/ids";
 import type { ChoiceDefinition, ChoiceSelection, Prerequisite } from "@domain/contracts/primitives";
 import type { ClassDefinition, SubclassDefinition } from "@domain/contracts/definitions/class";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
@@ -7,6 +7,7 @@ import { err, ok } from "@domain/contracts/errors";
 import { generatedChoices } from "@domain/character/evolution/choices";
 import { validateEvolutionChoices } from "@domain/character/evolution/validate";
 import { asProgressionCatalog, type LevelUpPreview, type LevelUpRequest, type ProgressionApplyOptions, type ProgressionCatalogInput, type ProgressionIssue, type ProgressionResourcePreview, type ProgressionResult, type ProgressionStatus } from "./model";
+import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
 
 const SKILLS = new Set(["athletics", "acrobatics", "sleight-of-hand", "stealth", "arcana", "history", "investigation", "nature", "religion", "animal-handling", "insight", "medicine", "perception", "survival", "performance", "deception", "intimidation", "persuasion"]);
 
@@ -62,7 +63,7 @@ export function grantExperience(character: Character, amount: number): Progressi
   return setExperience(character, character.xp + amount);
 }
 
-function choicesFor(character: Character, pack: RulePack, classDefinition: ClassDefinition, targetLevel: number, subclass: SubclassDefinition | undefined): { readonly choices: readonly ChoiceDefinition[]; readonly featureRefs: readonly import("@domain/contracts/ids").DefinitionRef[]; readonly issues: readonly ProgressionIssue[] } {
+function choicesFor(character: Character, pack: RulePack, classDefinition: ClassDefinition, targetLevel: number, subclass: SubclassDefinition | undefined, submittedChoices: readonly ChoiceSelection[] = []): { readonly choices: readonly ChoiceDefinition[]; readonly featureRefs: readonly import("@domain/contracts/ids").DefinitionRef[]; readonly issues: readonly ProgressionIssue[] } {
   const progression = classDefinition.progression[targetLevel - 1];
   if (!progression || progression.level !== targetLevel) return { choices: [], featureRefs: [], issues: [issue("unresolved-source", "class.progression", `A progressão publicada não possui o nível ${targetLevel}.`, classDefinition.sourceRefs)] };
   const featureRefs = [...progression.featureRefs, ...(subclass?.featureGrants.filter((grant) => grant.level === targetLevel).map((grant) => grant.featureRef) ?? [])];
@@ -76,7 +77,31 @@ function choicesFor(character: Character, pack: RulePack, classDefinition: Class
     }
     choices.push(...feature.choices);
   }
+  // A supplemental style can conditionally grant a feature with its own choices
+  // (for example, Druidic Warrior's two druid cantrips). Resolve those only for
+  // a feature selected in this level-up request.
+  const knownChoiceIds = new Set(choices.map((entry) => entry.id));
+  for (const selection of submittedChoices) {
+    for (const selectedRef of selection.selectedIds) {
+      const feature = pack.features.get(selectedRef.entityId);
+      for (const choice of feature?.choices ?? []) {
+        if (knownChoiceIds.has(choice.id)) continue;
+        knownChoiceIds.add(choice.id);
+        choices.push(choice);
+      }
+    }
+  }
   if (subclass) choices.push(...subclass.choices);
+  // Guerreiro Druídico permite trocar um único truque ao ganhar nível de Guardião.
+  // A escolha mantém exatamente um truque já conhecido e seleciona um novo da lista druídica.
+  const druidicWarrior = pack.features.get(asEntityId("ranger.druidic-warrior"));
+  const hasDruidicWarrior = character.choices.some((selection) =>
+    selection.choiceId === "ranger.fighting-style.2" && selection.selectedIds.some((ref) => ref.entityId === druidicWarrior?.id),
+  );
+  if (classDefinition.id === "ranger" && targetLevel > 2 && hasDruidicWarrior) {
+    const baseChoice = druidicWarrior?.choices.find((choice) => choice.id === "ranger.cantrips.2");
+    if (baseChoice) choices.push({ ...baseChoice, id: `ranger.druidic-warrior-cantrip-swap.${targetLevel}`, count: { min: 2, max: 2 } });
+  }
   // Escolhas de magia e de troca saem das tabelas do livro; as do 1º nível já vêm do pack.
   const published = new Set(choices.map((entry) => entry.id));
   choices.push(...generatedChoices(character, pack, String(classDefinition.id), targetLevel, subclass ? String(subclass.id) : undefined).filter((entry) => !published.has(entry.id)));
@@ -140,7 +165,10 @@ function validateMulticlass(character: Character, classDefinition: ClassDefiniti
 }
 
 export function buildLevelUpPreview(character: Character, input: LevelUpRequest, catalogInput: ProgressionCatalogInput): ProgressionResult<LevelUpPreview> {
-  const pack = asProgressionCatalog(catalogInput).rulePack;
+  const rawPack = asProgressionCatalog(catalogInput).rulePack;
+  const composition = composeCharacterRuleContent(rawPack, character);
+  if (!composition.ok) return err([issue("unresolved-source", "field" in composition.error ? composition.error.field : "optionalRuleSelections", composition.error.message)]);
+  const pack = composition.value;
   const errors: ProgressionIssue[] = [];
   if (!Number.isInteger(character.xp) || character.xp < 0) errors.push(issue("invalid-xp", "xp", "XP do personagem é inválido."));
   const classDefinition = pack.classes.get(input.classId);
@@ -165,16 +193,28 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
   if (input.subclassId && !subclass) errors.push(issue("invalid-subclass", "subclassId", `Subclasse "${String(input.subclassId)}" não está publicada.`));
   if (subclass && subclass.classId !== input.classId) errors.push(issue("invalid-subclass", "subclassId", "A subclasse não pertence à classe escolhida.", subclass.sourceRefs));
   if (targetClassLevel >= classDefinition.subclassSelectionLevel && !subclass) errors.push({ ...issue("required-choice", "subclassId", `A classe pede subclasse a partir do nível ${classDefinition.subclassSelectionLevel}; você pode escolhê-la depois.`, classDefinition.sourceRefs), blocking: false });
-  const gathered = choicesFor(character, pack, classDefinition, targetClassLevel, subclass);
+  const gathered = choicesFor(character, pack, classDefinition, targetClassLevel, subclass, input.choices);
   errors.push(...gathered.issues);
   // Talento escolhido no lugar do aumento: o +1 de atributo dos talentos "meio-talento" (Atleta, Observador…) é uma escolha própria.
   const pickedFeats = (input.choices.find((selection) => selection.choiceId === `${String(input.classId)}.feat.${targetClassLevel}`)?.selectedIds ?? []).map((ref) => pack.feats.get(ref.entityId));
   const featChoices = pickedFeats.flatMap((feat) => (feat?.choices ?? []).filter((entry) => entry.kind === "ability-score-increase").map((entry): ChoiceDefinition => ({ ...entry, count: { min: 0, max: entry.count.max } })));
   const allChoices = [...gathered.choices, ...featChoices.filter((entry) => !gathered.choices.some((existing) => existing.id === entry.id))];
   errors.push(...validateHitPointGain(input.hitPointGain, classDefinition, targetClassLevel));
-  const choices = character.choices;
   for (const choice of allChoices) errors.push(...validChoiceSelection(pack, choice, input.choices.find((selection) => selection.choiceId === choice.id)));
-  errors.push(...validateEvolutionChoices({ character, pack, classId: String(input.classId), targetLevel: targetClassLevel, ...(subclass ? { subclassId: String(subclass.id) } : {}), choices: input.choices, definitions: allChoices, ...(input.abilityScores ? { abilityScores: input.abilityScores } : {}) }));
+  for (const selection of input.choices.filter((entry) => entry.choiceId === `ranger.druidic-warrior-cantrip-swap.${targetClassLevel}`)) {
+    const current = character.choices.find((entry) => entry.choiceId === "ranger.cantrips.2")?.selectedIds.map((ref) => ref.entityId) ?? [];
+    const selected = selection.selectedIds.map((ref) => ref.entityId);
+    if (current.length !== 2 || selected.filter((id) => current.includes(id)).length !== 1 || selected.filter((id) => !current.includes(id)).length !== 1) {
+      errors.push(issue("invalid-choice", `choices.${selection.choiceId}`, "A troca de Guerreiro Druídico deve manter um dos dois truques conhecidos e escolher um truque druídico novo.", allChoices.find((choice) => choice.id === selection.choiceId)?.sourceRefs));
+    }
+  }
+  const evolutionChoices = input.choices.filter((selection) => {
+    const grantingFeature = selection.grantingRef ? pack.features.get(selection.grantingRef.entityId) : undefined;
+    // A allowlist explícita da escolha da característica valida esses truques; a lista da classe
+    // Guardião não deve ser usada para rejeitar uma magia concedida pela característica Druídica.
+    return !grantingFeature?.spellcastingSource?.spellListClassId;
+  });
+  errors.push(...validateEvolutionChoices({ character, pack, classId: String(input.classId), targetLevel: targetClassLevel, ...(subclass ? { subclassId: String(subclass.id) } : {}), choices: evolutionChoices, definitions: allChoices, ...(input.abilityScores ? { abilityScores: input.abilityScores } : {}) }));
   const knownChoiceIds = new Set(allChoices.map((choice) => choice.id));
   const submittedChoiceIds = new Set<string>();
   for (const selection of input.choices) {
@@ -194,6 +234,18 @@ export function buildLevelUpPreview(character: Character, input: LevelUpRequest,
     const definition = pack.resources.get(change.resourceRef.entityId);
     if (!definition) errors.push(issue("unresolved-source", `resources.${String(change.resourceRef.entityId)}`, `Recurso "${String(change.resourceRef.entityId)}" não está publicado.`, subclass.sourceRefs));
     resources.push({ definitionRef: change.resourceRef, ...(definition ? { definition } : {}), capacityRule: change.capacityRule, preservedSpent: character.resources.find((resource) => sameResourceRef(resource.definitionRef, change.resourceRef))?.spent ?? 0 });
+  }
+  for (const featureRef of gathered.featureRefs) {
+    const feature = pack.features.get(featureRef.entityId);
+    for (const effect of feature?.effects ?? []) {
+      if (effect.kind !== "grants-resource" || resources.some((resource) => sameResourceRef(resource.definitionRef, effect.resourceRef))) continue;
+      const definition = pack.resources.get(effect.resourceRef.entityId);
+      if (!definition) {
+        errors.push(issue("unresolved-source", `resources.${String(effect.resourceRef.entityId)}`, `Recurso "${String(effect.resourceRef.entityId)}" da característica não está publicado.`, feature?.sourceRefs));
+        continue;
+      }
+      resources.push({ definitionRef: effect.resourceRef, definition, capacityRule: definition.capacityRule, preservedSpent: character.resources.find((resource) => sameResourceRef(resource.definitionRef, effect.resourceRef))?.spent ?? 0 });
+    }
   }
   const xpRequired = pack.progression.table[currentTotal]?.xpThreshold ?? Number.POSITIVE_INFINITY;
   return ok({ classId: input.classId, targetClassLevel, totalLevel: currentTotal + 1, proficiencyBonus: pack.progression.table[currentTotal]?.proficiencyBonus ?? 0, xpRequired, hitPointGain: input.hitPointGain, featureRefs: gathered.featureRefs, resources, choices: allChoices, pending: errors, valid: errors.every((entry) => !entry.blocking) });
@@ -222,7 +274,17 @@ export function applyLevelUp(character: Character, input: LevelUpRequest, catalo
     if (existing >= 0) continue;
     resources.push({ id: options.idGenerator?.("resource", resources.length) ?? fallbackId(character, `resource:${resource.definitionRef.entityId}`, resources.length), definitionRef: resource.definitionRef, ownerInstanceId: character.id, spent: 0 });
   }
-  return ok({ ...character, classes, choices: [...character.choices, ...input.choices], progressionHistory: [...character.progressionHistory, progressEntry], resources, updatedAt: options.now ?? character.updatedAt });
+  const cantripSwap = input.choices.find((selection) => selection.choiceId === `ranger.druidic-warrior-cantrip-swap.${preview.value.targetClassLevel}`);
+  const appliedChoices = input.choices
+    .filter((selection) => !selection.choiceId.startsWith("ranger.druidic-warrior-cantrip-swap."))
+    .map((selection) => selection);
+  const nextChoices = [...character.choices, ...appliedChoices];
+  if (cantripSwap) {
+    const currentIndex = nextChoices.findIndex((selection) => selection.choiceId === "ranger.cantrips.2");
+    if (currentIndex >= 0) nextChoices[currentIndex] = { ...nextChoices[currentIndex], selectedIds: cantripSwap.selectedIds };
+    else nextChoices.push({ ...cantripSwap, choiceId: "ranger.cantrips.2", grantedAtLevel: 2, grantingRef: { rulesetId: cantripSwap.grantingRef!.rulesetId, entityId: asEntityId("ranger.druidic-warrior") } });
+  }
+  return ok({ ...character, classes, choices: nextChoices, progressionHistory: [...character.progressionHistory, progressEntry], resources, updatedAt: options.now ?? character.updatedAt });
 }
 
 export const previewLevelUp = buildLevelUpPreview;

@@ -1,6 +1,7 @@
 export { createCharacterDraft, applyCreationDecision } from "./creation";
 export { validateCharacterCreation } from "./validate";
 export { materializeCharacter } from "./materialize";
+export { composeOptionalRuleContent, composeCharacterRuleContent } from "./optional-rules";
 export { creationAbilityScore, creationChoiceLimit, defaultBaseScore } from "./limits";
 export type { CreationChoiceLimit } from "./limits";
 export type {

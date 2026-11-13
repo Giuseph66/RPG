@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Character } from "@domain/contracts/character";
 import type { DicePurpose, DiceRoll } from "@domain/contracts/dice";
 import type { CharacterDerived } from "@domain/contracts/derived";
-import type { CastPreview } from "@domain/contracts/definitions/spell";
+import type { CastPreview, SpellComponentContext, SpellTargetContext, SpellTargeting } from "@domain/contracts/definitions/spell";
 import type { CommandId, DefinitionRef, EntityId, Uuid } from "@domain/contracts/ids";
 import type { AvailableAction, RuleResult } from "@domain/contracts/rules";
 import type { DiceFaces, SourceRef } from "@domain/contracts/primitives";
@@ -81,6 +81,12 @@ export interface ActionCost {
   readonly remaining?: number;
 }
 
+export interface FeatureCastingOption {
+  readonly kind: "drop-concentration";
+  readonly durationMinutes: 1;
+  readonly label: string;
+}
+
 /** A resolved capability supplied by the caller; this feature never derives rules. */
 export interface ActionCapability {
   readonly id: string;
@@ -100,6 +106,16 @@ export interface ActionCapability {
   readonly inputKind?: ActionCapabilityInputKind;
   /** Valor pré-preenchido no input quando `inputKind === "amount"` (ex.: 5). Ignorado para "target-armor-class" — esse campo nunca tem default. */
   readonly inputDefault?: number;
+  /** Decisões especiais validadas pelo resolver para a fonte e magia desta capacidade. */
+  readonly featureCastingOptions?: readonly FeatureCastingOption[];
+  /** Regras de alvo copiadas da definição; a apresentação recolhe IDs explícitos. */
+  readonly spellTargeting?: SpellTargeting;
+  /** Indica que M precisa ser fornecido/foco pelo usuário antes da confirmação. */
+  readonly spellRequiresMaterial?: boolean;
+  /** Foco permitido explicitamente pela fonte de conjuração. */
+  readonly spellAllowsFocus?: boolean;
+  /** `true` quando o componente material exige seleção de item do inventário. */
+  readonly spellMaterialRequiresTrackedItem?: boolean;
 }
 
 export interface ActionIntent {
@@ -123,6 +139,12 @@ export interface ActionIntent {
   readonly hitDice?: Readonly<Record<string, number>>;
   /** Descanso longo: comeu e bebeu (remove um nível de exaustão). */
   readonly ateAndDrank?: boolean;
+  /** Opção de conjuração explicitamente marcada, ainda revalidada pelo domínio no commit. */
+  readonly featureCastingOption?: { readonly kind: "drop-concentration"; readonly durationMinutes: 1 };
+  /** Alvos/ponto escolhidos explicitamente na revisão da magia. */
+  readonly spellTargetContext?: SpellTargetContext;
+  /** Componente material/foco confirmado na revisão da magia. */
+  readonly spellComponentContext?: SpellComponentContext;
 }
 
 export type ActionCommitResult = void | RuleResult | Promise<void | RuleResult>;

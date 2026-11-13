@@ -1,4 +1,4 @@
-import { type CharacterDraft, type Character } from "@domain/contracts/character";
+import { type CharacterDraft, type Character, type HitPointsState } from "@domain/contracts/character";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { type AccountId, type Uuid } from "@domain/contracts/ids";
 import { type Revision } from "@domain/contracts/versioning";
@@ -6,6 +6,8 @@ import { type CharacterRepository } from "@application/ports/character-repositor
 import { type TransactionContext, type UnitOfWork } from "@application/ports/unit-of-work";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { toJsonSnapshot, type SyncOutboxService } from "@application/sync";
+import { asCommandId } from "@domain/contracts/ids";
+import { exitReasonFromState, resolveExitWildShape } from "@domain/rules/wild-shape";
 
 import { CharacterStore, createCharacterStore } from "./store";
 import { CharacterCommandService, type CharacterCommandServiceDependencies, type CharacterCommittedListener } from "./commands";
@@ -47,8 +49,20 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
   }
 
   async function save(character: Character, expectedRevision: Revision, context?: TransactionContext): Promise<Result<Revision, AppError>> {
-    // Versão anterior para o histórico da mesa; lida fora da transação (ver `remove`).
-    const previous = options.onCommitted && !context ? await repository.get(character.id) : undefined;
+    // Versão anterior para o histórico da mesa e para detectar saída de campanha;
+    // lida fora da transação (ver `remove`).
+    const previous = !context ? await repository.get(character.id) : undefined;
+    // A ficha mora em `campaigns/{id}/characters` enquanto vinculada. Ao sair da campanha,
+    // a cópia remota antiga precisa sumir; senão o mestre (e o próximo pull) a veem vinculada.
+    const leftCampaign = previous?.ok && previous.value.campaignId !== undefined && previous.value.campaignId !== character.campaignId
+      ? previous.value.campaignId
+      : undefined;
+    // O inverso: ao entrar numa campanha, a cópia privada do dono deixa de ser a fonte.
+    const owner = resolveOwner();
+    const leftPrivate = previous?.ok && previous.value.campaignId === undefined && character.campaignId !== undefined &&
+      owner !== undefined && (previous.value.ownerUid === undefined || previous.value.ownerUid === owner)
+      ? owner
+      : undefined;
     const notify = (saved: Result<Revision, AppError>) => {
       if (saved.ok && options.onCommitted && !context) options.onCommitted(previous?.ok ? previous.value : undefined, { ...character, revision: saved.value });
       return saved;
@@ -57,6 +71,19 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
       const saved = await repository.save(character, expectedRevision, undefined, transaction);
       if (!saved.ok) return saved;
       const createdAt = writeClock.now();
+      const formerScope = leftCampaign !== undefined ? { campaignId: leftCampaign } : leftPrivate !== undefined ? { ownerUid: leftPrivate } : undefined;
+      if (formerScope !== undefined) {
+        const removed = await enqueue({
+          operationId: writeIds.commandId(),
+          aggregateType: "character",
+          aggregateId: character.id,
+          mutation: "delete",
+          baseRevision: expectedRevision,
+          scope: formerScope,
+          createdAt,
+        }, transaction);
+        if (!removed.ok) return err(removed.error);
+      }
       const queued = await enqueue({
         operationId: writeIds.commandId(),
         aggregateType: "character",
@@ -116,16 +143,35 @@ function withCharacterSync(repository: CharacterRepository, options: CharacterSy
   };
 }
 
+function normalizeWildShapeExit(character: Character): Character {
+  if (!character.transformation) return character;
+  const reason = character.transformation.formHp.current <= 0 ? "zero-hit-points" : exitReasonFromState(character);
+  if (!reason) return character;
+  const exited = resolveExitWildShape(character, {
+    commandId: asCommandId("direct-update-wild-shape-exit"),
+    characterId: character.id,
+    expectedRevision: character.revision,
+    kind: "exit-wild-shape",
+    payload: { reason },
+  }, { availableActions: [] });
+  // An invalid snapshot stays available for review; never restore an old full snapshot.
+  return exited.status === "success" ? exited.nextState : character;
+}
+
 /** Fachada de aplicação usada pela UI; o repositório continua atrás do port. */
 export class CharacterApplicationService {
   readonly store: CharacterStore;
   readonly commands?: CharacterCommandService;
   private readonly writeRepository: CharacterRepository;
 
-  constructor(private readonly repository: CharacterRepository, debounceMs = 500, commandDependencies?: Omit<CharacterCommandServiceDependencies, "characterRepository">, ownerUid?: OwnerUid) {
+  constructor(private readonly repository: CharacterRepository, debounceMs = 500, commandDependencies?: Omit<CharacterCommandServiceDependencies, "characterRepository">, private readonly ownerUid?: OwnerUid) {
     this.writeRepository = withCharacterSync(repository, { ...commandDependencies, ownerUid });
     this.store = createCharacterStore(this.writeRepository, { debounceMs });
     if (commandDependencies) this.commands = new CharacterCommandService({ ...commandDependencies, characterRepository: repository });
+  }
+
+  private resolveOwner(): AccountId | undefined {
+    return typeof this.ownerUid === "function" ? this.ownerUid() : this.ownerUid;
   }
 
   select(id: Uuid | undefined): Promise<Result<void, AppError>> {
@@ -142,7 +188,10 @@ export class CharacterApplicationService {
   }
 
   update(updater: (current: Character) => Character, immediate = false): Result<Character, AppError> {
-    return this.store.update(updater, { immediate });
+    return this.store.update((current) => {
+      // Atualizações diretas da ficha (ex.: aplicar Sono) não consomem ação.
+      return normalizeWildShapeExit(updater(current));
+    }, { immediate });
   }
 
   save(): ReturnType<CharacterStore["save"]> {
@@ -151,7 +200,31 @@ export class CharacterApplicationService {
 
   /** Grava um personagem criado fora do store e registra o snapshot no outbox quando configurado. */
   saveCharacter(character: Character, expectedRevision: Revision): Promise<Result<Revision, AppError>> {
-    return this.writeRepository.save(character, expectedRevision);
+    return this.writeRepository.save(normalizeWildShapeExit(character), expectedRevision);
+  }
+
+  /** Persiste campos editáveis da ficha sem deixar uma forma alterar o pool original de PV. */
+  async saveSheetState(
+    id: Uuid,
+    expectedRevision: Revision,
+    patch: {
+      readonly hp?: HitPointsState;
+      readonly conditions?: Character["conditions"];
+      readonly manualAdjustments?: Character["manualAdjustments"];
+    },
+  ): Promise<Result<Revision, AppError>> {
+    const current = await this.repository.get(id);
+    if (!current.ok) return current;
+    if (current.value.revision !== expectedRevision) return err(appError.conflict(expectedRevision, current.value.revision));
+    const { hp, ...otherFields } = patch;
+    const updated: Character = {
+      ...current.value,
+      ...otherFields,
+      ...(hp === undefined ? {} : current.value.transformation
+        ? { transformation: { ...current.value.transformation, formHp: hp } }
+        : { hp }),
+    };
+    return this.writeRepository.save(normalizeWildShapeExit(updated), expectedRevision);
   }
 
   /** Links an unassigned character to a campaign using optimistic concurrency. */
@@ -174,6 +247,13 @@ export class CharacterApplicationService {
     if (current.value.campaignId === undefined) return ok(current.value.revision);
     if (current.value.campaignId !== campaignId) {
       return err(appError.validation("campaignId", "Este personagem pertence a outra campanha."));
+    }
+    // Ficha de outro jogador: o mestre só tira a cópia da mesa. Salvá-la sem campanha
+    // criaria uma cópia privada na conta do mestre; a original segue com o dono.
+    const actor = this.resolveOwner();
+    if (current.value.ownerUid !== undefined && actor !== undefined && current.value.ownerUid !== actor) {
+      const removed = await this.writeRepository.delete(id, expectedRevision);
+      return removed.ok ? ok(current.value.revision) : removed;
     }
     const { campaignId: _campaignId, ...withoutCampaign } = current.value;
     return this.writeRepository.save(withoutCampaign, expectedRevision);

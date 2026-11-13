@@ -21,10 +21,16 @@ import {
   GiSprint,
   GiSwordClash,
 } from "react-icons/gi";
+import type { AvailableAction } from "@domain/contracts/rules";
 
 import styles from "./actions.module.css";
 
 type Slot = "action" | "bonus" | "reaction";
+
+export interface TurnActionBudget {
+  readonly availableActions: readonly AvailableAction[];
+  readonly used: Readonly<Record<Slot, boolean>>;
+}
 
 interface TurnState {
   readonly round: number;
@@ -80,6 +86,46 @@ function readTurn(characterId: string): TurnState {
   } catch {
     return FRESH;
   }
+}
+
+/** Consulta o orçamento manual já salvo no TurnPanel; ausência significa que não há turno rastreado. */
+export function readTurnActionBudget(characterId: string): TurnActionBudget | undefined {
+  try {
+    const raw = sessionStorage.getItem(storageKey(characterId));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Partial<TurnState>;
+    const used = { ...FRESH.used, ...parsed.used };
+    const availableActions: AvailableAction[] = [
+      ...(!used.action ? ["action" as const] : []),
+      ...(!used.bonus ? ["bonus-action" as const] : []),
+      ...(!used.reaction ? ["reaction" as const] : []),
+      "free",
+    ];
+    return { availableActions, used };
+  } catch {
+    return undefined;
+  }
+}
+
+/** Reserva um espaço depois do comando de regra confirmar sucesso. */
+export function spendTurnActionBudget(characterId: string, action: "action" | "bonus-action" | "reaction"): boolean {
+  try {
+    const raw = sessionStorage.getItem(storageKey(characterId));
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as Partial<TurnState>;
+    const current: TurnState = { ...FRESH, ...parsed, used: { ...FRESH.used, ...parsed.used } };
+    const slot: Slot = action === "bonus-action" ? "bonus" : action;
+    if (current.used[slot]) return false;
+    sessionStorage.setItem(storageKey(characterId), JSON.stringify({ ...current, used: { ...current.used, [slot]: true } }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Falha, CAS rejeitado ou needsInput nunca consomem o slot do turno. */
+export function spendTurnActionAfterSuccess(characterId: string, action: "action" | "bonus-action" | "reaction", status: "success" | "rejected" | "needsInput" | "error"): boolean {
+  return status === "success" ? spendTurnActionBudget(characterId, action) : false;
 }
 
 function formatMeters(cm: number): string {

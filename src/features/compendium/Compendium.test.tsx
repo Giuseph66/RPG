@@ -12,6 +12,20 @@ const item: CompendiumCatalogItem = { entityType: "spell", ruleset, summary: "Re
 const entries = buildCompendiumIndex([item]);
 
 describe("Compendium", () => {
+  it("integra Criaturas como seção da mesma tela e permite voltar a Regras", async () => {
+    const { container, unmount } = await mount(<Compendium entries={[]} filters={{ query: "" }} categories={[]} creaturePanel={<section aria-label="Catálogo de criaturas">Lobo de teste</section>} />);
+    expect(container.querySelector('[role="tablist"]')?.textContent).toContain("Criaturas");
+    expect(container.querySelector('#compendium-creatures-panel')?.hasAttribute("hidden")).toBe(true);
+    const tab = container.querySelector('#compendium-creatures-tab') as HTMLButtonElement;
+    const rulesTab = container.querySelector('#compendium-rules-tab') as HTMLButtonElement;
+    await fireEvent(rulesTab, new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    expect(container.querySelector('#compendium-creatures-panel')?.hasAttribute("hidden")).toBe(false);
+    await fireEvent(rulesTab, new MouseEvent("click", { bubbles: true }));
+    expect(container.querySelector('#compendium-creatures-panel')?.hasAttribute("hidden")).toBe(true);
+    await unmount();
+  });
+
   it("keeps the initial view focused without rendering result rows", async () => {
     const { container, unmount } = await mount(<Compendium entries={entries} filters={{ query: "" }} categories={[]} />);
     expect(container.querySelector('[aria-labelledby="compendium-results-title"]')).toBeNull();

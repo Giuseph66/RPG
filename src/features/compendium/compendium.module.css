@@ -96,5 +96,9 @@
 .filterChip button { display:grid; place-items:center; width:1.35rem; height:1.35rem; padding:0; border:0; border-radius:50%; background:transparent; color:var(--color-text-muted); cursor:pointer; }
 .filterChip button:hover,.filterChip button:focus-visible { background:color-mix(in srgb,var(--color-primary) 18%,transparent); color:var(--color-primary); outline:none; }
 .page { background:none; }
+.sectionTabs { display:flex; flex-wrap:wrap; gap:.25rem; width:max-content; max-width:100%; padding:.25rem; background:color-mix(in srgb,var(--color-background) 82%,transparent); border:1px solid var(--color-border-soft); border-radius:var(--radius-control); }
+.sectionTabs button { min-height:var(--size-touch-target); padding:.45rem .9rem; color:var(--color-text-muted); background:transparent; border:1px solid transparent; border-radius:var(--radius-control); font:inherit; font-weight:650; cursor:pointer; }
+.sectionTabs button[aria-selected="true"] { color:var(--color-text); background:color-mix(in srgb,var(--color-secondary) 15%,var(--color-surface)); border-color:color-mix(in srgb,var(--color-secondary) 55%,var(--color-border)); }
+.sectionTabs button:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; }
 .page::before { content:""; position:fixed; z-index:-1; inset:var(--app-bar-height,4.75rem) 0 calc(var(--size-nav-height) + env(safe-area-inset-bottom)) 0; pointer-events:none; background-image:linear-gradient(180deg,color-mix(in srgb,var(--color-background) 12%,transparent),color-mix(in srgb,var(--color-background) 54%,transparent)),url("../../assets/art/textures/header-stone.webp"); background-position:center; background-size:cover; }
 @media (min-width:901px) { .page::before { inset:var(--app-bar-height,4.75rem) 0 0 15rem; } }

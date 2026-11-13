@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { click, focus, keyDown, mount } from "@components/ui/testUtils";
 import { minimalCharacter } from "@domain/contracts/fixtures";
-import type { CastPreview } from "@domain/contracts/definitions/spell";
-import { asCommandId, asUuid } from "@domain/contracts/ids";
+import type { CastPreview, SpellDefinition } from "@domain/contracts/definitions/spell";
+import { asCommandId, asEntityId, asUuid } from "@domain/contracts/ids";
 import type { RuleResult } from "@domain/contracts/rules";
+import { previewCast } from "@domain/spells";
 import type { ActionCapability, ActionIntent } from "./types";
 import { Actions } from "./Actions";
 
@@ -19,6 +20,76 @@ function preview(message = "Regra validada"): RuleResult {
 
 function capability(id: string, kind: ActionCapability["kind"], extra: Partial<ActionCapability> = {}): ActionCapability {
   return { id, commandId: asCommandId(`command-${id}`), kind, label: id, preview: preview(), sourceRefs: [sourceRef], ...extra };
+}
+
+function realConcentrationPreview(): RuleResult {
+  const spellId = asEntityId("fey-summon");
+  const spellRef = { rulesetId: characterA.rulesetRef.id, entityId: spellId };
+  const poolId = asUuid("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+  const sourceId = asUuid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
+  const spell: SpellDefinition = {
+    id: spellId, name: "Invocar Feérico", tags: [], sourceRefs: [sourceRef], level: 1, school: "conjuration",
+    castingTime: { kind: "action" }, range: { kind: "special" }, components: { verbal: false, somatic: false },
+    duration: { kind: "minutes", amount: 1, unit: "minute", endTriggers: [] }, concentration: true, ritual: false,
+    classes: [asEntityId("ranger")], targetType: { type: "creature", restrictions: [], visibilityRequired: false },
+    attackType: "none", damage: [], healing: [], higherLevels: { kind: "none" },
+    effects: [{ kind: "summon", description: "Invocação assistida." }], automationStatus: "assisted", pendingDecisionIds: [],
+  };
+  const character = {
+    ...characterA,
+    castingSources: [{
+      id: sourceId,
+      grantingRef: { rulesetId: characterA.rulesetRef.id, entityId: asEntityId("fey-reinforcements") },
+      sourceKind: "feature" as const,
+      spellListClassId: asEntityId("ranger"),
+      ability: "wis" as const,
+      knownSpellRefs: [spellRef], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [poolId], usesSpellSlots: true,
+      featureSpellOverrides: [{ spellRef, concentrationAlternativeMinutes: 1 }],
+    }],
+    spellSlots: [{ poolId, kind: "spellcasting" as const, slotLevel: 1, spent: 0 }],
+    concentration: {
+      effectId: asUuid("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+      sourceRef: { rulesetId: characterA.rulesetRef.id, entityId: asEntityId("old-concentration") },
+      duration: { kind: "instant" as const }, pendingSaveIds: [],
+    },
+  };
+  return previewCast(character, spell, {
+    commandId: asCommandId("real-preview-reinforcement"), characterId: character.id, expectedRevision: character.revision,
+    spellRef, castingSourceId: sourceId, mode: "normal", resourcePoolId: poolId, slotLevel: 1,
+    targetContext: { targetIds: [] }, componentContext: { materialProvided: false, focusUsed: false }, choices: [],
+  }, { classId: asEntityId("ranger"), availableActions: ["action"] });
+}
+
+function realTargetMaterialPreview(hasTarget = false): RuleResult {
+  const spellId = asEntityId("faerie-fire-test");
+  const spellRef = { rulesetId: characterA.rulesetRef.id, entityId: spellId };
+  const poolId = asUuid("abababab-abab-4bab-8bab-abababababab");
+  const sourceId = asUuid("bcbcbcbc-bcbc-4cbc-8cbc-bcbcbcbcbcbc");
+  const spell: SpellDefinition = {
+    id: spellId, name: "Fogo das Fadas", tags: [], sourceRefs: [sourceRef], level: 1, school: "evocation",
+    castingTime: { kind: "action" }, range: { kind: "special" },
+    components: { verbal: false, somatic: false, material: { descriptionSummary: "pó colorido", consumed: false } },
+    duration: { kind: "rounds", amount: 1, unit: "round", endTriggers: [] }, concentration: false, ritual: false,
+    classes: [asEntityId("ranger")], targetType: { type: "creature", count: 1, restrictions: [], visibilityRequired: true },
+    attackType: "none", damage: [], healing: [], higherLevels: { kind: "none" }, effects: [], automationStatus: "assisted", pendingDecisionIds: [],
+  };
+  const character = {
+    ...characterA,
+    castingSources: [{
+      id: sourceId,
+      grantingRef: { rulesetId: characterA.rulesetRef.id, entityId: asEntityId("fairy") },
+      sourceKind: "race" as const,
+      spellListClassId: asEntityId("ranger"),
+      ability: "wis" as const,
+      knownSpellRefs: [spellRef], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [poolId], usesSpellSlots: true,
+    }],
+    spellSlots: [{ poolId, kind: "spellcasting" as const, slotLevel: 1, spent: 0 }],
+  };
+  return previewCast(character, spell, {
+    commandId: asCommandId(`real-target-material-${hasTarget}`), characterId: character.id, expectedRevision: character.revision,
+    spellRef, castingSourceId: sourceId, mode: "normal", resourcePoolId: poolId, slotLevel: 1,
+    targetContext: { targetIds: hasTarget ? [character.id] : [] }, componentContext: { materialProvided: false, focusUsed: false }, choices: [],
+  }, { classId: asEntityId("ranger"), availableActions: ["action"] });
 }
 
 function button(container: HTMLElement, text: string): HTMLButtonElement {
@@ -82,6 +153,67 @@ describe("Actions", () => {
     await mounted.unmount();
   });
 
+  it("mantém a alternativa Feérica de 1 minuto explícita e exibe a explicação devolvida pelo domínio", async () => {
+    const option = { kind: "drop-concentration" as const, durationMinutes: 1 as const };
+    const explanation = "Registre a criatura; encerre a invocação manualmente após 1 minuto.";
+    const onIntent = vi.fn(() => ({ ...preview(explanation), explanations: [{ value: explanation, contributions: [] }] }));
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Reforço Feérico", "spell", {
+      featureCastingOptions: [{ ...option, label: "Sem concentração (assistido; duração manual de 1 minuto)" }],
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    const checkbox = mounted.container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox).not.toBeNull();
+    expect(checkbox.checked).toBe(false);
+    expect(mounted.container.textContent).toContain("Sua concentração atual permanece ativa.");
+
+    await click(button(mounted.container, "Cancelar"));
+    expect(onIntent).not.toHaveBeenCalled();
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(mounted.container.querySelector('input[type="checkbox"]') as HTMLElement);
+    await click(button(mounted.container, "Confirmar execução"));
+
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({ featureCastingOption: option }));
+    expect(mounted.container.textContent).toContain("Registre a criatura; encerre a invocação manualmente após 1 minuto.");
+    await mounted.unmount();
+  });
+
+  it("não envia a opção de conjuração especial quando a checkbox fica desmarcada", async () => {
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Reforço Feérico", "spell", {
+      featureCastingOptions: [{ kind: "drop-concentration", durationMinutes: 1, label: "Sem concentração (assistido; duração manual de 1 minuto)" }],
+    })]} onIntent={onIntent} />);
+    await openQuickAction(mounted.container, "Magias");
+    await reviewAndConfirm(mounted.container, "Reforço Feérico");
+    expect(onIntent.mock.calls[0]?.[0]).not.toHaveProperty("featureCastingOption");
+    await mounted.unmount();
+  });
+
+  it("só resolve a substituição de concentração do preview normal quando a variante de 1 minuto é marcada", async () => {
+    const option = { kind: "drop-concentration" as const, durationMinutes: 1 as const };
+    const replacementReason = "Confirme explicitamente a substituição da concentração ativa.";
+    const needsInput = realConcentrationPreview();
+    expect(needsInput.status).toBe("needsInput");
+    if (needsInput.status !== "needsInput") throw new Error("esperava preview real pendente de substituição da concentração");
+    expect(needsInput.requests.map((request) => request.reason)).toContain(replacementReason);
+    const onIntent = vi.fn(() => preview());
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Reforço Feérico", "spell", {
+      preview: needsInput,
+      featureCastingOptions: [{ ...option, label: "Sem concentração (assistido; duração manual de 1 minuto)" }],
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain(replacementReason);
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await click(mounted.container.querySelector('input[type="checkbox"]') as HTMLElement);
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).not.toBe("true");
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({ featureCastingOption: option }));
+    await mounted.unmount();
+  });
+
   it("renderiza custo e pendência de CastPreview sem confirmar", async () => {
     const castPreview: CastPreview = { slotCost: { poolId: asUuid("cccccccc-cccc-4ccc-8ccc-cccccccccccc"), slotLevel: 1 }, resourceCosts: [], actionCost: { kind: "action" }, componentsConsumed: [], interventionsRequired: [{ reason: "Escolha o alvo no dispatcher." }], sourceRefs: [sourceRef] };
     const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia", "spell", { preview: undefined })]} previews={{ Magia: castPreview }} onIntent={vi.fn()} />);
@@ -92,6 +224,147 @@ describe("Actions", () => {
     expect(mounted.container.textContent).not.toContain("action");
     expect(mounted.container.textContent).toContain("Escolha o alvo no dispatcher.");
     expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await mounted.unmount();
+  });
+
+  it("coleta alvo visível e componente material antes de liberar uma magia pendente conhecida", async () => {
+    const targetReason = "Informe explicitamente ao menos um alvo; o motor não escolhe alvos.";
+    const materialReason = "Componente material ou foco permitido não foi fornecido.";
+    const rejectedPreview = realTargetMaterialPreview();
+    const materialPreview = realTargetMaterialPreview(true);
+    expect(rejectedPreview.status).toBe("rejected");
+    if (rejectedPreview.status !== "rejected") throw new Error("esperava rejeição real por falta de alvo");
+    expect(rejectedPreview.errors.map((error) => error.message)).toContain(targetReason);
+    expect(materialPreview.status).toBe("rejected");
+    if (materialPreview.status !== "rejected") throw new Error("esperava rejeição real por falta de componente material");
+    expect(materialPreview.errors.map((error) => error.message)).toContain(materialReason);
+    const onIntent = vi.fn(() => preview());
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Fogo das Fadas", "spell", {
+      preview: rejectedPreview,
+      spellTargeting: { type: "creature", count: 1, restrictions: [], visibilityRequired: true },
+      spellRequiresMaterial: true,
+      spellAllowsFocus: false,
+      spellMaterialRequiresTrackedItem: false,
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    expect(mounted.container.querySelector('input[type="radio"]')).toBeNull();
+
+    let checkboxes = [...mounted.container.querySelectorAll('input[type="checkbox"]')];
+    await click(checkboxes[0] as HTMLElement);
+    checkboxes = [...mounted.container.querySelectorAll('input[type="checkbox"]')];
+    await click(checkboxes[1] as HTMLElement);
+    checkboxes = [...mounted.container.querySelectorAll('input[type="checkbox"]')];
+    await click(checkboxes[2] as HTMLElement);
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).not.toBe("true");
+    await click(button(mounted.container, "Confirmar execução"));
+
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({
+      spellTargetContext: { targetIds: [characterA.id] },
+      spellComponentContext: { materialProvided: true, focusUsed: false },
+    }));
+    await mounted.unmount();
+  });
+
+  it("mantém pendência de conjuração desconhecida bloqueada mesmo com alvo escolhido", async () => {
+    const castPreview: CastPreview = {
+      resourceCosts: [], actionCost: { kind: "action" }, componentsConsumed: [],
+      interventionsRequired: [{ reason: "Confirme que a criatura pode vocalizar o componente verbal." }], sourceRefs: [sourceRef],
+    };
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia assistida", "spell", {
+      preview: castPreview,
+      spellTargeting: { type: "creature", count: 1, restrictions: [], visibilityRequired: false },
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(mounted.container.querySelector('input[type="checkbox"]') as HTMLElement);
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).not.toHaveBeenCalled();
+    await mounted.unmount();
+  });
+
+  it("não transforma componente rastreado em declaração simples sem seleção de inventário", async () => {
+    const materialReason = "Componente material ou foco permitido não foi fornecido.";
+    const rejectedPreview: RuleResult = { status: "rejected", errors: [{ code: "invalid-context", message: materialReason }], sourceRefs: [sourceRef] };
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Componente custoso", "spell", {
+      preview: rejectedPreview,
+      spellRequiresMaterial: true,
+      spellMaterialRequiresTrackedItem: true,
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain("seleção ainda não disponível");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await mounted.unmount();
+  });
+
+  it("envia apenas o ponto de área digitado explicitamente", async () => {
+    const pointReason = "Informe o ponto de origem da área; o motor não escolhe posição.";
+    const rejectedPreview: RuleResult = { status: "rejected", errors: [{ code: "invalid-context", message: pointReason }], sourceRefs: [sourceRef] };
+    const onIntent = vi.fn(() => preview());
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia de área", "spell", {
+      preview: rejectedPreview,
+      spellTargeting: { type: "point", restrictions: [], visibilityRequired: false },
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    const coordinates = [...mounted.container.querySelectorAll('input[type="number"]')];
+    await typeValue(coordinates[0] as HTMLInputElement, "125");
+    await typeValue(coordinates[1] as HTMLInputElement, "250");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).not.toBe("true");
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({
+      spellTargetContext: { targetIds: [], pointCm: { x: 125, y: 250 } },
+    }));
+    await mounted.unmount();
+  });
+
+  it("oferece foco somente quando a fonte permite e envia a escolha do usuário", async () => {
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Aumentar/Reduzir", "spell", {
+      spellRequiresMaterial: true,
+      spellAllowsFocus: true,
+      spellMaterialRequiresTrackedItem: false,
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    const focusChoice = [...mounted.container.querySelectorAll("label")].find((label) => label.textContent?.includes("foco permitido"));
+    expect(focusChoice).toBeTruthy();
+    await click(focusChoice as HTMLElement);
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({
+      spellComponentContext: { materialProvided: false, focusUsed: true },
+    }));
+    await mounted.unmount();
+  });
+
+  it("mantém o uso gratuito e o espaço como capacidades independentes", async () => {
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[
+      capability("spell:fada:feature", "spell", { label: "Fogo das Fadas · uso gratuito", costs: [{ label: "Uso gratuito", remaining: 0 }] }),
+      capability("spell:fada:slot", "spell", { label: "Fogo das Fadas · espaço nível 1", costs: [{ label: "Espaço nível 1", value: "1º nível" }] }),
+    ]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    let cards = [...mounted.container.querySelectorAll("article")];
+    await click(cards[0]?.querySelector("button") as HTMLElement);
+    expect(mounted.container.textContent).toContain("esgotado");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await click(button(mounted.container, "Cancelar"));
+    cards = [...mounted.container.querySelectorAll("article")];
+    await click(cards[1]?.querySelector("button") as HTMLElement);
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({ capabilityId: "spell:fada:slot" }));
     await mounted.unmount();
   });
 

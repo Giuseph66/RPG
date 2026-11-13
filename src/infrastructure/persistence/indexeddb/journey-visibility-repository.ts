@@ -1,4 +1,4 @@
-import { isCreatureGuess, isCreatureRecord, isCreatureSighting } from "@domain/campaign/creatures";
+import { isCreatureGuess, isCreatureProposal, isCreatureRecord, isCreatureSighting } from "@domain/campaign/creatures";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { type Uuid } from "@domain/contracts/ids";
 import { asRevision, type Revision } from "@domain/contracts/versioning";
@@ -17,12 +17,14 @@ const STORES: Readonly<Record<JourneyVisibilityKind, string>> = {
   creature: STORE_NAMES.creatures,
   sighting: STORE_NAMES.sightings,
   guess: STORE_NAMES.guesses,
+  proposal: STORE_NAMES.proposals,
 };
 
 const GUARDS: Readonly<Record<JourneyVisibilityKind, (value: unknown) => boolean>> = {
   creature: isCreatureRecord,
   sighting: isCreatureSighting,
   guess: isCreatureGuess,
+  proposal: isCreatureProposal,
 };
 
 export class IndexedDbJourneyVisibilityRepository implements JourneyVisibilityRepository {

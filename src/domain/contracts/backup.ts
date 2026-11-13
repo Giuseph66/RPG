@@ -7,6 +7,7 @@ import { type AppVersion, type SchemaVersion } from "./versioning";
 import { type Campaign, type JournalEntry, type MapRecord } from "./campaign";
 import { type Character } from "./character";
 import { type DiceRoll } from "./dice";
+import { type CreatureGuess, type CreatureProposal, type CreatureRecord, type CreatureSighting } from "@domain/campaign/creatures";
 
 export const BACKUP_FORMAT_VERSION = 1;
 
@@ -29,7 +30,8 @@ export interface BackupManifest {
   readonly historyRange?: { readonly from: IsoTimestamp; readonly to: IsoTimestamp };
 }
 
-/** Coleções não aplicáveis ficam vazias, nunca omitidas ambiguamente (09-MODELO-DE-DADOS.md). */
+/** Coleções antigas permanecem obrigatórias; as quatro coleções aditivas são opcionais
+ * para que backups de campanhas anteriores à v6 continuem legíveis. Ausência equivale a []. */
 export interface BackupRecords {
   readonly characters: readonly Character[];
   readonly campaigns: readonly Campaign[];
@@ -37,6 +39,10 @@ export interface BackupRecords {
   readonly maps: readonly MapRecord[];
   readonly rolls: readonly DiceRoll[];
   readonly favorites: readonly Uuid[];
+  readonly creatures?: readonly CreatureRecord[];
+  readonly sightings?: readonly CreatureSighting[];
+  readonly guesses?: readonly CreatureGuess[];
+  readonly proposals?: readonly CreatureProposal[];
 }
 
 export interface BackupEnvelope {

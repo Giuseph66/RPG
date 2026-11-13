@@ -64,6 +64,7 @@ import { EditCharacterModal, PortraitModal, SpellManagerModal } from "./SheetEdi
 import { SpellIcon } from "./SpellIcon";
 import { useRuleHint, type RuleHintProps, type RuleQuery } from "@features/compendium";
 import type { CharacterRollIntent, CharacterSheetPatch, CharacterSheetProps, CharacterSheetView, SheetSpellOption } from "./types";
+import { WildShapePanel } from "./WildShapePanel";
 import styles from "./character-sheet.module.css";
 
 const ABILITIES: readonly Ability[] = ["str", "dex", "con", "int", "wis", "cha"];
@@ -221,7 +222,8 @@ function newConditionId(): ConditionInstance["id"] {
   return asUuid(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`);
 }
 
-export function CharacterSheet({ character, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, conditionOptions, portrait }: CharacterSheetProps) {
+export function CharacterSheet({ character: storedCharacter, effectiveCharacter, wildShape, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, conditionOptions, portrait }: CharacterSheetProps) {
+  const character = effectiveCharacter ?? storedCharacter;
   const rule = useRuleHint();
   const [view, setView] = useState<CharacterSheetView>(initialView);
   const [draft, setDraft] = useState<CharacterSheetPatch>({});
@@ -237,6 +239,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const portraitCampaignId = character?.campaignId ? String(character.campaignId) : undefined;
   const portraitOwnerUid = character?.ownerUid;
   const draftPortraitSha = "portraitSha256" in draft ? draft.portraitSha256 : character?.portraitSha256;
+  const transformation = storedCharacter?.transformation ?? character?.transformation;
 
   useEffect(() => {
     if (!draftPortraitId || !portrait) { setPortraitUrl(undefined); return; }
@@ -272,6 +275,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   }, [character?.id]);
 
   const updatePatch = (patch: CharacterSheetPatch) => {
+    if (transformation && "hp" in patch) { setMessage("PV da forma só podem ser alterados pelos comandos de dano, cura ou PV temporários."); return; }
     setDraft((current) => ({ ...current, ...patch }));
     onDraftChange?.(patch);
     if (!service || !character) return;
@@ -296,9 +300,10 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   if (status === "error" || error) return <ErrorState error={error} />;
   if (!character) return <EmptyState />;
 
-  const hp = valueOr(draft, "hp", character.hp);
+  const hp = transformation?.formHp ?? valueOr(draft, "hp", character.hp);
   const deathSaves = valueOr(draft, "deathSaves", character.deathSaves);
   const conditions = valueOr(draft, "conditions", character.conditions);
+  const unconscious = conditions.some((condition) => String(condition.definitionRef.entityId) === "unconscious");
   const castingSources = valueOr(draft, "castingSources", character.castingSources);
   const preparedSelections = valueOr(draft, "preparedSelections", character.preparedSelections);
   const sheetDisplay = valueOr(draft, "sheetDisplay", character.sheetDisplay ?? {});
@@ -318,7 +323,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const abilityMap = new Map(derived?.abilityScores.map((item) => [item.ability, item]) ?? []);
   const displayName = valueOr(draft, "name", character.name) || "Personagem sem nome";
   const quoteText = character.ideals[0]?.trim() || character.personalityTraits[0]?.trim() || undefined;
-  const maxHp = derived?.hitPointsMax.value;
+  const maxHp = transformation?.formMaximumHitPoints ?? derived?.hitPointsMax.value;
   const identityParts: readonly { readonly label: string; readonly query: RuleQuery }[] = [
     ...(sheetDisplay.hideRace ? [] : [{ label: name("race", character.raceRef), query: { category: "race" as const, title: name("race", character.raceRef) } }]),
     ...(sheetDisplay.hideClass || character.classes.length === 0 ? [] : character.classes.map((entry) => ({ label: name("class", entry.classId), query: { category: "class" as const, title: name("class", entry.classId) } }))),
@@ -335,9 +340,22 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
   const current: Character = { ...character, hp, deathSaves };
 
   // Dano consome primeiro os PV temporários; cura nunca os repõe (Livro do Jogador, cap. 9).
-  const applyHp = (kind: "damage" | "heal" | "temp") => {
+  const applyHp = async (kind: "damage" | "heal" | "temp") => {
     const amount = Number(hpAmount);
     if (!Number.isInteger(amount) || amount <= 0) { setMessage("Informe um valor inteiro maior que zero."); return; }
+    if (transformation) {
+      if (!wildShape?.onHitPoints) { setMessage("O comando de PV da forma ainda não está conectado."); return; }
+      setMessage(undefined);
+      try {
+        const dispatched = await wildShape.onHitPoints(kind, amount);
+        if (!dispatched.ok) { setMessage(dispatched.error.message); return; }
+        const outcome = dispatched.value.result;
+        if (outcome.status === "rejected") { setMessage(outcome.errors[0]?.message ?? "A alteração de PV foi recusada."); return; }
+        if (outcome.status === "needsInput") { setMessage(outcome.requests[0]?.reason ?? "A alteração de PV exige outra decisão."); return; }
+        setMessage("PV da forma atualizados."); setHpAmount("");
+      } catch { setMessage("Não foi possível atualizar os PV da forma. Tente novamente."); }
+      return;
+    }
     if (kind === "temp") {
       updatePatch({ hp: { ...hp, temp: amount } });
       setHpAmount("");
@@ -462,11 +480,11 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
                   <p className={styles.hpHint}>Dano gasta os temporários primeiro. Cura não repõe temporários, e temporários não acumulam.</p>
                 </>
               ) : null}
-              <details className={styles.hpManual}>
+              {transformation ? <p className={styles.hpHint}>Ajuste manual indisponível durante a forma; use os comandos de PV para preservar o snapshot original.</p> : <details className={styles.hpManual}>
                 <summary>Ajuste manual</summary>
                 <label className={styles.hpField}><span>Atuais</span><input aria-label="Pontos de vida atuais" type="number" min={0} value={hp.current} onChange={(event) => updatePatch({ hp: { ...hp, current: Number(event.target.value) } })} /></label>
                 <label className={styles.hpField}><span>Temporários</span><input aria-label="Pontos de vida temporários" type="number" min={0} value={hp.temp} onChange={(event) => updatePatch({ hp: { ...hp, temp: Number(event.target.value) } })} /></label>
-              </details>
+              </details>}
               {derived ? <Provenance explanation={derived.hitPointsMax} label="pontos de vida máximos" /> : null}
             </div>
           </details>
@@ -484,6 +502,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
           </div>
         </div>
       </header>
+      {wildShape ? <WildShapePanel character={storedCharacter ?? character} eligibleBeasts={wildShape.eligibleBeasts} catalogError={wildShape.catalogError} actionBudget={wildShape.actionBudget} onEnter={wildShape.onEnter} onExit={wildShape.onExit} onAdvanceTime={wildShape.onAdvanceTime} /> : null}
       {message ? <InlineStatus tone={message.includes("não") || message.includes("Não") ? "error" : "info"}>{message}</InlineStatus> : null}
       {staleDerived ? <InlineStatus tone="warning">Os valores derivados pertencem a outra revisão; atualize a ficha antes de rolar.</InlineStatus> : null}
       {hp.current === 0 ? <InlineStatus tone="error" assertive>PV zerados: resolva o estado de morte antes da próxima ação.</InlineStatus> : null}
@@ -612,7 +631,7 @@ export function CharacterSheet({ character, derived, service, status = "clean", 
             <h3 {...rule({ category: "combat", title: "Teste contra a morte" })}>Salvamentos contra morte</h3>
             <SaveMarks label="Sucessos" tone="success" count={deathSaves.successes} onChange={canEdit ? (next) => updatePatch({ deathSaves: { ...deathSaves, successes: next, stable: next >= 3 ? true : deathSaves.stable && next >= 3 } }) : undefined} />
             <SaveMarks label="Falhas" tone="failure" count={deathSaves.failures} onChange={canEdit ? (next) => updatePatch({ deathSaves: { ...deathSaves, failures: next, stable: false } }) : undefined} />
-            <p className={styles.deathStatus}>{deathSaves.failures >= 3 ? "Morto." : deathSaves.stable || deathSaves.successes >= 3 ? "Estável." : hp.current === 0 ? "Morrendo — role um salvamento a cada turno." : "Consciente."}</p>
+            <p className={styles.deathStatus}>{deathSaves.failures >= 3 ? "Morto." : deathSaves.stable || deathSaves.successes >= 3 ? unconscious ? "Estável e inconsciente." : "Estável." : hp.current === 0 ? "Morrendo — role um salvamento a cada turno." : unconscious ? "Inconsciente." : "Consciente."}</p>
             {canEdit && (deathSaves.successes > 0 || deathSaves.failures > 0) ? <button type="button" className={styles.moreLink} onClick={() => updatePatch({ deathSaves: { successes: 0, failures: 0, stable: false } })}>Zerar marcas</button> : null}
           </div>
         </div>

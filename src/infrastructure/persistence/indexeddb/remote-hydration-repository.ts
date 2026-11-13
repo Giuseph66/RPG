@@ -4,7 +4,7 @@ import { type SyncOperation } from "@domain/contracts/cloud-sync";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { runTransaction, requestToPromise } from "./transaction";
 import { STORE_NAMES } from "./schema";
-import { isCreatureGuess, isCreatureRecord, isCreatureSighting } from "@domain/campaign/creatures";
+import { isCreatureGuess, isCreatureProposal, isCreatureRecord, isCreatureSighting } from "@domain/campaign/creatures";
 
 type RecordMap = Record<string, unknown>;
 
@@ -28,6 +28,7 @@ function validPayload(type: RemoteSyncPullRecord["aggregateType"], payload: unkn
   if (type === "creature") return isCreatureRecord(item);
   if (type === "sighting") return isCreatureSighting(item);
   if (type === "guess") return isCreatureGuess(item);
+  if (type === "proposal") return isCreatureProposal(item);
   if (type === "session") return typeof item.campaignId === "string" && Number.isInteger(item.schemaVersion) && typeof item.revision === "number" && Number.isInteger(item.revision) && item.revision >= 0 && typeof item.title === "string" && typeof item.notes === "string" && typeof item.summary === "string" && Array.isArray(item.attendance);
   return false;
 }
@@ -54,6 +55,7 @@ function storeName(type: RemoteSyncPullRecord["aggregateType"]): string | undefi
     case "creature": return STORE_NAMES.creatures;
     case "sighting": return STORE_NAMES.sightings;
     case "guess": return STORE_NAMES.guesses;
+    case "proposal": return STORE_NAMES.proposals;
     // Asset metadata alone cannot hydrate an Asset: bytes belong to Storage.
     default: return undefined;
   }
@@ -146,7 +148,7 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
       const pulledIds = new Set(input.pull.records.map((entry) => `${entry.aggregateType}|${entry.aggregateId}`));
       for (const visible of input.pull.visibleCampaigns ?? []) {
         if (visible.role !== "player" || !allowedCampaigns.has(visible.campaignId)) continue;
-        for (const [type, store] of [["map", STORE_NAMES.maps], ["journal", STORE_NAMES.journalEntries], ["sighting", STORE_NAMES.sightings], ["guess", STORE_NAMES.guesses], ["creature", STORE_NAMES.creatures]] as const) {
+        for (const [type, store] of [["map", STORE_NAMES.maps], ["journal", STORE_NAMES.journalEntries], ["sighting", STORE_NAMES.sightings], ["guess", STORE_NAMES.guesses], ["proposal", STORE_NAMES.proposals], ["creature", STORE_NAMES.creatures]] as const) {
           if (visible.types && !visible.types.includes(type)) continue;
           const local = await requestToPromise(tx.objectStore(store).index("campaignId").getAll(visible.campaignId)) as unknown[];
           for (const raw of local) {
@@ -160,6 +162,31 @@ export class IndexedDbRemoteHydrationRepository implements RemoteHydrationPort {
             applied += 1;
             touched.push(`${type}:${id}`);
           }
+        }
+      }
+      // Ficha que sumiu da campanha remota foi desvinculada (pelo dono ou pelo mestre).
+      // A do próprio jogador continua no aparelho, só sem campanha; a de outra conta sai.
+      // Só vale com leitura confirmada da coleção e sem escrita local recente da ficha:
+      // um pull que começou antes do próprio vínculo subir não pode desfazê-lo.
+      const recentCharacters = new Set(recent.filter((operation) => operation.aggregateType === "character").map((operation) => String(operation.aggregateId)));
+      // A cópia privada (users/…) não conta: só a presença na coleção da campanha mantém o vínculo.
+      const campaignCharacters = new Set(input.pull.records.filter((entry) => entry.aggregateType === "character" && entry.scope?.campaignId !== undefined).map((entry) => `${entry.scope?.campaignId}|${entry.aggregateId}`));
+      for (const visible of input.pull.visibleCampaigns ?? []) {
+        if (!allowedCampaigns.has(visible.campaignId) || (visible.types && !visible.types.includes("character"))) continue;
+        const local = await requestToPromise(tx.objectStore(STORE_NAMES.characters).index("campaignId").getAll(visible.campaignId)) as unknown[];
+        for (const raw of local) {
+          const item = record(raw);
+          const id = item?.id;
+          if (!item || typeof id !== "string" || typeof item.ownerUid !== "string" || campaignCharacters.has(`${visible.campaignId}|${id}`)) continue;
+          if (recentCharacters.has(id) || pending.has(`character|${id}|`) || pending.has(`character|${id}|${visible.campaignId}`)) continue;
+          if (item.ownerUid === input.ownerUid) {
+            const { campaignId: _campaignId, ...unlinked } = item;
+            await requestToPromise(tx.objectStore(STORE_NAMES.characters).put(unlinked));
+          } else {
+            await requestToPromise(tx.objectStore(STORE_NAMES.characters).delete(id));
+          }
+          applied += 1;
+          touched.push(`character:${id}`);
         }
       }
       return ok(undefined);

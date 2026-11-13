@@ -1,17 +1,17 @@
 /**
- * Schema declarativo do banco `rpg-companion`, versão 4.
+ * Schema declarativo do banco `rpg-companion`, versão 6.
  * Autoridade: docs/criacao/08-PERSISTENCIA-LOCAL.md ("Distribuição").
  *
  * DATA-003 criou as stores da versão 1. CLOUD-001b acrescenta somente a store do outbox
  * na versão 2, sem reescrever nem tocar os dados já existentes. CLOUD-SESSION acrescenta
  * a store de sessões na versão 4. JOURNEY-VISIBILITY acrescenta criaturas, avistamentos e
- * palpites na versão 5.
+ * palpites na versão 5. SUP-02 acrescenta propostas editáveis na versão 6.
  * `applySchema` recebe `oldVersion` e decide o que criar; cada versão nova só acrescenta
  * stores/índices e preserva os blocos anteriores.
  */
 
 export const DB_NAME = "rpg-companion";
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 
 export const STORE_NAMES = {
   characters: "characters",
@@ -32,6 +32,7 @@ export const STORE_NAMES = {
   creatures: "creatures",
   sightings: "sightings",
   guesses: "guesses",
+  proposals: "proposals",
 } as const;
 
 export type StoreName = (typeof STORE_NAMES)[keyof typeof STORE_NAMES];
@@ -142,7 +143,7 @@ const STORE_SPECS: readonly StoreSpec[] = [
       { name: "updatedAt", keyPath: "updatedAt" },
     ],
   },
-  ...([STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses] as const).map((name): StoreSpec => ({
+  ...([STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals] as const).map((name): StoreSpec => ({
     name,
     keyPath: "id",
     indexes: [{ name: "campaignId", keyPath: "campaignId" }],
@@ -218,4 +219,5 @@ export function applySchema(db: IDBDatabase, oldVersion: number): void {
   if (oldVersion < 5) {
     for (const name of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses] as const) createStore(db, name);
   }
+  if (oldVersion < 6) createStore(db, STORE_NAMES.proposals);
 }

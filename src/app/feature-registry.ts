@@ -1,4 +1,5 @@
 import type { CreatureService } from "@application/campaign/creature-service";
+import type { CreatureApplicationRuntime } from "@application/character/wild-shape-service";
 import type { MapPublication } from "@application/campaign/map-publication";
 import type { ApplicationServices } from "@application/state";
 import type { CharacterApplicationService } from "@application/character";
@@ -69,8 +70,8 @@ export interface FeatureRegistryDependencies {
   readonly listJournalEntries?: (campaignId: Uuid) => Promise<Result<readonly JournalEntry[], AppError>>;
   readonly getLocalAsset?: (assetId: Uuid) => Promise<Result<Asset, AppError>>;
   readonly journalDraftState?: () => JournalDraftState | undefined;
-  /** Criaturas privadas do mestre, revelações por jogador e palpites. */
-  readonly creatures?: CreatureService;
+  /** Catálogo de criaturas e fachadas de campanha/transformação, compostos pelo bootstrap. */
+  readonly creatures?: CreatureApplicationRuntime;
   /** Envio da imagem do mapa ao Firebase e compartilhamento com jogadores. */
   readonly mapPublication?: MapPublication;
   readonly dataManagement?: {
@@ -87,6 +88,7 @@ export interface FeatureRegistryDependencies {
 
 export interface FeatureRegistry {
   readonly destinations: typeof FEATURE_DESTINATIONS;
+  readonly creatures?: CreatureApplicationRuntime;
   readonly character: {
     readonly service: CharacterApplicationService;
     readonly pendingDependencies: readonly string[];
@@ -210,7 +212,7 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     listJournalEntries: dependencies.listJournalEntries,
     getLocalAsset: dependencies.getLocalAsset,
     getJournalDraftState: dependencies.journalDraftState,
-    ...(dependencies.creatures ? { creatures: dependencies.creatures } : {}),
+    ...(dependencies.creatures ? { creatures: dependencies.creatures.service } : {}),
     ...(dependencies.mapPublication ? { mapPublication: dependencies.mapPublication } : {}),
   };
 
@@ -245,5 +247,5 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     }),
   };
 
-  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.campaignLog ? { campaignLog: dependencies.campaignLog } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
+  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.creatures ? { creatures: dependencies.creatures } : {}), ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.campaignLog ? { campaignLog: dependencies.campaignLog } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
 }

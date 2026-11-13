@@ -174,3 +174,14 @@ Capacidade operacional é de até três subagentes Codex simultâneos. Para tare
 - Cenários 4/6/8/12: históricos/inativos até reavaliação; não orientam reserva, execução ou capacidade atual.
 
 No estado atual, CORE-001, DATA-001, DATA-002, DATA-003, DATA-004, DATA-005, DICE-001, DICE-002, ITEM-001, RULE-001, UI-001, UI-002 e STATE-001 estão DONE. SPELL-001, ITEM-002 e CHAR-002 estão IN_PROGRESS com Luna. Cada ID existe uma vez; dependências citam IDs existentes; “bloqueia” é inverso exato; nenhuma autorreferência/ciclo. Tasks consumidoras não redefinem contratos. Uma correção solicitada ao produtor é reabertura controlada, não aresta retroativa geradora de ciclo. Mocks não satisfazem predecessores nem checkpoints.
+# DAG complementar — SUP 11/11/2026
+
+Atualização13/11: produtores B/P/CAT em REVIEW e código UI estabilizado → dois ramos paralelos: SUP-QA geral(P) e SUP-03 runtime(C). Build verde(P) → smoke de produção(C). Ambos concluídos + revisão de evidências + grafo atualizado → aceite SUP-CP2/3/4. Alteração de fonte por falha concreta retorna ao produtor e exige repetir provas afetadas; não cria ciclo no DAG de implementação.
+
+Os predecessores locais da fundação estão aceitos. SUP-01 inicia extração e SUP-02 inicia descoberta/contratos em paralelo; SUP-03 inicia descoberta de interface. Contrato aditivo SUP-02 → catálogo SUP-01 e consumo SUP-03. Extração SUP-01 → regras SUP-02 e complementos SUP-01. Conteúdo/APIs revisados SUP-01+SUP-02 → integração SUP-03. Todos em REVIEW → SUP-QA → aceite coordenador. Nenhum consumidor implementa cópia própria do contrato aguardado.
+
+SUP-QA-FORMA depende da superfície de domínio SUP-02 e dados SUP-01 (34focais passaram), roda isolado em paralelo à infraestrutura e UI. Não modifica produto. Falhas retornam SUP-02; gate global aguarda estabilização de B/C e prova focal nova.
+
+Retomada 12/11: regras e persistência agora são produtores paralelos, com contratos compartilhados explícitos. UI executa diagnóstico de tipos atual e browser sobre o loader que já publica mapa95. Cada owner corrige seus paths; bootstrap tem writer único de regras. Gate global posterior depende de ambos os produtores em REVIEW e prova de browser. Não repetir extração aceita.
+
+Backup: P publica envelope retrocompatível e API de transferência; B liga commitBackupEnvelope às quatro coleções no bootstrap; P então executa roundtrip/import inválido com IndexedDB. UI segue browser em paralelo.

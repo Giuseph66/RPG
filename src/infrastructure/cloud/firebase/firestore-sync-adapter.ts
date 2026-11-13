@@ -226,9 +226,10 @@ export function firestorePathForOperation(operation: SyncOperation, privateOwner
     }
     case "creature":
     case "sighting":
-    case "guess": {
+    case "guess":
+    case "proposal": {
       const campaignId = scopeField(operation, "campaignId") ?? (deleting ? undefined : stringField(operation.payload, "campaignId"));
-      const collectionName = operation.aggregateType === "creature" ? "creatures" : operation.aggregateType === "sighting" ? "sightings" : "guesses";
+      const collectionName = operation.aggregateType === "creature" ? "creatures" : operation.aggregateType === "sighting" ? "sightings" : operation.aggregateType === "guess" ? "guesses" : "proposals";
       return campaignId && /^[A-Za-z0-9_-]+$/.test(id)
         ? ok(`campaigns/${campaignId}/${collectionName}/${id}`)
         : err(pathError(`${operation.aggregateType} exige campaignId no escopo e ID válido.`));
@@ -333,7 +334,7 @@ function firestoreDocument(operation: SyncOperation, ownerUid: string, existing?
   // may be the invited player accepting their own link. Keep that authority
   // stable across both writes; rules separately validate actor permissions.
   // A ficha de campanha continua do jogador quando o mestre ajusta PV ou condições.
-  const documentOwnerUid = operation.aggregateType === "membership" || (operation.aggregateType === "character" && (scopeField(operation, "campaignId") ?? stringField(payload, "campaignId")))
+  const documentOwnerUid = operation.aggregateType === "membership" || operation.aggregateType === "proposal" || (operation.aggregateType === "character" && (scopeField(operation, "campaignId") ?? stringField(payload, "campaignId")))
     ? (typeof existing?.ownerUid === "string" ? existing.ownerUid : ownerUid)
     : ownerUid;
   const document: FirestoreData = {
@@ -469,12 +470,13 @@ function cleanupManifest(operation: SyncOperation): Result<CampaignCleanupManife
   const creatureIds = optionalIds(raw.creatureIds);
   const sightingIds = optionalIds(raw.sightingIds);
   const guessIds = optionalIds(raw.guessIds);
+  const proposalIds = optionalIds(raw.proposalIds);
   const assets = raw.assets;
   if (
     raw.schemaVersion !== 1 || campaignId === undefined || campaignId !== String(operation.aggregateId) ||
     typeof campaignRevision !== "number" || !Number.isInteger(campaignRevision) || campaignRevision < 0 ||
     memberAccountIds === undefined || characterIds === undefined || journalIds === undefined ||
-    mapIds === undefined || sessionIds === undefined || creatureIds === undefined || sightingIds === undefined || guessIds === undefined || !Array.isArray(assets)
+    mapIds === undefined || sessionIds === undefined || creatureIds === undefined || sightingIds === undefined || guessIds === undefined || proposalIds === undefined || !Array.isArray(assets)
   ) return err(pathError("Manifesto de limpeza de campanha inválido."));
 
   const normalizedAssets: CampaignCleanupManifest["assets"][number][] = [];
@@ -498,7 +500,7 @@ function cleanupManifest(operation: SyncOperation): Result<CampaignCleanupManife
     }
     normalizedAssets.push({ assetId, ownerUid, campaignId, firestorePath, storagePath, sha256, ...(rawAsset.shared === true ? { shared: true } : {}) });
   }
-  return ok({ schemaVersion: 1, campaignId, campaignRevision: asRevision(campaignRevision), memberAccountIds, characterIds, journalIds, mapIds, sessionIds, creatureIds, sightingIds, guessIds, assets: normalizedAssets });
+  return ok({ schemaVersion: 1, campaignId, campaignRevision: asRevision(campaignRevision), memberAccountIds, characterIds, journalIds, mapIds, sessionIds, creatureIds, sightingIds, guessIds, proposalIds, assets: normalizedAssets });
 }
 
 function cleanupPath(campaignId: string, collectionName: string, id: string): string {
@@ -619,6 +621,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
       ...manifest.sessionIds.map((id) => cleanupPath(manifest.campaignId, "sessions", id)),
       ...(manifest.sightingIds ?? []).map((id) => cleanupPath(manifest.campaignId, "sightings", id)),
       ...(manifest.guessIds ?? []).map((id) => cleanupPath(manifest.campaignId, "guesses", id)),
+      ...(manifest.proposalIds ?? []).map((id) => cleanupPath(manifest.campaignId, "proposals", id)),
       ...(manifest.creatureIds ?? []).map((id) => cleanupPath(manifest.campaignId, "creatures", id)),
     ];
 
@@ -743,7 +746,12 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           return { kind: "acked", remoteRevision: actual } satisfies RemoteSyncApplyResult;
         }
         const creatingRemoteDocument = operation.mutation === "upsert" && !snapshot.exists();
-        if (!creatingRemoteDocument && actual !== operation.baseRevision) return remoteConflict(operation, data);
+        // Ficha que entra ou volta de uma campanha: a cópia privada ficou parada na revisão de
+        // antes do vínculo (versões antigas não a apagavam). Atrasada e da mesma conta, ela não
+        // é um conflito de verdade; a ficha local é a continuação dela.
+        const stalePrivateCharacter = operation.aggregateType === "character" &&
+          path.value.startsWith("users/") && data?.ownerUid === this.ownerUid && actual < operation.baseRevision;
+        if (!creatingRemoteDocument && !stalePrivateCharacter && actual !== operation.baseRevision) return remoteConflict(operation, data);
 
         if (operation.mutation === "delete") {
           if (snapshot.exists()) transaction.delete(reference);
@@ -803,6 +811,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           ["creatures", "creature", base("creatures")],
           ["sightings", "sighting", base("sightings")],
           ["guesses", "guess", base("guesses")],
+          ["proposals", "proposal", base("proposals")],
         ]
       : [
           ...shared,
@@ -811,6 +820,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
           ["maps:all", "map", this.deps.query(base("maps"), this.deps.where("visibleTo", "array-contains", "*"))],
           ["sightings", "sighting", own("sightings", "accountId")],
           ["guesses", "guess", own("guesses", "accountId")],
+          ["proposals", "proposal", own("proposals", "proposedBy")],
         ];
   }
 
@@ -898,7 +908,7 @@ export class FirebaseFirestoreSyncAdapter implements RemoteSyncAdapter {
         // so a legacy document/rules mismatch is diagnosable from browser logs.
         console.warn(`[sync] Coleções da campanha recusadas pelo Firebase: ${warning}`, { recusadas: [...skipped] });
       }
-      const ALL_TYPES = ["campaign", "character", "session", "journal", "map", "sighting", "guess", "creature"] as const;
+      const ALL_TYPES = ["campaign", "character", "session", "journal", "map", "sighting", "guess", "proposal", "creature"] as const;
       return ok({
         visibleCampaigns: [...activeCampaigns].map((campaignId) => ({
           campaignId,

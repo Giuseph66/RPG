@@ -26,6 +26,7 @@ import {
   type SourceRef,
 } from "./primitives";
 import { type Revision } from "./versioning";
+import { type CreatureStatBlock } from "@domain/creatures";
 
 export const CHARACTER_SCHEMA_VERSION = 1;
 
@@ -136,16 +137,39 @@ export interface ConcentrationState {
 }
 
 export type EquipmentDisposition = "worn" | "dropped" | "stored" | "merged-with-form";
+export type TransformationExitReason = "voluntary" | "duration-ended" | "unconscious" | "zero-hit-points" | "died" | "manual-table-decision";
 
 export interface TransformationState {
   readonly id: Uuid;
   readonly formRef: DefinitionRef;
+  /** Referência legada mantida para importações; novas formas também guardam o snapshot inline. */
   readonly originalSnapshotRef: Uuid;
+  /** Snapshot completo sem a propriedade transformation, evitando recursão/cadeias de snapshots. */
+  readonly originalSnapshot?: CharacterSnapshot;
+  readonly originalMaximumHitPoints?: number;
+  /** Cópia validada do bloco da forma ativa, para dano/derivação após reload do pack. */
+  readonly formSnapshot?: CreatureStatBlock;
+  readonly formMaximumHitPoints?: number;
   readonly formHp: HitPointsState;
-  readonly startedAtGameTime: GameTime;
+  readonly startedAtGameTime?: GameTime;
   readonly duration: Duration;
+  /** Minutos de jogo explicitamente avançados durante a forma; não é tempo real. */
+  readonly elapsedMinutes?: number;
   readonly equipmentDisposition: EquipmentDisposition;
   readonly retainedFeatureIds: readonly EntityId[];
+}
+
+export interface BeastSightingState {
+  readonly beastRef: DefinitionRef;
+  readonly firstSeenAt?: GameTime;
+}
+
+/** Seleção persistida de conteúdo de classe opcional sem ativar automaticamente suas opções. */
+export interface OptionalRuleSelection {
+  readonly supplementId: EntityId;
+  readonly optionId: EntityId;
+  readonly selectedFeatureRefs: readonly DefinitionRef[];
+  readonly selectedSpellRefs?: readonly DefinitionRef[];
 }
 
 export type PendingResolution =
@@ -177,11 +201,25 @@ export interface InventoryItem {
 export interface CastingSourceState {
   readonly id: Uuid;
   readonly grantingRef: DefinitionRef;
+  /** Origem racial mantém lista explícita; não herda acesso à lista da classe associada. */
+  readonly sourceKind?: "class" | "subclass" | "race" | "feature";
   readonly ability: Ability;
   readonly knownSpellRefs: readonly DefinitionRef[];
   readonly preparedSpellRefs: readonly DefinitionRef[];
   readonly spellbookRefs: readonly DefinitionRef[];
   readonly resourcePoolIds: readonly Uuid[];
+  /** Recurso de conjuração por descanso de uma fonte com um único pool (legado). */
+  readonly featureResourceId?: Uuid;
+  /** Mantém a conjuração bloqueada quando um pool declarado não pôde ser composto/restaurado. */
+  readonly requiresFeatureResource?: boolean;
+  /** Permite vincular espaços de classe à origem racial ou feature que autoriza seu uso. */
+  readonly usesSpellSlots?: boolean;
+  /** Lista de classe que valida os feitiços de uma fonte racial/feature, sem trocar seu dono. */
+  readonly spellListClassId?: EntityId;
+  /** Feitiços individuais concedidos por features e seu pool de uso próprio (ex.: 1/LR). */
+  readonly featureSpellResources?: readonly { readonly spellRef: DefinitionRef; readonly resourceId: Uuid }[];
+  /** Ajustes por magia de uma concessão feature; não alteram a SpellDefinition global. */
+  readonly featureSpellOverrides?: readonly { readonly spellRef: DefinitionRef; readonly ignoreMaterialComponents?: boolean; readonly concentrationAlternativeMinutes?: number }[];
 }
 
 export type SpellSlotKind = "spellcasting" | "pact";
@@ -268,6 +306,9 @@ export interface Character {
   readonly abilityGeneration: AbilityGeneration;
   readonly choices: readonly ChoiceSelection[];
   readonly progressionHistory: readonly ProgressionHistoryEntry[];
+  /** Suplementos opt-in escolhidos para esta ficha; ausente em personagens legados. */
+  readonly selectedSupplementIds?: readonly EntityId[];
+  readonly optionalRuleSelections?: readonly OptionalRuleSelection[];
 
   // Estado de sessão
   readonly xp: number;
@@ -279,6 +320,7 @@ export interface Character {
   readonly resources: readonly ResourceState[];
   readonly concentration?: ConcentrationState;
   readonly transformation?: TransformationState;
+  readonly beastSightings?: readonly BeastSightingState[];
   readonly pendingResolutions: readonly PendingResolution[];
 
   // Posses
@@ -317,6 +359,9 @@ export interface CharacterSummary {
   readonly updatedAt: IsoTimestamp;
   readonly revision: Revision;
 }
+
+/** Snapshot completo da ficha imediatamente antes da forma, excluindo transformação para não recursar. */
+export type CharacterSnapshot = Omit<Character, "transformation">;
 
 // ---------------------------------------------------------------------------
 // CharacterDraft
@@ -367,6 +412,8 @@ export type CharacterDraftPartial = Partial<
     | "classes"
     | "abilityGeneration"
     | "choices"
+    | "selectedSupplementIds"
+    | "optionalRuleSelections"
     | "inventory"
     | "currency"
     | "castingSources"

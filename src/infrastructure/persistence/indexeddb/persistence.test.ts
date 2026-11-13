@@ -170,7 +170,9 @@ describe("DATA-003 IndexedDB", () => {
     const mapId = asUuid("33333333-3333-4333-8333-333333333333");
     const assetId = asUuid("44444444-4444-4444-8444-444444444444");
     const portraitAssetId = asUuid("99999999-9999-4999-8999-999999999999");
+    const otherCampaignId = asUuid("abababab-abab-4bab-8bab-abababababab");
     expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
+    expect((await campaigns.save({ ...campaign, id: otherCampaignId, revision: asRevision(0), name: "Outra campanha" }, asRevision(0))).ok).toBe(true);
     expect((await campaigns.saveJournalEntry({
       id: journalId,
       campaignId: campaign.id,
@@ -186,6 +188,15 @@ describe("DATA-003 IndexedDB", () => {
     expect((await characters.save({ ...minimalCharacter, campaignId: campaign.id, portraitAssetId }, asRevision(0))).ok).toBe(true);
     expect((await campaigns.saveMap({ id: mapId, campaignId: campaign.id, name: "Mapa", assetId, pins: [], revision: asRevision(0) }, asRevision(0))).ok).toBe(true);
 
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_NAMES.proposals], "readwrite");
+      const proposals = tx.objectStore(STORE_NAMES.proposals);
+      proposals.put({ id: "proposal__deleted", campaignId: campaign.id });
+      proposals.put({ id: "proposal__retained", campaignId: otherCampaignId });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
     const deleted = await campaigns.deleteCampaignAndContent(campaign.id, asRevision(1));
     expect(deleted).toEqual({ ok: true, value: undefined });
     expect((await campaigns.get(campaign.id)).ok).toBe(false);
@@ -193,6 +204,13 @@ describe("DATA-003 IndexedDB", () => {
     expect((await campaigns.getMap(mapId)).ok).toBe(false);
     expect((await assets.get(assetId)).ok).toBe(false);
     expect((await assets.get(portraitAssetId)).ok).toBe(true);
+    const proposalRows = await new Promise<readonly unknown[]>((resolve, reject) => {
+      const tx = db.transaction([STORE_NAMES.proposals], "readonly");
+      const request = tx.objectStore(STORE_NAMES.proposals).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    expect(proposalRows).toEqual([{ id: "proposal__retained", campaignId: otherCampaignId }]);
     const retainedCharacter = unwrap(await characters.get(minimalCharacter.id));
     expect(retainedCharacter.campaignId).toBeUndefined();
   });

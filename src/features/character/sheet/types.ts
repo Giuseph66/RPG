@@ -1,6 +1,9 @@
-import type { Character } from "@domain/contracts/character";
+import type { Character, EquipmentDisposition } from "@domain/contracts/character";
 import type { CharacterDerived } from "@domain/contracts/derived";
+import type { AppError, Result } from "@domain/contracts/errors";
 import type { DefinitionRef, EntityType } from "@domain/contracts/ids";
+import type { EligibleBeastSuggestion } from "@domain/rules/wild-shape";
+import type { CharacterCommandOutcome } from "@application/character/commands";
 import type { CharacterApplicationService } from "@application/character/service";
 import type { SpellInfoLookup } from "../spell-info";
 import type { StoreStatus } from "@application/state/external-store";
@@ -77,6 +80,22 @@ export type CharacterSheetService = Pick<
 export interface CharacterSheetProps {
   /** The selected aggregate. Omitting it renders the explicit empty state. */
   readonly character?: Character;
+  /** Projection read-only from the application; edits and saves always target `character`. */
+  readonly effectiveCharacter?: Character;
+  readonly wildShape?: {
+    readonly eligibleBeasts: readonly EligibleBeastSuggestion[];
+    readonly catalogError?: string;
+    readonly actionBudget?: {
+      readonly tracked: boolean;
+      readonly enterCost?: "action" | "bonus-action";
+      readonly exitCost?: "action" | "bonus-action";
+      readonly error?: string;
+    };
+    readonly onEnter?: (beastRef: DefinitionRef, disposition: EquipmentDisposition, actionCost?: "action" | "bonus-action") => Promise<Result<CharacterCommandOutcome, AppError>>;
+    readonly onExit?: (actionCost?: "action" | "bonus-action") => Promise<Result<CharacterCommandOutcome, AppError>>;
+    readonly onAdvanceTime?: (minutes: number) => Promise<Result<CharacterCommandOutcome, AppError>>;
+    readonly onHitPoints?: (kind: "damage" | "heal" | "temp", amount: number) => Promise<Result<CharacterCommandOutcome, AppError>>;
+  };
   /** Derived values from RULE-001; the sheet never recomputes them. */
   readonly derived?: CharacterDerived;
   /** Optional application façade. UI commands remain injectable and testable. */

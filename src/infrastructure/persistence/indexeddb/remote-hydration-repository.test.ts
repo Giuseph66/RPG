@@ -117,6 +117,82 @@ describe("IndexedDbRemoteHydrationRepository", () => {
     expect(await keys(STORE_NAMES.sightings)).toEqual(["k2__player"]);
   });
 
+  it("hidrata propostas próprias e reconcilia as que deixaram de estar visíveis sem perder envio pendente", async () => {
+    const repository = new IndexedDbRemoteHydrationRepository(db);
+    const proposal = (id: string, proposedBy: string) => ({
+      id,
+      campaignId: "c1",
+      schemaVersion: 1,
+      revision: 0,
+      proposedBy,
+      ownerUid: proposedBy,
+      status: "pending",
+      statBlock: {
+        id: `creature-${id}`,
+        name: "Corça",
+        creatureType: "beast",
+        size: "medium",
+        armorClass: 10,
+        hitPoints: { average: 1, hitDice: "1d4" },
+        speeds: { walkCm: 300 },
+        abilityScores: { str: 10, dex: 10, con: 10, int: 2, wis: 10, cha: 6 },
+        challengeRating: null,
+        sourceRefs: [],
+      },
+      suggestionReasons: ["Proposta de teste"],
+      createdAt: clock.now(),
+      updatedAt: clock.now(),
+    });
+    const pendingDraft = proposal("proposal__pending-local", "player");
+    const obsoleteOtherAuthor = proposal("proposal__obsolete-other", "master");
+    const remoteDraft = proposal("proposal__remote-own", "player");
+    const put = (value: unknown) => new Promise<void>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.proposals], "readwrite").objectStore(STORE_NAMES.proposals).put(value);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    const readAll = () => new Promise<Record<string, unknown>[]>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.proposals], "readonly").objectStore(STORE_NAMES.proposals).getAll();
+      request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
+      request.onerror = () => reject(request.error);
+    });
+    await put(pendingDraft);
+    await put(obsoleteOtherAuthor);
+    const remoteRecord = {
+      aggregateType: "proposal" as const,
+      aggregateId: remoteDraft.id,
+      scope: { campaignId: "c1" as never },
+      revision: asRevision(0),
+      payload: remoteDraft,
+    };
+    const pendingOperation: SyncOperation = {
+      ...operation(),
+      operationId: asCommandId("local-proposal-pending"),
+      aggregateType: "proposal",
+      aggregateId: pendingDraft.id as never,
+      scope: { campaignId: "c1" as never },
+      payload: pendingDraft,
+      dedupeKey: "local-proposal-pending|proposal|proposal__pending-local|upsert|0|c1",
+    };
+
+    const result = await repository.hydrate({
+      ownerUid: "player",
+      pull: {
+        ...pull(),
+        records: [...pull().records, remoteRecord],
+        visibleCampaigns: [{ campaignId: "c1", role: "player", types: ["proposal"] }],
+      },
+      pending: [pendingOperation],
+      clock,
+    });
+    expect(result).toMatchObject({ ok: true, value: { applied: 4 } });
+    expect((await readAll()).map((item) => item.id).sort()).toEqual(["proposal__pending-local", "proposal__remote-own"]);
+    expect(await readAll()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: remoteDraft.id, proposedBy: "player", ownerUid: "player" }),
+      expect.objectContaining({ id: pendingDraft.id, proposedBy: "player" }),
+    ]));
+  });
+
   it("reconcilia só os tipos confirmados e ignora snapshot malformado sem travar o resto", async () => {
     const repository = new IndexedDbRemoteHydrationRepository(db);
     const put = (store: string, value: unknown) => new Promise<void>((resolve, reject) => {
@@ -157,5 +233,38 @@ describe("IndexedDbRemoteHydrationRepository", () => {
       request.onerror = () => reject(request.error);
     });
     expect(stored).toBeUndefined();
+  });
+
+  it("ficha que sumiu da campanha remota: a própria perde o vínculo, a de outra conta sai", async () => {
+    const repository = new IndexedDbRemoteHydrationRepository(db);
+    const put = (value: unknown) => new Promise<void>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.characters], "readwrite").objectStore(STORE_NAMES.characters).put(value);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    const all = () => new Promise<Record<string, unknown>[]>((resolve, reject) => {
+      const request = db.transaction([STORE_NAMES.characters], "readonly").objectStore(STORE_NAMES.characters).getAll();
+      request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
+      request.onerror = () => reject(request.error);
+    });
+    const sheet = (id: string, ownerUid: string) => ({ id, ownerUid, campaignId: "c1", schemaVersion: 1, revision: 3, createdAt: clock.now(), updatedAt: clock.now() });
+    await put(sheet("own", "player"));
+    await put(sheet("other", "someone"));
+    await put(sheet("kept", "someone"));
+    // A cópia privada antiga não segura o vínculo; só a coleção da campanha conta.
+    const records = [...pull().records,
+      { aggregateType: "character" as const, aggregateId: "own", scope: { ownerUid: "player" as never }, revision: asRevision(1), payload: { ...sheet("own", "player"), campaignId: undefined, revision: 1 } },
+      { aggregateType: "character" as const, aggregateId: "kept", scope: { campaignId: "c1" as never }, revision: asRevision(3), payload: sheet("kept", "someone") }];
+
+    const partial = await repository.hydrate({ ownerUid: "player", pull: { records, visibleCampaigns: [{ campaignId: "c1", role: "player", types: ["map"] }] }, pending: [], clock });
+    expect(partial.ok).toBe(true);
+    expect((await all()).map((item) => item.id).sort()).toEqual(["kept", "other", "own"]);
+
+    const result = await repository.hydrate({ ownerUid: "player", pull: { records, visibleCampaigns: [{ campaignId: "c1", role: "player" }] }, pending: [], clock });
+    expect(result.ok).toBe(true);
+    const stored = await all();
+    expect(stored.map((item) => item.id).sort()).toEqual(["kept", "own"]);
+    expect(stored.find((item) => item.id === "own")).not.toHaveProperty("campaignId");
+    expect(stored.find((item) => item.id === "kept")).toMatchObject({ campaignId: "c1" });
   });
 });

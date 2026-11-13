@@ -76,6 +76,7 @@
 .fieldList li > div { min-width: 0; }
 .fieldList p { margin: .15rem 0 0; color: var(--color-text); font-size: .92rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .fieldList li[data-revealed="none"] p { color: var(--color-text-muted); }
+.fieldList li[data-revealed="none"] article p { color: var(--color-text); }
 .fieldList li[data-revealed="locked"] { opacity: .85; }
 .fieldLabel { color: var(--color-text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .emptyValue { color: color-mix(in srgb, var(--color-text-muted) 70%, transparent) !important; font-style: italic; }

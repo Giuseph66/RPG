@@ -84,6 +84,66 @@ function spellContext(result: DiceRoll, extra: Record<string, unknown> = {}) {
 }
 
 describe("command-dispatcher", () => {
+  it("em Forma Selvagem aceita só fonte Druida, V/S no nível 18 e M gratuito no nível 20", () => {
+    const pool = asUuid("dddddddd-dddd-4ddd-8ddd-ddddddddddd1");
+    const makeSpell = (id: string, material?: NonNullable<SpellDefinition["components"]["material"]>): SpellDefinition => ({
+      ...spellCureWounds,
+      id: asEntityId(id), name: id,
+      components: { verbal: true, somatic: true, ...(material ? { material } : {}) },
+      range: { kind: "self" }, targetType: { type: "self", restrictions: [], visibilityRequired: false },
+      classes: [asEntityId("druid")], healing: [], automationStatus: "automated", pendingDecisionIds: [],
+    });
+    const verbalSomatic = makeSpell("druid-form-vs");
+    const freeMaterial = makeSpell("druid-form-m-free", { descriptionSummary: "um pouco de barro", consumed: false });
+    const costlyMaterial = makeSpell("druid-form-m-cost", { descriptionSummary: "gema", costCp: 100 as never, consumed: false });
+    const consumedMaterial = makeSpell("druid-form-m-consumed", { descriptionSummary: "erva", consumed: true });
+    const run = (level: number, grantingId: string, spell: SpellDefinition, sourceKind: "class" | "race" | "feature" = "class") => {
+      const castingSource = {
+        id: sourceId, grantingRef: ref(grantingId), sourceKind, ability: "wis" as const,
+        knownSpellRefs: [ref(String(spell.id))], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [pool],
+        spellListClassId: asEntityId("druid"), usesSpellSlots: sourceKind !== "class",
+      };
+      const character = {
+        ...minimalCharacter,
+        hp: { current: 10, temp: 0 },
+        classes: [{ classId: asEntityId("druid"), level, choices: [] }],
+        castingSources: [castingSource],
+        spellSlots: [{ poolId: pool, kind: "spellcasting" as const, slotLevel: 1, spent: 0 }],
+        transformation: {
+          id: asUuid("dddddddd-dddd-4ddd-8ddd-ddddddddddd2"),
+          formRef: ref("wild-shape-form"), originalSnapshotRef: minimalCharacter.id,
+          originalMaximumHitPoints: 10, formMaximumHitPoints: 8, formHp: { current: 8, temp: 0 },
+          duration: { kind: "hours" as const, value: 1 }, equipmentDisposition: "stored" as const, retainedFeatureIds: [],
+        },
+      };
+      const command: Command = {
+        commandId: asCommandId(`cast-form-${level}-${grantingId}-${spell.id}`), characterId: character.id, expectedRevision: character.revision,
+        kind: "cast-spell", payload: {
+          spellRef: ref(String(spell.id)), castingSourceId: sourceId, mode: "normal", resourcePoolId: pool, slotLevel: 1,
+          targetContext: { targetIds: [character.id] }, componentContext: { materialProvided: false, focusUsed: false }, choices: [], diceResultIds: [],
+        },
+      };
+      return resolveCharacterCommand(character, command, {
+        ...spellContext(roll("dddddddd-dddd-4ddd-8ddd-ddddddddddd3", 1, "healing")), canSpeak: false, freeHands: false,
+        spellDefinitions: new Map([[spell.id, spell]]),
+      });
+    };
+
+    const level18Vs = run(18, "druid", verbalSomatic);
+    expect(level18Vs.status).toBe("success");
+    if (level18Vs.status === "success") expect(level18Vs.nextState.spellSlots[0]?.spent).toBe(1);
+    expect(run(18, "druid", freeMaterial).status).toBe("rejected");
+    expect(run(18, "fairy-racial-spellcasting", verbalSomatic, "race").status).toBe("rejected");
+    expect(run(20, "fairy-racial-spellcasting", freeMaterial, "race").status).toBe("rejected");
+    expect(run(20, "ranger.druidic-warrior", freeMaterial, "feature").status).toBe("rejected");
+
+    const level20Free = run(20, "druid", freeMaterial);
+    expect(level20Free.status).toBe("success");
+    if (level20Free.status === "success") expect(level20Free.nextState.spellSlots[0]?.spent).toBe(1);
+    expect(run(20, "druid", costlyMaterial).status).toBe("rejected");
+    expect(run(20, "druid", consumedMaterial).status).toBe("rejected");
+  });
+
   it("aplica cura determinística de Curar Ferimentos e Palavra Curativa", () => {
     const cure = spellCureWounds;
     const character = characterFor("cleric", cure);

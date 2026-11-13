@@ -76,6 +76,14 @@ export function applyCreationDecision(draft: CharacterDraft, decision: CreationD
       partial = { ...partial, choices: mergeSelections(partial.choices, decision.selections) };
       completedStep = "spells";
       break;
+    case "supplements": {
+      partial = {
+        ...partial,
+        selectedSupplementIds: [...decision.selectedSupplementIds],
+        optionalRuleSelections: [...decision.selections],
+      };
+      break;
+    }
     case "details": partial = { ...partial, ...decision.details }; completedStep = "details"; break;
     default: return err(appError.validation("decision", "Decisão de criação desconhecida."));
   }

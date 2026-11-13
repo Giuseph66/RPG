@@ -15,7 +15,7 @@
  * `resolve` é uma função pura que recebe o personagem ATUAL (não o capturado no momento da
  * derivação — o app pode ter mudado de personagem ou persistido algo entre a listagem e o
  * clique) mais as rolagens geradas, e devolve o `RuleResult` chamando a função de domínio certa
- * (`resolveCombatCommand`, `resolveRest` ou `castSpell`). Isso mantém `action-dispatcher.ts`
+ * (`resolveCombatCommand`, `resolveRest` ou `resolveCharacterCommand`). Isso mantém `action-dispatcher.ts`
  * genérico: ele não precisa conhecer `command.kind` nem `pack`, só executa o `rollPlan` e chama
  * `resolve`.
  *
@@ -72,7 +72,7 @@ import { type Character, type PendingResolution } from "@domain/contracts/charac
 import { type AttackOption, type CharacterDerived } from "@domain/contracts/derived";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { type FeatureDefinition } from "@domain/contracts/definitions/feature";
-import { type CastRequest, type SpellDefinition } from "@domain/contracts/definitions/spell";
+import { type CastRequest, type FeatureCastingOption, type SpellComponentContext, type SpellDefinition, type SpellTargetContext } from "@domain/contracts/definitions/spell";
 import { type DefinitionRef, type EntityId, type Uuid } from "@domain/contracts/ids";
 import { type DamageType, type SourceRef } from "@domain/contracts/primitives";
 import { type DiceExpression, type DicePurpose, type DiceRoll } from "@domain/contracts/dice";
@@ -80,8 +80,10 @@ import { type Command, type RuleResult } from "@domain/contracts/rules";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { resolveCombatCommand, type CombatCommandContext } from "@domain/rules/combat";
 import { REST_RULE_SOURCE_REF, resolveRest, type RestInput } from "@domain/rules/rest";
+import { deriveCharacter } from "@domain/rules/derived/derive-character";
 import { spendResource } from "@domain/rules/resources";
-import { castSpell, previewCast } from "@domain/spells";
+import { resolveCharacterCommand } from "./command-dispatcher";
+import { previewCast } from "@domain/spells";
 import { type ResourceDefinition } from "@domain/contracts/definitions/resource";
 import { type ActionCapability, type ActionCapabilityKind } from "@features/actions/types";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
@@ -98,6 +100,12 @@ const ABILITY_SHORT_LABELS: Readonly<Record<string, string>> = {
 /** Nome impresso da magia (catálogo do cap. 11) para as que ainda não têm definição estruturada. */
 function bookSpellName(spellId: string): string | undefined {
   return EXTRACTED_PHB_SPELLS.find((spell) => spell.id === spellId)?.name;
+}
+
+function actionCostForSpell(spell: SpellDefinition): ActionCapability["actionCost"] {
+  return spell.castingTime.kind === "action" || spell.castingTime.kind === "bonus-action" || spell.castingTime.kind === "reaction"
+    ? spell.castingTime.kind
+    : undefined;
 }
 
 /** Uma rolagem que `action-dispatcher.ts` precisa gerar (com RNG real) antes de `resolve`. */
@@ -123,6 +131,8 @@ export interface ActionIntentChoices {
 export interface ActionCapabilityExecution {
   readonly command: Command;
   readonly rollPlan: readonly RollPlanRequest[];
+  /** Opções explicitamente autorizadas para esta magia/fonte, se houver. */
+  readonly featureCastingOptions?: readonly FeatureCastingOption[];
   /**
    * `value`/`targetArmorClass` são opcionais e vêm de `ActionIntent` via `action-dispatcher.ts`
    * (repassados sem interpretação). Capacidades que não pedem input (`inputKind` ausente na
@@ -140,6 +150,8 @@ export interface ActionCapabilityExecution {
     readonly rolls: ReadonlyMap<Uuid, DiceRoll>;
     readonly value?: number;
     readonly targetArmorClass?: number;
+    readonly spellTargetContext?: SpellTargetContext;
+    readonly spellComponentContext?: SpellComponentContext;
     readonly command?: Command;
     readonly choices?: ActionIntentChoices;
   }) => RuleResult;
@@ -209,7 +221,7 @@ function buildAttackCapabilities(
   const executions: (readonly [string, ActionCapabilityExecution])[] = [];
   derived.attacks.forEach((attack: AttackOption, index: number) => {
     const definition = pack.equipment.get(attack.sourceRef.entityId);
-    const label = definition?.name ?? String(attack.sourceRef.entityId);
+    const label = attack.label ?? definition?.name ?? String(attack.sourceRef.entityId);
     const commandId = idGenerator.commandId();
     const attackRollId = idGenerator.uuid();
     const damageRollIds = attack.damageParts.map(() => idGenerator.uuid());
@@ -222,11 +234,12 @@ function buildAttackCapabilities(
       payload: { attackSourceRef: attack.sourceRef, targetId: character.id, attackRollId, damageRollIds },
     };
     const rollPlan: RollPlanRequest[] = [
-      { id: attackRollId, expression: { quantity: 1, faces: 20, modifier: attack.attackModifier.value, mode: "normal" }, purpose: "attack" },
+      { id: attackRollId, expression: { quantity: 1, faces: 20, modifier: attack.attackModifier.value, mode: "normal" }, purpose: "attack", label: `${label} — ataque` },
       ...attack.damageParts.map((part, partIndex) => ({
         id: damageRollIds[partIndex],
         expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: part.modifierBonus.value, mode: "normal" } satisfies DiceExpression,
         purpose: "damage" as const,
+        label: `${label} — dano ${part.damageType}`,
       })),
     ];
     const execution: ActionCapabilityExecution = {
@@ -246,7 +259,9 @@ function buildAttackCapabilities(
       commandId,
       kind: "attack",
       label: `Atacar com ${label}`,
-      description: "Informe a CA do alvo para rolar o ataque e o dano.",
+      description: attack.label
+        ? "Informe a CA do alvo para rolar o ataque e o dano imediato estruturado; efeitos condicionais publicados devem ser resolvidos manualmente conforme a descrição da ação."
+        : "Informe a CA do alvo para rolar o ataque e o dano.",
       effectSummary: [
         `Ataque: 1d20 ${attack.attackModifier.value >= 0 ? "+" : "−"}${Math.abs(attack.attackModifier.value)} contra a CA informada.`,
         ...attack.damageParts.map((part) => `Dano: ${part.expression.quantity}d${part.expression.faces} ${part.modifierBonus.value >= 0 ? "+" : "−"}${Math.abs(part.modifierBonus.value)} (${part.damageType}).`),
@@ -355,6 +370,8 @@ function minimalCastRequest(command: Extract<Command, { readonly kind: "cast-spe
     castingSourceId: command.payload.castingSourceId,
     mode: command.payload.mode,
     resourcePoolId: command.payload.resourcePoolId,
+    resourceStateId: command.payload.resourceStateId,
+    featureCastingOption: command.payload.featureCastingOption,
     slotLevel: command.payload.slotLevel,
     targetContext: command.payload.targetContext,
     componentContext: command.payload.componentContext,
@@ -371,15 +388,18 @@ function buildSpellCapabilities(
 ): { readonly capabilities: ActionCapability[]; readonly executions: readonly (readonly [string, ActionCapabilityExecution])[] } {
   const capabilities: ActionCapability[] = [];
   const executions: (readonly [string, ActionCapabilityExecution])[] = [];
+  const grantedFeatures = collectGrantedFeatures(character, pack);
+  const hasRangerDruidicFocus = character.classes.some((entry) => String(entry.classId) === "ranger")
+    && grantedFeatures.some((feature) => String(feature.id) === "ranger.druidic-focus");
 
   for (const source of character.castingSources) {
     const spellRefs = dedupeRefs([...source.knownSpellRefs, ...source.preparedSpellRefs]);
     for (const spellRef of spellRefs) {
       const spell: SpellDefinition | undefined = pack.spells.get(spellRef.entityId);
-      const id = `spell:${source.id}:${String(spellRef.entityId)}`;
+      const baseId = `spell:${source.id}:${String(spellRef.entityId)}`;
       if (!spell) {
         capabilities.push({
-          id,
+          id: baseId,
           commandId: idGenerator.commandId(),
           kind: "spell",
           label: bookSpellName(String(spellRef.entityId)) ?? String(spellRef.entityId),
@@ -389,28 +409,91 @@ function buildSpellCapabilities(
         });
         continue;
       }
-      if (spell.automationStatus === "blocked") {
+
+      const featureResourceId = source.featureSpellResources?.find((entry) => sameRef(entry.spellRef, spellRef))?.resourceId ?? source.featureResourceId;
+      const featureResourceState = featureResourceId ? character.resources.find((entry) => entry.id === featureResourceId && entry.ownerInstanceId === source.id) : undefined;
+      const featureResourceCapacity = featureResourceState
+        ? derived.resourceCapacities.find((entry) => sameRef(entry.definitionRef, featureResourceState.definitionRef))
+        : undefined;
+      const hasFeatureUse = spell.level > 0 && (source.requiresFeatureResource === true || featureResourceId !== undefined);
+      const selfHealing = spell.healing.length > 0 && spell.damage.length === 0 && spell.targetType.type === "creature" && spell.targetType.count === 1;
+      const featureSpellOverride = source.sourceKind === "feature"
+        ? source.featureSpellOverrides?.find((entry) => sameRef(entry.spellRef, spellRef))
+        : undefined;
+      const isRangerDruidicWarriorSource = source.sourceKind === "feature" && String(source.grantingRef.entityId) === "ranger.druidic-warrior";
+      const isRangerSpellSource = source.sourceKind !== "race" && (
+        String(source.grantingRef.entityId) === "ranger"
+        || String(source.spellListClassId) === "ranger"
+        || isRangerDruidicWarriorSource
+      );
+      // Guerreiro Druídico usa a lista de Druida somente para escolher truques; esses
+      // truques contam como magias de Guardião e não herdam o foco permitido a Druidas.
+      const focusClassId = source.sourceKind === "race"
+        ? undefined
+        : isRangerDruidicWarriorSource ? "ranger" : source.spellListClassId ?? source.grantingRef.entityId;
+      const focusClass = focusClassId ? pack.classes.get(focusClassId as EntityId) : undefined;
+      const spellcastingFocusAllowed = source.sourceKind !== "race" && (
+        (!isRangerDruidicWarriorSource && focusClass?.spellcasting?.spellcastingFocusAllowed === true)
+        || (isRangerSpellSource && hasRangerDruidicFocus)
+      );
+      const requiresTrackedMaterial = Boolean(
+        spell.components.material
+        && !featureSpellOverride?.ignoreMaterialComponents
+        && (spell.components.material.costCp !== undefined || spell.components.material.consumed || spell.components.material.requiredItemKind !== undefined),
+      );
+      const spellFocusAllowed = spellcastingFocusAllowed && !requiresTrackedMaterial;
+      const racialGrant = source.sourceKind === "race"
+        ? pack.races.get(character.raceRef.entityId)?.spellcastingSources?.find((entry) => sameRef(
+          { rulesetId: pack.manifest.id, entityId: entry.id },
+          source.grantingRef,
+        ))
+        : undefined;
+      const explicitlySupportedRacialAssist = Boolean(
+        racialGrant
+        && racialGrant.spellRefs.some((entry) => sameRef(entry, spellRef))
+        && racialGrant.usesPerLongRest === 1
+        && racialGrant.resourceRef
+        && racialGrant.canUseSpellSlots === true
+        && racialGrant.spellListClassId
+        && spell.pendingDecisionIds.every((decisionId) => decisionId === "PEND-SPELL-STRUCTURE")
+        && spell.damage.length === 0
+        && spell.healing.length === 0
+        && spell.effects.every((effect) => effect.kind === "narrative"),
+      );
+      const explicitlySupportedRacialCantripAssist = Boolean(
+        racialGrant
+        && spell.level === 0
+        && racialGrant.cantripRefs?.some((entry) => sameRef(entry, spellRef))
+        && source.knownSpellRefs.some((entry) => sameRef(entry, spellRef))
+        && spell.pendingDecisionIds.length > 0
+        && spell.pendingDecisionIds.every((decisionId) => decisionId === "PEND-SPELL-STRUCTURE")
+        && spell.damage.length === 0
+        && spell.healing.length === 0
+        && spell.effects.every((effect) => effect.kind === "narrative"),
+      );
+      const assistedRacialGrant = spell.automationStatus === "blocked"
+        && (explicitlySupportedRacialAssist || explicitlySupportedRacialCantripAssist);
+      if (spell.automationStatus === "blocked" && !assistedRacialGrant) {
         capabilities.push({
-          id,
+          id: baseId,
           commandId: idGenerator.commandId(),
           kind: "spell",
           label: spell.name,
           sourceRefs: spell.sourceRefs,
+          ...(actionCostForSpell(spell) ? { actionCost: actionCostForSpell(spell) } : {}),
+          spellRequiresMaterial: Boolean(spell.components.material && !featureSpellOverride?.ignoreMaterialComponents),
+          spellMaterialRequiresTrackedItem: requiresTrackedMaterial,
+          spellAllowsFocus: spellFocusAllowed,
           status: "blocked",
           blockedReason: `Bloqueada pela fonte: ${spell.pendingDecisionIds.length ? spell.pendingDecisionIds.join(", ") : "pendência sem ID registrado"}.`,
         });
         continue;
       }
-      const commandId = idGenerator.commandId();
-      const selfHealing = spell.healing.length > 0 && spell.damage.length === 0 && spell.targetType.type === "creature" && spell.targetType.count === 1;
       const selectedSlot = spell.level > 0
         ? character.spellSlots
           .filter((slot) => slot.spent < 1 && slot.slotLevel >= spell.level && source.resourcePoolIds.includes(slot.poolId))
           .sort((a, b) => a.slotLevel - b.slotLevel)[0]
         : undefined;
-      const extraHealingDice = selectedSlot && spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
-        ? Math.max(0, selectedSlot.slotLevel - spell.level)
-        : 0;
       const effectSummary = selfHealing ? spell.healing.map((part) => {
         const bonusAbility = part.bonusPerCasterAbility ?? (part.bonusPerCastingSourceAbility ? source.ability : undefined);
         const bonus = bonusAbility ? ` + modificador de ${ABILITY_SHORT_LABELS[String(bonusAbility)] ?? String(bonusAbility)}` : "";
@@ -419,74 +502,194 @@ function buildSpellCapabilities(
           : "";
         return `Cura ${part.expression.quantity}d${part.expression.faces}${bonus}${scaling} na própria ficha, limitada ao máximo de PV.`;
       }) : undefined;
-      const effectRollPlans: RollPlanRequest[] = [
-        ...spell.damage.map((part) => ({ id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "damage" as const })),
-        ...spell.healing.flatMap((part) => [
-          { id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "healing" as const },
-          ...Array.from({ length: extraHealingDice }, () => ({
-            id: idGenerator.uuid(),
-            expression: spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
-              ? { quantity: spell.higherLevels.diceIncrease.quantity, faces: spell.higherLevels.diceIncrease.faces, modifier: 0, mode: "normal" as const }
-              : { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const },
-            purpose: "healing" as const,
-          })),
-        ]),
-      ];
-      const targetContext = { targetIds: selfHealing ? [character.id] : [] };
       const casterAbilityModifier = derived.abilityScores.find((entry) => entry.ability === source.ability)?.modifier.value;
-      const castContext = {
+      const baseCastContext = {
+        subclassDefinitions: pack.subclasses,
         availableActions: ["action", "bonus-action", "reaction", "free"] as const,
+        // Esta camada não modela silêncio nem mãos ocupadas; estados explícitos de incapacidade
+        // continuam barrados pelo resolver canônico. Material permanece confirmação do jogador.
+        canSpeak: true,
+        freeHands: true,
         ...(casterAbilityModifier !== undefined ? { casterAbilityModifier } : {}),
         ...(selfHealing ? { canSpeak: true, freeHands: true, maximumHitPoints: derived.hitPointsMax.value } : {}),
+        spellcastingFocusAllowed: spellFocusAllowed,
       };
-      const command: Command = {
-        commandId,
-        characterId: character.id,
-        expectedRevision: character.revision,
-        kind: "cast-spell",
-        payload: {
-          spellRef,
-          castingSourceId: source.id,
-          mode: "normal",
-          targetContext,
-          componentContext: { materialProvided: false, focusUsed: false },
-          choices: [],
-          diceResultIds: effectRollPlans.map((planned) => planned.id),
-          ...(selectedSlot ? { resourcePoolId: selectedSlot.poolId, slotLevel: selectedSlot.slotLevel } : {}),
-        },
-      };
-      const castCommand = command as Extract<Command, { readonly kind: "cast-spell" }>;
-      let preview: RuleResult | undefined;
-      try {
-        const previewResult = previewCast(character, spell, minimalCastRequest(castCommand), castContext);
-        // Mesmo uma rejeição/pendência é uma prévia válida: ela informa a decisão
-        // exigida pela regra em vez de cair no aviso genérico de prévia ausente.
-        preview = previewResult;
-      } catch {
-        preview = undefined;
+      const featureCastingOptions = spell.concentration && featureSpellOverride?.concentrationAlternativeMinutes !== undefined
+        ? [{ kind: "drop-concentration" as const, durationMinutes: featureSpellOverride.concentrationAlternativeMinutes }]
+        : undefined;
+
+      const modes = spell.level === 0
+        ? [{ kind: "cantrip" as const, mode: "normal" as const }]
+        : [
+          { kind: "slot" as const, mode: "normal" as const },
+          ...(hasFeatureUse ? [{ kind: "feature" as const, mode: "feature" as const }] : []),
+        ];
+
+      for (const castingMode of modes) {
+        const id = spell.level === 0 ? baseId : `${baseId}:${castingMode.kind}`;
+        const commandId = idGenerator.commandId();
+        const castContext = {
+          ...baseCastContext,
+          ...(spell.concentration ? { concentrationEffectId: idGenerator.uuid() } : {}),
+        };
+        const slot = castingMode.kind === "slot" ? selectedSlot : undefined;
+        const extraHealingDice = slot && spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
+          ? Math.max(0, slot.slotLevel - spell.level)
+          : 0;
+        const effectRollPlans: RollPlanRequest[] = [
+          ...spell.damage.map((part) => ({ id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "damage" as const })),
+          ...spell.healing.flatMap((part) => [
+            { id: idGenerator.uuid(), expression: { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const }, purpose: "healing" as const },
+            ...Array.from({ length: extraHealingDice }, () => ({
+              id: idGenerator.uuid(),
+              expression: spell.higherLevels.kind === "extra-healing-dice-per-slot-level"
+                ? { quantity: spell.higherLevels.diceIncrease.quantity, faces: spell.higherLevels.diceIncrease.faces, modifier: 0, mode: "normal" as const }
+                : { quantity: part.expression.quantity, faces: part.expression.faces, modifier: 0, mode: "normal" as const },
+              purpose: "healing" as const,
+            })),
+          ]),
+        ];
+        const targetContext = { targetIds: selfHealing ? [character.id] : [] };
+        const featureMode = castingMode.kind === "feature";
+        const featureRemaining = featureResourceState && featureResourceCapacity
+          ? Math.max(0, featureResourceCapacity.capacity.value - featureResourceState.spent)
+          : 0;
+        const featureReady = featureMode && Boolean(featureResourceState && featureResourceCapacity && featureRemaining > 0);
+        const command: Command = {
+          commandId,
+          characterId: character.id,
+          expectedRevision: character.revision,
+          kind: "cast-spell",
+          payload: {
+            spellRef,
+            castingSourceId: source.id,
+            mode: castingMode.mode,
+            targetContext,
+            componentContext: { materialProvided: false, focusUsed: false },
+            choices: [],
+            diceResultIds: effectRollPlans.map((planned) => planned.id),
+            ...(featureMode && featureResourceId ? { resourceStateId: featureResourceId } : {}),
+            ...(slot ? { resourcePoolId: slot.poolId, slotLevel: slot.slotLevel } : {}),
+          },
+        };
+        const castCommand = command as Extract<Command, { readonly kind: "cast-spell" }>;
+        const resourceCapacities = featureMode && featureResourceState && featureResourceCapacity
+          ? new Map([[String(featureResourceState.id), featureResourceCapacity.capacity.value]])
+          : undefined;
+        let preview: RuleResult | undefined;
+        try {
+          preview = previewCast(character, spell, minimalCastRequest(castCommand), {
+            ...castContext,
+            ...(resourceCapacities ? { resourceCapacities } : {}),
+          });
+        } catch {
+          preview = undefined;
+        }
+        const modeDescription = castingMode.kind === "feature"
+          ? featureReady
+            ? "Usa 1 conjuração gratuita da característica; não gasta espaço de magia."
+            : !featureResourceState
+              ? "A fonte concede conjuração gratuita, mas seu estado de uso não foi restaurado; opção bloqueada sem gasto."
+              : !featureResourceCapacity
+                ? "A capacidade do uso gratuito não foi derivada; opção bloqueada sem gasto."
+                : "Uso gratuito esgotado; escolha a opção de espaço separadamente, se disponível."
+          : castingMode.kind === "slot"
+            ? slot ? `Usa espaço de ${slot.slotLevel}º nível; o slot é descontado no mesmo commit.` : `Nenhum espaço compatível de nível ${spell.level} ou superior está disponível.`
+            : "Truque: não consome espaço nem uso por descanso.";
+        const assistedDescription = assistedRacialGrant
+          ? "Esta concessão racial permite registrar a conjuração e seu custo; alvo e efeito ficam assistidos pela mesa conforme a modelagem da fonte."
+          : undefined;
+        const description = [
+          modeDescription,
+          selfHealing ? "A rolagem de cura e o modificador efetivo da fonte são resolvidos na ficha." : undefined,
+          assistedDescription,
+        ].filter(Boolean).join(" ");
+        const available = !requiresTrackedMaterial && (castingMode.kind === "cantrip" || castingMode.kind === "slot" && slot !== undefined || featureReady);
+        const capabilityStatus = available ? "available" : "blocked";
+        capabilities.push({
+          id,
+          commandId,
+          kind: "spell",
+          label: spell.level === 0
+            ? `${spell.name} (truque)`
+            : castingMode.kind === "feature"
+              ? `${spell.name} (uso gratuito da característica)`
+              : `${spell.name} (espaço de ${slot?.slotLevel ?? spell.level}º nível)`,
+          description,
+          costs: spell.level === 0
+            ? [{ label: "Custo", value: "Sem gasto" }]
+            : castingMode.kind === "feature"
+              ? [
+                { label: "Custo", value: "1 uso gratuito; sem espaço" },
+                { label: "Usos restantes", remaining: featureRemaining },
+              ]
+              : [{ label: "Custo", value: slot ? `Espaço ${slot.slotLevel}º nível` : `Espaço de nível ${spell.level}+` }],
+          effectSummary: assistedRacialGrant ? ["Registre alvo e resultado manualmente após confirmar a conjuração."] : effectSummary,
+          sourceRefs: spell.sourceRefs,
+          preview,
+          ...(actionCostForSpell(spell) ? { actionCost: actionCostForSpell(spell) } : {}),
+          ...(!selfHealing && !spell.effects.some((effect) => effect.kind === "summon") ? { spellTargeting: spell.targetType } : {}),
+          spellRequiresMaterial: Boolean(spell.components.material && !featureSpellOverride?.ignoreMaterialComponents),
+          spellMaterialRequiresTrackedItem: requiresTrackedMaterial,
+          spellAllowsFocus: spellFocusAllowed,
+          status: capabilityStatus,
+          ...(featureCastingOptions ? {
+            featureCastingOptions: featureCastingOptions.map((option) => ({
+              ...option,
+              label: `Variante assistida sem concentração por ${option.durationMinutes} minuto(s); registrar e encerrar manualmente.`,
+            })),
+          } : {}),
+          ...(!available ? {
+            blockedReason: castingMode.kind === "feature"
+              ? requiresTrackedMaterial
+                ? "O componente material exige item/custo rastreável no inventário; esta confirmação não pode ser concluída neste fluxo. Nenhum recurso será gasto."
+                : !featureResourceState
+                  ? "O estado do uso gratuito da característica não está disponível."
+                  : !featureResourceCapacity
+                    ? "A capacidade do uso gratuito não foi derivada."
+                    : "Todos os usos gratuitos desta característica foram gastos."
+              : requiresTrackedMaterial
+                ? "O componente material exige item/custo rastreável no inventário; esta confirmação não pode ser concluída neste fluxo. Nenhum recurso será gasto."
+                : `Nenhum espaço de nível ${spell.level} ou superior está disponível para esta magia.`,
+          } : {}),
+        });
+        if (!available) continue;
+        executions.push([
+          id,
+          {
+            command,
+            rollPlan: effectRollPlans,
+            ...(featureCastingOptions ? { featureCastingOptions } : {}),
+            resolve: ({ character: liveCharacter, rolls, command: currentCommand, spellTargetContext, spellComponentContext }) => {
+              const resolvedCommand = currentCommand?.kind === "cast-spell" ? currentCommand : castCommand;
+              const resolvedTargetContext = spellTargetContext ?? resolvedCommand.payload.targetContext;
+              const resolvedComponentContext = spellComponentContext ?? resolvedCommand.payload.componentContext;
+              const commandForDomain = {
+                ...resolvedCommand,
+                characterId: liveCharacter.id,
+                expectedRevision: liveCharacter.revision,
+                payload: { ...resolvedCommand.payload, targetContext: resolvedTargetContext, componentContext: resolvedComponentContext },
+              } as Extract<Command, { readonly kind: "cast-spell" }>;
+              return resolveCharacterCommand(liveCharacter, commandForDomain, {
+                spellDefinitions: new Map([[spell.id, spell]]),
+                classDefinitions: pack.classes,
+                subclassDefinitions: pack.subclasses,
+                availableActions: castContext.availableActions,
+                canSpeak: castContext.canSpeak,
+                freeHands: castContext.freeHands,
+                maximumHitPoints: castContext.maximumHitPoints,
+                resourceCapacities,
+                diceResults: rolls,
+                spell: {
+                  ...castContext,
+                  diceResults: rolls,
+                  ...(resourceCapacities ? { resourceCapacities } : {}),
+                },
+              });
+            },
+          },
+        ]);
       }
-      capabilities.push({
-        id,
-        commandId,
-        kind: "spell",
-        label: spell.level === 0 ? `${spell.name} (truque)` : `${spell.name} (nível ${spell.level})`,
-        description: selfHealing
-          ? `Conjura na própria ficha; a rolagem de cura, o modificador efetivo da fonte e o espaço são visíveis na revisão.${selectedSlot ? ` Espaço de ${selectedSlot.slotLevel}º nível escolhido automaticamente (menor compatível disponível).` : " Nenhum espaço compatível está disponível."}`
-          : undefined,
-        effectSummary,
-        sourceRefs: spell.sourceRefs,
-        preview,
-        status: selfHealing && spell.level > 0 && !selectedSlot ? "blocked" : "available",
-        ...(selfHealing && spell.level > 0 && !selectedSlot ? { blockedReason: `Nenhum espaço de nível ${spell.level} ou superior está disponível para esta magia.` } : {}),
-      });
-      executions.push([
-        id,
-        {
-          command,
-          rollPlan: effectRollPlans,
-          resolve: ({ character: liveCharacter, rolls }) => castSpell(liveCharacter, spell, minimalCastRequest({ ...castCommand, characterId: liveCharacter.id, expectedRevision: liveCharacter.revision }), { ...castContext, diceResults: rolls }),
-        },
-      ]);
     }
   }
   return { capabilities, executions };
@@ -501,6 +704,16 @@ function buildRestCapabilities(
   const capabilities: ActionCapability[] = [];
   const executions: (readonly [string, ActionCapabilityExecution])[] = [];
   const resourceDefinitions = new Map<string, ResourceDefinition>([...pack.resources].map(([entityId, definition]) => [String(entityId), definition]));
+  const tirelessFeature = collectGrantedFeatures(character, pack).find((feature) => String(feature.id) === "ranger.tireless" && feature.activation.kind === "action");
+
+  let originalDerived: CharacterDerived | undefined;
+  let originalDerivationFailure: string | undefined;
+  if (character.transformation) {
+    const { transformation: _transformation, ...currentOriginal } = character;
+    const result = deriveCharacter(currentOriginal, pack, { availableActions: [], tablePolicies: [] });
+    if (result.ok) originalDerived = result.value;
+    else originalDerivationFailure = result.error.message;
+  }
 
   const className = (classId: string) => pack.classes.get(classId as never)?.name ?? classId;
   for (const restKind of ["short", "long"] as const) {
@@ -513,7 +726,17 @@ function buildRestCapabilities(
       payload: { restKind, hitDiceSpent: [] },
     };
     const id = `rest:${restKind}`;
-    const restPreviewInput: RestInput = { restKind, hitDiceSpent: [], maximumHitPoints: derived.hitPointsMax.value, resourceDefinitions };
+    const restPreviewInput: RestInput = {
+      restKind,
+      hitDiceSpent: [],
+      maximumHitPoints: derived.hitPointsMax.value,
+      ...(originalDerived ? {
+        originalMaximumHitPoints: originalDerived.hitPointsMax.value,
+        originalConstitutionModifier: originalDerived.abilityScores.find((entry) => entry.ability === "con")?.modifier.value,
+      } : {}),
+      ...(tirelessFeature ? { tirelessActive: true, ...(tirelessFeature.sourceRefs[0] ? { tirelessSourceRef: tirelessFeature.sourceRefs[0] } : {}) } : {}),
+      resourceDefinitions,
+    };
     capabilities.push({
       id,
       commandId,
@@ -522,7 +745,8 @@ function buildRestCapabilities(
       description: restKind === "short"
         ? "Pelo menos 1 hora. Gaste Dados de Vida para recuperar pontos de vida."
         : "Pelo menos 8 horas. Recupera todos os pontos de vida, metade dos Dados de Vida e os espaços de magia.",
-      status: "available",
+      status: originalDerivationFailure ? "blocked" : "available",
+      ...(originalDerivationFailure ? { blockedReason: `A ficha sem transformação não pôde ser derivada: ${originalDerivationFailure}` } : {}),
       preview: resolveRest(character, restPreviewInput),
       sourceRefs: [REST_RULE_SOURCE_REF],
     });
@@ -544,6 +768,11 @@ function buildRestCapabilities(
           return { command: { ...command, payload: { restKind, hitDiceSpent } }, rollPlan };
         },
         resolve: ({ character: liveCharacter, rolls, command: prepared, choices }) => {
+          if (liveCharacter.transformation && !originalDerived) return {
+            status: "rejected",
+            errors: [{ code: "unresolved-rule", message: `A ficha sem transformação não pôde ser derivada: ${originalDerivationFailure ?? "contexto original ausente"}.` }],
+            sourceRefs: [REST_RULE_SOURCE_REF],
+          };
           const payload = prepared?.kind === "rest" ? prepared.payload : command.payload as RestInput;
           const input: RestInput = {
             restKind,
@@ -551,6 +780,11 @@ function buildRestCapabilities(
             hitDiceRolls: rolls,
             constitutionModifier: derived.abilityScores.find((entry) => entry.ability === "con")?.modifier.value ?? 0,
             maximumHitPoints: derived.hitPointsMax.value,
+            ...(originalDerived ? {
+              originalMaximumHitPoints: originalDerived.hitPointsMax.value,
+              originalConstitutionModifier: originalDerived.abilityScores.find((entry) => entry.ability === "con")?.modifier.value,
+            } : {}),
+            ...(tirelessFeature ? { tirelessActive: true, ...(tirelessFeature.sourceRefs[0] ? { tirelessSourceRef: tirelessFeature.sourceRefs[0] } : {}) } : {}),
             resourceDefinitions,
             ...(choices?.ateAndDrank !== undefined ? { ateAndDrank: choices.ateAndDrank } : {}),
           };
@@ -614,6 +848,8 @@ function buildResourceCapabilities(
 ): { readonly capabilities: ActionCapability[]; readonly executions: readonly (readonly [string, ActionCapabilityExecution])[] } {
   const capabilities: ActionCapability[] = [];
   const executions: (readonly [string, ActionCapabilityExecution])[] = [];
+  const grantedFeatures = collectGrantedFeatures(character, pack);
+  const tirelessFeature = grantedFeatures.find((feature) => String(feature.id) === "ranger.tireless" && feature.activation.kind === "action");
 
   for (const resourceState of character.resources) {
     const definition = pack.resources.get(resourceState.definitionRef.entityId);
@@ -637,6 +873,54 @@ function buildResourceCapabilities(
         costs: remaining !== undefined ? [{ label: "Usos restantes", remaining }] : undefined,
         status: "unsupported",
       });
+      continue;
+    }
+
+    if (String(resourceState.definitionRef.entityId) === "ranger.tireless-use" && tirelessFeature &&
+      sameRef(definition.ownerRef, { rulesetId: pack.manifest.id, entityId: tirelessFeature.id })) {
+      const commandId = idGenerator.commandId();
+      const rollId = idGenerator.uuid();
+      const command: Command = {
+        commandId,
+        characterId: character.id,
+        expectedRevision: character.revision,
+        kind: "use-tireless",
+        payload: {
+          resourceStateId: resourceState.id,
+          rollId,
+          sourceRef: { rulesetId: pack.manifest.id, entityId: tirelessFeature.id },
+        },
+      };
+      const available = (remaining ?? 0) > 0;
+      capabilities.push({
+        id,
+        commandId,
+        kind: "resource",
+        label: definition.name,
+        description: "Ação: role 1d8 e some o modificador de Sabedoria (mínimo 1) para ganhar PV temporários; eles não acumulam.",
+        sourceRefs: definition.sourceRefs,
+        costs: [{ label: "Usos restantes", remaining: remaining ?? 0 }],
+        status: available ? "available" : "blocked",
+        ...(available ? {} : { blockedReason: "Todos os usos de Incansável foram gastos até o próximo descanso longo." }),
+        actionCost: "action",
+      });
+      if (available) executions.push([
+        id,
+        {
+          command,
+          rollPlan: [{ id: rollId, expression: { quantity: 1, faces: 8, modifier: 0, mode: "normal" }, purpose: "healing", label: "Incansável — PV temporários" }],
+          resolve: ({ character: liveCharacter, rolls, command: prepared }) => {
+            const liveCommand = prepared?.kind === "use-tireless" ? prepared : command;
+            const wisdomModifier = derived.abilityScores.find((entry) => entry.ability === "wis")?.modifier.value;
+            return resolveCharacterCommand(liveCharacter, liveCommand, {
+              diceResults: rolls,
+              resourceCapacities: new Map([[String(resourceState.id), capacity.capacity.value]]),
+              resourceDefinitions: pack.resources,
+              ...(wisdomModifier !== undefined ? { abilityModifiers: { wis: wisdomModifier } } : {}),
+            });
+          },
+        },
+      ]);
       continue;
     }
 
@@ -670,7 +954,7 @@ function buildResourceCapabilities(
   }
 
   const pendingLabels = character.pendingResolutions.map(pendingResolutionLabel);
-  for (const feature of collectGrantedFeatures(character, pack)) {
+  for (const feature of grantedFeatures) {
     if (feature.activation.kind === "passive") continue;
     if (feature.automationStatus === "automated") continue; // sem Command de ativação genérica; nada a bloquear ou expor aqui
     capabilities.push({

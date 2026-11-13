@@ -4,6 +4,7 @@ import { asRevision } from "@domain/contracts/versioning";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { applyCreationDecision, createCharacterDraft, creationChoiceLimit, materializeCharacter, validateCharacterCreation } from ".";
+import { evolveCharacter } from "@domain/character/evolution/apply";
 import { type CreationCatalog } from "./model";
 
 const rulesetRef = { id: asRulesetId("phb-ptbr-local-2017"), version: asPackVersion("1.0.0") };
@@ -190,5 +191,67 @@ describe("domínio de criação", () => {
       // Bardo de 1º nível tem 2 espaços de 1º círculo: um registro por espaço.
       expect(result.value.character.spellSlots.map((slot) => slot.slotLevel)).toEqual([1, 1]);
     }
+  });
+
+  it("não materializa Fada sem a escolha obrigatória do atributo de conjuração", () => {
+    const incomplete = draft({
+      name: "Fada sem atributo", raceRef: ref("fairy"),
+      classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }],
+      selectedSupplementIds: [asEntityId("fairy-supplement")],
+      optionalRuleSelections: [], choices: [],
+    });
+    const report = validateCharacterCreation(catalog(), incomplete);
+    expect(report.valid).toBe(false);
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: "required-choice", field: "choices.fairy.spellcasting-ability",
+    }));
+    expect(materializeCharacter(catalog(), incomplete).ok).toBe(false);
+  });
+
+  it("mantém Fada opt-in e reconcilia magias/recursos ao subir níveis e recarregar", () => {
+    const basePack = catalog().rulePack;
+    const fairyId = asEntityId("fairy-supplement");
+    const characterDraft = draft({
+      name: "Fada de teste", raceRef: ref("fairy"),
+      classes: [{ classId: asEntityId("fighter"), level: 1, choices: [] }],
+      selectedSupplementIds: [fairyId],
+      optionalRuleSelections: [],
+      abilityGeneration: { method: "manual", baseScores: { str: 10, dex: 10, con: 10, int: 10, wis: 14, cha: 10 } },
+      choices: [
+        { choiceId: "fighter.fighting-style.1", selectedIds: [ref("fighting-style.defense")], grantedAtLevel: 1, grantingRef: ref("fighter") },
+        { choiceId: "fairy.spellcasting-ability", selectedIds: [ref("wis")], grantedAtLevel: 1, grantingRef: ref("fairy") },
+      ],
+    });
+    expect(validateCharacterCreation(catalog(), characterDraft)).toMatchObject({ valid: true, issues: [] });
+    const created = materializeCharacter(catalog(), characterDraft);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.value.character.rulesetRef).toEqual(rulesetRef);
+    expect(created.value.character.selectedSupplementIds).toEqual([fairyId]);
+    expect(created.value.character.castingSources.some((source) => source.grantingRef.entityId === asEntityId("fairy.magic-druidcraft") && source.knownSpellRefs.some((spell) => spell.entityId === asEntityId("druidismo")))).toBe(true);
+    expect(created.value.character.castingSources.some((source) => source.grantingRef.entityId === asEntityId("fairy.magic-faerie-fire"))).toBe(false);
+
+    const evolve = (character: typeof created.value.character, targetClassLevel: number) => evolveCharacter(character, {
+      classId: asEntityId("fighter"), targetClassLevel, mode: "milestone",
+      hitPointGain: { kind: "fixed-average", amount: 6 }, choices: [],
+    }, basePack);
+    const atTwo = evolve(created.value.character, 2);
+    expect(atTwo.ok).toBe(true);
+    if (!atTwo.ok) return;
+    const atThree = evolve(JSON.parse(JSON.stringify(atTwo.value)) as typeof atTwo.value, 3);
+    expect(atThree.ok).toBe(true);
+    if (!atThree.ok) return;
+    expect(atThree.value.castingSources.some((source) => source.grantingRef.entityId === asEntityId("fairy.magic-faerie-fire") && source.knownSpellRefs.some((spell) => spell.entityId === asEntityId("fogo-das-fadas")))).toBe(true);
+    expect(atThree.value.resources.some((resource) => resource.definitionRef.entityId === asEntityId("fairy.faerie-fire-use"))).toBe(true);
+
+    const atFour = evolve(JSON.parse(JSON.stringify(atThree.value)) as typeof atThree.value, 4);
+    expect(atFour.ok).toBe(true);
+    if (!atFour.ok) return;
+    const atFive = evolve(JSON.parse(JSON.stringify(atFour.value)) as typeof atFour.value, 5);
+    expect(atFive.ok).toBe(true);
+    if (!atFive.ok) return;
+    expect(atFive.value.castingSources.some((source) => source.grantingRef.entityId === asEntityId("fairy.magic-enlarge-reduce") && source.knownSpellRefs.some((spell) => spell.entityId === asEntityId("aumentar-reduzir")))).toBe(true);
+    expect(atFive.value.resources.some((resource) => resource.definitionRef.entityId === asEntityId("fairy.enlarge-reduce-use"))).toBe(true);
+    expect(atFive.value.selectedSupplementIds).toEqual([fairyId]);
   });
 });

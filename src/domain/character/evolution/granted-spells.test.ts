@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asEntityId, asIsoTimestamp, asPackVersion, asRulesetId, asUuid, type Uuid } from "@domain/contracts/ids";
+import { asCommandId, asEntityId, asIsoTimestamp, asPackVersion, asRulesetId, asUuid, type Uuid } from "@domain/contracts/ids";
 import type { Character } from "@domain/contracts/character";
 import type { ChoiceSelection } from "@domain/contracts/primitives";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
@@ -10,6 +10,9 @@ import { buildLevelUpPreview } from "@domain/character/progression";
 import { evolveCharacter } from "./apply";
 import { bonusCantripCount } from "./spell-rules";
 import { CIRCLE_TERRAIN_SPELLS } from "./terrain-spells";
+import { TASHA_RANGER_SUPPLEMENT_ID } from "@data/rulepacks/optional-supplements";
+import { resolveCharacterCommand } from "@application/character/command-dispatcher";
+import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
 
 const rulesetRef = { id: asRulesetId("phb-ptbr-local-2017"), version: asPackVersion("1.0.0") };
 const now = asIsoTimestamp("2024-01-01T00:00:00.000Z");
@@ -58,6 +61,22 @@ function createWith(classId: string, subclassId: string, choices: ChoiceSelectio
   const draft = createCharacterDraft({
     id: asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"), rulesetRef, createdAt: now,
     partial: { name: "Teste", raceRef: ref("human"), classes: [{ classId: asEntityId(classId), level: 1, subclassId: asEntityId(subclassId), choices: [] }], abilityGeneration: { method: "manual", baseScores: scores }, choices },
+  });
+  if (!draft.ok) throw new Error(draft.error.message);
+  const result = materializeCharacter(catalog, draft.value, { idGenerator });
+  if (!result.ok) throw new Error(JSON.stringify(result.error));
+  return result.value.character;
+}
+
+function createTashaRanger(): Character {
+  const draft = createCharacterDraft({
+    id: asUuid("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), rulesetRef, createdAt: now,
+    partial: {
+      name: "Guardião Feérico", raceRef: ref("human"), selectedSupplementIds: [TASHA_RANGER_SUPPLEMENT_ID],
+      classes: [{ classId: asEntityId("ranger"), level: 1, choices: [] }],
+      abilityGeneration: { method: "manual", baseScores: { str: 12, dex: 16, con: 14, int: 10, wis: 14, cha: 10 } },
+      choices: [],
+    },
   });
   if (!draft.ok) throw new Error(draft.error.message);
   const result = materializeCharacter(catalog, draft.value, { idGenerator });
@@ -118,6 +137,10 @@ describe("magias concedidas por subclasse, raça de escolha e características",
     warlock = mustEvolve(warlock, "warlock", 2, { subclassId: "the-fiend" });
     warlock = mustEvolve(warlock, "warlock", 3, { choices: [pick("warlock.pact-boon.3", ["pact-boon.chain"], 3)] });
     expect(ids(warlock.castingSources[0].knownSpellRefs)).toContain("convocar-familiar");
+    const expanded = pack.subclasses.get(asEntityId("the-fiend"))?.spellGrants[0];
+    expect(expanded?.alwaysPrepared).toBe(false);
+    expect(expanded?.knownWithoutCount).toBeUndefined();
+    expect(ids(warlock.castingSources.find((entry) => String(entry.grantingRef.entityId) === "warlock")?.knownSpellRefs ?? [])).not.toContain(String(expanded?.spellRef.entityId));
   });
 
   it("Rastreador Subterrâneo tem Disfarçar-se preparada a partir do 3º nível", () => {
@@ -125,6 +148,80 @@ describe("magias concedidas por subclasse, raça de escolha e características",
     ranger = mustEvolve(ranger, "ranger", 2);
     ranger = mustEvolve(ranger, "ranger", 3, { subclassId: "deep-stalker-conclave" });
     expect(ids(ranger.castingSources[0].preparedSpellRefs)).toContain("disfarcar-se");
+  });
+
+  it("Andarilho Feérico aprende magias extras nos níveis 3 e 5, sem consumir escolhas, após JSON reload", () => {
+    let ranger = createTashaRanger();
+    const level2Picks = spellsOf("ranger", 1).slice(0, 2);
+    ranger = mustEvolve(ranger, "ranger", 2, { choices: [pick("ranger.spells.2", level2Picks, 2, "ranger")] });
+    const invalidChoice = evolve(ranger, "ranger", 3, { subclassId: "fey-wanderer", choices: [
+      pick("ranger.spells.3", ["enfeiticar-pessoa"], 3, "ranger"),
+      pick("fey-wanderer.otherworldly-glamour.skill", ["performance"], 3, "fey-wanderer.otherworldly-glamour"),
+    ] });
+    expect(invalidChoice.ok).toBe(false);
+    const level3Pick = spellsOf("ranger", 1).find((id) => !level2Picks.includes(id))!;
+    ranger = mustEvolve(ranger, "ranger", 3, { subclassId: "fey-wanderer", choices: [
+      pick("ranger.spells.3", [level3Pick], 3, "ranger"),
+      pick("fey-wanderer.otherworldly-glamour.skill", ["performance"], 3, "fey-wanderer.otherworldly-glamour"),
+    ] });
+    const rangerSource = ranger.castingSources.find((entry) => String(entry.grantingRef.entityId) === "ranger")!;
+    expect(ids(rangerSource.knownSpellRefs)).toContain("enfeiticar-pessoa");
+    expect(ids(rangerSource.preparedSpellRefs)).not.toContain("enfeiticar-pessoa");
+    expect(ranger.choices.filter((entry) => entry.choiceId.startsWith("ranger.spells.")).flatMap((entry) => ids(entry.selectedIds))).not.toContain("enfeiticar-pessoa");
+    expect(ranger.progressionHistory.flatMap((entry) => entry.choices).flatMap((entry) => ids(entry.selectedIds))).not.toContain("enfeiticar-pessoa");
+
+    ranger = JSON.parse(JSON.stringify(ranger)) as Character;
+    ranger = mustEvolve(ranger, "ranger", 4);
+    ranger = mustEvolve(ranger, "ranger", 5, { choices: [pick("ranger.spells.5", [spellsOf("ranger", 1)[3]], 5, "ranger")] });
+    const finalSource = ranger.castingSources.find((entry) => String(entry.grantingRef.entityId) === "ranger")!;
+    expect(ids(finalSource.knownSpellRefs)).toContain("enfeiticar-pessoa");
+    expect(ids(finalSource.knownSpellRefs)).toContain("passo-nebuloso");
+    expect(new Set(ids(finalSource.knownSpellRefs)).size).toBe(finalSource.knownSpellRefs.length);
+    expect(ranger.choices.filter((entry) => entry.choiceId.startsWith("ranger.spells.")).flatMap((entry) => ids(entry.selectedIds))).toHaveLength(4);
+    expect(finalSource.knownSpellRefs.map((entry) => pack.spells.get(entry.entityId)?.level).filter((level) => level !== undefined)).toHaveLength(6);
+  });
+
+  it("aceita conjuração da magia concedida pela subclasse, mas não de outra subclasse ou nível", () => {
+    let ranger = createTashaRanger();
+    const level2Picks = spellsOf("ranger", 1).slice(0, 2);
+    ranger = mustEvolve(ranger, "ranger", 2, { choices: [pick("ranger.spells.2", level2Picks, 2, "ranger")] });
+    ranger = mustEvolve(ranger, "ranger", 3, { subclassId: "fey-wanderer", choices: [
+      pick("ranger.spells.3", [spellsOf("ranger", 1)[2]], 3, "ranger"),
+      pick("fey-wanderer.otherworldly-glamour.skill", ["performance"], 3, "fey-wanderer.otherworldly-glamour"),
+    ] });
+    ranger = mustEvolve(ranger, "ranger", 4);
+    ranger = mustEvolve(ranger, "ranger", 5, { choices: [pick("ranger.spells.5", [spellsOf("ranger", 1)[3]], 5, "ranger")] });
+    const source = ranger.castingSources.find((entry) => String(entry.grantingRef.entityId) === "ranger")!;
+    const composed = composeCharacterRuleContent(pack, ranger);
+    expect(composed.ok).toBe(true);
+    if (!composed.ok) return;
+    const content = composed.value;
+    const spell = content.spells.get(asEntityId("passo-nebuloso"))!;
+    const pool = ranger.spellSlots.find((entry) => entry.slotLevel >= spell.level && source.resourcePoolIds.includes(entry.poolId) && entry.spent === 0)!;
+    expect(spell.classes.map(String)).not.toContain("ranger");
+    const commandId = asCommandId("tasha-granted-spell-cast");
+    const command = {
+      commandId, characterId: ranger.id, expectedRevision: ranger.revision, kind: "cast-spell" as const,
+      payload: {
+        spellRef: ref("passo-nebuloso"), castingSourceId: source.id, mode: "normal" as const,
+        resourcePoolId: pool.poolId, slotLevel: pool.slotLevel,
+        targetContext: { targetIds: [ranger.id] }, componentContext: { materialProvided: false, focusUsed: false }, choices: [],
+      },
+    };
+    const context = {
+      spellDefinitions: new Map([[spell.id, spell]]), classDefinitions: content.classes, subclassDefinitions: content.subclasses,
+      availableActions: ["bonus-action"] as const, canSpeak: true, freeHands: true,
+    };
+    const successResult = resolveCharacterCommand(ranger, command, context);
+    expect(successResult.status, JSON.stringify(successResult)).toBe("success");
+    if (successResult.status === "success") expect(successResult.nextState.spellSlots.find((entry) => entry.poolId === pool.poolId)?.spent).toBe(1);
+
+    const wrongSubclass: Character = { ...ranger, classes: ranger.classes.map((entry) => entry.classId === asEntityId("ranger") ? { ...entry, subclassId: asEntityId("swarmkeeper") } : entry) };
+    const rejectedResult = resolveCharacterCommand(wrongSubclass, { ...command, expectedRevision: wrongSubclass.revision }, context);
+    expect(rejectedResult.status).toBe("rejected");
+    const belowGrantLevel: Character = { ...ranger, classes: ranger.classes.map((entry) => entry.classId === asEntityId("ranger") ? { ...entry, level: 3 } : entry) };
+    const levelResult = resolveCharacterCommand(belowGrantLevel, { ...command, expectedRevision: belowGrantLevel.revision }, context);
+    expect(levelResult.status).toBe("rejected");
   });
 
   function createRace(classId: string, raceId: string, subraceId: string | undefined, choices: ChoiceSelection[] = []): Character {

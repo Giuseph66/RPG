@@ -42,6 +42,7 @@ import { rollExpression } from "@domain/dice";
 import { type Clock } from "@application/ports/clock";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { type ActionIntent, type ActionCommitResult } from "@features/actions/types";
+import { type FeatureCastingOption } from "@domain/contracts/definitions/spell";
 
 import { type ActionCapabilityExecution } from "./action-capabilities";
 import { type CharacterApplicationService } from "./service";
@@ -62,6 +63,10 @@ function lookup(capabilitiesById: ActionCapabilityLookup, capabilityId: string):
 
 function rejected(message: string, sourceRefs: readonly SourceRef[] = []): RuleResult {
   return { status: "rejected", errors: [{ code: "invalid-context", message }], sourceRefs };
+}
+
+function sameFeatureCastingOption(a: FeatureCastingOption, b: FeatureCastingOption): boolean {
+  return a.kind === b.kind && a.durationMinutes === b.durationMinutes;
 }
 
 /**
@@ -87,8 +92,34 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
       return rejected("O personagem ativo não corresponde ao comando desta capacidade; recarregue as capacidades antes de confirmar.");
     }
 
+    const featureCastingOption = intent.featureCastingOption;
+    if (featureCastingOption && !(execution.featureCastingOptions ?? []).some((allowed) => sameFeatureCastingOption(allowed, featureCastingOption))) {
+      return rejected("Esta capacidade não concede a variante de conjuração solicitada; nenhuma rolagem ou recurso foi consumido.");
+    }
+
     const choices = { ...(intent.hitDice ? { hitDice: intent.hitDice } : {}), ...(intent.ateAndDrank !== undefined ? { ateAndDrank: intent.ateAndDrank } : {}) };
     const prepared = execution.prepare ? execution.prepare(choices, () => idGenerator.uuid()) : { command: execution.command, rollPlan: execution.rollPlan };
+    let command = prepared.command;
+    if (featureCastingOption) {
+      if (command.kind !== "cast-spell") return rejected("A opção especial só pode ser usada por um comando de conjuração.");
+      command = { ...command, payload: { ...command.payload, featureCastingOption } };
+    }
+    if (intent.spellTargetContext && command.kind !== "cast-spell") {
+      return rejected("O contexto de alvo só pode ser usado por um comando de conjuração.");
+    }
+    if (intent.spellComponentContext && command.kind !== "cast-spell") {
+      return rejected("O contexto de componentes só pode ser usado por um comando de conjuração.");
+    }
+    if (command.kind === "cast-spell" && (intent.spellTargetContext || intent.spellComponentContext)) {
+      command = {
+        ...command,
+        payload: {
+          ...command.payload,
+          ...(intent.spellTargetContext ? { targetContext: intent.spellTargetContext } : {}),
+          ...(intent.spellComponentContext ? { componentContext: intent.spellComponentContext } : {}),
+        },
+      };
+    }
     const rolls = new Map<Uuid, DiceRoll>();
     for (const planned of prepared.rollPlan) {
       const rolled = rollExpression(planned.expression, rng, {
@@ -96,7 +127,7 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
         timestamp: clock.now(),
         purpose: planned.purpose,
         characterId: character.id,
-        commandId: prepared.command.commandId,
+        commandId: command.commandId,
         ...(planned.label ? { label: planned.label } : {}),
       });
       if (!rolled.ok) {
@@ -107,7 +138,16 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
 
     let result: RuleResult;
     try {
-      result = execution.resolve({ character, rolls, value: intent.value, targetArmorClass: intent.targetArmorClass, command: prepared.command, choices });
+      result = execution.resolve({
+        character,
+        rolls,
+        value: intent.value,
+        targetArmorClass: intent.targetArmorClass,
+        spellTargetContext: intent.spellTargetContext,
+        spellComponentContext: intent.spellComponentContext,
+        command,
+        choices,
+      });
     } catch (cause) {
       return rejected(cause instanceof Error ? cause.message : "Falha inesperada ao resolver o comando de domínio.");
     }
@@ -121,7 +161,7 @@ export function createActionDispatcher(options: ActionDispatcherOptions): (inten
       );
     }
 
-    const committed = await characterService.commands.commit(prepared.command, result, [...rolls.values()]);
+    const committed = await characterService.commands.commit(command, result, [...rolls.values()]);
     if (!committed.ok) {
       return rejected(`Falha ao persistir o comando: ${committed.error.message}`, result.sourceRefs);
     }

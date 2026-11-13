@@ -37,8 +37,13 @@ export function formatRef(entityId: string): string {
 }
 
 export const LANGUAGE_LABELS: Readonly<Record<string, string>> = {
-  common: "Comum", dwarvish: "Anão", elvish: "Élfico", halfling: "Halfling", dragonborn: "Dracônico", gnomish: "Gnômico", orc: "Orc", abyssal: "Abissal", celestial: "Celestial", infernal: "Infernal", primordial: "Primordial", sylvan: "Silvestre", undercommon: "Subcomum",
+  common: "Comum", dwarvish: "Anão", elvish: "Élfico", giant: "Gigante", gnomish: "Gnômico", goblin: "Goblin", halfling: "Halfling", orc: "Orc", abyssal: "Abissal", celestial: "Celestial", "deep-speech": "Fala Profunda", draconic: "Dracônico", infernal: "Infernal", primordial: "Primordial", sylvan: "Silvestre", undercommon: "Subcomum",
 };
+
+export const LANGUAGE_OPTIONS = [
+  "common", "dwarvish", "elvish", "giant", "gnomish", "goblin", "halfling", "orc",
+  "abyssal", "celestial", "deep-speech", "draconic", "infernal", "primordial", "sylvan", "undercommon",
+] as const;
 
 export const PROFICIENCY_LABELS: Readonly<Record<string, string>> = {
   "proficiency.alchemist-supplies": "Suprimentos de alquimista", "proficiency.brewers-supplies": "Suprimentos de cervejeiro", "proficiency.carpenters-tools": "Ferramentas de carpinteiro", "proficiency.disguise-kit": "Kit de disfarce", "proficiency.herbalism-kit": "Kit de herbalismo", "proficiency.leatherworkers-tools": "Ferramentas de coureiro", "proficiency.masons-tools": "Ferramentas de pedreiro", "proficiency.navigator-tools": "Ferramentas de navegador", "proficiency.painters-supplies": "Suprimentos de pintor", "proficiency.potters-tools": "Ferramentas de ceramista", "proficiency.smiths-tools": "Ferramentas de ferreiro", "proficiency.thieves-tools": "Ferramentas de ladrão", "proficiency.vehicle-land": "Veículos terrestres", "proficiency.vehicle-water": "Veículos aquáticos", "proficiency.weavers-tools": "Ferramentas de tecelão", "proficiency.woodcarvers-tools": "Ferramentas de entalhador", "proficiency.musical-instrument": "Instrumento musical",

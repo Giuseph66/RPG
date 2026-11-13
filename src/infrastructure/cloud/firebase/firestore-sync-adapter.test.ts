@@ -427,6 +427,24 @@ describe("FirebaseFirestoreSyncAdapter", () => {
     expect(fake.setCalls[0]).toMatchObject({ path: `campaigns/${campaignId}/characters/${characterId}`, data: { ownerUid: "player-1", revision: 4, createdAt: "t0" } });
   });
 
+  it("preserva a autoria da proposta quando o mestre a revisa", async () => {
+    const proposalId = "proposal__proposal-1";
+    const path = `campaigns/${campaignId}/proposals/${proposalId}`;
+    const fake = fakeFirestore({ [path]: { id: proposalId, campaignId, ownerUid: "player-1", proposedBy: "player-1", status: "pending", revision: 1, createdAt: "t0" } });
+    const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "master-1", deps: fake.deps as never });
+    const result = await adapter.apply(operation({
+      operationId: asCommandId("proposal-review"),
+      aggregateType: "proposal",
+      aggregateId: proposalId as never,
+      baseRevision: asRevision(1),
+      scope: { campaignId },
+      payload: { id: proposalId, campaignId, proposedBy: "player-1", status: "approved", reviewedBy: "master-1", reviewedAt: timestamp, creatureId: characterId, revision: 2, schemaVersion: 1 },
+    }));
+
+    expect(result).toMatchObject({ ok: true, value: { kind: "acked", remoteRevision: 2 } });
+    expect(fake.setCalls[0]).toMatchObject({ path, data: { ownerUid: "player-1", proposedBy: "player-1", reviewedBy: "master-1", revision: 2, createdAt: "t0" } });
+  });
+
   it("grava a cópia do retrato dentro da campanha para o mestre ler", async () => {
     const fake = fakeFirestore();
     const adapter = new FirebaseFirestoreSyncAdapter({ firestore: {} as never, ownerUid: "u1", deps: fake.deps as never });

@@ -2,6 +2,7 @@ import { type DiceRoll } from "@domain/contracts/dice";
 import { type Character, type HitPointsState } from "@domain/contracts/character";
 import { type CommandId, type DefinitionRef, type Uuid } from "@domain/contracts/ids";
 import { type DamageType, type SourceRef } from "@domain/contracts/primitives";
+import { isBeastDefinition } from "@domain/creatures";
 import {
   type ApplyDamagePayload,
   type ApplyHealingPayload,
@@ -105,6 +106,36 @@ function defenseAmount(amount: number, damageType: DamageType, defense: DamageDe
   return { amount: finalAmount, note: `${resistant ? "resistência aplicou metade arredondada para baixo" : "sem resistência"}; ${vulnerable ? "vulnerabilidade dobrou uma vez" : "sem vulnerabilidade"}` };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Recusa snapshots/imports incompletos antes de tocar em qualquer estado de PV. */
+function validActiveWildShape(character: Character): boolean {
+  const transformation: unknown = character.transformation;
+  if (!isRecord(transformation) || !isRecord(transformation.originalSnapshot) || !isRecord(transformation.formHp)) return false;
+  const original = transformation.originalSnapshot;
+  const originalHp = original.hp;
+  const originalDeathSaves = original.deathSaves;
+  const formHp = transformation.formHp;
+  const form = transformation.formSnapshot;
+  if (!form || transformation.originalMaximumHitPoints === undefined) {
+    return false;
+  }
+  const maximum = transformation.formMaximumHitPoints;
+  return !("transformation" in original) && original.id === character.id && transformation.originalSnapshotRef === transformation.id &&
+    isRecord(originalHp) && Number.isInteger(originalHp.current) && Number(originalHp.current) >= 0 &&
+    Number.isInteger(originalHp.temp) && Number(originalHp.temp) >= 0 &&
+    isRecord(originalDeathSaves) && Number.isInteger(originalDeathSaves.successes) && Number.isInteger(originalDeathSaves.failures) && typeof originalDeathSaves.stable === "boolean" &&
+    character.hp.current === originalHp.current && character.hp.temp === originalHp.temp &&
+    character.deathSaves.successes === originalDeathSaves.successes && character.deathSaves.failures === originalDeathSaves.failures && character.deathSaves.stable === originalDeathSaves.stable &&
+    Number.isInteger(transformation.originalMaximumHitPoints) && Number(transformation.originalMaximumHitPoints) > 0 &&
+    isBeastDefinition(form) && form.scaling === undefined && form.id === (transformation.formRef as { entityId?: unknown } | undefined)?.entityId &&
+    Number.isInteger(maximum) && maximum === form.hitPoints.average && Number(maximum) > 0 &&
+    Number.isInteger(formHp.current) && Number(formHp.current) >= 0 && Number(formHp.current) <= Number(maximum) &&
+    Number.isInteger(formHp.temp) && Number(formHp.temp) >= 0;
+}
+
 function addConcentrationPending(character: Character, nextHp: number, damage: number, enabled: boolean): Character {
   // Dropping to 0 PV is still a damage event. Keep the concentration save
   // request so the caller can resolve both domain consequences explicitly.
@@ -118,6 +149,7 @@ function addConcentrationPending(character: Character, nextHp: number, damage: n
 export function applyDamage(character: Character, input: ApplyDamageInput): RuleResult {
   const source = input.sourceRef;
   if (!validAmount(input.amount)) return reject(character, `Quantidade de dano inválida: ${input.amount}.`, "invalid-command", source);
+  if (character.transformation) return applyDamageToWildShape(character, input);
   const resolved = defenseAmount(input.amount, input.damageType, input.defense);
   const before = character.hp;
   const absorbed = Math.min(before.temp, resolved.amount);
@@ -158,8 +190,79 @@ export function applyDamage(character: Character, input: ApplyDamageInput): Rule
   return success(character, nextState, [effect], descriptions, source);
 }
 
+function applyDamageToWildShape(character: Character, input: ApplyDamageInput): RuleResult {
+  const transformation = character.transformation;
+  if (!transformation || !validActiveWildShape(character)) {
+    return reject(character, "Snapshot ou PV da forma inválidos; dano não aplicado para preservar a ficha.", "invalid-context", input.sourceRef);
+  }
+
+  const form = transformation.formSnapshot;
+  if (!form) return reject(character, "Bloco da forma ausente; dano não aplicado para preservar a ficha.", "invalid-context", input.sourceRef);
+  const formDefense: DamageDefense = {
+    resistances: [...new Set([...(input.defense?.resistances ?? []), ...(form.damageResistances ?? [])])],
+    immunities: [...new Set([...(input.defense?.immunities ?? []), ...(form.damageImmunities ?? [])])],
+    vulnerabilities: [...new Set([...(input.defense?.vulnerabilities ?? []), ...(form.damageVulnerabilities ?? [])])],
+    flatReduction: input.defense?.flatReduction,
+  };
+  const resolved = defenseAmount(input.amount, input.damageType, formDefense);
+  const before = transformation.formHp;
+  const absorbed = Math.min(before.temp, resolved.amount);
+  const remaining = resolved.amount - absorbed;
+  const newCurrent = Math.max(0, before.current - remaining);
+  const overflow = Math.max(0, remaining - before.current);
+  const formHp: HitPointsState = { current: newCurrent, temp: before.temp - absorbed };
+  const formEffect: Effect = {
+    kind: "hp-changed",
+    targetCharacterId: character.id,
+    sourceRef: sourceOf(input.sourceRef),
+    payload: { delta: -resolved.amount, newCurrent, newTemp: formHp.temp, form: true },
+  };
+  const formDescription = `${input.amount} de ${input.damageType} → ${resolved.amount} após defesas da forma (${resolved.note}); PV da forma ${before.current} → ${newCurrent}.`;
+
+  if (newCurrent > 0) {
+    let nextState: Character = { ...character, transformation: { ...transformation, formHp } };
+    nextState = addConcentrationPending(nextState, character.hp.current, resolved.amount, input.concentrationSave !== false);
+    return success(character, nextState, [formEffect], [formDescription, ...(nextState.pendingResolutions.length > character.pendingResolutions.length ? ["Dano à forma deixou um teste de concentração pendente."] : [])], input.sourceRef);
+  }
+
+  const { transformation: _ended, ...withoutTransformation } = character;
+  const originalCharacter: Character = { ...withoutTransformation, hp: { ...character.hp, temp: formHp.temp } };
+  let returned = originalCharacter;
+  const overflowResult = overflow > 0
+    // O dano e as defesas já foram resolvidos antes de separar o excedente; reaplicar
+    // resistência/redução na ficha original contaria a mesma defesa duas vezes.
+    ? applyDamage(originalCharacter, { ...input, amount: overflow, defense: undefined, maximumHitPoints: transformation.originalMaximumHitPoints, concentrationSave: false })
+    : undefined;
+  if (overflowResult) {
+    if (overflowResult.status !== "success") return overflowResult;
+    returned = overflowResult.nextState;
+  }
+  returned = addConcentrationPending(returned, returned.hp.current, resolved.amount, input.concentrationSave !== false);
+  const endedEffect: Effect = { kind: "transformation-ended", targetCharacterId: character.id, sourceRef: sourceOf(input.sourceRef), payload: { transformationId: transformation.id } };
+  const effects = [...(overflowResult?.status === "success" ? overflowResult.effects : []), formEffect, endedEffect];
+  const descriptions = [formDescription, `A forma chegou a 0 PV; ${overflow} de dano excedente passou aos PV originais (${returned.hp.current} atuais).`];
+  if (returned.deathSaves.failures >= 3) descriptions.push("O dano excedente causou morte conforme os PV máximos originais.");
+  if (returned.pendingResolutions.length > character.pendingResolutions.length) descriptions.push("Dano recebido deixou um teste de concentração pendente.");
+  return success(character, returned, effects, descriptions, input.sourceRef);
+}
+
 /** Cura normal limitada ao máximo; excesso não vira PV temporário. */
 export function applyHealing(character: Character, input: ApplyHealingInput): RuleResult {
+  if (character.transformation) {
+    const transformation = character.transformation;
+    if (!validActiveWildShape(character)) {
+      return reject(character, "PV do snapshot/forma inválidos; cura não aplicada.", "invalid-context", input.sourceRef);
+    }
+    const form = transformation.formSnapshot;
+    if (!form) return reject(character, "Bloco da forma ausente; cura não aplicada.", "invalid-context", input.sourceRef);
+    if (!validAmount(input.amount)) return reject(character, "Quantidade de cura inválida.", "invalid-command", input.sourceRef);
+    if (transformation.formMaximumHitPoints === undefined) return reject(character, "Máximo de PV da forma ausente; cura não aplicada.", "invalid-context", input.sourceRef);
+    const current = Math.min(transformation.formMaximumHitPoints, transformation.formHp.current + input.amount);
+    const recovered = current - transformation.formHp.current;
+    const nextState: Character = { ...character, transformation: { ...transformation, formHp: { ...transformation.formHp, current } } };
+    const effect: Effect = { kind: "hp-changed", targetCharacterId: character.id, sourceRef: sourceOf(input.sourceRef), payload: { delta: recovered, newCurrent: current, newTemp: transformation.formHp.temp, form: true } };
+    return success(character, nextState, [effect], [`Cura ${input.amount} limitada a ${recovered}; PV da forma ${transformation.formHp.current} → ${current}, teto ${transformation.formMaximumHitPoints}. PV originais foram preservados.`], input.sourceRef);
+  }
   if (!validAmount(input.amount) || !validAmount(input.maximumHitPoints) || input.maximumHitPoints <= 0) return reject(character, "Quantidade ou máximo de PV inválido para cura.", "invalid-command", input.sourceRef);
   if (character.deathSaves.failures >= 3) return reject(character, "Personagem morto não recebe cura normal.", "invalid-context", input.sourceRef);
   const current = Math.min(input.maximumHitPoints, character.hp.current + input.amount);
@@ -171,6 +274,17 @@ export function applyHealing(character: Character, input: ApplyHealingInput): Ru
 
 /** PV temporários não acumulam: a política do comando escolhe substituir ou conservar. */
 export function applyTempHp(character: Character, input: ApplyTempHpInput): RuleResult {
+  if (character.transformation) {
+    const transformation = character.transformation;
+    if (!validActiveWildShape(character)) {
+      return reject(character, "PV do snapshot/forma inválidos; PV temporários não aplicados.", "invalid-context", input.sourceRef);
+    }
+    if (!validAmount(input.amount) || input.amount <= 0) return reject(character, `Quantidade de PV temporários inválida: ${input.amount}.`, "invalid-command", input.sourceRef);
+    const newTemp = input.stacking === "highest-wins" ? Math.max(transformation.formHp.temp, input.amount) : input.amount;
+    const nextState: Character = newTemp === transformation.formHp.temp ? character : { ...character, transformation: { ...transformation, formHp: { ...transformation.formHp, temp: newTemp } } };
+    const effect: Effect = { kind: "hp-changed", targetCharacterId: character.id, sourceRef: sourceOf(input.sourceRef), payload: { delta: 0, newCurrent: transformation.formHp.current, newTemp, form: true } };
+    return success(character, nextState, [effect], [`PV temporários da forma ${transformation.formHp.temp} → ${newTemp}; PV originais foram preservados.`], input.sourceRef);
+  }
   if (!validAmount(input.amount) || input.amount <= 0) return reject(character, `Quantidade de PV temporários inválida: ${input.amount}.`, "invalid-command", input.sourceRef);
   const newTemp = input.stacking === "highest-wins" ? Math.max(character.hp.temp, input.amount) : input.amount;
   const nextState = newTemp === character.hp.temp ? character : { ...character, hp: { ...character.hp, temp: newTemp } };

@@ -9,12 +9,15 @@ import type { CampaignRepository } from "@application/ports/campaign-repository"
 import type { CharacterRepository } from "@application/ports/character-repository";
 import type { DiceHistoryRepository } from "@application/ports/dice-history-repository";
 import type { IdGenerator } from "@application/ports/id-generator";
+import type { CreatureGuess, CreatureProposal, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
+import type { JourneyVisibilityRepository } from "@application/ports/journey-visibility-repository";
 
 export interface BackupRepositories {
   readonly characters: CharacterRepository;
   readonly campaigns: CampaignRepository;
   readonly assets: AssetRepository;
   readonly diceHistory?: DiceHistoryRepository;
+  readonly journey: JourneyVisibilityRepository;
 }
 
 /** O compositor fornece esta operação para ligar todos os stores numa transação real. */
@@ -47,4 +50,4 @@ export interface RecoveryStore {
   readonly discard: (id: string) => Promise<Result<void, AppError>>;
 }
 
-export type BackupEntity = Character | Campaign | JournalEntry | MapRecord | Asset;
+export type BackupEntity = Character | Campaign | JournalEntry | MapRecord | Asset | CreatureRecord | CreatureSighting | CreatureGuess | CreatureProposal;

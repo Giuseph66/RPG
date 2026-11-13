@@ -1,6 +1,7 @@
-import type { CreatureContent, CreatureGuess, CreatureKind, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
+import type { CreatureContent, CreatureGuess, CreatureKind, CreatureProposal, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
 import type { AppError, Result } from "@domain/contracts/errors";
 import type { AccountId, EntityId, Uuid } from "@domain/contracts/ids";
+import type { StatBlockEditorProps } from "@components/creatures/StatBlockEditor";
 
 /** Jogador ativo da campanha, identificado pelo personagem que ele joga. */
 export interface JourneyPlayer {
@@ -28,8 +29,13 @@ export interface CreatureBoardProps extends CreatureSheetTools {
   readonly loading?: boolean;
   readonly error?: string;
   readonly onCreate?: (content: CreatureContent) => Promise<Result<CreatureRecord, AppError>>;
+  readonly onSuggestStatBlock?: StatBlockEditorProps["onSuggest"];
   readonly onSave?: (creature: CreatureRecord) => Promise<Result<CreatureRecord, AppError>>;
   readonly onDelete?: (creature: CreatureRecord) => Promise<Result<void, AppError>>;
+  readonly proposals?: readonly CreatureProposal[];
+  readonly proposalLoading?: boolean;
+  readonly proposalError?: string;
+  readonly onReviewProposal?: (proposalId: CreatureProposal["id"], decision: "approve" | "reject", reviewNote?: string, reviewedStatBlock?: import("@domain/creatures").CreatureStatBlock) => Promise<Result<{ readonly proposal: CreatureProposal; readonly creature?: CreatureRecord }, AppError>>;
 }
 
 export interface GuessDraft {
@@ -45,6 +51,11 @@ export interface PlayerCreatureBoardProps {
   readonly loading?: boolean;
   readonly error?: string;
   readonly onSaveGuess?: (creatureId: Uuid, guess: GuessDraft) => Promise<Result<CreatureGuess, AppError>>;
+  readonly proposals?: readonly CreatureProposal[];
+  readonly proposalLoading?: boolean;
+  readonly proposalError?: string;
+  readonly onSubmitProposal?: (statBlock: import("@domain/creatures").CreatureStatBlock, suggestionReasons: readonly string[]) => Promise<Result<CreatureProposal, AppError>>;
+  readonly onSuggestStatBlock?: StatBlockEditorProps["onSuggest"];
 }
 
 export type CreatureFilter = "all" | CreatureKind;

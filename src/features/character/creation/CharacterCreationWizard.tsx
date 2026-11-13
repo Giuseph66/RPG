@@ -3,9 +3,10 @@ import type { ReactNode } from "react";
 
 import { AppModal, Button, IconButton, InlineStatus, Input, ProgressBar, Select, SectionCard } from "@components/ui";
 import { Info } from "@phosphor-icons/react";
-import type { Character, CharacterDraft, CharacterDraftStep } from "@domain/contracts/character";
+import type { Character, CharacterDraft, CharacterDraftStep, OptionalRuleSelection } from "@domain/contracts/character";
 import type { ChoiceDefinition, ChoiceSelection } from "@domain/contracts/primitives";
-import type { DefinitionRef } from "@domain/contracts/ids";
+import type { DefinitionRef, EntityId } from "@domain/contracts/ids";
+import type { OptionalRuleContentPack, RulePack } from "@domain/contracts/definitions/rulepack";
 import { asRevision } from "@domain/contracts/versioning";
 import {
   applyCreationDecision,
@@ -19,7 +20,7 @@ import { asCreationCatalog, CREATION_STEPS } from "@domain/character/creation/mo
 import { bonusCantripListOf, expandedSpellIds, level1BonusCantripChoice } from "@domain/character/evolution/spell-rules";
 import type { CreationDecision, CreationCatalogInput, CreationIssue } from "@domain/character/creation";
 
-import { ABILITY_LABELS, formatRef, LANGUAGE_LABELS, PROFICIENCY_GROUP_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, TOOL_PROFICIENCY_OPTIONS } from "./mapping";
+import { ABILITY_LABELS, formatRef, LANGUAGE_LABELS, LANGUAGE_OPTIONS, PROFICIENCY_GROUP_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, TOOL_PROFICIENCY_OPTIONS } from "./mapping";
 import { BackgroundPicker } from "./BackgroundPicker";
 import { CreationSummaryPanel } from "./CreationSummaryPanel";
 import { AbilityScoresStep } from "./AbilityScoresStep";
@@ -77,8 +78,8 @@ function creationFingerprint(character: Character): string {
   return JSON.stringify(stableValue(creation));
 }
 
-const OWNER_LABELS: Readonly<Record<string, string>> = { human: "Humano", elf: "Elfo", dwarf: "Anão", bard: "Bardo", fighter: "Guerreiro", rogue: "Ladino", wizard: "Mago", cleric: "Clérigo", druid: "Druida", sorcerer: "Feiticeiro", warlock: "Bruxo", "high-elf": "Alto elfo", entertainer: "Artista", soldier: "Soldado", acolyte: "Acólito", noble: "Nobre" };
-const CHOICE_KIND_LABELS: Readonly<Record<string, string>> = { skills: "Perícias", equipment: "Equipamento inicial", tools: "Ferramentas", language: "Idioma adicional", languages: "Idiomas", cantrip: "Truque", cantrips: "Truques", spells: "Magias" };
+const OWNER_LABELS: Readonly<Record<string, string>> = { human: "Humano", elf: "Elfo", dwarf: "Anão", fairy: "Fada", bard: "Bardo", fighter: "Guerreiro", rogue: "Ladino", wizard: "Mago", cleric: "Clérigo", druid: "Druida", sorcerer: "Feiticeiro", warlock: "Bruxo", "high-elf": "Alto elfo", entertainer: "Artista", soldier: "Soldado", acolyte: "Acólito", noble: "Nobre" };
+const CHOICE_KIND_LABELS: Readonly<Record<string, string>> = { skills: "Perícias", equipment: "Equipamento inicial", tools: "Ferramentas", language: "Idioma adicional", languages: "Idiomas", cantrip: "Truque", cantrips: "Truques", spells: "Magias", "spellcasting-ability": "Atributo de conjuração" };
 const EQUIPMENT_BUNDLE_LABELS: Readonly<Record<string, string>> = {
   "entertainer-pack": "Pacote de artista", "burglar-pack": "Pacote de assaltante", "dungeoneer-pack": "Pacote de aventureiro",
   "diplomat-pack": "Pacote de diplomata", "scholar-pack": "Pacote de estudioso", "explorer-pack": "Pacote de explorador", "priest-pack": "Pacote de sacerdote",
@@ -172,9 +173,7 @@ function ChoiceEditor({
     const selector = choice.optionSet.selector;
     if (selector.kind === "any-skill") return Object.entries(SKILL_LABELS).map(([value, label]) => ({ value, label }));
     if (selector.kind === "any-language") {
-      const languageIds = new Set<string>();
-      for (const race of pack.races.values()) for (const language of race.languages) languageIds.add(String(language));
-      return [...languageIds].sort().map((id) => ({ value: id, label: optionLabel(id, pack) }));
+      return LANGUAGE_OPTIONS.map((id) => ({ value: id, label: optionLabel(id, pack) }));
     }
     if (selector.kind === "any-tool-proficiency") return TOOL_PROFICIENCY_OPTIONS.map((id) => ({ value: id, label: optionLabel(id, pack) }));
     if (selector.kind === "any-entity-of-type" && selector.entityType === "spell") {
@@ -199,6 +198,7 @@ function ChoiceEditor({
     return [];
   }, [catalog, choice, owner, pack, value, draft.partial.classes]);
   const isSpell = choice.kind === "spell" || choice.kind === "cantrip";
+  const isLanguageChoice = choice.optionSet.kind === "selector" && choice.optionSet.selector.kind === "any-language";
   const limit = creationChoiceLimit(pack, draft.partial, choice);
   const multiple = limit.max > 1 || isSpell;
   const update = (ids: readonly string[]) => onChange({
@@ -207,7 +207,10 @@ function ChoiceEditor({
     grantedAtLevel: 1,
     grantingRef: choiceOwnerRef(draft, choice, owner),
   });
-  const hint = `Opcional · até ${limit.max} ${limit.max === 1 ? "opção" : "opções"}${limit.basis ? ` (${limit.basis})` : ""}.`;
+  const requiredChoice = choice.count.min > 0;
+  const hint = requiredChoice
+    ? `Obrigatório · escolha ${choice.count.min} ${choice.count.min === 1 ? "opção" : "opções"}${limit.max > choice.count.min ? ` (até ${limit.max})` : ""}${limit.basis ? ` (${limit.basis})` : ""}.${isLanguageChoice ? " Idiomas exóticos exigem aprovação do Mestre." : ""}`
+    : `Opcional · até ${limit.max} ${limit.max === 1 ? "opção" : "opções"}${limit.basis ? ` (${limit.basis})` : ""}.${isLanguageChoice ? " Idiomas exóticos exigem aprovação do Mestre." : ""}`;
   // Conjuradores que preparam (Clérigo, Druida): o limite é de preparadas, não de magias conhecidas.
   const preparedNote = limit.basis ? "Estas são as magias preparadas agora. Você prepara da lista inteira da classe e pode trocar a lista ao fim de cada descanso longo (em Gerenciar magias, na ficha). Os espaços de magia, que dizem quantas vezes você conjura, são separados." : undefined;
   if (multiple) return <fieldset className={[styles.choice, styles.choiceFieldset].join(" ")} aria-label={choiceLabel(choice.id, pack)}><legend>{choiceLabel(choice.id, pack)}</legend><p className={styles.choiceHint}>{hint}</p>{preparedNote ? <p className={styles.choiceHint}>{preparedNote}</p> : null}<div className={styles.choiceOptions}>{options.map((option) => {
@@ -218,7 +221,7 @@ function ChoiceEditor({
     if (!info) return <label className={className} key={option.value}>{input}<span>{option.label}</span></label>;
     return <div className={[className, styles.spellOption].join(" ")} key={option.value}><label className={styles.spellOptionLabel}>{input}<span className={styles.spellOptionText}><span className={styles.spellOptionName}>{option.label}</span><small className={styles.spellMeta}>{spellMeta(info)}</small><span className={styles.spellBrief}>{brief(info.description.join(" "))}</span>{info.higherLevels ? <small className={styles.spellScaling}>Evolui: {brief(info.higherLevels)}</small> : null}</span></label><IconButton className={styles.spellInfoButton} variant="ghost" label={`Descrição de ${option.label}`} icon={<Info size={20} />} onClick={() => setDetail(info)} /></div>;
   })}</div><p className={styles.choiceCount} aria-live="polite">{current.length} de {limit.max} selecionada(s)</p>{detail ? <SpellDetailModal info={detail} onClose={() => setDetail(undefined)} /> : null}</fieldset>;
-  return <div className={styles.choice}><Select label={choiceLabel(choice.id, pack)} hint={hint} value={current[0] ?? ""} onChange={(event) => update(event.currentTarget.value ? [event.currentTarget.value] : [])}><option value="">Nenhuma</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></div>;
+  return <div className={styles.choice}><Select label={choiceLabel(choice.id, pack)} hint={hint} required={requiredChoice} value={current[0] ?? ""} onChange={(event) => update(event.currentTarget.value ? [event.currentTarget.value] : [])}><option value="">{requiredChoice ? "Selecione uma opção" : "Nenhuma"}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></div>;
 }
 
 function SpellDetailModal({ info, onClose }: { readonly info: CreationSpellInfo; readonly onClose: () => void }) {
@@ -235,6 +238,99 @@ function StepNavigation({ current, onStep }: { readonly current: PresentationSte
   );
 }
 
+const FAIRY_SUPPLEMENT_ID = "supplement.fairy.local";
+const TASHA_SUPPLEMENT_ID = "supplement.tashas-cauldron-of-everything";
+
+function supplementLabel(pack: OptionalRuleContentPack): string {
+  if (String(pack.id) === FAIRY_SUPPLEMENT_ID) return "Fada";
+  if (String(pack.id) === TASHA_SUPPLEMENT_ID) return "Tasha";
+  return pack.name;
+}
+
+function supplementSource(pack: OptionalRuleContentPack): string {
+  return pack.sourceRefs.map((source) => `${source.chapter}${source.printedPage === undefined ? "" : `, p. ${source.printedPage}`}`).join(" · ");
+}
+
+function OptionalSupplementPicker({ packs, selectedIds, selections, onChange }: {
+  readonly packs: readonly OptionalRuleContentPack[];
+  readonly selectedIds: readonly EntityId[];
+  readonly selections: readonly OptionalRuleSelection[];
+  readonly onChange: (decision: Extract<CreationDecision, { kind: "supplements" }>) => void;
+}) {
+  return <section className={styles.supplementBlock} aria-labelledby="creation-supplements-title">
+    <div><h3 id="creation-supplements-title">Complementos</h3><p>Fontes opcionais entram nesta ficha apenas se você escolher. O mestre decide quais suplementos a campanha permite.</p></div>
+    {packs.length === 0 ? <p className={styles.muted}>Nenhum complemento opcional está disponível neste catálogo.</p> : <div className={styles.supplementList}>{packs.map((supplement) => {
+      const selected = selectedIds.includes(supplement.id);
+      const label = supplementLabel(supplement);
+      const description = String(supplement.id) === FAIRY_SUPPLEMENT_ID
+        ? "Inclui a raça Fada para esta ficha. Ao selecionar, ela aparece logo abaixo."
+        : String(supplement.id) === TASHA_SUPPLEMENT_ID
+          ? "Libera opções de classe independentes; nenhuma substituição acontece sem sua escolha."
+          : "Conteúdo complementar deste material, disponível só quando escolhido para a ficha.";
+      return <label key={supplement.id} className={styles.supplementCard}>
+        <input type="checkbox" checked={selected} onChange={(event) => {
+          const nextIds = event.currentTarget.checked ? [...selectedIds, supplement.id] : selectedIds.filter((id) => id !== supplement.id);
+          onChange({ kind: "supplements", selectedSupplementIds: nextIds, selections: selections.filter((selection) => nextIds.includes(selection.supplementId)) });
+        }} />
+        <span><strong>{label}</strong><span>{description}</span><small>Fonte · {supplementSource(supplement) || "referência do pacote"}</small></span>
+      </label>;
+    })}</div>}
+  </section>;
+}
+
+function SupplementalClassChoices({ draft, basePack, packs, onChange }: {
+  readonly draft: CharacterDraft;
+  readonly basePack: RulePack;
+  readonly packs: readonly OptionalRuleContentPack[];
+  readonly onChange: (decision: Extract<CreationDecision, { kind: "supplements" }>) => void;
+}) {
+  const classId = draft.partial.classes?.[0]?.classId;
+  if (!classId || packs.length === 0) return null;
+  const options = packs.flatMap((pack) => [
+    ...(pack.classOptions ?? []).filter((option) => option.classId === classId).map((option) => ({ pack, id: option.id, kind: option.kind, level: option.choiceLevel, featureIds: option.featureRefs, spellIds: option.spellRefs ?? [], sourceRefs: option.sourceRefs, replacesFeatureId: undefined as EntityId | undefined })),
+    ...(pack.classFeatureReplacements ?? []).filter((option) => option.classId === classId).map((option) => ({ pack, id: option.id, kind: "choice" as const, level: option.choiceLevel, featureIds: option.replacementFeatureIds, spellIds: [] as readonly EntityId[], sourceRefs: option.sourceRefs, replacesFeatureId: option.replacesFeatureId })),
+  ]);
+  if (options.length === 0) return null;
+  const selectedIds = draft.partial.selectedSupplementIds ?? [];
+  const selections = draft.partial.optionalRuleSelections ?? [];
+  const labelFeature = (optionPack: OptionalRuleContentPack, id: EntityId) => optionPack.features?.find((item) => item.id === id)?.name ?? basePack.features.get(id)?.name ?? "Característica de classe";
+  const labelSpell = (optionPack: OptionalRuleContentPack, id: EntityId) => optionPack.spells?.find((item) => item.id === id)?.name ?? basePack.spells.get(id)?.name ?? "Magia complementar";
+  const update = (item: (typeof options)[number], featureIds: readonly EntityId[], spellIds: readonly EntityId[]) => {
+    const next: OptionalRuleSelection = {
+      supplementId: item.pack.id,
+      optionId: item.id,
+      selectedFeatureRefs: featureIds.map((entityId) => ({ rulesetId: draft.rulesetRef.id, entityId })),
+      ...(spellIds.length ? { selectedSpellRefs: spellIds.map((entityId) => ({ rulesetId: draft.rulesetRef.id, entityId })) } : {}),
+    };
+    const rest = selections.filter((selection) => !(selection.supplementId === item.pack.id && selection.optionId === item.id));
+    const changed = featureIds.length || spellIds.length ? [...rest, next] : rest;
+    onChange({ kind: "supplements", selectedSupplementIds: selectedIds, selections: changed });
+  };
+
+  return <section className={styles.supplementOptions} aria-labelledby="supplement-class-options-title">
+    <h3 id="supplement-class-options-title">Opções complementares de classe</h3>
+    <p>Escolhas abaixo são individuais. Sem seleção, as opções do livro base continuam valendo.</p>
+    {options.map((item) => {
+      const current = selections.find((selection) => selection.supplementId === item.pack.id && selection.optionId === item.id);
+      const selectedFeatures = current?.selectedFeatureRefs.map((ref) => ref.entityId) ?? [];
+      const selectedSpells = current?.selectedSpellRefs?.map((ref) => ref.entityId) ?? [];
+      const featureNames = item.featureIds.map((id) => labelFeature(item.pack, id));
+      const oldFeatureName = item.replacesFeatureId ? basePack.features.get(item.replacesFeatureId)?.name ?? "a opção original" : undefined;
+      const groupId = `optional-class-${String(item.id)}`;
+      return <fieldset className={styles.supplementOption} key={`${item.pack.id}-${item.id}`}>
+        <legend>{supplementLabel(item.pack)} · nível {item.level}</legend>
+        {oldFeatureName ? <p>Esta escolha substitui {oldFeatureName} quando selecionada.</p> : null}
+        {item.kind === "choice" && item.featureIds.length ? <div className={styles.supplementChoice} role="radiogroup" aria-label={`${supplementLabel(item.pack)}: escolher característica`}>
+          <label><input type="radio" name={groupId} checked={selectedFeatures.length === 0} onChange={() => update(item, [], selectedSpells)} /><span>Manter a regra atual</span></label>
+          {item.featureIds.map((id) => <label key={id}><input type="radio" name={groupId} checked={selectedFeatures.includes(id)} onChange={() => update(item, [id], selectedSpells)} /><span>{labelFeature(item.pack, id)}</span></label>)}
+        </div> : item.featureIds.length ? <label className={styles.supplementToggle}><input type="checkbox" checked={selectedFeatures.length > 0} onChange={(event) => update(item, event.currentTarget.checked ? item.featureIds : [], selectedSpells)} /><span>Usar: {featureNames.join(", ")}</span></label> : null}
+        {item.spellIds.length ? <fieldset className={styles.supplementSpells}><legend>Magias adicionais</legend>{item.spellIds.map((id) => <label key={id}><input type="checkbox" checked={selectedSpells.includes(id)} onChange={(event) => update(item, selectedFeatures, event.currentTarget.checked ? [...selectedSpells, id] : selectedSpells.filter((currentId) => currentId !== id))} /><span>{labelSpell(item.pack, id)}</span></label>)}</fieldset> : null}
+        <small>{item.sourceRefs.map((source) => `${source.chapter}${source.printedPage === undefined ? "" : `, p. ${source.printedPage}`}`).join(" · ")}</small>
+      </fieldset>;
+    })}
+  </section>;
+}
+
 export function CharacterCreationWizard({ draft: initialDraft, catalog, service, spellInfo, onDraftChange, onDraftSaved, onCreated, onCancel }: CharacterCreationWizardProps) {
   const [draft, setDraft] = useState(initialDraft);
   const [step, setStep] = useState<PresentationStep>(initialDraft.partial.name?.trim() && initialDraft.completedSteps.length > 0 ? (initialDraft.currentStep === "review" ? "review" : initialDraft.currentStep) : "identity");
@@ -245,7 +341,11 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   const confirming = useRef(false);
   const draftSaveQueue = useRef<Promise<Awaited<ReturnType<CreationWizardService["saveDraft"]>>>>(Promise.resolve({ ok: true, value: initialDraft }));
 
-  const pack = asCreationCatalog(catalog).rulePack;
+  const creationCatalog = asCreationCatalog(catalog);
+  const pack = creationCatalog.rulePack;
+  const optionalPacks = creationCatalog.optionalRulePacks ?? [];
+  const selectedSupplementIds = draft.partial.selectedSupplementIds ?? [];
+  const selectedPacks = optionalPacks.filter((supplement) => selectedSupplementIds.includes(supplement.id));
   const report = useMemo(() => validateCharacterCreation(catalog, draft), [catalog, draft]);
   const summaryLabels = useMemo(() => ({
     skill: (id: string) => (SKILL_LABELS as Record<string, string>)[id] ?? formatRef(id),
@@ -377,12 +477,16 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
     onCreated?.(intended, saved.value);
   };
 
-  const race = draft.partial.raceRef ? pack.races.get(draft.partial.raceRef.entityId) : undefined;
+  const selectedOptionalRaces = selectedPacks.flatMap((supplement) => supplement.races ?? []);
+  const selectedOptionalSubraces = selectedPacks.flatMap((supplement) => supplement.subraces ?? []);
+  const race = draft.partial.raceRef ? pack.races.get(draft.partial.raceRef.entityId) ?? selectedOptionalRaces.find((entry) => entry.id === draft.partial.raceRef?.entityId) : undefined;
+  const raceOptions = [...pack.races.values(), ...selectedOptionalRaces];
+  const subraceById = (id: EntityId) => pack.subraces.get(id) ?? selectedOptionalSubraces.find((entry) => entry.id === id);
   const selectedChoices = new Map((draft.partial.choices ?? []).map((choice) => [choice.choiceId, choice]));
   const classDefinition = draft.partial.classes?.[0] ? pack.classes.get(draft.partial.classes[0].classId) : undefined;
   const background = draft.partial.backgroundRef ? pack.backgrounds.get(draft.partial.backgroundRef.entityId) : undefined;
   const classChoices = classDefinition ? [...classDefinition.initialEquipmentChoices, classDefinition.skillChoices, ...(classDefinition.progression[0]?.choicesGranted ?? [])] : [];
-  const raceChoices = [...(race?.choices ?? []), ...(draft.partial.subraceRef ? pack.subraces.get(draft.partial.subraceRef.entityId)?.choices ?? [] : [])];
+  const raceChoices = [...(race?.choices ?? []), ...(draft.partial.subraceRef ? subraceById(draft.partial.subraceRef.entityId)?.choices ?? [] : [])];
   const backgroundChoices = [...(background?.toolChoices ?? []), ...(background?.languageChoices ?? [])];
   const choices = [...raceChoices.map((choice) => ({ choice, owner: draft.partial.raceRef })), ...classChoices.map((choice) => ({ choice, owner: draft.partial.classes?.[0] ? refFor(draft, draft.partial.classes[0].classId) : undefined })), ...backgroundChoices.map((choice) => ({ choice, owner: draft.partial.backgroundRef }))].filter((entry): entry is { choice: ChoiceDefinition; owner: DefinitionRef } => entry.owner !== undefined);
   const equipmentChoices = choices.filter(({ choice }) => choice.kind === "equipment-pack");
@@ -398,14 +502,14 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
   const renderStep = (): ReactNode => {
     switch (step) {
       case "identity": return <SectionCard heading="Quem está chegando?" headingLevel={2}><div className={styles.formGrid}><Input label="Nome do personagem" hint="Opcional · sem nome, vira “Aventureiro sem nome”." value={draft.partial.name ?? ""} error={stepIssues.find((issue) => issue.field === "name")?.message} onChange={(event) => commitDraft({ kind: "identity", name: event.currentTarget.value })} /><Input label="Nome do jogador" value={draft.partial.playerName ?? ""} onChange={(event) => commitDraft({ kind: "identity", name: draft.partial.name ?? "", playerName: event.currentTarget.value })} /></div></SectionCard>;
-      case "race": return <SectionCard heading="Escolha uma raça" headingLevel={2}><Select label="Raça" required value={String(draft.partial.raceRef?.entityId ?? "")} error={stepIssues.find((issue) => /raceRef/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "race", raceRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma raça</option>{Array.from(pack.races.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select>{race?.subraceIds.length ? <Select label="Sub-raça" value={String(draft.partial.subraceRef?.entityId ?? "")} onChange={(event) => commitDraft({ kind: "race", raceRef: draft.partial.raceRef!, subraceRef: event.currentTarget.value ? refFor(draft, event.currentTarget.value) : undefined })}><option value="">Nenhuma</option>{race.subraceIds.map((id) => { const entry = pack.subraces.get(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{raceChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.raceRef!} catalog={catalog} value={selectedChoices.get(choice.id)} spellInfo={spellInfo} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
-      case "class": return <SectionCard heading="Escolha uma classe" headingLevel={2}><Select label="Classe" required value={String(draft.partial.classes?.[0]?.classId ?? "")} error={stepIssues.find((issue) => /class|classes/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma classe</option>{Array.from(pack.classes.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select><div className={styles.classGrid} aria-label="Artes das classes">{Array.from(pack.classes.values()).map((entry) => { const artwork = classArtwork(String(entry.id)); const selectedClass = String(draft.partial.classes?.[0]?.classId ?? "") === String(entry.id); return <button type="button" className={[styles.classTile, selectedClass ? styles.classTileSelected : ""].filter(Boolean).join(" ")} aria-pressed={selectedClass} key={entry.id} onClick={() => commitDraft({ kind: "class", classRef: refFor(draft, String(entry.id)) })}><img src={artwork.src} alt="" /><span>{displayName(entry)}</span></button>; })}</div>{classDefinition && classDefinition.subclassSelectionLevel <= 1 ? <Select label="Subclasse" hint={`${displayName(classDefinition)} escolhe a subclasse no 1º nível. Opcional: dá para escolher depois, ao subir de nível.`} value={String(draft.partial.classes?.[0]?.subclassId ?? "")} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, String(classDefinition.id)), ...(event.currentTarget.value ? { subclassRef: refFor(draft, event.currentTarget.value) } : {}) })}><option value="">Escolher depois</option>{classDefinition.subclassIds.map((id) => { const entry = pack.subclasses.get(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{classDefinition?.skillChoices ? <ChoiceEditor draft={draft} choice={classDefinition.skillChoices} owner={refFor(draft, classDefinition.id)} catalog={catalog} value={selectedChoices.get(classDefinition.skillChoices.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} /> : null}{classOptionChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={refFor(draft, String(classDefinition?.id ?? ""))} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
+      case "race": return <SectionCard heading="Escolha uma raça" headingLevel={2}><OptionalSupplementPicker packs={optionalPacks} selectedIds={selectedSupplementIds} selections={draft.partial.optionalRuleSelections ?? []} onChange={commitDraft} /><Select label="Raça" required value={String(draft.partial.raceRef?.entityId ?? "")} error={stepIssues.find((issue) => /raceRef/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "race", raceRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma raça</option>{raceOptions.map((entry) => { const sourcePack = selectedPacks.find((supplement) => supplement.races?.some((optionalRace) => optionalRace.id === entry.id)); return <option key={entry.id} value={entry.id}>{sourcePack ? `${supplementLabel(sourcePack)} · ${displayName(entry)}` : displayName(entry)}</option>; })}</Select>{race?.subraceIds.length ? <Select label="Sub-raça" value={String(draft.partial.subraceRef?.entityId ?? "")} onChange={(event) => commitDraft({ kind: "race", raceRef: draft.partial.raceRef!, subraceRef: event.currentTarget.value ? refFor(draft, event.currentTarget.value) : undefined })}><option value="">Nenhuma</option>{race.subraceIds.map((id) => { const entry = subraceById(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{raceChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.raceRef!} catalog={catalog} value={selectedChoices.get(choice.id)} spellInfo={spellInfo} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
+      case "class": return <SectionCard heading="Escolha uma classe" headingLevel={2}><Select label="Classe" required value={String(draft.partial.classes?.[0]?.classId ?? "")} error={stepIssues.find((issue) => /class|classes/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma classe</option>{Array.from(pack.classes.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select><div className={styles.classGrid} aria-label="Artes das classes">{Array.from(pack.classes.values()).map((entry) => { const artwork = classArtwork(String(entry.id)); const selectedClass = String(draft.partial.classes?.[0]?.classId ?? "") === String(entry.id); return <button type="button" className={[styles.classTile, selectedClass ? styles.classTileSelected : ""].filter(Boolean).join(" ")} aria-pressed={selectedClass} key={entry.id} onClick={() => commitDraft({ kind: "class", classRef: refFor(draft, String(entry.id)) })}><img src={artwork.src} alt="" /><span>{displayName(entry)}</span></button>; })}</div>{classDefinition && classDefinition.subclassSelectionLevel <= 1 ? <Select label="Subclasse" hint={`${displayName(classDefinition)} escolhe a subclasse no 1º nível. Opcional: dá para escolher depois, ao subir de nível.`} value={String(draft.partial.classes?.[0]?.subclassId ?? "")} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, String(classDefinition.id)), ...(event.currentTarget.value ? { subclassRef: refFor(draft, event.currentTarget.value) } : {}) })}><option value="">Escolher depois</option>{classDefinition.subclassIds.map((id) => { const entry = pack.subclasses.get(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{classDefinition?.skillChoices ? <ChoiceEditor draft={draft} choice={classDefinition.skillChoices} owner={refFor(draft, classDefinition.id)} catalog={catalog} value={selectedChoices.get(classDefinition.skillChoices.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} /> : null}{classOptionChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={refFor(draft, String(classDefinition?.id ?? ""))} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}<SupplementalClassChoices draft={draft} basePack={pack} packs={selectedPacks} onChange={commitDraft} /></SectionCard>;
       case "background": return <SectionCard heading="Escolha um antecedente" headingLevel={2}><BackgroundPicker overviews={backgroundOverviews} value={draft.partial.backgroundRef ? String(draft.partial.backgroundRef.entityId) : undefined} onChange={(id) => commitDraft({ kind: "background", ...(id ? { backgroundRef: refFor(draft, id) } : {}) })} />{backgroundChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.backgroundRef!} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
       case "ability-scores": return <AbilityScoresStep draft={draft} pack={pack} classDefinition={classDefinition} issues={stepIssues} onChange={(method) => commitDraft({ kind: "ability-scores", method })} />;
       case "equipment": return <SectionCard heading="Escolha o equipamento" headingLevel={2}>{equipmentChoices.length ? equipmentChoices.map(({ choice, owner }) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={owner} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "equipment", selections: [selection] })} />) : <p className={styles.muted}>O catálogo atual não publicou escolhas de equipamento para esta combinação.</p>}</SectionCard>;
       case "spells": return <SectionCard heading="Escolha as magias iniciais" headingLevel={2}>{spellChoices.length ? spellChoices.map(({ choice, owner }) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={owner} catalog={catalog} value={selectedChoices.get(choice.id)} spellInfo={spellInfo} onChange={(selection) => commitDraft({ kind: "spells", selections: [selection] })} />) : <p className={styles.muted}>Esta combinação não possui escolhas de magia publicadas no catálogo atual.</p>}</SectionCard>;
       case "details": return <SectionCard heading="Conte a história" headingLevel={2}><div className={styles.formGrid}>{(["appearance", "personalityTraits", "ideals", "bonds", "flaws", "history"] as const).map((field) => <label className={styles.textareaField} key={field}><span>{DETAIL_LABELS[field]}</span><textarea value={field === "appearance" || field === "history" ? draft.partial[field] ?? "" : (draft.partial[field] ?? []).join("\n")} onChange={(event) => { const value = field === "appearance" || field === "history" ? event.currentTarget.value : event.currentTarget.value.split("\n").filter(Boolean); commitDraft({ kind: "details", details: { [field]: value } as never }); }} /></label>)}</div></SectionCard>;
-      case "review": return <SectionCard heading="Revise antes de confirmar" headingLevel={2}><div className={styles.summary}><p><strong>Nome:</strong> {draft.partial.name?.trim() || "Aventureiro sem nome"}</p><p><strong>Raça:</strong> {race?.name ?? "Pendente"}</p><p><strong>Classe:</strong> {classDefinition?.name ?? "Pendente"}</p><p><strong>Antecedente:</strong> {background?.name ?? "Nenhum"}</p><p><strong>Atributos:</strong> {ABILITIES.map((ability) => `${ABILITY_LABELS[ability]} ${draft.partial.abilityGeneration?.baseScores[ability] || (draft.partial.abilityGeneration?.method === "point-buy" ? 8 : 10)}`).join(" · ")}</p><p><strong>Escolhas resolvidas:</strong> {draft.partial.choices?.length ?? 0}</p></div>{summary.conflicts.length ? <div className={styles.issues} role="alert"><strong>Conflitos entre fontes</strong><ul>{summary.conflicts.map((entry) => <li key={entry.id}>{entry.message} <Button variant="ghost" onClick={() => setStep(entry.step)}>Corrigir</Button></li>)}</ul></div> : null}{(reviewIssues.length || !report.valid) ? <div className={styles.issues} role="alert"><strong>Pendências</strong><ul>{(reviewIssues.length ? reviewIssues : report.issues).map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message} <small>({issue.field})</small></li>)}</ul></div> : <InlineStatus tone="success">Tudo pronto para criar o personagem.</InlineStatus>}</SectionCard>;
+      case "review": return <SectionCard heading="Revise antes de confirmar" headingLevel={2}><div className={styles.summary}><p><strong>Nome:</strong> {draft.partial.name?.trim() || "Aventureiro sem nome"}</p><p><strong>Raça:</strong> {race?.name ?? "Pendente"}</p><p><strong>Classe:</strong> {classDefinition?.name ?? "Pendente"}</p><p><strong>Antecedente:</strong> {background?.name ?? "Nenhum"}</p><p><strong>Atributos:</strong> {ABILITIES.map((ability) => `${ABILITY_LABELS[ability]} ${draft.partial.abilityGeneration?.baseScores[ability] || (draft.partial.abilityGeneration?.method === "point-buy" ? 8 : 10)}`).join(" · ")}</p><p><strong>Escolhas resolvidas:</strong> {draft.partial.choices?.length ?? 0}</p>{selectedPacks.length ? <p><strong>Complementos:</strong> {selectedPacks.map(supplementLabel).join(", ")}</p> : null}{(draft.partial.optionalRuleSelections?.length ?? 0) > 0 ? <p><strong>Opções de classe escolhidas:</strong> {draft.partial.optionalRuleSelections?.length}</p> : null}</div>{summary.conflicts.length ? <div className={styles.issues} role="alert"><strong>Conflitos entre fontes</strong><ul>{summary.conflicts.map((entry) => <li key={entry.id}>{entry.message} <Button variant="ghost" onClick={() => setStep(entry.step)}>Corrigir</Button></li>)}</ul></div> : null}{(reviewIssues.length || !report.valid) ? <div className={styles.issues} role="alert"><strong>Pendências</strong><ul>{(reviewIssues.length ? reviewIssues : report.issues).map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message} <small>({issue.field})</small></li>)}</ul></div> : <InlineStatus tone="success">Tudo pronto para criar o personagem.</InlineStatus>}</SectionCard>;
     }
   };
 

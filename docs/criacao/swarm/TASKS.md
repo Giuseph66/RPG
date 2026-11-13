@@ -914,3 +914,41 @@ MAP-001/CLOUD-001 no escopo da correção base64 aprovados. QA jogador confirmou
 ## C19 — investigação após captura do usuário
 
 Reserva read-only de sighting producer/fila/mapping/Rules/worker para diagnosticar_sighting, Luna xhigh. Nenhuma edição de produto/test/build/deploy até handback com mecanismo plausível comprovado. Raiz inspeciona Chrome da campanha afetada e consolida Testes. Não limpar dados/outbox nem trocar conta. Erro permission-denied está sendo apresentado como Conflito remoto; separar sintoma da causa.
+# Complementos e criaturas — 11/11/2026
+
+Reserva vigente sobre a revisão `09ec599`, workspace compartilhado. Usuário autorizou implementar e validar sem novas confirmações; produto exclusivamente por três workers Luna `xhigh`, profundidade 1. Modelo Luna exposto nesta sessão: `gpt-6-luna`; Claude permanece indisponível conforme override. Coordenador mantém somente integração documental. Alterações prévias em `CharacterCreationWizard.tsx` e `mapping.ts` devem ser preservadas.
+
+| ID | Estado | Owner | Entrada e dependência | Saída e aceite |
+| --- | --- | --- | --- | --- |
+| SUP-01 | REVIEW | fontes_complementos | Cinco anexos locais; contratos de SUP-02 antes do catálogo | Extração integral rastreável, Fada, opções Patrulheiro Tasha, criaturas/Ariel com fonte e testes focais |
+| SUP-02 | IN_PROGRESS | regras_retomada | Fonte local vigente e extrações SUP-01 | Contratos aditivos, bestas vistas, sugestões aprováveis e Forma Selvagem persistente; PV/retorno/excedente íntegros |
+| SUP-03 | IN_PROGRESS | interface_retomada | APIs SUP-02 e conteúdo SUP-01 antes da integração | Wizard, catálogo/blocos, mestre/jogador e ficha transformada; testes e prova de interface |
+| SUP-QA | WAITING | interface_retomada (Luna xhigh) | SUP-01/02/02P/03 em REVIEW; aguardar liberação da coordenação | Uma rodada global de testes/typecheck/build, logs, diff check e smoke curto de produção; revisão do coordenador |
+
+| SUP-QA-FORMA | IN_PROGRESS | regras_retomada (Luna xhigh) | API SUP-02 e pack local; produto com SUP-02 | Regressões novas de entrada/saída, PV/overflow/temp, derivados/equipamento e falhas; bugs retornam ao owner |
+
+## Recuperação SUP — 12/11/2026
+
+Inventário autoritativo confirmou somente a raiz ativa; handles anteriores ausentes. Três workers Luna xhigh novos substituem reservas antigas, sem sobreposição ativa. Alterações staged preservadas. SUP-02 foi dividido para executar regras e persistência em paralelo.
+
+| ID | Estado | Owner | Entrada e dependência | Saída e aceite |
+| --- | --- | --- | --- | --- |
+| SUP-02P | REVIEW | persistencia_retomada | Contratos de criaturas existentes; coordenação com SUP-02 | Migração v5→v6, backup/import/cleanup, proposta/review/outbox atômicos; focais88 e emulador3; aguarda gates globais |
+
+SUP-QA global aguarda regras, persistência e UI estabilizadas; ainda não há gate final verde.
+
+Revisão independente curta de SUP-02P: após handback de produto, persistencia_retomada lê somente os hunks de descanso/pools e CA da forma já testados, reportando defeitos a B; sem escrita/testes/gates extras. Não revisa Tireless/velocidade ainda em produção nem amplia escopo.
+
+Revisão SUP de fidelidade do catálogo: persistencia_retomada recebe auditoria somente de leitura dos95 blocos de `src/data/creatures/catalog.ts` contra as extrações locais do Apêndice A. Conferir valores/ações e declarar cobertura efetiva, sem normalizar a fonte nem usar regras externas. Não há transferência de escrita de produto; divergências concretas voltam à coordenação/owner. Regras e UI continuam em integração; persistência permanece REVIEW e gates globais aguardam liberação.
+
+| ID | Estado | Owner | Entrada e dependência | Saída e aceite |
+| --- | --- | --- | --- | --- |
+| SUP-CAT | IN_PROGRESS | persistencia_retomada (Luna xhigh) | Auditoria95/95; transferência exclusiva de catalog.ts/teste | Corrigir5 deslocamentos e segmentações de ações/traços/variantes comprovadas, preserving tipagem existente; relatório completo e focais verdes antes da janela de browser/gate global |
+
+SUP-02P continua REVIEW; SUP-CAT é correção de fonte independente, autorizada somente após divergências concretas. A tarefa read-only anterior foi encerrada com achados, sem aceitar o catálogo por contagem/números básicos apenas.
+
+## Validação integrada — 13/11/2026
+
+SUP-02, SUP-QA-FORMA e SUP-CAT passam a REVIEW, fonte congelada após focais e handoffs respectivos. SUP-02P permanece REVIEW. UI implementada e focais43/2 revisados; SUP-03 permanece IN_PROGRESS exclusivamente pelo QA de runtime pendente.
+
+SUP-QA passa a IN_PROGRESS com `persistencia_retomada` (Luna xhigh): testes globais, typecheck, build e ambos diff checks; relatório `Testes/complementos-qa-geral.md`. `interface_retomada` conserva navegador/capturas e smoke do artefato após build verde. Execuções podem ocorrer em paralelo sobre a fonte congelada; falhas retornam ao owner, e mudanças posteriores invalidam as provas afetadas. Nenhum checkpoint final foi aceito ainda.

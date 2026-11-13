@@ -71,6 +71,8 @@ export interface SubclassSpellGrant {
   readonly level: number;
   readonly spellRef: DefinitionRef;
   readonly alwaysPrepared: boolean;
+  /** Conhecida sem ocupar a quantidade de magias da classe (ex.: subclasses de Guardião). */
+  readonly knownWithoutCount?: true;
 }
 
 export interface SubclassDefinition extends DefinitionBase {

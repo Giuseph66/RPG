@@ -13,12 +13,15 @@ import {
   type CreatureGuessField,
   type CreatureGuess,
   type CreatureKind,
+  type CreatureTextField,
   type CreatureSighting,
 } from "@domain/campaign/creatures";
 
 import { CreatureKindIcon, CreatureToolbar, countByKind, kindLabel, matchesQuery } from "./shared";
 import type { CreatureFilter, GuessDraft, PlayerCreatureBoardProps } from "./types";
 import styles from "./creatures.module.css";
+import { StatBlock } from "@components/creatures/StatBlock";
+import { CreatureProposalBoard } from "./CreatureProposalBoard";
 
 function GuessForm({ sighting, guess, onSave }: { readonly sighting: CreatureSighting; readonly guess?: CreatureGuess; readonly onSave: PlayerCreatureBoardProps["onSaveGuess"] }) {
   const [draft, setDraft] = useState<GuessDraft>({ kind: guess?.kind, name: guess?.name ?? "", note: guess?.note ?? "", fields: guess?.fields ?? {} });
@@ -75,7 +78,7 @@ const GUESS_PLACEHOLDERS: Readonly<Record<CreatureGuessField, string>> = {
   abilities: "Ataques, magias, resistências que notou",
 };
 
-export function PlayerCreatureBoard({ sightings, guesses = [], loading, error, onSaveGuess }: PlayerCreatureBoardProps) {
+export function PlayerCreatureBoard({ sightings, guesses = [], loading, error, onSaveGuess, proposals = [], proposalLoading, proposalError, onSubmitProposal, onSuggestStatBlock }: PlayerCreatureBoardProps) {
   const [filter, setFilter] = useState<CreatureFilter>("all");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string>();
@@ -84,12 +87,13 @@ export function PlayerCreatureBoard({ sightings, guesses = [], loading, error, o
   const counts = useMemo(() => countByKind(views, (item) => item.view.kind as CreatureKind), [views]);
   const visible = views.filter((item) => (filter === "all" || item.view.kind === filter) && matchesQuery(query, item.view.title, item.sighting.revealed.race, item.sighting.revealed.appearance));
   const open = views.find((item) => item.sighting.creatureId === openId);
-  const revealedFields = open ? CREATURE_FIELDS.filter((field) => field !== "name" && field !== "kind" && open.sighting.revealed[field]) : [];
+  const revealedFields: readonly CreatureTextField[] = open ? CREATURE_FIELDS.filter((field): field is CreatureTextField => field !== "name" && field !== "kind" && field !== "statBlock" && open.sighting.revealed[field] !== undefined) : [];
   const openGuess = open ? guessBy.get(open.sighting.creatureId) : undefined;
   const comparisons = open ? compareGuess(open.sighting, openGuess) : [];
   const hits = comparisons.filter((item) => item.verdict === "match").length;
 
-  return <section className={styles.board} aria-labelledby="player-creatures-title">
+  return <>
+  <section className={styles.board} aria-labelledby="player-creatures-title">
     <header className={styles.boardHeading}>
       <div><p className={styles.eyebrow}>Jornada · Elenco</p><h2 id="player-creatures-title">Quem você encontrou</h2><p>Só aparece aqui o que o mestre revelou para você.</p></div>
     </header>
@@ -103,15 +107,16 @@ export function PlayerCreatureBoard({ sightings, guesses = [], loading, error, o
           <span className={styles.cardTop}><span className={styles.cardIcon}><CreatureKindIcon kind={view.kind} /></span><span className={styles.cardKind}>{kindLabel(view.kind)}{view.kindIsGuess ? " ?" : ""}</span></span>
           <strong className={styles.cardName}>{view.title}{view.titleIsGuess ? <small> (seu palpite)</small> : null}</strong>
           <span className={styles.cardText}>{sighting.revealed.appearance || sighting.revealed.description || (guess?.fields?.appearance ? `Você imagina: ${guess.fields.appearance}` : "Você ainda sabe muito pouco.")}</span>
-          <span className={styles.cardMeta}><span data-active="true"><Eye size={14} aria-hidden="true" />{Object.keys(sighting.revealed).length + (sighting.kind ? 1 : 0)} pistas</span>{guessCount(guess) > 0 ? <span><ChatCircleDots size={14} aria-hidden="true" />{guessCount(guess)} {guessCount(guess) === 1 ? "suposição" : "suposições"}</span> : null}</span>
+          <span className={styles.cardMeta}><span data-active="true"><Eye size={14} aria-hidden="true" />{Object.keys(sighting.revealed).length + (sighting.kind ? 1 : 0)} pistas</span>{sighting.revealed.statBlock ? <span>Bloco completo</span> : null}{guessCount(guess) > 0 ? <span><ChatCircleDots size={14} aria-hidden="true" />{guessCount(guess)} {guessCount(guess) === 1 ? "suposição" : "suposições"}</span> : null}</span>
         </button></li>;
       })}</ul>}
 
     <AppModal open={open !== undefined} title={open?.view.title ?? "Criatura"} onClose={() => setOpenId(undefined)} className={styles.dialog}>
       {open ? <div className={styles.detail}>
         <div className={styles.detailKind} data-kind={open.view.kind}><CreatureKindIcon kind={open.view.kind} size={18} />{kindLabel(open.view.kind)}{open.view.kindIsGuess ? <small> · seu palpite</small> : open.sighting.kind === undefined ? <small> · categoria desconhecida</small> : null}</div>
-        {revealedFields.length === 0 ? <p className={styles.hint}>O mestre ainda não revelou detalhes. Você só sabe que algo apareceu.</p>
-          : <ul className={styles.fieldList}>{revealedFields.map((field) => <li key={field} data-revealed="all"><div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS[field]}</span><p>{open.sighting.revealed[field as Exclude<typeof field, "kind">]}</p></div></li>)}</ul>}
+        {revealedFields.length === 0 && !open.sighting.revealed.statBlock ? <p className={styles.hint}>O mestre ainda não revelou detalhes. Você só sabe que algo apareceu.</p>
+          : revealedFields.length ? <ul className={styles.fieldList}>{revealedFields.map((field) => <li key={field} data-revealed="all"><div><span className={styles.fieldLabel}>{CREATURE_FIELD_LABELS[field]}</span><p>{open.sighting.revealed[field]}</p></div></li>)}</ul> : null}
+        {open.sighting.revealed.statBlock ? <StatBlock creature={open.sighting.revealed.statBlock} /> : null}
         {comparisons.length > 0 ? <section className={styles.compare} aria-labelledby="creature-compare-title">
           <h3 id="creature-compare-title"><Scales size={18} aria-hidden="true" /> Seu palpite <small>{hits} de {comparisons.length} {hits === 1 ? "certo" : "certos"}</small></h3>
           <ul>{comparisons.map((item) => <li key={item.field} data-verdict={item.verdict}>
@@ -126,5 +131,7 @@ export function PlayerCreatureBoard({ sightings, guesses = [], loading, error, o
         <GuessForm key={open.sighting.id} sighting={open.sighting} guess={guessBy.get(open.sighting.creatureId)} onSave={onSaveGuess} />
       </div> : null}
     </AppModal>
-  </section>;
+  </section>
+  {onSubmitProposal ? <CreatureProposalBoard mode="player" proposals={proposals} loading={proposalLoading} error={proposalError} onSubmit={onSubmitProposal} onSuggestStatBlock={onSuggestStatBlock} /> : null}
+  </>;
 }

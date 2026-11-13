@@ -9,6 +9,7 @@
 
 import { type AccountId, type IsoTimestamp, type Uuid } from "@domain/contracts/ids";
 import { type NpcRecord } from "@domain/contracts/campaign";
+import { isBeastDefinition, isCreatureStatBlock, type CreatureStatBlock } from "@domain/creatures";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
 import { asRevision, type Revision } from "@domain/contracts/versioning";
 
@@ -18,10 +19,14 @@ export type CreatureKind = "npc" | "enemy" | "animal" | "unknown";
 export const CREATURE_KINDS: readonly CreatureKind[] = ["npc", "enemy", "animal", "unknown"];
 
 /** Campos que o mestre pode revelar. As notas do mestre ficam fora de propósito. */
-export type CreatureField = "name" | "kind" | "appearance" | "race" | "description" | "hitPoints" | "armorClass" | "abilities";
-export const CREATURE_FIELDS: readonly CreatureField[] = ["name", "kind", "appearance", "race", "description", "hitPoints", "armorClass", "abilities"];
+export type CreatureField = "name" | "kind" | "appearance" | "race" | "description" | "hitPoints" | "armorClass" | "abilities" | "statBlock";
+export const CREATURE_FIELDS: readonly CreatureField[] = ["name", "kind", "appearance", "race", "description", "hitPoints", "armorClass", "abilities", "statBlock"];
 
-export type CreatureTextField = Exclude<CreatureField, "kind">;
+export type CreatureTextField = Exclude<CreatureField, "kind" | "statBlock">;
+
+export interface CreatureSightingRevealed extends Partial<Record<CreatureTextField, string>> {
+  readonly statBlock?: CreatureStatBlock;
+}
 
 export interface CreatureReveal {
   readonly accountId: AccountId;
@@ -43,6 +48,8 @@ export interface CreatureRecord {
   readonly abilities: string;
   /** Somente do mestre; nunca entra em uma projeção. */
   readonly notes: string;
+  /** Bloco completo fica privado ao mestre e só é projetado com reveal explícito. */
+  readonly statBlock?: CreatureStatBlock;
   readonly characterRef?: Uuid;
   readonly reveals: readonly CreatureReveal[];
   readonly createdAt: IsoTimestamp;
@@ -58,7 +65,7 @@ export interface CreatureSighting {
   readonly schemaVersion: typeof CREATURE_SCHEMA_VERSION;
   readonly revision: Revision;
   readonly kind?: CreatureKind;
-  readonly revealed: Readonly<Partial<Record<CreatureTextField, string>>>;
+  readonly revealed: Readonly<CreatureSightingRevealed>;
   readonly createdAt: IsoTimestamp;
   readonly updatedAt: IsoTimestamp;
 }
@@ -85,6 +92,28 @@ export interface CreatureGuess {
   readonly updatedAt: IsoTimestamp;
 }
 
+export type CreatureProposalStatus = "pending" | "approved" | "rejected";
+
+/** Sugestão de criatura editável submetida ao mestre; status pendente nunca equivale a avistamento. */
+export interface CreatureProposal {
+  readonly id: string;
+  readonly campaignId: Uuid;
+  readonly schemaVersion: typeof CREATURE_SCHEMA_VERSION;
+  readonly revision: Revision;
+  readonly proposedBy: AccountId;
+  readonly status: CreatureProposalStatus;
+  readonly statBlock: CreatureStatBlock;
+  /** Bloco final definido pelo mestre; o rascunho submetido permanece preservado em `statBlock`. */
+  readonly reviewedStatBlock?: CreatureStatBlock;
+  readonly suggestionReasons: readonly string[];
+  readonly reviewNote?: string;
+  readonly reviewedBy?: AccountId;
+  readonly reviewedAt?: IsoTimestamp;
+  readonly creatureId?: Uuid;
+  readonly createdAt: IsoTimestamp;
+  readonly updatedAt: IsoTimestamp;
+}
+
 export const CREATURE_KIND_LABELS: Readonly<Record<CreatureKind, string>> = {
   npc: "NPC",
   enemy: "Ameaça",
@@ -101,6 +130,7 @@ export const CREATURE_FIELD_LABELS: Readonly<Record<CreatureField, string>> = {
   hitPoints: "Pontos de vida",
   armorClass: "Classe de armadura",
   abilities: "Habilidades e magias",
+  statBlock: "Bloco de estatísticas",
 };
 
 const TEXT_LIMITS: Readonly<Record<CreatureTextField | "notes", number>> = {
@@ -127,16 +157,31 @@ export function isCreatureField(value: unknown): value is CreatureField {
   return typeof value === "string" && (CREATURE_FIELDS as readonly string[]).includes(value);
 }
 
-export type CreatureContent = Pick<CreatureRecord, "kind" | "name" | "appearance" | "race" | "description" | "hitPoints" | "armorClass" | "abilities" | "notes" | "characterRef">;
+export type CreatureContent = Pick<CreatureRecord, "kind" | "name" | "appearance" | "race" | "description" | "hitPoints" | "armorClass" | "abilities" | "notes" | "characterRef" | "statBlock">;
 
-export function validateCreatureContent(content: CreatureContent): Result<CreatureContent, AppError> {
-  if (!isCreatureKind(content.kind)) return err(appError.validation("kind", "Categoria de criatura inválida."));
-  const name = content.name.trim();
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTextArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+export function validateCreatureContent(input: CreatureContent): Result<CreatureContent, AppError> {
+  if (!record(input)) return err(appError.validation("creature", "Registro de criatura inválido."));
+  if (!isCreatureKind(input.kind)) return err(appError.validation("kind", "Categoria de criatura inválida."));
+  const textFields = ["name", "appearance", "race", "description", "hitPoints", "armorClass", "abilities", "notes"] as const;
+  for (const field of textFields) {
+    if (typeof input[field] !== "string") return err(appError.validation(field, `${CREATURE_FIELD_LABELS[field as CreatureTextField] ?? "Notas do mestre"} deve ser texto.`));
+  }
+  if (input.characterRef !== undefined && typeof input.characterRef !== "string") return err(appError.validation("characterRef", "Referência de personagem inválida."));
+  const name = input.name.trim();
   if (!name) return err(appError.validation("name", "Informe um nome para a criatura."));
   for (const [field, limit] of Object.entries(TEXT_LIMITS) as [keyof typeof TEXT_LIMITS, number][]) {
-    if (content[field].length > limit) return err(appError.validation(field, `${field === "notes" ? "Notas do mestre" : CREATURE_FIELD_LABELS[field]} aceita até ${limit} caracteres.`));
+    if (input[field].length > limit) return err(appError.validation(field, `${field === "notes" ? "Notas do mestre" : CREATURE_FIELD_LABELS[field]} aceita até ${limit} caracteres.`));
   }
-  return ok({ ...content, name });
+  if (input.statBlock !== undefined && !isCreatureStatBlock(input.statBlock)) return err(appError.validation("statBlock", "O bloco de estatísticas da criatura está incompleto ou contém valores inválidos."));
+  return ok({ ...input, name });
 }
 
 /** Normaliza revelações: uma entrada por conta, campos únicos e na ordem canônica. */
@@ -176,9 +221,13 @@ export function setRevealField(creature: CreatureRecord, accountIds: readonly Ac
 
 /** Projeção pura de um registro para um jogador. Campos vazios não são enviados. */
 export function projectSighting(creature: CreatureRecord, reveal: CreatureReveal, times: { readonly createdAt: IsoTimestamp; readonly updatedAt: IsoTimestamp }, revision: Revision): CreatureSighting {
-  const revealed: Partial<Record<CreatureTextField, string>> = {};
+  const revealed: { -readonly [key in keyof CreatureSightingRevealed]?: CreatureSightingRevealed[key] } = {};
   for (const field of reveal.fields) {
     if (field === "kind") continue;
+    if (field === "statBlock") {
+      if (creature.statBlock) revealed.statBlock = creature.statBlock;
+      continue;
+    }
     const value = creature[field].trim();
     if (value) revealed[field] = value;
   }
@@ -199,8 +248,14 @@ export function projectSighting(creature: CreatureRecord, reveal: CreatureReveal
 /** Duas projeções mostram a mesma coisa ao jogador? Evita reescrever documentos sem mudança. */
 export function sameSightingContent(left: Pick<CreatureSighting, "kind" | "revealed">, right: Pick<CreatureSighting, "kind" | "revealed">): boolean {
   if (left.kind !== right.kind) return false;
-  const keys = new Set([...Object.keys(left.revealed), ...Object.keys(right.revealed)]) as Set<CreatureTextField>;
-  for (const key of keys) if (left.revealed[key] !== right.revealed[key]) return false;
+  const keys = new Set([...Object.keys(left.revealed), ...Object.keys(right.revealed)]) as Set<CreatureTextField | "statBlock">;
+  for (const key of keys) {
+    const leftValue = left.revealed[key];
+    const rightValue = right.revealed[key];
+    if (key === "statBlock") {
+      if (JSON.stringify(left.revealed.statBlock) !== JSON.stringify(right.revealed.statBlock)) return false;
+    } else if (leftValue !== rightValue) return false;
+  }
   return true;
 }
 
@@ -275,7 +330,7 @@ export function isCreatureRecord(value: unknown): value is CreatureRecord {
   const texts = ["name", "appearance", "race", "description", "hitPoints", "armorClass", "abilities", "notes"];
   return typeof item.id === "string" && typeof item.campaignId === "string" && item.schemaVersion === CREATURE_SCHEMA_VERSION &&
     Number.isInteger(item.revision) && Number(item.revision) >= 0 && isCreatureKind(item.kind) &&
-    texts.every((key) => typeof item[key] === "string") && Array.isArray(item.reveals) &&
+    texts.every((key) => typeof item[key] === "string") && (item.statBlock === undefined || isCreatureStatBlock(item.statBlock)) && Array.isArray(item.reveals) &&
     item.reveals.every((reveal) => typeof reveal === "object" && reveal !== null && typeof (reveal as CreatureReveal).accountId === "string" && Array.isArray((reveal as CreatureReveal).fields)) &&
     typeof item.createdAt === "string" && typeof item.updatedAt === "string";
 }
@@ -286,7 +341,38 @@ export function isCreatureSighting(value: unknown): value is CreatureSighting {
   return typeof item.id === "string" && typeof item.campaignId === "string" && typeof item.creatureId === "string" && typeof item.accountId === "string" &&
     item.schemaVersion === CREATURE_SCHEMA_VERSION && Number.isInteger(item.revision) && Number(item.revision) >= 0 &&
     (item.kind === undefined || isCreatureKind(item.kind)) && typeof item.revealed === "object" && item.revealed !== null && !Array.isArray(item.revealed) &&
+    Object.entries(item.revealed as Record<string, unknown>).every(([field, content]) =>
+      field === "statBlock" ? isCreatureStatBlock(content) : isCreatureTextField(field) && typeof content === "string") &&
     typeof item.createdAt === "string" && typeof item.updatedAt === "string";
+}
+
+function isCreatureTextField(value: string): value is CreatureTextField {
+  return (CREATURE_FIELDS as readonly string[]).includes(value) && value !== "kind" && value !== "statBlock";
+}
+
+export function isCreatureProposal(value: unknown): value is CreatureProposal {
+  if (!record(value)) return false;
+  const status: readonly CreatureProposalStatus[] = ["pending", "approved", "rejected"];
+  if (!(typeof value.id === "string" && value.id.startsWith("proposal__") && typeof value.campaignId === "string" &&
+    value.schemaVersion === CREATURE_SCHEMA_VERSION && Number.isInteger(value.revision) && Number(value.revision) >= 0 &&
+    typeof value.proposedBy === "string" && value.proposedBy.length > 0 && status.includes(value.status as CreatureProposalStatus) &&
+    isCreatureStatBlock(value.statBlock) && value.statBlock.creatureType === "beast" && value.statBlock.isSwarm !== true &&
+    value.statBlock.scaling === undefined && value.statBlock.hitPoints.average > 0 &&
+    isTextArray(value.suggestionReasons) && value.suggestionReasons.length >= 1 && value.suggestionReasons.length <= 8 &&
+    value.suggestionReasons.every((reason) => reason.trim().length > 0 && reason.length <= 240) &&
+    (value.reviewedStatBlock === undefined || isCreatureStatBlock(value.reviewedStatBlock)) &&
+    (value.reviewNote === undefined || typeof value.reviewNote === "string") &&
+    (value.reviewedBy === undefined || (typeof value.reviewedBy === "string" && value.reviewedBy.length > 0)) &&
+    (value.reviewedAt === undefined || typeof value.reviewedAt === "string") &&
+    (value.creatureId === undefined || (typeof value.creatureId === "string" && value.creatureId.length > 0)) &&
+    typeof value.createdAt === "string" && typeof value.updatedAt === "string")) return false;
+
+  const hasReview = value.reviewedBy !== undefined && value.reviewedAt !== undefined;
+  if (value.status === "pending") return !hasReview && value.creatureId === undefined && value.reviewedStatBlock === undefined;
+  if (!hasReview) return false;
+  if (value.status === "rejected") return value.creatureId === undefined && value.reviewedStatBlock === undefined;
+  const approvedBlock = (value.reviewedStatBlock ?? value.statBlock) as CreatureStatBlock;
+  return value.creatureId !== undefined && isBeastDefinition(approvedBlock) && approvedBlock.challengeRating !== null && approvedBlock.scaling === undefined && approvedBlock.hitPoints.average > 0;
 }
 
 export function isCreatureGuess(value: unknown): value is CreatureGuess {
@@ -353,7 +439,7 @@ export function compareGuess(
   }
   const guessedText: Readonly<Partial<Record<CreatureTextField, string>>> = { name: guess.name, description: guess.note, ...guess.fields };
   for (const field of CREATURE_FIELDS) {
-    if (field === "kind") continue;
+    if (field === "kind" || field === "statBlock") continue;
     const revealed = sighting.revealed[field];
     const guessed = guessedText[field]?.trim();
     if (!revealed || !guessed) continue;

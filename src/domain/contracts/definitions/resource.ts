@@ -22,6 +22,7 @@ export interface LevelCount {
 
 export type ResourceCapacityRule =
   | { readonly kind: "fixed"; readonly amount: number }
+  | { readonly kind: "proficiency-bonus" }
   | { readonly kind: "by-class-level"; readonly classRef: DefinitionRef; readonly amountsByLevel: readonly LevelCount[] }
   | { readonly kind: "by-total-level-formula"; readonly description: string }
   | { readonly kind: "ability-modifier"; readonly ability: Ability; readonly minimum?: number };

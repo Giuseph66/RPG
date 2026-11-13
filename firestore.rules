@@ -29,6 +29,9 @@ service cloud.firestore {
     function revisionAdvances(before, after) {
       return ('revision' in before) && ('revision' in after) && after.revision > before.revision;
     }
+    function revisionIncrements(before, after) {
+      return ('revision' in before) && ('revision' in after) && after.revision == before.revision + 1;
+    }
     function hasIdentity(data) {
       return data.ownerUid is string && data.createdAt is timestamp &&
         data.revision is int && data.schemaVersion is int;
@@ -228,6 +231,25 @@ service cloud.firestore {
       }
 
       match /characters/{characterId} {
+        function validHitPointsState(hp) {
+          return hp is map && hp.keys().hasOnly(['current', 'temp']) &&
+            hp.current is int && hp.current >= 0 && hp.temp is int && hp.temp >= 0;
+        }
+        function validFormHitPoints(transformation) {
+          return transformation is map && transformation.formMaximumHitPoints is int &&
+            validHitPointsState(transformation.formHp) && transformation.formHp.current > 0 &&
+            transformation.formHp.current <= transformation.formMaximumHitPoints;
+        }
+        function validMasterSheetState(before, after) {
+          return !('transformation' in before)
+            ? !('transformation' in after) && validHitPointsState(after.hp)
+            : ('transformation' in after
+              ? before.transformation is map && after.transformation is map &&
+                after.hp == before.hp &&
+                after.transformation.diff(before.transformation).affectedKeys().hasOnly(['formHp']) &&
+                validFormHitPoints(after.transformation)
+              : validHitPointsState(after.hp) && after.hp.current == before.hp.current);
+        }
         allow get: if campaignMember(campaignId) && (resource == null || hasCampaignRecordIdentity(resource.data, campaignId, characterId));
         allow list: if campaignMember(campaignId);
         allow create: if activeMember(campaignId, request.auth.uid) &&
@@ -240,10 +262,13 @@ service cloud.firestore {
           // O dono edita a ficha inteira; o mestre só ajusta PV, condições e ajustes manuais.
           (resource.data.ownerUid == request.auth.uid ||
             (campaignOwner(campaignId) &&
-              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hp', 'conditions', 'manualAdjustments', 'updatedAt', 'revision', 'operationId'])));
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hp', 'conditions', 'manualAdjustments', 'transformation', 'updatedAt', 'revision', 'operationId']) &&
+              validMasterSheetState(resource.data, request.resource.data)));
+        // O dono tira a própria ficha da mesa; o mestre pode desvincular qualquer ficha da
+        // campanha dele. A ficha do jogador continua no aparelho dele, só sai da mesa.
         allow delete: if campaignMember(campaignId) &&
           hasCampaignRecordIdentity(resource.data, campaignId, characterId) &&
-          resource.data.ownerUid == request.auth.uid;
+          (resource.data.ownerUid == request.auth.uid || campaignOwner(campaignId));
       }
 
       // Histórico da mesa: rolagens e mudanças de PV/condições. Todos os membros leem; cada
@@ -457,6 +482,80 @@ service cloud.firestore {
           hasCampaignRecordIdentity(request.resource.data, campaignId, creatureId) &&
           protectedFieldsUnchanged(resource.data, request.resource.data) && revisionAdvances(resource.data, request.resource.data);
         allow delete: if campaignOwner(campaignId) && hasCampaignRecordIdentity(resource.data, campaignId, creatureId);
+      }
+
+      // Propostas começam privadas do autor e pendentes. Só o mestre pode revisar;
+      // o bloco original, o autor e o envelope de criação permanecem imutáveis.
+      match /proposals/{proposalId} {
+        function validProposalStatBlock(block, allowUnknownChallengeRating) {
+          return block is map && block.id is string && block.id.size() > 0 &&
+            block.name is string && block.name.size() > 0 &&
+            block.creatureType == 'beast' && (!('isSwarm' in block) || block.isSwarm == false) &&
+            !('scaling' in block) &&
+            block.size in ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] &&
+            block.armorClass is int && block.armorClass >= 0 &&
+            block.hitPoints is map && block.hitPoints.average is int && block.hitPoints.average > 0 &&
+            block.speeds is map && block.abilityScores is map &&
+            block.abilityScores.str is int && block.abilityScores.str >= 1 && block.abilityScores.str <= 30 &&
+            block.abilityScores.dex is int && block.abilityScores.dex >= 1 && block.abilityScores.dex <= 30 &&
+            block.abilityScores.con is int && block.abilityScores.con >= 1 && block.abilityScores.con <= 30 &&
+            block.abilityScores.int is int && block.abilityScores.int >= 1 && block.abilityScores.int <= 30 &&
+            block.abilityScores.wis is int && block.abilityScores.wis >= 1 && block.abilityScores.wis <= 30 &&
+            block.abilityScores.cha is int && block.abilityScores.cha >= 1 && block.abilityScores.cha <= 30 &&
+            ((block.challengeRating is map && block.challengeRating.numerator is int &&
+              block.challengeRating.numerator >= 0 && block.challengeRating.denominator is int &&
+              block.challengeRating.denominator > 0) ||
+              (allowUnknownChallengeRating && block.challengeRating == null)) && block.sourceRefs is list;
+        }
+        function validDraftStatBlock(block) {
+          return validProposalStatBlock(block, true);
+        }
+        function validProposalBase(data) {
+          return hasCampaignRecordIdentity(data, campaignId, proposalId) &&
+            data.id.matches('^proposal__.+$') && data.schemaVersion == 1 &&
+            data.proposedBy is string && data.proposedBy.size() > 0 &&
+            data.status in ['pending', 'approved', 'rejected'] &&
+            data.suggestionReasons is list && data.suggestionReasons.size() >= 1 && data.suggestionReasons.size() <= 8 &&
+            data.createdAt is timestamp && data.updatedAt is timestamp && data.operationId is string;
+        }
+        function validPendingProposal(data) {
+          return validProposalBase(data) && data.revision == 0 && data.status == 'pending' &&
+            data.keys().hasOnly(['id', 'campaignId', 'schemaVersion', 'revision', 'proposedBy', 'status', 'statBlock', 'suggestionReasons', 'createdAt', 'updatedAt', 'ownerUid', 'operationId']) &&
+            validDraftStatBlock(data.statBlock) &&
+            data.suggestionReasons.size() >= 1 && data.suggestionReasons.size() <= 8;
+        }
+        function validApprovedProposal(data) {
+          return data.creatureId is string && data.creatureId.size() > 0 &&
+            (('reviewedStatBlock' in data && validProposalStatBlock(data.reviewedStatBlock, false)) ||
+              (!('reviewedStatBlock' in data) && validProposalStatBlock(data.statBlock, false)));
+        }
+        function validProposalReview(before, after) {
+          return validProposalBase(after) && before.status == 'pending' &&
+            after.status in ['approved', 'rejected'] && revisionIncrements(before, after) &&
+            after.id == before.id && after.campaignId == before.campaignId &&
+            after.ownerUid == before.ownerUid && after.proposedBy == before.proposedBy &&
+            after.createdAt == before.createdAt && after.statBlock == before.statBlock &&
+            after.reviewedBy == request.auth.uid && after.reviewedAt is string && after.reviewedAt.size() >= 10 &&
+            (!('reviewNote' in after) || (after.reviewNote is string && after.reviewNote.size() <= 500)) &&
+            after.diff(before).affectedKeys().hasOnly(['status', 'reviewedStatBlock', 'reviewNote', 'reviewedBy', 'reviewedAt', 'creatureId', 'updatedAt', 'revision', 'operationId']) &&
+            (after.status == 'approved' ? validApprovedProposal(after) :
+              !('creatureId' in after) && !('reviewedStatBlock' in after));
+        }
+
+        allow get: if campaignOwner(campaignId) ||
+          (activeMember(campaignId, request.auth.uid) &&
+            (resource == null || (validProposalBase(resource.data) &&
+              resource.data.proposedBy == request.auth.uid && resource.data.ownerUid == request.auth.uid)));
+        // A player query must constrain proposedBy to auth.uid; the adapter uses that filter.
+        allow list: if campaignOwner(campaignId) ||
+          (activeMember(campaignId, request.auth.uid) && resource.data.proposedBy == request.auth.uid);
+        allow create: if activeMember(campaignId, request.auth.uid) && !campaignOwner(campaignId) &&
+          validPendingProposal(request.resource.data) &&
+          request.resource.data.proposedBy == request.auth.uid && request.resource.data.ownerUid == request.auth.uid;
+        allow update: if campaignOwner(campaignId) &&
+          validProposalReview(resource.data, request.resource.data);
+        allow delete: if campaignOwner(campaignId) &&
+          hasCampaignRecordIdentity(resource.data, campaignId, proposalId);
       }
 
       // O que o mestre revelou de uma criatura para uma conta. O jogador só lê o próprio.

@@ -19,7 +19,7 @@ import {
   GiWingfoot,
 } from "react-icons/gi";
 import type { DicePurpose, DiceRoll } from "@domain/contracts/dice";
-import type { Ability, DiceFaces, Skill } from "@domain/contracts/primitives";
+import { asCentimeters, type Ability, type DiceFaces, type Skill } from "@domain/contracts/primitives";
 import heroArt from "../../assets/art/textures/fundo-dado.webp";
 import type { CastPreview, CastingTimeKind } from "@domain/contracts/definitions/spell";
 import type { AvailableAction, RuleResult } from "@domain/contracts/rules";
@@ -251,16 +251,151 @@ function isValidArmorClassInput(raw: string): boolean {
   return parseArmorClassInput(raw) !== undefined;
 }
 
-function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitting, alreadySubmitted, hasHandler, inputValue, onInputChange }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly onConfirm: () => void; readonly onCancel: () => void; readonly submitting: boolean; readonly alreadySubmitted: boolean; readonly hasHandler: boolean; readonly inputValue: string; readonly onInputChange: (value: string) => void }) {
+interface SpellInputSelection {
+  readonly currentCharacterTarget: boolean;
+  readonly targetVisibilityConfirmed: boolean;
+  readonly pointX: string;
+  readonly pointY: string;
+  readonly materialChoice: "" | "material" | "focus";
+}
+
+const EMPTY_SPELL_INPUT: SpellInputSelection = {
+  currentCharacterTarget: false,
+  targetVisibilityConfirmed: false,
+  pointX: "",
+  pointY: "",
+  materialChoice: "",
+};
+
+const SPELL_TARGET_REQUIRED = "Informe explicitamente ao menos um alvo; o motor não escolhe alvos.";
+const SPELL_POINT_REQUIRED = "Informe o ponto de origem da área; o motor não escolhe posição.";
+const SPELL_MATERIAL_REQUIRED = "Componente material ou foco permitido não foi fornecido.";
+const SPELL_CONCENTRATION_REPLACEMENT_REQUIRED = "Confirme explicitamente a substituição da concentração ativa.";
+
+interface SpellInputResolution {
+  readonly ready: boolean;
+  readonly reason?: string;
+  readonly targetContext?: ActionIntent["spellTargetContext"];
+  readonly componentContext?: ActionIntent["spellComponentContext"];
+  readonly state: ReturnType<typeof capabilityState>;
+}
+
+function numericCoordinate(raw: string): number | undefined {
+  if (!raw.trim()) return undefined;
+  const value = Number(raw);
+  return Number.isInteger(value) && Number.isFinite(value) ? value : undefined;
+}
+
+function resolveSpellInputs(capability: ActionCapability, preview: ActionPreview | undefined, state: ReturnType<typeof capabilityState>, characterId: NonNullable<ActionsProps["character"]>["id"], input: SpellInputSelection, featureCastingOptionSelected: boolean): SpellInputResolution {
+  let ready = true;
+  let reason: string | undefined;
+  let targetContext: ActionIntent["spellTargetContext"];
+  let componentContext: ActionIntent["spellComponentContext"];
+  const targeting = capability.spellTargeting;
+  const targetReasonIsSupported = (pending: string) => {
+    if (pending === SPELL_TARGET_REQUIRED) return targeting?.type === "self" || (targeting?.type === "creature" || targeting?.type === "mixed") && (targeting.count === undefined || targeting.count === 1);
+    if (pending === SPELL_POINT_REQUIRED) return targeting?.type === "point" && (targeting.count === undefined || targeting.count === 0);
+    return false;
+  };
+
+  if (targeting?.type === "self") {
+    // O alvo próprio é determinado pela regra da magia, não por uma escolha implícita do UI.
+    targetContext = { targetIds: [characterId] };
+  } else if (targeting?.type === "point") {
+    if (targeting.count !== undefined && targeting.count !== 0) {
+      ready = false;
+      reason = "Esta magia também exige alvos individuais; a revisão atual não oferece essa seleção.";
+    } else {
+      const x = numericCoordinate(input.pointX);
+      const y = numericCoordinate(input.pointY);
+      if (x === undefined || y === undefined) {
+        ready = false;
+        reason = "Informe coordenadas inteiras do ponto escolhido em centímetros.";
+      } else {
+        targetContext = { targetIds: [], pointCm: { x: asCentimeters(x), y: asCentimeters(y) } };
+      }
+    }
+  } else if (targeting?.type === "creature" || targeting?.type === "mixed") {
+    if (targeting.count !== undefined && targeting.count !== 1) {
+      ready = false;
+      reason = `Esta magia exige ${targeting.count} alvos; a revisão atual só consegue selecionar esta ficha.`;
+    } else if (!input.currentCharacterTarget) {
+      ready = false;
+      reason = "Selecione explicitamente a ficha atual como alvo.";
+    } else if (targeting.visibilityRequired && !input.targetVisibilityConfirmed) {
+      ready = false;
+      reason = "Confirme que o alvo está visível para a ficha.";
+    } else {
+      targetContext = { targetIds: [characterId] };
+    }
+  } else if (targeting?.type === "object") {
+    ready = false;
+    reason = "Esta revisão não oferece seleção de objetos; escolha outro fluxo de alvo.";
+  }
+
+  if (capability.spellRequiresMaterial) {
+    if (capability.spellMaterialRequiresTrackedItem !== false || (castPreviewOf(preview)?.componentsConsumed.length ?? 0) > 0) {
+      ready = false;
+      reason ??= capability.spellMaterialRequiresTrackedItem === true || (castPreviewOf(preview)?.componentsConsumed.length ?? 0) > 0
+        ? "Este componente exige um item específico do inventário, seleção ainda não disponível nesta revisão."
+        : "A origem ainda não confirmou se o componente pode ser declarado sem selecionar um item.";
+    } else if (input.materialChoice === "") {
+      ready = false;
+      reason ??= capability.spellAllowsFocus
+        ? "Declare o componente material real ou escolha o foco permitido."
+        : "Confirme que fornece o componente material real.";
+    } else if (input.materialChoice === "focus" && capability.spellAllowsFocus !== true) {
+      ready = false;
+      reason = "Esta fonte de conjuração não permite foco como componente material.";
+    } else {
+      componentContext = { materialProvided: input.materialChoice === "material", focusUsed: input.materialChoice === "focus" };
+    }
+  }
+
+  const supportedInputReason = (pending: string) => targetReasonIsSupported(pending)
+    || pending === SPELL_MATERIAL_REQUIRED && capability.spellRequiresMaterial === true && capability.spellMaterialRequiresTrackedItem === false && (castPreviewOf(preview)?.componentsConsumed.length ?? 0) === 0
+    || pending === SPELL_CONCENTRATION_REPLACEMENT_REQUIRED && featureCastingOptionSelected && capability.featureCastingOptions?.some((option) => option.kind === "drop-concentration" && option.durationMinutes === 1) === true;
+  const knownInputOutcome = capability.kind === "spell"
+    && capability.status !== "pending" && capability.status !== "blocked" && capability.status !== "unsupported"
+    && !capability.blockedReason && !capability.pendingReasons?.length
+    && (state.status === "pending" || state.status === "blocked")
+    && (state.details.pending.length > 0 || state.details.blocked.length > 0)
+    && state.reasons.length > 0
+    && state.reasons.every((pending) => (state.details.pending.includes(pending) || state.details.blocked.includes(pending)) && supportedInputReason(pending));
+  const resolvedInputs = knownInputOutcome && ready;
+  const resolvedReasons = new Set(resolvedInputs ? state.reasons : []);
+  const resolvedState = resolvedInputs
+    ? { ...state, status: "available" as const, reasons: [], details: { ...state.details, pending: state.details.pending.filter((pending) => !resolvedReasons.has(pending)), blocked: state.details.blocked.filter((blocked) => !resolvedReasons.has(blocked)) } }
+    : state;
+
+  return { ready, reason, targetContext, componentContext, state: resolvedState };
+}
+
+function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitting, alreadySubmitted, hasHandler, inputValue, onInputChange, featureCastingOptionSelected, onFeatureCastingOptionChange, spellInput, onSpellInputChange, spellInputResolution, characterName }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly onConfirm: () => void; readonly onCancel: () => void; readonly submitting: boolean; readonly alreadySubmitted: boolean; readonly hasHandler: boolean; readonly inputValue: string; readonly onInputChange: (value: string) => void; readonly featureCastingOptionSelected: boolean; readonly onFeatureCastingOptionChange: (selected: boolean) => void; readonly spellInput: SpellInputSelection; readonly onSpellInputChange: (patch: Partial<SpellInputSelection>) => void; readonly spellInputResolution?: SpellInputResolution; readonly characterName: string }) {
   const { details } = state;
   const missingRequiredInput = capability.inputKind === "target-armor-class" && !isValidArmorClassInput(inputValue);
-  const disabledReason = !hasHandler ? "A ficha não está pronta para salvar." : state.status === "blocked" || state.status === "unsupported" ? state.reasons.join(" ") : state.status === "pending" ? state.reasons.join(" ") : alreadySubmitted ? "Já enviado; aguarde a ficha atualizar." : missingRequiredInput ? "Informe a CA do alvo para habilitar a confirmação." : undefined;
+  const disabledReason = !hasHandler ? "A ficha não está pronta para salvar." : state.status === "blocked" || state.status === "unsupported" ? state.reasons.join(" ") : state.status === "pending" ? state.reasons.join(" ") : alreadySubmitted ? "Já enviado; aguarde a ficha atualizar." : missingRequiredInput ? "Informe a CA do alvo para habilitar a confirmação." : spellInputResolution && !spellInputResolution.ready ? spellInputResolution.reason : undefined;
   const disabled = Boolean(disabledReason) || submitting;
+  const targeting = capability.kind === "spell" ? capability.spellTargeting : undefined;
+  const canSelectCurrentCharacter = (targeting?.type === "creature" || targeting?.type === "mixed") && (targeting.count === undefined || targeting.count === 1);
+  const canDeclareSimpleMaterial = capability.spellMaterialRequiresTrackedItem === false && (castPreviewOf(preview)?.componentsConsumed.length ?? 0) === 0;
+  const canUseFocus = capability.spellAllowsFocus === true && canDeclareSimpleMaterial;
+  const unsupportedTargetChoice = targeting?.type === "object"
+    || targeting?.type === "point" && targeting.count !== undefined && targeting.count !== 0
+    || (targeting?.type === "creature" || targeting?.type === "mixed") && targeting.count !== undefined && targeting.count !== 1;
   return <section className={styles.review} aria-labelledby="action-review-title">
     <div className={styles.reviewHeading}><div><p className={styles.eyebrow}>CONFERIR ANTES DE APLICAR</p><h2 id="action-review-title">{capability.label}</h2></div><Button variant="ghost" size="sm" onClick={onCancel}>Cancelar</Button></div>
     {capability.description ? <p className={styles.description}>{capability.description}</p> : null}
     {capability.inputKind === "amount" ? <div className={styles.inputSection}><Input label="Quantidade" type="number" min={1} inputMode="numeric" value={inputValue} onChange={(event) => onInputChange(event.target.value)} hint={`Sem preenchimento, usa o valor padrão (${capability.inputDefault ?? 5}).`} /></div> : null}
     {capability.inputKind === "target-armor-class" ? <div className={styles.inputSection}><Input label="CA do alvo" type="number" min={0} inputMode="numeric" value={inputValue} onChange={(event) => onInputChange(event.target.value)} hint="Obrigatório: o motor não deriva a CA de um alvo desconhecido." /></div> : null}
+    {targeting?.type === "point" ? <fieldset className={styles.spellDecision}><legend>Ponto escolhido na mesa (cm)</legend>{targeting.restrictions.length ? <ul className={styles.spellRestrictions}>{targeting.restrictions.map((restriction, index) => <li key={`${restriction}-${index}`}>{restriction}</li>)}</ul> : null}<p>Informe a posição inteira da área; nenhum ponto é preenchido automaticamente.</p><div className={styles.spellPointGrid}><Input label="Coordenada X (cm)" type="number" step="1" inputMode="numeric" value={spellInput.pointX} onChange={(event) => onSpellInputChange({ pointX: event.target.value })} /><Input label="Coordenada Y (cm)" type="number" step="1" inputMode="numeric" value={spellInput.pointY} onChange={(event) => onSpellInputChange({ pointY: event.target.value })} /></div></fieldset> : null}
+    {canSelectCurrentCharacter ? <fieldset className={styles.spellDecision}><legend>Alvo</legend>{targeting.restrictions.length ? <ul className={styles.spellRestrictions}>{targeting.restrictions.map((restriction, index) => <li key={`${restriction}-${index}`}>{restriction}</li>)}</ul> : null}<label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.currentCharacterTarget} onChange={(event) => onSpellInputChange({ currentCharacterTarget: event.target.checked, targetVisibilityConfirmed: event.target.checked ? spellInput.targetVisibilityConfirmed : false })} /><span><strong>Selecionar {characterName}</strong><small>Usar a ficha atual como alvo desta magia.</small></span></label>{targeting?.visibilityRequired ? <label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.targetVisibilityConfirmed} disabled={!spellInput.currentCharacterTarget} onChange={(event) => onSpellInputChange({ targetVisibilityConfirmed: event.target.checked })} /><span><strong>Confirmo que o alvo está visível</strong></span></label> : null}</fieldset> : null}
+    {unsupportedTargetChoice ? <InlineStatus tone="warning">{spellInputResolution?.reason ?? "Esta revisão não dispõe de todos os alvos exigidos; nenhuma seleção será inventada."}</InlineStatus> : null}
+    {capability.spellRequiresMaterial ? <fieldset className={styles.spellDecision}><legend>Componente material</legend>{canDeclareSimpleMaterial ? canUseFocus ? <><label className={styles.featureCastingOption}><input type="radio" name={`spell-material-${capability.id}`} checked={spellInput.materialChoice === "material"} onChange={() => onSpellInputChange({ materialChoice: "material" })} /><span><strong>Forneço o componente material real</strong></span></label><label className={styles.featureCastingOption}><input type="radio" name={`spell-material-${capability.id}`} checked={spellInput.materialChoice === "focus"} onChange={() => onSpellInputChange({ materialChoice: "focus" })} /><span><strong>Usarei um foco permitido por esta fonte</strong></span></label></> : <label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.materialChoice === "material"} onChange={(event) => onSpellInputChange({ materialChoice: event.target.checked ? "material" : "" })} /><span><strong>Confirmo que forneço o componente material real</strong></span></label> : <InlineStatus tone="warning">{spellInputResolution?.reason ?? "Esta magia exige item específico do inventário, ainda sem seleção nesta revisão."}</InlineStatus>}</fieldset> : null}
+    {capability.featureCastingOptions?.map((option) => <label className={styles.featureCastingOption} key={`${option.kind}-${option.durationMinutes}`}>
+      <input type="checkbox" checked={featureCastingOptionSelected} onChange={(event) => onFeatureCastingOptionChange(event.target.checked)} />
+      <span><strong>{option.label}</strong><small>Invocação assistida: registre a criatura e encerre-a manualmente após 1 minuto. Sua concentração atual permanece ativa.</small></span>
+    </label>)}
     <div className={styles.reviewGrid}>
       <div><h3>Custo</h3><CostList costs={capability.costs ?? previewCosts(preview)} /></div>
       <div><h3>Efeito previsto</h3>{capability.effectSummary?.length ? <ul className={styles.detailList}>{capability.effectSummary.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : details.effects.length ? <ul className={styles.detailList}>{details.effects.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : <p className={styles.muted}>Sem efeito automático na ficha.</p>}</div>
@@ -273,8 +408,11 @@ function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitti
   </section>;
 }
 
-function resultMessage(result: RuleResult): { readonly tone: "success" | "warning" | "error"; readonly message: string } {
-  if (result.status === "success") return { tone: "success", message: "Aplicado na ficha." };
+function resultMessage(result: RuleResult, featureCastingOption?: ActionIntent["featureCastingOption"]): { readonly tone: "success" | "warning" | "error"; readonly message: string } {
+  if (result.status === "success") {
+    const explanation = featureCastingOption ? result.explanations.map((item) => valueLabel(item.value)).filter((value) => value !== "Resultado registrado").join(" ") : "";
+    return { tone: "success", message: ["Aplicado na ficha.", explanation].filter(Boolean).join(" ") };
+  }
   if (result.status === "needsInput") return { tone: "warning", message: result.requests.map((request) => request.reason).join(" ") || "A execução precisa de uma decisão adicional." };
   return { tone: "error", message: result.errors.map((error) => error.message).join(" ") || "Não foi possível aplicar na ficha." };
 }
@@ -563,6 +701,8 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
   const [feedback, setFeedback] = useState<{ readonly tone: "success" | "warning" | "error" | "info"; readonly message: string }>();
   const [submitting, setSubmitting] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [featureCastingOptionSelected, setFeatureCastingOptionSelected] = useState(false);
+  const [spellInput, setSpellInput] = useState<SpellInputSelection>(EMPTY_SPELL_INPUT);
   const submittedCommands = useRef(new Set<string>());
 
   const selected = capabilities.find((capability) => capability.id === selectedId);
@@ -574,6 +714,8 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
     setFeedback(undefined);
     setSubmitting(false);
     setInputValue("");
+    setFeatureCastingOptionSelected(false);
+    setSpellInput(EMPTY_SPELL_INPUT);
     submittedCommands.current.clear();
   }, [character?.id]);
 
@@ -586,6 +728,8 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
   // para nunca bloquear a confirmação); CA de alvo sempre começa vazia (nunca inventa um valor).
   useEffect(() => {
     setInputValue(selected?.inputKind === "amount" ? String(selected.inputDefault ?? 5) : "");
+    setFeatureCastingOptionSelected(false);
+    setSpellInput(EMPTY_SPELL_INPUT);
   }, [selectedId, selected?.inputKind, selected?.inputDefault]);
 
   if (status === "loading") return <LoadingState />;
@@ -594,6 +738,10 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
 
   const selectedPreview = selected ? lookupPreview(selected, previews) : undefined;
   const selectedState = selected ? capabilityState(selected, selectedPreview, availableActions) : undefined;
+  const spellInputResolution = selected && selectedState
+    ? resolveSpellInputs(selected, selectedPreview, selectedState, character.id, spellInput, featureCastingOptionSelected)
+    : undefined;
+  const selectedReviewState = spellInputResolution?.state ?? selectedState;
   const groupCapabilities = openGroup ? capabilities.filter((capability) => groupOf(capability) === openGroup) : [];
   // A composição real usa os IDs `rest:short`/`rest:long` e recebe o painel de
   // descanso com prévia própria. Capacidades injetadas por integrações antigas ou
@@ -605,9 +753,12 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
   const quickRoll = (faces: DiceFaces, modifier: number, purpose: DicePurpose, label: string, quantity?: number) => dice?.roll?.({ faces, modifier, purpose: purpose === "damage" || purpose === "healing" ? "free" : purpose, label, ...(quantity && quantity > 1 ? { quantity } : {}) });
 
   const confirm = async () => {
-    if (!selected || !selectedState || selectedState.status !== "available" || !onIntent || submittedCommands.current.has(String(selected.commandId))) return;
+    if (!selected || !selectedReviewState || selectedReviewState.status !== "available" || spellInputResolution && !spellInputResolution.ready || !onIntent || submittedCommands.current.has(String(selected.commandId))) return;
     if (selected.inputKind === "target-armor-class" && !isValidArmorClassInput(inputValue)) return;
     const commandId = String(selected.commandId);
+    const featureCastingOption = featureCastingOptionSelected
+      ? selected.featureCastingOptions?.find((option) => option.kind === "drop-concentration" && option.durationMinutes === 1)
+      : undefined;
     submittedCommands.current.add(commandId);
     setSubmitting(true);
     setFeedback(undefined);
@@ -618,12 +769,15 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       kind: selected.kind,
       ...(selected.inputKind === "amount" ? { value: parseAmountInput(inputValue, selected.inputDefault ?? 5) } : {}),
       ...(selected.inputKind === "target-armor-class" ? { targetArmorClass: parseArmorClassInput(inputValue) } : {}),
+      ...(featureCastingOption ? { featureCastingOption: { kind: featureCastingOption.kind, durationMinutes: featureCastingOption.durationMinutes } } : {}),
+      ...(spellInputResolution?.targetContext ? { spellTargetContext: spellInputResolution.targetContext } : {}),
+      ...(spellInputResolution?.componentContext ? { spellComponentContext: spellInputResolution.componentContext } : {}),
     };
     try {
       const result: ActionCommitResult = onIntent(intent);
       const resolved = await result;
       if (resolved && "status" in resolved) {
-        setFeedback(resultMessage(resolved));
+        setFeedback(resultMessage(resolved, intent.featureCastingOption));
         if (resolved.status === "success") setSelectedId(undefined);
         else submittedCommands.current.delete(commandId);
       } else {
@@ -728,7 +882,7 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       {usesRestPanel || groupCapabilities.length === 0 ? null : (
         <div className={styles.capabilityList}>{groupCapabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>
       )}
-      {usesRestPanel ? null : selected && selectedState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
+      {usesRestPanel ? null : selected && selectedReviewState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedReviewState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} featureCastingOptionSelected={featureCastingOptionSelected} onFeatureCastingOptionChange={setFeatureCastingOptionSelected} spellInput={spellInput} onSpellInputChange={(patch) => setSpellInput((current) => ({ ...current, ...patch }))} spellInputResolution={spellInputResolution} characterName={character.name} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
     </AppModal>
     {historyPanel}
   </section>;

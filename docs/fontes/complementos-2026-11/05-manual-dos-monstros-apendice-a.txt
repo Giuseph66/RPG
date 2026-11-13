@@ -1,0 +1,1761 @@
+APÊNDICE A: CRIATURAS DIVERSAS
+Esse apêndice contém as estatísticas de vários animais,                 ÁGUIA
+insetos e outros bichos. Os blocos de estatísticas estão
+                                                                        Besta pequena, imparcial
+organizados em ordem alfabética pelo nome da criatura.
+                                                                        Classe de Armadura 12
+ ABUTRE                                                                 Pontos de Vida 3 (1d6)
+ Besta Média, imparcial                                                 Deslocamento 3 m, voo 18 m
+
+ Classe de Armadura 10                                                    FOR        DES        CON         INT       SAB         CAR
+ Pontos de Vida 5 (1d8 + 1)                                              6 (–2)     15 (+2)    10 (+0)     2 (–4)    14 (+2)     7 (–2)
+ Deslocamento 3 m, voo 15 m
+                                                                        Perícias Percepção +4
+   FOR        DES          CON        INT         SAB         CAR       Sentidos Percepção passiva 14
+  7 (–2)     10 (+0)      13 (+1)    2 (–4)      12 (+1)     4 (–3)     Idiomas –
+                                                                        Nível de Desafio 0 (10 XP)
+ Perícias Percepção +3
+ Sentidos Percepção passiva 13
+ Idiomas –                                                              Visão Aguçada. A águia tem vantagem em testes de Sabedoria
+ Nível de Desafio 0 (10 XP)                                             (Percepção) relacionados à visão.
+ Visão e Faro Aguçados. O abutre tem vantagem em testes de              AÇÕES
+ Sabedoria (Percepção) relacionados à visão e ao olfato.
+                                                                        Garras. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+ Táticas de Matilha. O abutre tem vantagem nas jogadas de
+                                                                        1,5 m, um alvo. Acerto: 4 (1d4 + 2) de dano cortante.
+ ataque contra uma criatura se, pelo menos, um dos aliados do
+ abutre estiver a 1,5 metro da criaturas e não estiver incapacitado.
+ AÇÕES                                                                  ÁGUIA GIGANTE
+ Bicada. Ataque Corpo-a-Corpo com Arma: +2 para atingir, alcance        Besta Grande, neutro e bom
+ 1,5 m, um alvo. Acerto: 2 (1d4) de dano perfurante.
+                                                                        Classe de Armadura 13
+ ABUTRE GIGANTE                                                         Pontos de Vida 26 (4d10 + 4)
+ Besta Grande, neutro e mau                                             Deslocamento 3 m, voo 24 m
+
+ Classe de Armadura 10                                                   FOR         DES        CON         INT       SAB         CAR
+ Pontos de Vida 22 (3d10 + 6)                                           16 (+3)     17 (+3)    13 (+1)     8 (–1)    14 (+2)     10 (+0)
+ Deslocamento 3 m, voo 18 m                                             Perícias Percepção +4
+                                                                        Sentidos Percepção passiva 14
+  FOR         DES          CON        INT         SAB         CAR       Idiomas Águia Gigante, compreende Comum e Auran, mas não
+ 15 (+2)     10 (+0)      15 (+2)    6 (–2)      12 (+1)     7 (–2)     pode falar
+ Perícias Percepção +3                                                  Nível de Desafio 1 (200 XP)
+ Sentidos Percepção passiva 13
+ Idiomas compreende Comum, mas não pode falar                           Visão Aguçada. A águia tem vantagem em testes de Sabedoria
+ Nível de Desafio 1 (200 XP)                                            (Percepção) relacionados à visão.
+ Visão e Faro Aguçados. O abutre tem vantagem em testes de
+ Sabedoria (Percepção) relacionados à visão e ao olfato.
+                                                                        AÇÕES
+
+ Táticas de Matilha. O abutre tem vantagem nas jogadas de               Ataques Múltiplos. A águia realiza dois ataques: um com sua
+ ataque contra uma criatura se, pelo menos, um dos aliados do           bicada e um com suas garras.
+ abutre estiver a 1,5 metro da criaturas e não estiver incapacitado.
+                                                                        Bicada. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance
+ AÇÕES
+                                                                        1,5 m, um alvo. Acerto: 6 (1d6 + 3) de dano perfurante.
+ Ataques Múltiplos. A águia realiza dois ataques: um com sua
+ bicada e um com suas garras.
+                                                                        Garras. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance
+ Bicada. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance        1,5 m, um alvo. Acerto: 10 (2d6 + 3) de dano cortante.
+ 1,5 m, um alvo. Acerto: 7 (2d4 + 2) de dano perfurante.
+                                                                       Uma águia gigante é uma criatura nobre que fala seu
+ Garras. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance       próprio idioma e compreende os dialetos da língua
+ 1,5 m, um alvo. Acerto: 9 (2d6 + 2) de dano cortante.                 Comum. Um casal formado de águias gigantes tem até
+                                                                       quatro ovos ou filhotes em seu ninho (trate os filhotes
+Um abutre gigante possui uma inteligência avançada e                   como águias normais).
+uma inclinação malévola. Diferente de sua espécime
+menor, ele irá atacar uma criatura ferida apressar seu
+fim. Os abutres gigantes são conhecidos por assombrar
+criaturas sedentas e famintas por dias, divertindo-se com
+o sofrimento delas.
+
+                                                                                                                                      317
+                                                                       Perícias Percepção +4
+                                                                       Sentidos Percepção passiva 14
+                                                                       Idiomas Alce Gigante, compreende Comum, Élfico e Silvestre, mas
+                                                                       não pode falar
+                                                                       Nível de Desafio 2 (450 XP)
+
+                                                                       Investida. Se o alce se mover, pelo menos, 6 metros em linha reta
+                                                                       em direção de um alvo logo antes de atingi-lo com seu ataque de
+                                                                       cabeçada, o alvo sofrerá 7 (2d6) de dano extra. Se o alvo for uma
+                                                                       criatura, ele deve ser bem sucedido num teste de resistência de
+                                                                       Força CD 14 para não cair no chão.
+
+                                                                       AÇÕES
+                                                                       Cabeçada. Ataque Corpo-a-Corpo com Arma: +2 para atingir,
+                                                                       alcance 1,5 m, um alvo. Acerto: 6 (1d6 + 3) de dano de concussão.
+OUTROS ANIMAIS
+Um livro desse tamanho não pode conter as estatísticas de cada         Cascos. Ataque Corpo-a-Corpo com Arma: +2 para atingir, alcance
+                                                                       1,5 m, um alvo. Acerto: 8 (2d4 + 3) de dano de concussão.
+animal que habite seu mundo de campanha de D&D. Porém, você
+pode usar os blocos de estatística de um animal para representar
+outro bastante similar. Por exemplo, você pode usar as estatísticas   O majestoso alce gigante é raro ao ponto de sua aparição
+                                                                      ser, frequentemente ligado ao prenúncio de um evento
+da pantera para representar um jaguar, as estatísticas do bode
+                                                                      importante, como o nascimento de um rei. Lendas contam
+gigante para representar um búfalo e as estatísticas do falcão para
+                                                                      de deuses que assumiam a forma de alces gigantes para
+representar um gavião.                                                visitar o Plano Material. Muitas culturas acreditam, por
+                                                                      isso, que caçar essas criaturas é um convite a ira divina.
+ALCE
+Besta Grande, imparcial                                                ARANHA
+                                                                       Besta Miúda, imparcial
+Classe de Armadura 10
+Pontos de Vida 13 (2d10 + 2)                                           Classe de Armadura 12
+Deslocamento 15 m                                                      Pontos de Vida 1 (1d4 – 1)
+                                                                       Deslocamento 6 m, escalada 6 m
+  FOR        DES           CON       INT        SAB         CAR
+ 16 (+3)    10 (+0)       12 (+1)   2 (–4)     10 (+0)     6 (–2)        FOR        DES         CON         INT        SAB         CAR
+                                                                        2 (–4)     14 (+2)      8 (–1)     1 (–5)     10 (+0)     2 (–4)
+Sentidos Percepção passiva 10
+Idiomas –                                                              Perícias Furtividade +4
+Nível de Desafio 1/4 (50 XP)                                           Sentidos visão no escuro 18 m, Percepção passiva 10
+                                                                       Idiomas –
+Investida. Se o alce se mover, pelo menos, 6 metros em linha reta      Nível de Desafio 0 (10 XP)
+em direção de um alvo logo antes de atingi-lo com seu ataque de
+cabeçada, o alvo sofrerá 7 (2d6) de dano extra. Se o alvo for uma
+criatura, ele deve ser bem sucedido num teste de resistência de        Escalada Aracnídea. A aranha pode escalar superfícies difíceis,
+Força CD 13 para não cair no chão.                                     incluindo tetos de cabeça para baixo, sem precisar realizar um
+                                                                       teste de habilidade.
+AÇÕES
+                                                                       Sentido na Teia. Quando em contato com uma teia, a aranha sabe
+Cabeçada. Ataque Corpo-a-Corpo com Arma: +2 para atingir,              a localização exata de qualquer outra criatura em contato com a
+alcance 1,5 m, um alvo. Acerto: 6 (1d6 + 3) de dano de concussão.      mesma teia.
+Cascos. Ataque Corpo-a-Corpo com Arma: +2 para atingir, alcance
+1,5 m, um alvo. Acerto: 8 (2d4 + 3) de dano de concussão.              Andar na Teia. A aranha ignora restrições de movimento causadas
+                                                                       por estar numa teia.
+
+ALCE GIGANTE                                                           AÇÕES
+Besta Enorme, imparcial
+                                                                       Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+Classe de Armadura 14 (armadura natural)                               alcance 1,5 m, uma criatura. Acerto: 1 de dano perfurante e o alvo
+Pontos de Vida 42 (5d12 + 10)                                          deve ser bem sucedido num teste de resistência de Constituição
+Deslocamento 18 m                                                      CD 9 ou sofrerá 2 (1d4) de dano de veneno.
+
+  FOR        DES           CON       INT        SAB         CAR
+ 19 (+4)    16 (+3)       14 (+2)   7 (–2)     14 (+2)     10 (+0)
+
+
+
+
+318
+ ARANHA GIGANTE
+ Besta Grande, imparcial
+
+ Classe de Armadura 14 (armadura natural)
+ Pontos de Vida 26 (4d10 + 4)
+ Deslocamento 9 m, escalada 9 m
+
+  FOR         DES           CON       INT        SAB         CAR
+ 14 (+2)     16 (+3)       12 (+1)   2 (–4)     11 (+0)     4 (–3)
+
+ Perícias Furtividade +7
+ Sentidos percepção às cegas 3 m, visão no escuro 18 m,
+    Percepção passiva 10
+ Idiomas –
+ Nível de Desafio 1 (200 XP)
+
+ Escalada Aracnídea. A aranha pode escalar superfícies difíceis,
+ incluindo tetos de cabeça para baixo, sem precisar realizar um
+ teste de habilidade.
+
+ Sentido na Teia. Quando em contato com uma teia, a aranha sabe
+ a localização exata de qualquer outra criatura em contato com a
+ mesma teia.
+
+ Andar na Teia. A aranha ignora restrições de movimento causadas      ARANHA INTERPLANAR
+ por estar numa teia.
+                                                                      Monstruosidade Grande, imparcial
+
+ AÇÕES                                                                Classe de Armadura 13 (armadura natural)
+ Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,             Pontos de Vida 32 (5d10 + 5)
+ alcance 1,5 m, uma criatura. Acerto: 7 (1d8 + 3) de dano             Deslocamento 9 m, escalada 9 m
+ perfurante e o alvo deve realizar um teste de resistência de
+ Constituição CD 11, sofrendo 9 (2d8) de dano de veneno se falhar      FOR         DES         CON         INT        SAB         CAR
+ na resistência ou metade desse dano se obtiver sucesso. Se o         15 (+2)     15 (+3)     12 (+1)     6 (–2)     10 (+0)     6 (–2)
+ dano de veneno reduzir o alvo a 0 pontos de vida, o alvo estará
+ estável, porém, envenenado, por 1 hora e paralisado enquanto         Perícias Furtividade +6
+ estiver envenenado dessa forma.                                      Sentidos visão no escuro 18 m, Percepção passiva 10
+                                                                      Idiomas –
+ Teia (Recarrega 5–6). Ataque à Distância com Arma: +5 para           Nível de Desafio 3 (700 XP)
+ atingir, alcance 9 m/ 18 m, uma criatura. Acerto: O alvo ficará      Escalada Aracnídea. A aranha pode escalar superfícies difíceis,
+ impedido pela teia. Com uma ação, o alvo impedido pode realizar      incluindo tetos de cabeça para baixo, sem precisar realizar um
+ um teste de Força CD 12, rompendo a teia com sucesso. A teia         teste de habilidade.
+ também pode ser atacada e destruída (CA 10; 5 pv;
+ vulnerabilidade a fogo; imune a dano de concussão, veneno e          Salto Etéreo. Com uma ação bônus, a aranha pode, magicamente,
+ psíquico).                                                           mudar do Plano Material para o Plano Etéreo, ou vice-versa.
+
+Para apanhar sua presa, uma aranha gigante cria teias                 Andar na Teia. A aranha ignora restrições de movimento causadas
+elaboradas ou dispara fios pegajosos de teia de seu                   por estar numa teia.
+abdômen. As aranhas gigantes são mais comumente
+encontradas no subterrâneo, fazendo seus covis em tetos               AÇÕES
+ou em fendas escuras cheias de teias. Tais covis estão,
+                                                                       Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+frequentemente, infestados de casulos prendendo vítimas
+                                                                      alcance 1,5 m, uma criatura. Acerto: 7 (1d10 + 2) de dano
+anteriores.
+                                                                      perfurante e o alvo deve realizar um teste de resistência de
+                                                                      Constituição CD 11, sofrendo 18 (4d8) de dano de veneno se
+                                                                      falhar na resistência ou metade desse dano se obtiver sucesso. Se
+                                                                      o dano de veneno reduzir o alvo a 0 pontos de vida, o alvo estará
+                                                                      estável, porém, envenenado, por 1 hora e paralisado enquanto
+                                                                      estiver envenenado dessa forma.
+
+
+                                                                     Uma aranha interplanar possui a habilidade mágica de
+                                                                     entrar e sair do Plano Etéreo. Ela parece surgir de lugar
+                                                                     nenhum e, rapidamente desaparece após atacar. Ela se
+                                                                     movimenta no Plano Etéreo antes de voltar para o Plano
+                                                                     Material, fazendo parecer que ela pode se teletransportar.
+
+
+
+                                                                                                                                        319
+ ARANHA-LOBO GIGANTE                                                 ARMINHO
+ Besta Média, imparcial                                              Besta Miúda, imparcial
+
+ Classe de Armadura 13                                               Classe de Armadura 13
+ Pontos de Vida 11 (2d8 + 2)                                         Pontos de Vida 1 (1d4 – 1)
+ Deslocamento 12 m, escalada 12 m                                    Deslocamento 9 m
+
+  FOR         DES          CON        INT        SAB         CAR       FOR        DES         CON         INT        SAB         CAR
+ 12 (+1)     16 (+3)      13 (+1)    3 (–4)     12 (+1)     4 (–3)    3 (–4)     16 (+3)      8 (–1)     2 (–4)     12 (+1)     3 (–4)
+
+ Perícias Furtividade +7, Percepção +3                               Perícias Furtividade +5, Percepção +3
+ Sentidos percepção às cegas 3 m, visão no escuro 18 m,              Sentidos Percepção passiva 13
+    Percepção passiva 13                                             Idiomas –
+ Idiomas –                                                           Nível de Desafio 0 (10 XP)
+ Nível de Desafio 1/4 (50 XP)
+ Escalada Aracnídea. A aranha pode escalar superfícies difíceis,     Audição e Faro Aguçados. O arminho tem vantagem em testes de
+ incluindo tetos de cabeça para baixo, sem precisar realizar um      Sabedoria (Percepção) relacionados à audição e ao olfato.
+ teste de habilidade.
+                                                                     AÇÕES
+ Sentido na Teia. Quando em contato com uma teia, a aranha sabe      Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+ a localização exata de qualquer outra criatura em contato com a     alcance 1,5 m, um alvo. Acerto: 1 de dano perfurante.
+ mesma teia.
+
+ Andar na Teia. A aranha ignora restrições de movimento causadas
+                                                                     ARMINHO GIGANTE
+                                                                     Besta Média, imparcial
+ por estar numa teia.
+ AÇÕES                                                               Classe de Armadura 13
+ Mordida. Ataque Corpo-a-Corpo com Arma: +3 para atingir,            Pontos de Vida 9 (2d8)
+ alcance 1,5 m, uma criatura. Acerto: 4 (1d6 + 1) de dano            Deslocamento 12 m
+ perfurante e o alvo deve realizar um teste de resistência de
+ Constituição CD 11, sofrendo 7 (2d6) de dano de veneno se falhar     FOR         DES          CON        INT        SAB         CAR
+ na resistência ou metade desse dano se obtiver sucesso. Se o        11 (+0)     16 (+3)      10 (+0)    4 (–3)     12 (+1)     5 (–3)
+ dano de veneno reduzir o alvo a 0 pontos de vida, o alvo estará
+ estável, porém, envenenado, por 1 hora e paralisado enquanto        Perícias Furtividade +5, Percepção +3
+ estiver envenenado dessa forma.                                     Sentidos visão no escuro 18 m, Percepção passiva 13
+                                                                     Idiomas –
+Menor que uma aranha gigante, a aranha-lobo gigante                  Nível de Desafio 1/8 (25 XP)
+caça sua presa em terrenos abertos ou se esconde em
+tocas ou fendas, ou em cavidades cobertas por escombros.             Audição e Faro Aguçados. O arminho tem vantagem em testes de
+                                                                     Sabedoria (Percepção) relacionados à audição e ao olfato.
+
+ ARBUSTO DESPERTO                                                    AÇÕES
+ Planta Pequena, imparcial
+                                                                     Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 5 (1d4 + 3) de dano perfurante.
+ Classe de Armadura 9
+ Pontos de Vida 10 (3d6)
+ Deslocamento 6 m
+                                                                     ÁRVORE DESPERTA
+   FOR         DES         CON       INT         SAB         CAR     Planta Enorme, imparcial
+  6 (–2)      8 (–1)      11 (+0)   10 (+0)     10 (+0)     6 (–2)
+                                                                     Classe de Armadura 13 (armadura natural)
+ Vulnerabilidade a Dano fogo                                         Pontos de Vida 59 (7d12 + 14)
+ Resistência a Dano perfurante                                       Deslocamento 6 m
+ Sentidos Percepção passiva 10
+ Idiomas um idioma conhecido pelo seu criador                         FOR         DES          CON       INT         SAB         CAR
+ Nível de Desafio 0 (10 XP)                                          19 (+4)     6 (–2)       15 (+2)   10 (+0)     10 (+0)     7 (–2)
+ Aparência Falsa. Enquanto o arbusto permanecer imóvel, ele é
+ indistinguível de um arbusto comum.                                 Vulnerabilidade a Dano fogo
+                                                                     Resistência a Dano concussão, perfurante
+ AÇÕES                                                               Sentidos Percepção passiva 10
+ Rasgar. Ataque Corpo-a-Corpo com Arma: +1 para atingir, alcance     Idiomas um idioma conhecido pelo seu criador
+ 1,5 m, um alvo. Acerto: 1 (1d4 – 1) de dano cortante.               Nível de Desafio 2 (450 XP)
+
+
+Um arbusto desperto é um arbusto comum que                           Aparência Falsa. Enquanto a árvore permanecer imóvel, ela é
+adquiriu raciocínio e mobilidade através da magia                    indistinguível de uma árvore normal.
+despertar ou mágica similar.
+
+
+
+320
+ AÇÕES
+ Pancada. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+ alcance 3 m, um alvo. Acerto: 14 (3d6 + 4) de dano de concussão.
+
+Uma árvore desperta é uma árvore comum que
+adquiriu raciocínio e mobilidade através da magia
+despertar ou mágica similar.
+
+ BABUÍNO
+ Besta Pequena, imparcial
+
+ Classe de Armadura 12
+ Pontos de Vida 3 (1d6)                                               BESOURO DE FOGO GIGANTE
+ Deslocamento 9 m, escalada 9 m
+                                                                      Besta Pequena, imparcial
+   FOR        DES        CON          INT        SAB         CAR
+  8 (–1)     14 (+2)    11 (+0)      4 (–3)     12 (+1)     6 (–2)    Classe de Armadura 13 (armadura natural)
+                                                                      Pontos de Vida 4 (1d6 + 1)
+ Sentidos Percepção passiva 11                                        Deslocamento 9 m
+ Idiomas –
+ Nível de Desafio 0 (10 XP)                                             FOR        DES           CON       INT        SAB         CAR
+                                                                       8 (–1)     10 (+0)       12 (+1)   1 (–4)     7 (–2)      3 (–4)
+ Táticas de Matilha. O babuíno tem vantagem nas jogadas de
+ ataque contra uma criatura se, pelo menos, um dos aliados do         Sentidos percepção às cegas 9 m, Percepção passiva 8
+ babuíno estiver a 1,5 metro da criaturas e não estiver               Idiomas –
+ incapacitado.                                                        Nível de Desafio 0 (10 XP)
+                                                                      Iluminação. O besouro emite luz plena num raio de 3 metros e
+ AÇÕES                                                                penumbra por mais 3 metros adicionais.
+ Mordida. Ataque Corpo-a-Corpo com Arma: +1 para atingir,             AÇÕES
+ alcance 1,5 m, um alvo. Acerto: 1 (1d4 – 1) de dano perfurante.
+                                                                      Mordida. Ataque Corpo-a-Corpo com Arma: +1 para atingir,
+                                                                      alcance 1,5 m, um alvo. Acerto: 2 (1d6 – 1) de dano cortante.
+ BALEIA ASSASSINA
+ Besta Enorme, imparcial                                             Um besouro de fogo gigante é uma criatura noturna
+                                                                     que adquiriu esse nome por ter um par de glândulas
+ Classe de Armadura 12 (armadura natural)                            brilhantes que emitem luz. Mineradores e aventureiros
+ Pontos de Vida 90 (12d12 + 12)                                      apreciam essas criaturas, pois as glândulas de um
+ Deslocamento 0 m, natação 18 m                                      besouro de fogo gigante continuam a emitir luz por 1d6
+                                                                     dias após o besouro morrer. Os besouros de fogo gigantes
+  FOR         DES        CON          INT        SAB         CAR     são mais comumente encontrados no subsolo e em
+ 19 (+4)     10 (+0)    13 (+1)      3 (–4)     12 (+1)     7 (–2)   florestas escuras.
+ Perícias Percepção +3
+ Sentidos percepção às cegas 36 m, Percepção passiva 11               BICO DE MACHADO
+ Idiomas –                                                            Besta Grande, imparcial
+ Nível de Desafio 3 (700 XP)
+                                                                      Classe de Armadura 11
+ Audição Aguçada. A baleia tem vantagem em testes de Sabedoria
+                                                                      Pontos de Vida 19 (3d10 + 3)
+ (Percepção) relacionados à audição.
+                                                                      Deslocamento 15 m
+ Eco Localização. Enquanto não puder ouvir, a baleia perderá a
+ percepção às cegas.                                                   FOR         DES           CON       INT        SAB         CAR
+                                                                      14 (+2)     12 (+1)       12 (+1)   2 (–4)     10 (+0)     5 (–3)
+ Prender a Respiração. A baleia consegue prender sua respiração
+ por 30 minutos.                                                      Sentidos Percepção passiva 1
+                                                                      Idiomas –
+ AÇÕES                                                                Nível de Desafio 1/4 (50 XP)
+ Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+ alcance 1,5 m, um alvo. Acerto: 21 (5d6 + 4) de dano perfurante.     AÇÕES
+                                                                      Bicada. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+                                                                      1,5 m, um alvo. Acerto: 6 (1d8 + 2) de dano cortante.
+
+                                                                     Um bico de machado é uma ave alta incapaz de voar
+                                                                     com poderosas pernas e um pesado bico curvado. Ele tem
+                                                                     a desagradável disposição de atacar qualquer criatura
+                                                                     desconhecida que passe muito próximo dele.
+
+
+                                                                                                                                      321
+BODE                                                                 Estável. O bode possui vantagem em testes de resistência de
+Besta Média, imparcial                                               Força e Destreza feitos contra efeitos que poderiam derruba-lo no
+                                                                     chão.
+Classe de Armadura 10
+                                                                     Investida. Se o bode se mover, pelo menos, 6 metros em linha
+Pontos de Vida 4 (1d8)
+                                                                     reta em direção de uma criatura logo antes de atingi-la com seu
+Deslocamento 12 m
+                                                                     ataque de cabeçada, o alvo sofre 5 (2d4) de dano de concussão
+                                                                     extra. Se o alvo for uma criatura, ele deve ser bem sucedido num
+  FOR        DES           CON       INT       SAB         CAR
+                                                                     teste de resistência de Força CD 13 para não cair no chão.
+ 12 (+1)    10 (+0)       11 (+0)   2 (–4)    10 (+0)     5 (–3)
+                                                                     AÇÕES
+Sentidos Percepção passiva 10
+                                                                     Cabeçada. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+Idiomas –
+                                                                     alcance 1,5 m, um alvo. Acerto: 8 (2d4 + 3) de dano de concussão.
+Nível de Desafio 0 (10 XP)
+
+Estável. O bode possui vantagem em testes de resistência de
+Força e Destreza feitos contra efeitos que poderiam derruba-lo no    CÃO DA MORTE
+chão.                                                                Monstruosidade Média, neutro e mau
+
+Investida. Se o bode se mover, pelo menos, 6 metros em linha         Classe de Armadura 12
+reta em direção de uma criatura logo antes de atingi-la com seu      Pontos de Vida 39 (6d8 + 12)
+ataque de cabeçada, o alvo sofre 2 (1d4) de dano de concussão        Deslocamento 12 m
+extra. Se o alvo for uma criatura, ele deve ser bem sucedido num
+teste de resistência de Força CD 10 para não cair no chão.            FOR         DES          CON        INT        SAB          CAR
+                                                                     15 (+2)     14 (+2)      14 (+2)    3 (–4)     13 (+1)      6 (–2)
+AÇÕES
+Cabeçada. Ataque Corpo-a-Corpo com Arma: +3 para atingir,            Perícias Furtividade +4, Percepção +5
+alcance 1,5 m, um alvo. Acerto: 3 (1d4 + 1) de dano de concussão.    Sentidos visão no escuro 36 m, Percepção passiva 15
+                                                                     Idiomas –
+                                                                     Nível de Desafio 1 (200 XP)
+BODE GIGANTE
+Besta Grande, imparcial                                              Duas Cabeças. O cão tem vantagem e testes de Sabedoria
+                                                                     (Percepção) e em testes de resistência contra ser amedrontado,
+Classe de Armadura 11 (armadura natural)                             atordoado, cegado, enfeitiçado, ensurdecido ou derrubado
+Pontos de Vida 19 (3d10 + 3)                                         inconsciente.
+Deslocamento 12 m                                                    AÇÕES
+                                                                     Ataques Múltiplos. O cão realiza dois ataques de mordida.
+  FOR        DES           CON       INT       SAB         CAR
+ 17 (+3)    11 (+0)       12 (+1)   3 (–4)    12 (+1)     6 (–2)     Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 5 (1d6 + 2) de dano perfurante. Se
+Sentidos Percepção passiva 11
+                                                                     o alvo for uma criatura, ele deve ser bem sucedido num teste de
+Idiomas –
+                                                                     resistência de Constituição CD 12 contra doença, ou ficará
+Nível de Desafio 1/2 (100 XP)
+                                                                     envenenado até a doença ser curada. A cada 24 horas passadas, a
+                                                                     criatura deve repetir o teste de resistência, reduzindo seu máximo
+                                                                     de pontos de vida em 5 (1d10) se fracassar. Essa redução dura até
+                                                                     a doença ser curada. A criatura morre se a doença reduzir seu
+                                                                     máximo de pontos de vida a 0.
+
+                                                                    O cão da morte é um cão horrendo de duas cabeças que
+                                                                    vaga por planícies, desertos e pelo Subterrâneo. O ódio
+                                                                    queima no coração de um cão da morte e o gosto pela
+                                                                    carne humanoide o leva a atacar viajantes e exploradores.
+                                                                    A saliva do cão da morte carrega uma doença medonha
+                                                                    que faz com que a carne da vítima apodreça lentamente,
+                                                                    soltando-se dos ossos.
+
+
+
+                                                                     CÃO TELEPORTADOR
+                                                                     Fada Média, leal e bom
+
+                                                                     Classe de Armadura 13
+                                                                     Pontos de Vida 22 (4d8 + 4)
+                                                                     Deslocamento 12 m
+
+                                                                      FOR         DES          CON       INT         SAB          CAR
+                                                                     12 (+1)     17 (+3)      12 (+1)   10 (+0)     13 (+1)      11 (+0)
+
+
+
+
+322
+ Perícias Furtividade +5, Percepção +3                               CARANGUEJO
+ Sentidos Percepção passiva 13                                       Besta Miúda, imparcial
+ Idiomas Cão Teleportador, compreende Silvestre, mas não pode
+    falar                                                            Classe de Armadura 11 (armadura natural)
+ Nível de Desafio 1/4 (50 XP)                                        Pontos de Vida 2 (1d4)
+                                                                     Deslocamento 6 m, natação 6 m
+ Audição e Faro Aguçados. O cão tem vantagem em testes de
+ Sabedoria (Percepção) relacionados à audição e ao olfato.             FOR        DES           CON       INT          SAB       CAR
+ AÇÕES                                                                2 (–4)     11 (+0)       10 (+0)   1 (–5)       8 (–1)    2 (–4)
+ Mordida. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+ alcance 1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano perfurante.     Perícias Furtividade +2
+                                                                     Sentidos percepção às cegas 9 m, Percepção passiva 9
+ Teletransporte. O cão teletransporta-se magicamente,                Idiomas –
+ juntamente com qualquer equipamento que ele esteja vestindo         Nível de Desafio 0 (10 XP)
+ ou carregando, para um espaço desocupado, a até 12 metros, que
+ ele possa ver.
+                                                                     Anfíbio. O caranguejo pode respirar ar e água.
+Um cão teleportador recebe esse nome por causa da                    AÇÕES
+habilidade de piscar para dentro e para fora da
+existência, um talento usado para ajudá-lo a atacar e                Garra. Ataque Corpo-a-Corpo com Arma: +0 para atingir, alcance
+evitar se ferir. Os cães teleportadores nutrem um ódio               1,5 m, um alvo. Acerto: 1 de dano de concussão.
+antigo pelas panteras deslocadoras e as atacam a
+primeira vista.
+                                                                     CARANGUEJO GIGANTE
+ CAMELO                                                              Besta Média, imparcial
+ Besta Grande, imparcial
+                                                                     Classe de Armadura 15 (armadura natural)
+                                                                     Pontos de Vida 13 (3d8)
+ Classe de Armadura 9
+                                                                     Deslocamento 9 m, natação 9 m
+ Pontos de Vida 15 (2d10 + 4)
+ Deslocamento 15 m
+                                                                      FOR         DES           CON       INT          SAB       CAR
+                                                                     13 (+1)     15 (+2)       11 (+0)   1 (–5)       9 (–1)    3 (–4)
+  FOR         DES           CON       INT        SAB         CAR
+ 16 (+3)     8 (–1)        14 (+2)   2 (–4)     8 (–1)      5 (–3)
+                                                                     Perícias Furtividade +4
+ Sentidos Percepção passiva 9                                        Sentidos percepção às cegas 9 m, Percepção passiva 9
+ Idiomas –                                                           Idiomas –
+ Nível de Desafio 1/8 (25 XP)                                        Nível de Desafio 1/8 (25 XP)
+
+
+ AÇÕES                                                               Anfíbio. O caranguejo pode respirar ar e água.
+
+ Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,            AÇÕES
+ alcance 1,5 m, um alvo. Acerto: 2 (1d4) de dano de concussão.       Garra. Ataque Corpo-a-Corpo com Arma: +3 para atingir, alcance
+                                                                     1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano de concussão e o alvo
+                                                                     fica agarrado (CD 11 para escapar). Se o caranguejo tiver duas
+                                                                     garras, cada uma pode agarrar apenas um alvo.
+
+
+                                                                     CAVALO DE CARGA
+                                                                     Besta Grande, imparcial
+
+                                                                     Classe de Armadura 10
+                                                                     Pontos de Vida 19 (3d10 + 3)
+                                                                     Deslocamento 12 m
+
+                                                                      FOR         DES           CON       INT          SAB       CAR
+                                                                     18 (+4)     10 (+0)       12 (+1)   2 (–4)       11 (+0)   7 (–2)
+
+                                                                     Sentidos Percepção passiva 10
+                                                                     Idiomas –
+                                                                     Nível de Desafio 1/4 (50 XP)
+
+
+                                                                     AÇÕES
+                                                                     Cascos. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+                                                                     1,5 m, um alvo. Acerto: 9 (2d4 + 4) de dano de concussão.
+
+
+
+
+                                                                                                                                    323
+CAVALO DE GUERRA                                                         FOR        DES          CON        INT        SAB          CAR
+Besta Grande, imparcial                                                 1 (–5)     12 (+1)       8 (–1)    1 (–5)     10 (+0)      2 (–4)
+
+Classe de Armadura 11                                                  Sentidos visão no escuro 36 m, Percepção passiva 14
+Pontos de Vida 19 (3d10 + 3)                                           Idiomas –
+Deslocamento 18 m                                                      Nível de Desafio 0 (0 XP)
+                                                                       Respirar na Água. O cavalo marinho pode respirar apenas em
+  FOR         DES          CON       INT        SAB           CAR      baixo d’água.
+ 18 (+4)     12 (+1)      13 (+1)   2 (–4)     12 (+1)       7 (–2)
+
+Sentidos Percepção passiva 11                                          CAVALO MARINHO GIGANTE
+Idiomas –                                                              Besta Grande, imparcial
+Nível de Desafio 1/2 (100 XP)
+                                                                       Classe de Armadura 13 (armadura natural)
+Atropelar. Se o cavalo se mover, pelo menos, 6 metros em linha         Pontos de Vida 16 (3d10)
+reta em direção de um alvo logo antes de atingi-lo com seu ataque      Deslocamento 0 m, natação 12 m
+de cascos, o alvo deve ser bem sucedido num teste de resistência
+de Força CD 14 para não cair no chão. Se o alvo cair no chão, o         FOR         DES           CON       INT        SAB          CAR
+cavalo poderá realizar uma ação bônus para realizar outro ataque       12 (+1)     15 (+2)       11 (+0)   2 (–4)     12 (+1)      5 (–3)
+de cascos contra ele.
+                                                                       Sentidos Percepção passiva 11
+                                                                       Idiomas –
+AÇÕES
+                                                                       Nível de Desafio 1/2 (100 XP)
+Cascos. Ataque Corpo-a-Corpo com Arma: +6 para atingir, alcance
+1,5 m, um alvo. Acerto: 11 (2d6 + 4) de dano de concussão.             Investida. Se o cavalo marinho se mover, pelo menos, 6 metros
+                                                                       em linha reta em direção de uma criatura logo antes de atingi-la
+                                                                       com seu ataque de cabeçada, o alvo sofre 7 (2d6) de dano de
+VARIAÇÃO: ARMADURA PARA CAVALO DE GUERRA                               concussão extra. Se o alvo for uma criatura, ele deve ser bem
+Um cavalo de guerra de armadura terá uma Classe de Armadura            sucedido num teste de resistência de Força CD 11 para não cair no
+baseada no tipo de armadura vestida (veja o Livro do Jogador para      chão.
+mais informações sobre armaduras). A Classe de Armadura dele
+inclui o modificador de Destreza do cavalo, quando aplicável. A        Respirar na Água. O cavalo marinho pode respirar apenas em
+armadura não altera o nível de desafio do cavalo.                      baixo d’água.
+                                                                       AÇÕES
+ CA        Armadura                 CA       Armadura
+ 12        Armadura de couro        16       Cota de malha             Cabeçada. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+ 13        Gibão de peles           17       Cota de talas             alcance 1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano de concussão.
+ 14        Cota de anéis            18       Placas
+ 15        Brunea                                                     Como sua espécie menor, os cavalos marinhos
+                                                                      gigantes são peixes coloridos tímidos com corpos
+                                                                      alongados e caudas enroladas. Os elfos aquáticos os
+CAVALO DE MONTARIA                                                    treinam como montarias.
+Besta Grande, imparcial
+
+Classe de Armadura 10
+                                                                       CENTOPEIA GIGANTE
+Pontos de Vida 13 (2d10 + 2)                                           Besta Pequena, imparcial
+Deslocamento 18 m
+                                                                       Classe de Armadura 13 (armadura natural)
+  FOR         DES          CON       INT        SAB           CAR      Pontos de Vida 4 (1d6 + 1)
+ 16 (+3)     10 (+0)      12 (+1)   2 (–4)     11 (+0)       7 (–2)    Deslocamento 9 m, escalada 9 m
+
+                                                                         FOR        DES           CON       INT         SAB         CAR
+Sentidos Percepção passiva 10
+                                                                        5 (–3)     14 (+2)       12 (+1)   1 (–5)      7 (–2)      3 (–4)
+Idiomas –
+Nível de Desafio 1/4 (50 XP)                                           Sentidos percepção às cegas 9 m, Percepção passiva 8
+                                                                       Idiomas –
+AÇÕES                                                                  Nível de Desafio 1/4 (50 XP)
+
+Cascos. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance        AÇÕES
+1,5 m, um alvo. Acerto: 8 (2d4 + 3) de dano de concussão.              Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                       alcance 1,5 m, uma criatura. Acerto: 4 (1d4 + 2) de dano
+CAVALO MARINHO                                                         perfurante e o alvo deve ser bem sucedido num teste de
+                                                                       resistência de Constituição CD 11 ou sofrerá 10 (3d6) de dano de
+Besta Miúda, imparcial
+                                                                       veneno. Se o veneno reduzir os pontos de vida do alvo a 0, ele fica
+                                                                       estável mas envenenado por 1 hora, mesmo após recuperar
+Classe de Armadura 11
+                                                                       pontos de vida, e fica paralisado enquanto estiver envenenado
+Pontos de Vida 1 (1d4 – 1)
+                                                                       dessa forma.
+Deslocamento 0 m, natação 12 m
+
+
+
+324
+CHACAL                                                               AÇÕES
+Besta Pequena, imparcial
+                                                                     Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+                                                                     alcance 3 m, uma criatura. Acerto: 11 (2d6 + 4) de dano
+Classe de Armadura 12                                                perfurante.
+Pontos de Vida 3 (1d6)
+Deslocamento 12 m
+                                                                     Constrição. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+                                                                     alcance 1,5 m, uma criatura. Acerto: 13 (2d8 + 4) de dano de
+  FOR        DES           CON       INT        SAB         CAR
+                                                                     concussão e o alvo está agarrado (CD 16 para escapar). Até o
+ 8 (–1)     15 (+2)       11 (+0)   3 (–4)     12 (+1)     6 (–2)
+                                                                     agarrão terminar, a criatura estará impedida e a cobra não poderá
+Perícias Percepção +3                                                constringir outro alvo.
+Sentidos Percepção passiva 13
+Idiomas –
+Nível de Desafio 0 (10 XP)
+                                                                     COBRA VOADORA
+                                                                     Besta miúda, imparcial
+Audição e Faro Aguçados. O chacal tem vantagem em testes de
+Sabedoria (Percepção) relacionados à audição e ao olfato.            Classe de Armadura 14
+                                                                     Pontos de Vida 5 (2d4)
+Táticas de Matilha. O chacal tem vantagem nas jogadas de ataque      Deslocamento 9 m, natação 9 m, voo 18 m
+contra uma criatura se, pelo menos, um dos aliados do chacal
+estiver a 1,5 metro da criaturas e não estiver incapacitado.           FOR        DES          CON       INT        SAB         CAR
+                                                                      4 (–3)     18 (+4)      11 (+0)   2 (–4)     12 (+1)     5 (–3)
+AÇÕES
+Mordida. Ataque Corpo-a-Corpo com Arma: +1 para atingir,             Sentidos percepção às cegas 3 m, Percepção passiva 11
+alcance 1,5 m, um alvo. Acerto: 1 (1d4 – 1) de dano perfurante.      Idiomas –
+                                                                     Nível de Desafio 1/8 (25 XP)
+
+COBRA CONSTRITORA                                                    AÇÕES
+Besta Grande, imparcial
+                                                                     Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+Classe de Armadura 12                                                alcance 1,5 m, uma criatura. Acerto: 1 de dano perfurante mais 7
+Pontos de Vida 13 (2d10 + 2)                                         (3d4) de dano de veneno.
+Deslocamento 9 m, natação 9 m
+
+ FOR         DES           CON       INT        SAB         CAR
+                                                                    Uma cobra voadora é uma serpente alada de cores
+15 (+2)     14 (+2)       12 (+1)   1 (–5)     10 (+0)     3 (–4)   vivas, encontrada em selvas remotas. Povos de tribo e
+                                                                    cultistas, às vezes, domesticam cobras voadoras para
+Sentidos percepção às cegas 3 m, Percepção passiva 10               servir de mensageiros que entregam pergaminhos
+Idiomas –                                                           enrolados em seus corpos.
+Nível de Desafio 1/4 (50 XP)
+                                                                     CORUJA
+AÇÕES                                                                Besta Miúda, imparcial
+Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+alcance 1,5 m, uma criatura. Acerto: 5 (1d6 + 2) de dano             Classe de Armadura 11
+perfurante.                                                          Pontos de Vida 1 (1d4 – 1)
+                                                                     Deslocamento 1,5 m, voo 18 m
+Constrição. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                       FOR        DES         CON        INT        SAB         CAR
+alcance 1,5 m, uma criatura. Acerto: 6 (1d8 + 2) de dano de
+                                                                      3 (–4)     13 (+1)      8 (–1)    2 (–4)     14 (+2)     7 (–2)
+concussão e o alvo está agarrado (CD 14 para escapar). Até o
+agarrão terminar, a criatura estará impedida e a cobra não poderá
+constringir outro alvo.                                              Perícias Furtividade +3, Percepção +4
+                                                                     Sentidos visão no escuro 36 m, Percepção passiva 14
+                                                                     Idiomas –
+COBRA CONSTRITORA GIGANTE                                            Nível de Desafio 0 (10 XP)
+Besta Enorme, imparcial
+                                                                     Sobrevoo. A coruja não provoca ataques de oportunidade quando
+Classe de Armadura 12                                                voa para fora do alcance de um inimigo.
+Pontos de Vida 60 (8d12 + 8)
+Deslocamento 9 m, natação 9 m                                        Visão e Audição Aguçadas. A coruja tem vantagem em testes de
+                                                                     Sabedoria (Percepção) relacionados à visão e à audição.
+ FOR         DES           CON       INT        SAB         CAR
+                                                                     AÇÕES
+19 (+4)     14 (+2)       12 (+1)   1 (–5)     10 (+0)     3 (–4)
+                                                                     Garras. Ataque Corpo-a-Corpo com Arma: +3 para atingir, alcance
+Perícias Percepção +2                                                1,5 m, um alvo. Acerto: 1 de dano cortante.
+Sentidos percepção às cegas 3 m, Percepção passiva 12
+Idiomas –
+Nível de Desafio 2 (450 XP)
+
+
+
+                                                                                                                                   325
+ CORUJA GIGANTE                                                    Perícias Furtividade +2
+ Besta Grande, imparcial                                           Sentidos Percepção passiva 10
+                                                                   Idiomas –
+ Classe de Armadura 12                                             Nível de Desafio 1/2 (100 XP)
+ Pontos de Vida 19 (3d10 + 3)                                      Prender a Respiração. O crocodilo consegue prender sua
+ Deslocamento 1,5 m, voo 18 m                                      respiração por 15 minutos.
+
+  FOR        DES            CON       INT      SAB        CAR      AÇÕES
+ 13 (+1)    15 (+2)        12 (+1)   8 (–1)   14 (+2)    10 (+0)   Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                   alcance 1,5 m, um alvo. Acerto: 7 (1d10 + 2) de dano perfurante e
+ Perícias Furtividade +4, Percepção +6                             o alvo está agarrado (CD 12 para escapar). Até o agarrão terminar,
+ Sentidos visão no escuro 36 m, Percepção passiva 16               a criatura estará impedida e o crocodilo não poderá morder outro
+ Idiomas Coruja Gigante, compreende Comum, Élfico e Silvestre,     alvo.
+    mas não pode falar
+ Nível de Desafio 1/4 (50 XP)
+                                                                   CROCODILO GIGANTE
+ Sobrevoo. A coruja não provoca ataques de oportunidade quando     Besta Enorme, imparcial
+ voa para fora do alcance de um inimigo.
+                                                                   Classe de Armadura 14 (armadura natural)
+ Visão e Audição Aguçadas. A coruja tem vantagem em testes de      Pontos de Vida 85 (9d12 + 27)
+ Sabedoria (Percepção) relacionados à visão e à audição.           Deslocamento 9 m, natação 15 m
+ AÇÕES
+                                                                    FOR         DES        CON          INT        SAB         CAR
+ Garras. Ataque Corpo-a-Corpo com Arma: +3 para atingir, alcance   21 (+5)     9 (–1)     17 (+3)      2 (–4)     10 (+0)     7 (–2)
+ 1,5 m, um alvo. Acerto: 8 (2d6 + 1) de dano cortante.
+                                                                   Perícias Furtividade +5
+As corujas gigantes frequentemente fazem amizades                  Sentidos Percepção passiva 10
+com fadas e outras criaturas silvestres, e são guardiãs dos        Idiomas –
+reinos florestais.                                                 Nível de Desafio 5 (1.800 XP)
+
+                                                                   Prender a Respiração. O crocodilo consegue prender sua
+ CORVO                                                             respiração por 30 minutos.
+ Besta Miúda, imparcial
+                                                                   AÇÕES
+ Classe de Armadura 12                                             Ataques Múltiplos. O crocodilo realiza dois ataques: um com sua
+ Pontos de Vida 1 (1d4 – 1)                                        mordida e um com sua cauda.
+ Deslocamento 3 m, voo 15 m
+                                                                   Mordida. Ataque Corpo-a-Corpo com Arma: +8 para atingir,
+                                                                   alcance 1,5 m, um alvo. Acerto: 21 (3d10 + 5) de dano perfurante
+   FOR       DES           CON        INT      SAB         CAR
+                                                                   e o alvo está agarrado (CD 16 para escapar). Até o agarrão
+  2 (–4)    14 (+2)        8 (–1)    2 (–4)   12 (+1)     6 (–2)
+                                                                   terminar, a criatura estará impedida e o crocodilo não poderá
+                                                                   morder outro alvo.
+ Perícias Percepção +3
+ Sentidos Percepção passiva 13                                     Cauda. Ataque Corpo-a-Corpo com Arma: +8 para atingir, alcance
+ Idiomas –                                                         3 m, um alvo. Acerto: 14 (2d8 + 5) de dano de concussão. Se o alvo
+ Nível de Desafio 0 (10 XP)                                        for uma criatura, ele deve ser bem sucedido num teste de
+                                                                   resistência de Força CD 16 ou cairá no chão.
+ Mímica. O corvo é capaz de imitar sons simples que ele ouve,
+ como pessoas cochichando, um bebê chorando ou um animal           ELEFANTE
+ rangendo. Uma criatura que ouvir os sons pode perceber que são    Besta Enorme, imparcial
+ imitações se for bem sucedida num teste de Sabedoria (Intuição)
+ CD 10.                                                            Classe de Armadura 12 (armadura natural)
+                                                                   Pontos de Vida 76 (8d12 + 24)
+ AÇÕES                                                             Deslocamento 12 m
+ Bicada. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+                                                                    FOR         DES        CON          INT        SAB         CAR
+ 1,5 m, um alvo. Acerto: 1 de dano perfurante.
+                                                                   22 (+6)     9 (–1)     17 (+3)      3 (–4)     11 (+1)     6 (–2)
+
+                                                                   Sentidos Percepção passiva 10
+ CROCODILO                                                         Idiomas –
+ Besta Grande, imparcial                                           Nível de Desafio 4 (1.100 XP)
+                                                                   Investida Esmagadora. Se o elefante se mover, pelo menos, 6
+ Classe de Armadura 12 (armadura natural)
+                                                                   metros em linha reta em direção de uma criatura logo antes de
+ Pontos de Vida 19 (3d10 + 3)
+                                                                   atingi-la com seu ataque de presa, o alvo deve ser bem sucedido
+ Deslocamento 6 m, natação 9 m
+                                                                   num teste de resistência de Força CD 16 para não cair no chão. Se
+  FOR        DES            CON       INT      SAB         CAR     o alvo cair no chão, o elefante pode realizar um ataque de
+ 15 (+2)    10 (+0)        13 (+1)   2 (–4)   10 (+0)     5 (–3)   pisotear contra ele com uma ação bônus.
+
+
+
+326
+AÇÕES                                                               Enxame. O enxame pode ocupar o espaço de outra criatura e vice-
+Presas. Ataque Corpo-a-Corpo com Arma: +8 para atingir, alcance     versa, e o enxame pode se mover através de qualquer abertura
+1,5 m, um alvo. Acerto: 19 (3d8 + 6) de dano perfurante.            grande o suficiente para um inseto Miúdo. O enxame não pode
+                                                                    recuperar pontos de vida ou ganhar pontos de vida temporários.
+Pisotear. Ataque Corpo-a-Corpo com Arma: +8 para atingir,
+alcance 1,5 m, uma criatura caída. Acerto: 22 (3d10 + 6) de dano    AÇÕES
+de concussão.                                                       Mordidas. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+                                                                    alcance 0 m, um alvo no espaço do enxame. Acerto: 10 (4d4) de
+ENXAME DE CORVOS                                                    dano perfurante, ou 5 (2d4) de dano perfurante se o enxame
+Enxame Médio de bestas Miúdas, imparcial                            estiver com metade de seus pontos de vida ou menos.
+
+Classe de Armadura 12                                               VARIAÇÃO: ENXAME DE INSETOS
+Pontos de Vida 24 (7d8 – 1)                                         Diferentes tipos de insetos podem se juntar em enxames e cada
+Deslocamento 3 m, voo 15 m                                          enxame possui as características especiais descritas abaixo.
+                                                                         Enxame de Aranhas. Um enxame de aranhas possui os
+  FOR        DES        CON          INT        SAB         CAR     seguintes traços adicionais.
+ 6 (–2)     14 (+2)     8 (–1)      3 (–4)     12 (+1)     6 (–2)        Andar na Teia. O enxame ignora restrições de movimento
+Perícias Percepção +5                                               causadas por estar numa teia.
+Resistência a Dano concussão, cortante, perfurante                       Escalada Aracnídea. O enxame pode escalar superfícies
+Imunidade a Condição agarrado, amedrontado, atordoado, caído,       difíceis, incluindo tetos de cabeça para baixo, sem precisar realizar
+   enfeitiçado, impedido, paralisado, petrificado                   um teste de habilidade.
+Sentidos Percepção passiva 15                                            Sentido na Teia. Quando em contato com uma teia, o enxame
+Idiomas –                                                           sabe a localização exata de qualquer outra criatura em contato
+Nível de Desafio 1/4 (50 XP)                                        com a mesma teia.
+                                                                         Enxame de Besouros. Um enxame de besouros ganha
+Enxame. O enxame pode ocupar o espaço de outra criatura e vice-     deslocamento de escavação de 1,5 metro.
+versa, e o enxame pode se mover através de qualquer abertura             Enxame de Centopeias. Uma criatura reduzida a 0 pontos de
+grande o suficiente para um corvo Miúdo. O enxame não pode          vida por um enxame de centopeias fica estável, mas envenenado
+recuperar pontos de vida ou ganhar pontos de vida temporários.      por 1 hora, mesmo depois de recuperar pontos de vida, e
+AÇÕES                                                               paralisado enquanto estiver envenenado dessa forma.
+                                                                         Enxame de Vespas. Um enxame de vespas tem deslocamento
+Bicadas. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                    de caminhada de 1,5 metro, deslocamento de voo de 9 m e
+alcance 0 m, um alvo no espaço do enxame. Acerto: 7 (2d6) de
+                                                                    nenhum deslocamento de escalada.
+dano perfurante, ou 3 (1d6) de dano perfurante se o enxame
+estiver com metade de seus pontos de vida ou menos.
+                                                                    ENXAME DE MORCEGOS
+A NATUREZA DOS ENXAMES                                              Enxame Médio de bestas Miúdas, imparcial
+Os enxames apresentados aqui não são conjuntos ordinários ou
+benignos de pequenas criaturas. Eles se formam como resultado       Classe de Armadura 12
+de alguma influência sinistra ou insalubre. Um vampiro pode         Pontos de Vida 22 (5d8)
+invocar um enxame de morcegos e ratos dos cantos mais escuros       Deslocamento 0 m, voo 9 m
+da noite, enquanto a simples presença de um senhor das múmias
+pode fazer com que escaravelhos emerjam das profundezas               FOR        DES         CON          INT         SAB         CAR
+arenosas da sua tumba. Uma bruxa poderia ter o poder de enviar       5 (–3)     15 (+2)     10 (+0)      2 (–4)      12 (+1)     4 (–3)
+enxames de corvos contra seus inimigos, enquanto que um yuan-
+ti abominação poderia ter enxames de cobras venenosas               Resistência a Dano concussão, cortante, perfurante
+deslizando em seu rastro. Até mesmo druidas podem enfeitiçar        Imunidade a Condição agarrado, amedrontado, atordoado, caído,
+esses enxames e a agressividade deles é praticamente antinatural.      enfeitiçado, impedido, paralisado, petrificado
+                                                                    Sentidos percepção às cegas 18 m, Percepção passiva 11
+                                                                    Idiomas –
+ENXAME DE INSETOS                                                   Nível de Desafio 1/4 (50 XP)
+Enxame Médio de bestas Miúdas, imparcial                            Eco Localização. Enquanto não puder ouvir, o enxame perderá a
+                                                                    percepção às cegas.
+Classe de Armadura 12 (armadura natural)                            Audição Aguçada. O enxame tem vantagem em testes de
+Pontos de Vida 22 (5d8)                                             Sabedoria (Percepção) relacionados à audição.
+Deslocamento 6 m, escalada 6 m
+                                                                    Enxame. O enxame pode ocupar o espaço de outra criatura e vice-
+  FOR        DES        CON          INT        SAB         CAR     versa, e o enxame pode se mover através de qualquer abertura
+ 3 (–4)     13 (+1)    10 (+0)      1 (–5)     7 (–2)      1 (–5)   grande o suficiente para um morcego Miúdo. O enxame não pode
+                                                                    recuperar pontos de vida ou ganhar pontos de vida temporários.
+Resistência a Dano concussão, cortante, perfurante                  AÇÕES
+Imunidade a Condição agarrado, amedrontado, atordoado, caído,       Mordidas. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+   enfeitiçado, impedido, paralisado, petrificado                   alcance 0 m, uma criatura no espaço do enxame. Acerto: 5 (2d4)
+Sentidos percepção às cegas 3 m, Percepção passiva 8                de dano perfurante, ou 2 (1d4) de dano perfurante se o enxame
+Idiomas –                                                           estiver com metade de seus pontos de vida ou menos.
+Nível de Desafio 1/2 (100 XP)
+
+
+
+
+                                                                                                                                      327
+                                                                  Resistência a Dano concussão, cortante, perfurante
+                                                                  Imunidade a Condição agarrado, amedrontado, atordoado, caído,
+                                                                     enfeitiçado, impedido, paralisado, petrificado
+                                                                  Sentidos percepção às cegas 9 m, Percepção passiva 10
+                                                                  Idiomas –
+                                                                  Nível de Desafio 1/4 (50 XP)
+                                                                  Faro Aguçado. O enxame tem vantagem em testes de Sabedoria
+                                                                  (Percepção) relacionados ao olfato.
+                                                                  Enxame. O enxame pode ocupar o espaço de outra criatura e vice-
+                                                                  versa, e o enxame pode se mover através de qualquer abertura
+                                                                  grande o suficiente para um rato Miúdo. O enxame não pode
+                                                                  recuperar pontos de vida ou ganhar pontos de vida temporários.
+                                                                  AÇÕES
+                                                                  Mordidas. Ataque Corpo-a-Corpo com Arma: +2 para atingir,
+                                                                  alcance 0 m, um alvo no espaço do enxame. Acerto: 7 (2d6) de
+                                                                  dano perfurante, ou 3 (1d6) de dano perfurante se o enxame
+ENXAME DE PIRANHAS                                                estiver com metade de seus pontos de vida ou menos.
+Enxame Médio de bestas Miúdas, imparcial
+
+Classe de Armadura 13                                             ENXAME DE SERPENTES VENENOSAS
+Pontos de Vida 28 (8d8 – 8)                                       Enxame Médio de bestas Miúdas, imparcial
+Deslocamento 0 m, natação 12 m
+                                                                  Classe de Armadura 14
+  FOR        DES       CON          INT        SAB        CAR     Pontos de Vida 36 (8d8)
+ 13 (+1)    16 (+3)    9 (–1)      1 (–5)     7 (–2)     2 (–4)   Deslocamento 9 m, escalada 9 m
+
+Resistência a Dano concussão, cortante, perfurante                  FOR        DES          CON       INT        SAB        CAR
+Imunidade a Condição agarrado, amedrontado, atordoado, caído,      8 (–1)     18 (+4)      11 (+0)   1 (–5)     10 (+0)    3 (–4)
+   enfeitiçado, impedido, paralisado, petrificado
+Sentidos visão no escuro 18 m, Percepção passiva 8                Resistência a Dano concussão, cortante, perfurante
+Idiomas –                                                         Imunidade a Condição agarrado, amedrontado, atordoado, caído,
+Nível de Desafio 1 (200 XP)                                          enfeitiçado, impedido, paralisado, petrificado
+                                                                  Sentidos percepção às cegas 3 m, Percepção passiva 10
+Frenesi de Sangue. O enxame tem vantagem nas jogadas de           Idiomas –
+ataque corpo-a-corpo contra qualquer criatura que não esteja      Nível de Desafio 2 (450 XP)
+com todos os seus pontos de vida.
+                                                                  Enxame. O enxame pode ocupar o espaço de outra criatura e vice-
+Respirar na Água. O enxame pode respirar apenas em baixo          versa, e o enxame pode se mover através de qualquer abertura
+d’água.                                                           grande o suficiente para uma serpente Miúda. O enxame não
+Enxame. O enxame pode ocupar o espaço de outra criatura e vice-   pode recuperar pontos de vida ou ganhar pontos de vida
+versa, e o enxame pode se mover através de qualquer abertura      temporários.
+grande o suficiente para uma piranha Miúda. O enxame não pode     AÇÕES
+recuperar pontos de vida ou ganhar pontos de vida temporários.
+                                                                  Mordidas. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+AÇÕES                                                             alcance 0 m, uma criatura no espaço do enxame. Acerto: 7 (2d6)
+                                                                  de dano perfurante, ou 3 (1d6) de dano perfurante se o enxame
+Mordidas. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+                                                                  estiver com metade de seus pontos de vida ou menos. O alvo deve
+alcance 0 m, uma criatura no espaço do enxame. Acerto: 14 (4d6)
+                                                                  realizar um teste de resistência de Constituição CD 10, sofrendo
+de dano perfurante, ou 7 (2d6) de dano perfurante se o enxame
+                                                                  14 (4d6) de dano de veneno se fracassar na resistência, ou metade
+estiver com metade de seus pontos de vida ou menos.
+                                                                  desse dano se obtiver sucesso.
+
+ENXAME DE RATOS                                                   ESCORPIÃO
+Enxame Médio de bestas Miúdas, imparcial                          Besta Miúda, imparcial
+
+Classe de Armadura 10                                             Classe de Armadura 11 (armadura natural)
+Pontos de Vida 24 (7d8 – 7)                                       Pontos de Vida 1 (1d4 – 1)
+Deslocamento 9 m                                                  Deslocamento 3 m
+
+  FOR        DES       CON          INT       SAB         CAR       FOR        DES         CON        INT        SAB        CAR
+ 9 (–1)     11 (+0)    9 (–1)      2 (–4)    10 (+0)     3 (–4)    2 (–4)     11 (+0)      8 (–1)    1 (–5)     8 (–1)     2 (–4)
+
+                                                                  Sentidos percepção às cegas 3 m, Percepção passiva 9
+                                                                  Idiomas –
+                                                                  Nível de Desafio 0 (10 XP)
+
+
+
+328
+AÇÕES
+Ferrão. Ataque Corpo-a-Corpo com Arma: +2 para atingir, alcance
+1,5 m, uma criatura. Acerto: 1 de dano perfurante e o alvo deve
+realizar um teste de resistência de Constituição CD 9, sofrendo 4
+(1d8) de dano de veneno se fracassar na resistência, ou metade
+desse dano se obtiver sucesso.
+
+
+ESCORPIÃO GIGANTE
+Besta Grande, imparcial
+
+Classe de Armadura 15 (armadura natural)
+Pontos de Vida 52 (7d10 + 14)
+Deslocamento 12 m
+
+ FOR         DES           CON       INT        SAB         CAR
+15 (+2)     13 (+1)       15 (+2)   1 (–5)     9 (–1)      3 (–4)    FALCÃO DE SANGUE
+                                                                     Besta Pequena, imparcial
+Sentidos percepção às cegas 18 m, Percepção passiva 9
+Idiomas –                                                            Classe de Armadura 12
+Nível de Desafio 3 (700 XP)                                          Pontos de Vida 7 (2d6)
+                                                                     Deslocamento 3 m, voo 18 m
+AÇÕES
+                                                                       FOR        DES          CON       INT       SAB        CAR
+Ataques Múltiplos. O escorpião realiza três ataques: dois com         6 (–2)     14 (+2)      10 (+0)   3 (–4)    14 (+2)    5 (–3)
+suas garras e um com seu ferrão.
+                                                                     Perícias Percepção +4
+Garra. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance       Sentidos Percepção passiva 14
+1,5 m, um alvo. Acerto: 6 (1d8 + 2) de dano de concussão e o alvo    Idiomas –
+fica agarrado (CD 12 para escapar). O escorpião possui duas          Nível de Desafio 1/8 (25 XP)
+garras, cada uma podendo agarrar apenas um alvo.
+Ferrão. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance      Visão Aguçada. O falcão tem vantagem em testes de Sabedoria
+1,5 m, uma criatura. Acerto: 7 (1d10 + 2) de dano perfurante e o     (Percepção) relacionados à visão.
+alvo deve realizar um teste de resistência de Constituição CD 12,
+sofrendo 22 (4d10) de dano de veneno se fracassar na resistência,    Táticas de Matilha. O falcão tem vantagem nas jogadas de ataque
+ou metade desse dano se obtiver sucesso.                             contra uma criatura se, pelo menos, um dos aliados do falcão
+                                                                     estiver a 1,5 metro da criaturas e não estiver incapacitado.
+
+FALCÃO                                                               AÇÕES
+Besta Miúda, imparcial
+                                                                     Bicada. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+                                                                     1,5 m, um alvo. Acerto: 4 (1d4 + 2) de dano perfurante.
+Classe de Armadura 13
+Pontos de Vida 1 (1d4 – 1)                                          Recebendo seu nome devido ás suas penas carmesins e
+Deslocamento 3 m, voo 18 m                                          sua natureza agressiva, o falcão de sangue ataca
+                                                                    destemidamente praticamente qualquer animal,
+  FOR        DES          CON        INT       SAB          CAR     apunhalando-o com seu bico em forma de adaga. Os
+ 5 (–3)     16 (+3)       8 (–1)    2 (–4)    14 (+2)      6 (–2)   falcões de sangue voam juntos em grandes números,
+                                                                    atacando como uma matilha para derrubar sua presa.
+Perícias Percepção +4
+Sentidos Percepção passiva 14
+Idiomas –                                                            GATO
+Nível de Desafio 0 (10 XP)                                           Besta Miúda, imparcial
+
+Visão Aguçada. O falcão tem vantagem em testes de Sabedoria          Classe de Armadura 12
+(Percepção) relacionados à visão.                                    Pontos de Vida 2 (1d4)
+                                                                     Deslocamento 12 m, escalada 9 m
+AÇÕES
+                                                                       FOR        DES          CON       INT       SAB        CAR
+Garras. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance       3 (–4)     15 (+2)      10 (+0)   3 (–4)    12 (+1)    7 (–2)
+1,5 m, um alvo. Acerto: 1 de dano cortante.
+                                                                     Perícias Furtividade +4, Percepção +3
+                                                                     Sentidos Percepção passiva 13
+                                                                     Idiomas –
+                                                                     Nível de Desafio 0 (10 XP)
+
+
+
+
+                                                                                                                                   329
+Faro Aguçado. O gato tem vantagem em testes de Sabedoria               FOR         DES           CON       INT       SAB          CAR
+(Percepção) relacionados ao olfato.                                   11 (+0)     13 (+1)       12 (+1)   2 (–4)    12 (+1)      5 (–3)
+
+AÇÕES                                                                 Perícias Percepção +3
+                                                                      Sentidos Percepção passiva 13
+Garras. Ataque Corpo-a-Corpo com Arma: +0 para atingir, alcance
+                                                                      Idiomas –
+1,5 m, um alvo. Acerto: 1 de dano cortante.
+                                                                      Nível de Desafio 1/8 (25 XP)
+
+                                                                      Táticas de Matilha. A hiena tem vantagem nas jogadas de ataque
+GORILA                                                                contra uma criatura se, pelo menos, um dos aliados da hiena
+Besta Média, imparcial                                                estiver a 1,5 metro da criaturas e não estiver incapacitado.
+
+Classe de Armadura 12                                                 AÇÕES
+Pontos de Vida 19 (3d8 + 6)                                           Mordida. Ataque Corpo-a-Corpo com Arma: +2 para atingir,
+Deslocamento 9 m, escalada 9 m                                        alcance 1,5 m, um alvo. Acerto: 3 (1d6) de dano perfurante.
+
+  FOR        DES          CON          INT      SAB           CAR
+ 16 (+3)    14 (+2)      14 (+1)      6 (–2)   12 (+1)       7 (–2)   HIENA GIGANTE
+                                                                      Besta Grande, imparcial
+Perícias Atletismo +5, Percepção +3
+Sentidos Percepção passiva 13                                         Classe de Armadura 12
+Idiomas –                                                             Pontos de Vida 45 (6d10 + 12)
+Nível de Desafio 1/2 (100 XP)                                         Deslocamento 15 m
+
+                                                                       FOR         DES           CON       INT       SAB          CAR
+AÇÕES                                                                 16 (+3)     14 (+2)       14 (+2)   2 (–4)    12 (+1)      7 (–2)
+Ataques Múltiplos. O gorila realiza dois ataques de punho.
+                                                                      Perícias Percepção +3
+Punho. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance        Sentidos Percepção passiva 13
+1,5 m, um alvo. Acerto: 6 (1d6 + 3) de dano de concussão.             Idiomas –
+                                                                      Nível de Desafio 1 (200 XP)
+Rocha. Ataque à Distância com Arma: +5 para atingir, distância
+7,5/15 m, um alvo. Acerto: 6 (1d6 + 3) de dano de concussão.          Frenesi. Quando a hiena reduz uma criatura a 0 pontos de vida
+                                                                      com um ataque corpo-a-corpo no seu turno, ela pode realizar uma
+                                                                      ação bônus para se mover até metade do seu deslocamento e
+GORILA GIGANTE                                                        realizar um ataque de mordida.
+Besta Enorme, imparcial                                               AÇÕES
+                                                                      Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+Classe de Armadura 12
+                                                                      alcance 1,5 m, um alvo. Acerto: 10 (2d6 + 3) de dano perfurante.
+Pontos de Vida 157 (15d12 + 60)
+Deslocamento 12 m, escalada 12 m
+
+  FOR        DES          CON          INT      SAB           CAR
+ 23 (+6)    14 (+2)      18 (+4)      7 (–2)   12 (+1)       7 (–2)
+Perícias Atletismo +9, Percepção +4
+Sentidos Percepção passiva 14
+Idiomas –
+Nível de Desafio 7 (2.900 XP)
+
+
+AÇÕES
+Ataques Múltiplos. O gorila realiza dois ataques de punho.
+Punho. Ataque Corpo-a-Corpo com Arma: +9 para atingir, alcance
+3 m, um alvo. Acerto: 22 (3d10 + 6) de dano de concussão.
+Rocha. Ataque à Distância com Arma: +9 para atingir, distância
+15/30 m, um alvo. Acerto: 30 (7d6 + 6) de dano de concussão.
+
+
+HIENA
+Besta Média, imparcial
+
+Classe de Armadura 11
+Pontos de Vida 5 (1d8 + 1)
+Deslocamento 15 m
+
+
+
+330
+JAVALI                                                              Sentidos visão no escuro 9 m, Percepção passiva 9
+Besta Média, imparcial                                              Idiomas –
+                                                                    Nível de Desafio 0 (10 XP)
+Classe de Armadura 11 (armadura natural)
+                                                                    AÇÕES
+Pontos de Vida 11 (2d8 + 2)
+Deslocamento 12 m                                                   Mordida. Ataque Corpo-a-Corpo com Arma: +0 para atingir,
+                                                                    alcance 1,5 m, um alvo. Acerto: 1 de dano perfurante.
+ FOR         DES           CON       INT        SAB        CAR
+13 (+1)     11 (+0)       12 (+1)   2 (–4)     9 (–1)     5 (–3)
+                                                                    LAGARTO GIGANTE
+Sentidos Percepção passiva 9                                        Besta Grande, imparcial
+Idiomas –
+Nível de Desafio 1/4 (50 XP)                                        Classe de Armadura 12 (armadura natural)
+                                                                    Pontos de Vida 19 (3d10 + 3)
+Investida. Se o javali se mover, pelo menos, 6 metros em linha      Deslocamento 9 m, escalada 9 m
+reta em direção de uma criatura logo antes de atingi-la com seu
+ataque de presa, o alvo sofre 3 (1d6) de dano cortante extra e       FOR         DES           CON       INT        SAB         CAR
+deve ser bem sucedido num teste de resistência de Força CD 11       15 (+2)     12 (+1)       13 (+1)   2 (–4)     10 (+0)     5 (–3)
+para não cair no chão.
+                                                                    Sentidos visão no escuro 9 m, Percepção passiva 10
+Implacável (Recarrega Após um Descanso Curto ou Longo). Se o        Idiomas –
+javali sofrer 7 de dano ou menos, que o reduziria a 0 pontos de     Nível de Desafio 1/4 (50 XP)
+vida, ele é reduzido a 1 ponto de vida, no lugar.
+AÇÕES                                                               AÇÕES
+Presas. Ataque Corpo-a-Corpo com Arma: +3 para atingir, alcance     Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano cortante.               alcance 1,5 m, um alvo. Acerto: 6 (1d8 + 2) de dano perfurante.
+
+
+JAVALI GIGANTE                                                     Um lagarto gigante pode ser montado ou usado como
+                                                                   animal de tração. O povo lagarto também os mantem
+Besta Grande, imparcial
+                                                                   como animais de estimação e lagartos gigantes do
+                                                                   subterrâneo são usados como montarias e animais de
+Classe de Armadura 12 (armadura natural)
+                                                                   carga por drow, duergar e outros habitantes do
+Pontos de Vida 42 (5d10 + 15)
+Deslocamento 12 m                                                  Subterrâneo.
+
+ FOR         DES           CON       INT        SAB        CAR      VARIAÇÃO: TRAÇOS DE LAGARTO GIGANTE
+17 (+3)     10 (+0)       16 (+3)   2 (–4)     7 (–2)     5 (–3)    Alguns lagartos gigantes possuem um ou ambos os traços a seguir.
+                                                                         Prender a Respiração. O lagarto pode prender a respiração
+Sentidos Percepção passiva 8                                        por 15 minutos (um lagarto que possua esse traço também terá
+Idiomas –                                                           um deslocamento de natação de 9 metros).
+Nível de Desafio 2 (450 XP)                                              Escalada Aracnídea. O lagarto pode escalar superfícies
+Investida. Se o javali se mover, pelo menos, 6 metros em linha      difíceis, incluindo andar de cabeça para baixo em tetos, sem
+reta em direção de uma criatura logo antes de atingi-la com seu     precisar realizar um teste de habilidade.
+ataque de presa, o alvo sofre 7 (2d6) de dano cortante extra e
+deve ser bem sucedido num teste de resistência de Força CD 13
+para não cair no chão.                                              LEÃO
+                                                                    Besta Grande, imparcial
+Implacável (Recarrega Após um Descanso Curto ou Longo). Se o
+javali sofrer 10 de dano ou menos, que o reduziria a 0 pontos de
+                                                                    Classe de Armadura 12
+vida, ele é reduzido a 1 ponto de vida, no lugar.
+                                                                    Pontos de Vida 26 (4d10 + 4)
+AÇÕES                                                               Deslocamento 15 m
+Presas. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance
+                                                                     FOR         DES           CON       INT        SAB         CAR
+1,5 m, um alvo. Acerto: 10 (2d6 + 3) de dano cortante.
+                                                                    17 (+3)     15 (+2)       13 (+1)   3 (–3)     12 (+1)     8 (–1)
+
+LAGARTO                                                             Perícias Furtividade +6, Percepção +3
+Besta Miúda, imparcial                                              Sentidos Percepção passiva 13
+                                                                    Idiomas –
+                                                                    Nível de Desafio 1 (200 XP)
+Classe de Armadura 10
+Pontos de Vida 2 (1d4)                                              Bote. Se o leão se mover, pelo menos, 6 metros em linha reta em
+Deslocamento 6 m, escalada 6 m                                      direção de um alvo logo antes de atingi-lo com seu ataque de
+                                                                    garra, o alvo deve ser bem sucedido num teste de resistência de
+  FOR        DES           CON       INT        SAB        CAR      Força CD 13 para não cair no chão. Se o alvo cair no chão, o leão
+ 2 (–4)     11 (+0)       10 (+0)   1 (–5)     8 (–1)     3 (–4)    poderá realizar uma ação bônus para realizar um ataque de
+                                                                    mordida contra ele.
+
+
+
+
+                                                                                                                                      331
+Faro Aguçado. O leão tem vantagem em testes de Sabedoria             AÇÕES
+(Percepção) relacionados ao olfato.
+                                                                     Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+Salto em Corrida. Como parte do seu movimento e depois de uma        alcance 1,5 m, um alvo. Acerto: 10 (2d6 + 3) de dano perfurante.
+corrida inicial de 3 metros, o leão pode realizar um salto em        Se o alvo for uma criatura, ela deve ser bem sucedida num teste
+distância de até 7,5 metros.                                         de resistência de Força CD 13 ou será derrubada no chão.
+
+Táticas de Matilha. O leão tem vantagem nas jogadas de ataque
+contra uma criatura se, pelo menos, um dos aliados do leão           LOBO INVERNAL
+estiver a 1,5 metro da criaturas e não estiver incapacitado.
+                                                                     Monstruosidade Grande, neutro e mau
+AÇÕES
+                                                                     Classe de Armadura 13 (armadura natural)
+Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+                                                                     Pontos de Vida 75 (10d10 + 20)
+alcance 1,5 m, um alvo. Acerto: 7 (1d8 + 3) de dano perfurante.
+                                                                     Deslocamento 15 m
+Garras. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance       FOR         DES        CON          INT       SAB          CAR
+1,5 m, um alvo. Acerto: 6 (1d6 + 3) de dano cortante.                18 (+4)     13 (+1)    14 (+2)      7 (–2)    12 (+1)      8 (–1)
+
+                                                                     Perícias Furtividade +3, Percepção +5
+LOBO                                                                 Imunidade à Dano frio
+Besta Média, imparcial                                               Sentidos Percepção passiva 15
+                                                                     Idiomas Comum, Gigante, Lobo Invernal
+Classe de Armadura 13 (armadura natural)                             Nível de Desafio 3 (700 XP)
+Pontos de Vida 11 (2d8 + 2)
+                                                                     Audição e Faro Aguçados. O lobo tem vantagem em testes de
+Deslocamento 12 m
+                                                                     Sabedoria (Percepção) relacionados à audição e ao olfato.
+  FOR        DES           CON       INT        SAB         CAR      Camuflagem de Neve. O lobo tem vantagem em testes de
+ 12 (+1)    15 (+2)       12 (+1)   3 (–4)     12 (+1)     6 (–2)    Destreza (Furtividade) feitos em terrenos de neve.
+
+Perícias Furtividade +4, Percepção +3                                Táticas de Matilha. O lobo tem vantagem nas jogadas de ataque
+Sentidos Percepção passiva 13                                        contra uma criatura se, pelo menos, um dos aliados do lobo
+Idiomas –                                                            estiver a 1,5 metro da criaturas e não estiver incapacitado.
+Nível de Desafio 1/4 (50 XP)                                         AÇÕES
+Audição e Faro Aguçados. O lobo tem vantagem em testes de            Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+Sabedoria (Percepção) relacionados à audição e ao olfato.            alcance 1,5 m, um alvo. Acerto: 11 (2d6 + 4) de dano perfurante.
+                                                                     Se o alvo for uma criatura, ela deve ser bem sucedida num teste
+Táticas de Matilha. O lobo tem vantagem nas jogadas de ataque        de resistência de Força CD 14 ou será derrubada no chão.
+contra uma criatura se, pelo menos, um dos aliados do lobo           Sopro Congelante (Recarrega 5–6). O lobo expele um jato de
+estiver a 1,5 metro da criaturas e não estiver incapacitado.         vento congelante num cone de 4,5 metros. Cada criatura na área
+AÇÕES                                                                deve realizar um teste de resistência de Destreza CD 12, sofrendo
+                                                                     18 (4d8) de dano de frio caso fracasse, ou metade desse dano
+Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,             caso obtenha sucesso.
+alcance 1,5 m, um alvo. Acerto: 7 (2d4 + 2) de dano perfurante. Se
+o alvo for uma criatura, ele deve ser bem sucedido num teste de
+resistência de Força CD 11 para não cair no chão.
+
+
+LOBO ATROZ
+Besta Grande, imparcial
+
+Classe de Armadura 14 (armadura natural)
+Pontos de Vida 37 (5d10 + 10)
+Deslocamento 15 m
+
+  FOR        DES           CON       INT        SAB         CAR
+ 17 (+3)    15 (+2)       15 (+2)   3 (–4)     12 (+1)     7 (–2)
+
+Perícias Furtividade +4, Percepção +3
+Sentidos Percepção passiva 13
+Idiomas –
+Nível de Desafio 1 (200 XP)
+
+Audição e Faro Aguçados. O lobo tem vantagem em testes de
+Sabedoria (Percepção) relacionados à audição e ao olfato.
+
+Táticas de Matilha. O lobo tem vantagem nas jogadas de ataque
+contra uma criatura se, pelo menos, um dos aliados do lobo
+estiver a 1,5 metro da criaturas e não estiver incapacitado.
+
+
+332
+O lobo invernal habita no ártico e é tão grande quanto
+um lobo atroz, mas possui pelagem branca como a neve e
+olhos azuis-claros. Os gigantes do gelo usam essas
+criaturas malignas como guardas e companheiros de caça,
+usando a arma de sopro mortal dos lobos contra seus
+adversários. Os lobos invernais se comunicam entre si
+usando grunhidos e latidos, mas eles falam Comum e
+Gigante bem o suficiente para realizar conversações
+simples.
+
+
+ MAMUTE
+ Besta Enorme, imparcial
+
+ Classe de Armadura 13 (armadura natural)
+ Pontos de Vida 126 (11d12 + 55)
+ Deslocamento 12 m
+
+  FOR         DES          CON        INT        SAB         CAR
+ 24 (+7)     9 (–1)       21 (+5)    3 (–4)     11 (+0)     6 (–2)
+
+ Sentidos Percepção passiva 10                                        AÇÕES
+ Idiomas –                                                             Mordida. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+ Nível de Desafio 6 (2.300 XP)                                        alcance 1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano perfurante. Se
+ Investida Esmagadora. Se o mamute se mover, pelo menos, 6            o alvo for uma criatura, ela deve ser bem sucedida num teste de
+ metros em linha reta em direção de uma criatura logo antes de        resistência de Força CD 11 para não cair no chão.
+ atingi-la com seu ataque de presa, o alvo deve ser bem sucedido     Os mastins são cães de caça impressionantes valorizados
+ num teste de resistência de Força CD 18 para não cair no chão. Se   por humanoides por sua lealdade e sentidos apurados. Os
+ o alvo cair no chão, o elefante pode realizar um ataque de          mastins podem ser treinados como cães de guarda, cães
+ pisotear contra ele com uma ação bônus.                             de caça e cães de guerra. Os halflings e outros
+ AÇÕES                                                               humanoides Pequenos usam-nos como montarias.
+ Presas. Ataque Corpo-a-Corpo com Arma: +10 para atingir,
+ alcance 3 m, um alvo. Acerto: 25 (4d8 + 7) de dano perfurante.       MORCEGO
+ Pisotear. Ataque Corpo-a-Corpo com Arma: +10 para atingir,           Besta Miúda, imparcial
+ alcance 1,5 m, uma criatura caída. Acerto: 29 (4d10 + 7) de dano
+ de concussão.                                                        Classe de Armadura 12
+                                                                      Pontos de Vida 1 (1d4 – 1)
+Um mamute é uma criatura elefântica com pelagem                       Deslocamento 1,5 m, voo 9 m
+grossa e longas presas. Mais atarracados e mais ferozes
+que os elefantes normais, os mamutes vivem em uma                       FOR        DES          CON        INT        SAB         CAR
+grande variedade de climas, desde o subártico até o                    2 (–4)     15 (+2)       8 (–1)    2 (–4)     12 (+1)     4 (–3)
+subtropical.
+                                                                      Sentidos percepção às cegas 18 m, Percepção passiva 11
+                                                                      Idiomas –
+ MASTIM                                                               Nível de Desafio 0 (10 XP)
+ Besta Média, imparcial
+                                                                      Eco Localização. Enquanto não puder ouvir, o morcego perderá a
+ Classe de Armadura 12                                                percepção às cegas.
+ Pontos de Vida 5 (1d8 + 1)
+ Deslocamento 12 m                                                    Audição Aguçada. O morcego tem vantagem em testes de
+                                                                      Sabedoria (Percepção) relacionados à audição.
+  FOR         DES          CON        INT        SAB         CAR
+ 13 (+1)     14 (+2)      12 (+1)    3 (–4)     12 (+1)     7 (–2)    AÇÕES
+                                                                      Mordida. Ataque Corpo-a-Corpo com Arma: +0 para atingir,
+ Perícias Percepção +3
+                                                                      alcance 1,5 m, uma criatura. Acerto: 1 de dano perfurante.
+ Sentidos Percepção passiva 13
+ Idiomas –
+ Nível de Desafio 1/8 (25 XP)                                         MORCEGO GIGANTE
+ Audição e Olfato Aguçados. O mastim tem vantagem em testes           Besta Grande, imparcial
+ de Sabedoria (Percepção) relacionados à audição e ao olfato.
+                                                                      Classe de Armadura 13
+                                                                      Pontos de Vida 22 (4d10)
+                                                                      Deslocamento 3 m, voo 18 m
+
+
+
+                                                                                                                                     333
+  FOR        DES          CON       INT        SAB        CAR
+                                                                     AÇÕES
+ 15 (+2)    16 (+3)      11 (+0)   2 (–4)     12 (+1)    6 (–2)      Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 5 (1d6 + 2) de dano perfurante.
+Sentidos percepção às cegas 18 m, Percepção passiva 11               Garras. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+Idiomas –                                                            1,5 m, um alvo. Acerto: 4 (1d4 + 2) de dano cortante.
+Nível de Desafio 1/4 (50 XP)
+
+Eco Localização. Enquanto não puder ouvir, o morcego perderá a
+                                                                     PIRANHA
+percepção às cegas.                                                  Besta Miúda, imparcial
+
+Audição Aguçada. O morcego tem vantagem em testes de                 Classe de Armadura 13
+Sabedoria (Percepção) relacionados à audição.                        Pontos de Vida 1 (1d4 – 1)
+                                                                     Deslocamento 0 m, natação 12 m
+AÇÕES
+Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,               FOR        DES         CON         INT        SAB         CAR
+alcance 1,5 m, uma criatura. Acerto: 5 (1d6 + 2) de dano              2 (–4)     16 (+3)      9 (–1)     1 (–5)     7 (–2)      2 (–4)
+perfurante.
+                                                                     Sentidos visão no escuro 18 m, Percepção passiva 8
+                                                                     Idiomas –
+MULA                                                                 Nível de Desafio 0 (10 XP)
+Besta Média, imparcial
+                                                                     Frenesi de Sangue. A piranha tem vantagem nas jogadas de
+                                                                     ataque corpo-a-corpo contra qualquer criatura que não esteja
+Classe de Armadura 10
+                                                                     com todos os seus pontos de vida.
+Pontos de Vida 11 (2d8 + 2)
+Deslocamento 12 m                                                    Respirar na Água. A piranha pode respirar apenas em baixo
+                                                                     d’água.
+  FOR        DES          CON       INT        SAB        CAR        AÇÕES
+ 14 (+2)    10 (+0)      13 (+1)   2 (–4)     10 (+0)    5 (–3)
+                                                                     Mordidas. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+Sentidos Percepção passiva 10                                        alcance 1,5 m, um alvo. Acerto: 1 de dano perfurante.
+Idiomas –
+Nível de Desafio 1/8 (25 XP)
+                                                                    Uma piranha é um peixe carnívoro de dentes afiados.
+Besta de Carga. A mula é considerada como um animal Grande          As piranhas podem se adaptar a qualquer ambiente
+com os propósitos de determinar sua capacidade de carga.            aquático, incluindo lagos subterrâneos gelados. Elas
+                                                                    frequentemente se juntam em cardumes; as estatísticas
+Estável. A mula possui vantagem em testes de resistência de Força
+e Destreza feitos contra efeitos que poderiam derruba-la no chão.
+                                                                    para um enxame de piranhas aparece posteriormente
+                                                                    nesse apêndice.
+AÇÕES
+Cascos. Ataque Corpo-a-Corpo com Arma: +2 para atingir, alcance
+1,5 m, um alvo. Acerto: 4 (1d4 + 2) de dano de concussão.
+
+
+PANTERA
+Besta Média, imparcial
+
+Classe de Armadura 12
+Pontos de Vida 13 (3d8)
+Deslocamento 15 m, escalada 12 m
+
+  FOR        DES          CON       INT        SAB        CAR
+ 14 (+2)    15 (+2)      10 (+0)   3 (–4)     14 (+2)    7 (–2)
+
+Perícias Furtividade +6, Percepção +4
+Sentidos Percepção passiva 14
+Idiomas –
+Nível de Desafio 1/4 (50 XP)
+Bote. Se a pantera se mover, pelo menos, 6 metros em linha reta
+em direção de um alvo logo antes de atingi-lo com seu ataque de
+garra, o alvo deve ser bem sucedido num teste de resistência de
+Força CD 12 para não cair no chão. Se o alvo cair no chão, a
+pantera poderá realizar uma ação bônus para realizar um ataque
+de mordida contra ele.
+Faro Aguçado. A pantera tem vantagem em testes de Sabedoria
+(Percepção) relacionados ao olfato.
+
+
+
+
+334
+POLVO                                                                Nuvem de Tinta (Recarrega após um Descanso Curto ou Longo).
+Besta Pequena, imparcial                                             Uma nuvem de tinta de 6 metros de raio se espalha em volta do
+                                                                     polvo, se ele estiver submerso. A área fica com escuridão densa
+Classe de Armadura 12                                                por 1 minuto, no entanto, uma corrente forte pode dispersar a
+Pontos de Vida 3 (1d6)                                               tinta. Após liberar a tinta, o polvo pode usar a ação de Disparada
+Deslocamento 1,5 m, natação 9 m                                      com uma ação bônus.
+
+  FOR        DES           CON       INT         SAB         CAR
+ 4 (–3)     15 (+2)       11 (+0)   3 (–4)      10 (+0)     4 (–3)   PÔNEI
+                                                                     Besta Média, imparcial
+Perícias Furtividade +4, Percepção +2
+Sentidos visão no escuro 9 m, Percepção passiva 12                   Classe de Armadura 10
+Idiomas –                                                            Pontos de Vida 11 (2d8 + 2)
+Nível de Desafio 0 (10 XP)                                           Deslocamento 12 m
+Camuflagem Submersa. O polvo tem vantagem em testes de
+                                                                      FOR         DES          CON         INT        SAB          CAR
+Destreza (Furtividade) feitos enquanto estiver submerso.
+                                                                     15 (+2)     10 (+0)      13 (+1)     2 (–4)     11 (+0)      7 (–2)
+Prender a Respiração. Enquanto estiver fora da água, o polvo
+pode prender a respiração por 30 minutos.                            Sentidos Percepção passiva 10
+                                                                     Idiomas –
+Respirar na Água. O polvo pode respirar apenas em baixo d’água.      Nível de Desafio 1/8 (25 XP)
+AÇÕES
+                                                                     AÇÕES
+Tentáculos. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+alcance 1,5 m, um alvo. Acerto: 1 de dano de concussão e o alvo      Cascos. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+fica agarrado (CD 10 para escapar). Até o agarrão acabar, o polvo    1,5 m, um alvo. Acerto: 7 (2d4 + 2) de dano de concussão.
+não pode usar seus tentáculos em outro alvo.
+
+Nuvem de Tinta (Recarrega após um Descanso Curto ou Longo).
+                                                                     RÃ GIGANTE
+Uma nuvem de tinta de 1,5 metro de raio se espalha em volta do       Besta Média, imparcial
+polvo, se ele estiver submerso. A área fica com escuridão densa
+por 1 minuto, no entanto, uma corrente forte pode dispersar a        Classe de Armadura 11
+tinta. Após liberar a tinta, o polvo pode usar a ação de Disparada   Pontos de Vida 18 (4d8)
+com uma ação bônus.                                                  Deslocamento 9 m, natação 9 m
+
+                                                                      FOR         DES          CON         INT        SAB          CAR
+POLVO GIGANTE                                                        12 (+1)     13 (+1)      11 (+0)     2 (–4)     10 (+0)      3 (–4)
+Besta Grande, imparcial                                              Perícias Furtividade +3, Percepção +2
+                                                                     Sentidos visão no escuro 9 m, Percepção passiva 12
+Classe de Armadura 11                                                Idiomas –
+Pontos de Vida 52 (8d10 + 8)                                         Nível de Desafio 1/4 (50 XP)
+Deslocamento 3 m, natação 18 m
+                                                                     Anfíbio. A rã pode respirar ar e água.
+ FOR         DES           CON       INT         SAB         CAR
+17 (+3)     13 (+1)       13 (+1)   4 (–3)      10 (+0)     4 (–3)   Salto Parado. O salto à distância da rã vai até 6 metros e o salto
+                                                                     em altura vai até 3 metros, com ou sem uma corrida inicial.
+Perícias Furtividade +5, Percepção +4
+Sentidos visão no escuro 18 m, Percepção passiva 14                  AÇÕES
+Idiomas –
+Nível de Desafio 1 (200 XP)                                          Mordida. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano perfurante e o
+Camuflagem Submersa. O polvo tem vantagem em testes de               alvo fica agarrado (CD 11 para escapar). Até o agarrão acabar, o
+Destreza (Furtividade) feitos enquanto estiver submerso.             alvo fica impedido e a rã não pode morder outro alvo.
+Prender a Respiração. Enquanto estiver fora da água, o polvo         Engolir. A rã realiza um ataque de mordida contra um alvo
+pode prender a respiração por 1 hora.                                Pequeno ou menor que esteja agarrando. Se o ataque atingir, o
+                                                                     alvo é engolido e o agarrão termina. Enquanto estiver engolido, o
+Respirar na Água. O polvo pode respirar apenas em baixo d’água.
+                                                                     alvo estará cego e impedido, ele terá cobertura total contra
+AÇÕES                                                                ataques e outros efeitos de fora da rã e sofre 5 (2d4) de dano
+                                                                     ácido no começo de cada turno da rã. A rã pode ter apenas um
+Tentáculos. Ataque Corpo-a-Corpo com Arma: +5 para atingir,          alvo engolido por vez.
+alcance 4,5 m, um alvo. Acerto: 10 (2d6 + 3) de dano de concussão       Se a rã morrer, uma criatura engolida não estará mais impedida
+e o alvo fica agarrado (CD 16 para escapar). Até o agarrão acabar,   por ela e poderá escapar do corpo usando 1,5 metro de
+o alvo fica impedido e o polvo não pode usar seus tentáculos em      movimento, estando caída ao sair.
+outro alvo.
+
+
+
+
+                                                                                                                                      335
+RATO                                                                 VARIAÇÃO: RATO GIGANTE INFECTADO
+Besta Miúda, imparcial                                               Alguns ratos gigantes carregam doenças vis que eles podem
+                                                                     transmitir através de suas mordidas. Um rato gigante infectado
+Classe de Armadura 10                                                possui nível de desafio 1/8 (25 XP) e a seguinte ação, ao invés de
+Pontos de Vida 1 (1d4 – 1)                                           seu ataque de mordida normal.
+Deslocamento 6 m                                                         Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 4 (1d4 + 2) de dano perfurante. Se
+  FOR        DES         CON         INT        SAB         CAR      o alvo for uma criatura, ele deve ser bem sucedido num teste de
+ 2 (–4)     11 (+0)      9 (–1)     2 (–4)     10 (+0)     4 (–3)    resistência de Constituição CD 10 ou contrairá uma doença. Até a
+                                                                     doença ser curada, o alvo não pode recuperar pontos de vida,
+Sentidos visão no escuro 9 m, Percepção passiva 10                   exceto por meios mágicos, e o máximo de pontos de vida do alvo
+Idiomas –                                                            é reduzido em 3 (1d6) a cada 24 horas. Se o máximo de pontos de
+Nível de Desafio 0 (10 XP)                                           vida do alvo cair a 0 com resultado dessa doença, ele morre.
+
+Faro Aguçado. O rato tem vantagem em testes de Sabedoria
+(Percepção) relacionados ao olfato.                                  RINOCERONTE
+                                                                     Besta Grande, imparcial
+AÇÕES
+                                                                     Classe de Armadura 11 (armadura natural)
+Mordida. Ataque Corpo-a-Corpo com Arma: +0 para atingir,
+                                                                     Pontos de Vida 45 (6d10 + 12)
+alcance 1,5 m, um alvo. Acerto: 1 de dano perfurante.
+                                                                     Deslocamento 12 m
+
+RATO GIGANTE                                                          FOR          DES          CON       INT         SAB         CAR
+                                                                     21 (+5)      8 (–1)       15 (+2)   2 (–4)      12 (+1)     6 (–2)
+Besta Pequena, imparcial
+                                                                     Sentidos Percepção passiva 11
+Classe de Armadura 12                                                Idiomas –
+Pontos de Vida 7 (2d6)                                               Nível de Desafio 2 (450 XP)
+Deslocamento 9 m
+                                                                     Investida. Se o rinoceronte se mover, pelo menos, 6 metros em
+  FOR        DES          CON        INT        SAB         CAR      linha reta em direção de uma criatura logo antes de atingi-la com
+ 7 (–2)     15 (+2)      11 (+0)    2 (–4)     10 (+0)     4 (–3)    seu ataque de chifre, o alvo sofre 9 (2d8) de dano de concussão
+                                                                     extra. Se o alvo for uma criatura, ele deve ser bem sucedido num
+Sentidos visão no escuro 18 m, Percepção passiva 10                  teste de resistência de Força CD 15 para não cair no chão.
+Idiomas –
+Nível de Desafio 1/8 (25 XP)                                         AÇÕES
+                                                                     Chifre. Ataque Corpo-a-Corpo com Arma: +7 para atingir, alcance
+Faro Aguçado. O rato tem vantagem em testes de Sabedoria
+                                                                     1,5 m, um alvo. Acerto: 14 (2d8 + 5) de dano de concussão.
+(Percepção) relacionados ao olfato.
+Táticas de Matilha. O rato tem vantagem nas jogadas de ataque
+contra uma criatura se, pelo menos, um dos aliados do rato           SAPO
+estiver a 1,5 metro da criaturas e não estiver incapacitado.         Besta Miúda, imparcial
+AÇÕES
+                                                                     Classe de Armadura 11
+Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,             Pontos de Vida 1 (1d4 – 1)
+alcance 1,5 m, um alvo. Acerto: 4 (1d4 + 2) de dano perfurante.      Deslocamento 6 m, natação 6 m
+
+                                                                       FOR        DES          CON        INT         SAB         CAR
+                                                                      1 (–5)     13 (+1)       8 (–1)    1 (–5)      8 (–1)      3 (–4)
+
+                                                                     Perícias Furtividade +3, Percepção +1
+                                                                     Sentidos visão no escuro 18 m, Percepção passiva 11
+                                                                     Idiomas –
+                                                                     Nível de Desafio 0 (0 XP)
+
+                                                                     Anfíbio. O sapo pode respirar ar e água.
+
+                                                                     Salto Parado. O salto à distância do sapo vai até 3 metros e o salto
+                                                                     em altura vai até 1,5 metros, com ou sem uma corrida inicial.
+
+                                                                    Um sapo não tem ataques efetivos. Ele se alimenta de
+                                                                    pequenos insetos e geralmente vive perto da água, em
+                                                                    árvores ou no subterrâneo. As estatísticas do sapo podem
+                                                                    ser usadas para representar uma rã.
+
+
+
+
+336
+SAPO GIGANTE                                                            FOR         DES          CON        INT        SAB          CAR
+Besta Grande, imparcial                                                10 (+0)     18 (+4)      13 (+1)    2 (–4)     10 (+0)      3 (–4)
+
+Classe de Armadura 11                                                  Perícias Percepção +2
+Pontos de Vida 39 (6d10 + 6)                                           Sentidos percepção às cegas 3 m, Percepção passiva 12
+Deslocamento 6 m, natação 12 m                                         Idiomas –
+                                                                       Nível de Desafio 1/4 (50 XP)
+ FOR         DES           CON       INT         SAB         CAR
+15 (+2)     13 (+1)       13 (+1)   2 (–4)      10 (+0)     3 (–4)     AÇÕES
+Sentidos visão no escuro 9 m, Percepção passiva 10                     Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+Idiomas –                                                              alcance 3 m, um alvo. Acerto: 6 (1d4 + 4) de dano perfurante e o
+Nível de Desafio 1 (200 XP)                                            alvo deve realizar um teste de resistência de Constituição CD 11,
+                                                                       sofrendo 10 (3d6) de dano de veneno se falhar na resistência ou
+Anfíbio. O sapo pode respirar ar e água.
+                                                                       metade desse dano se obtiver sucesso.
+Salto Parado. O salto à distância do sapo vai até 6 metros e o salto
+em altura vai até 3 metros, com ou sem uma corrida inicial.
+                                                                       TEXUGO
+AÇÕES                                                                  Besta Miúda, imparcial
+Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+alcance 1,5 m, um alvo. Acerto: 7 (1d10 + 2) de dano perfurante        Classe de Armadura 10
+mais 5 (1d10) de dano de veneno e o alvo fica agarrado (CD 13          Pontos de Vida 3 (1d4 + 1)
+para escapar). Até o agarrão acabar, o alvo fica impedido e o sapo     Deslocamento 6 m, escavação 1,5 m
+não pode morder outro alvo.
+                                                                         FOR        DES          CON        INT        SAB          CAR
+Engolir. O sapo realiza um ataque de mordida contra um alvo
+                                                                        4 (–3)     11 (+0)      12 (+1)    2 (–4)     12 (+1)      5 (–3)
+Médio ou menor que esteja agarrando. Se o ataque atingir, o alvo
+é engolido e o agarrão termina. Enquanto estiver engolido, o alvo      Sentidos visão no escuro 9 m, Percepção passiva 11
+estará cego e impedido, ele terá cobertura total contra ataques e      Idiomas –
+outros efeitos de fora do sapo e sofre 10 (3d6) de dano ácido no       Nível de Desafio 0 (10 XP)
+começo de cada turno do sapo. O sapo pode ter apenas um alvo
+engolido por vez.                                                      Faro Aguçados. O texugo tem vantagem em testes de Sabedoria
+   Se o sapo morrer, uma criatura engolida não estará mais             (Percepção) relacionados ao olfato.
+impedida por ele e poderá escapar do corpo usando 1,5 metro de
+movimento, estando caída ao sair.                                      AÇÕES
+                                                                       Mordida. Ataque Corpo-a-Corpo com Arma: +2 para atingir,
+                                                                       alcance 1,5 m, um alvo. Acerto: 1 de dano perfurante.
+SERPENTE VENENOSA
+Besta Miúda, imparcial
+                                                                       TEXUGO GIGANTE
+Classe de Armadura 13                                                  Besta Média, imparcial
+Pontos de Vida 2 (1d4)
+Deslocamento 9 m, natação 9 m                                          Classe de Armadura 10
+                                                                       Pontos de Vida 13 (2d8 + 4)
+  FOR        DES           CON       INT         SAB         CAR       Deslocamento 9 m, escavação 3 m
+ 2 (–4)     16 (+3)       11 (+0)   1 (–5)      10 (+0)     3 (–4)
+                                                                        FOR         DES          CON        INT        SAB          CAR
+Sentidos percepção às cegas 3 m, Percepção passiva 10                  13 (+1)     10 (+0)      15 (+2)    2 (–4)     12 (+1)      5 (–3)
+Idiomas –
+Nível de Desafio 1/8 (25 XP)                                           Sentidos visão no escuro 9 m, Percepção passiva 11
+                                                                       Idiomas –
+AÇÕES                                                                  Nível de Desafio 1/4 (50 XP)
+Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,               Faro Aguçados. O texugo tem vantagem em testes de Sabedoria
+alcance 1,5 m, um alvo. Acerto: 1 de dano perfurante e o alvo          (Percepção) relacionados ao olfato.
+deve realizar um teste de resistência de Constituição CD 10,
+sofrendo 5 (2d4) de dano de veneno se falhar na resistência ou         AÇÕES
+metade desse dano se obtiver sucesso.
+                                                                       Ataques Múltiplos. O texugo realiza dois ataques: um com sua
+                                                                       mordida e um com suas garras.
+SERPENTE VENENOSA GIGANTE                                              Mordida. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+Besta Média, imparcial                                                 alcance 1,5 m, um alvo. Acerto: 4 (1d6 + 1) de dano perfurante.
+
+Classe de Armadura 14                                                  Garras. Ataque Corpo-a-Corpo com Arma: +3 para atingir, alcance
+Pontos de Vida 11 (2d8 + 2)                                            1,5 m, um alvo. Acerto: 6 (2d4 + 1) de dano cortante.
+Deslocamento 9 m, natação 9 m
+
+
+
+
+                                                                                                                                         337
+TIGRE                                                                 TUBARÃO CAÇADOR
+Besta Grande, imparcial                                               Besta Grande, imparcial
+
+Classe de Armadura 12                                                 Classe de Armadura 12 (armadura natural)
+Pontos de Vida 37 (5d10 + 10)                                         Pontos de Vida 45 (6d10 + 12)
+Deslocamento 12 m                                                     Deslocamento 0 m, natação 12 m
+
+  FOR        DES           CON       INT        SAB         CAR        FOR         DES           CON       INT        SAB         CAR
+ 17 (+3)    15 (+2)       14 (+2)   3 (–3)     12 (+1)     8 (–1)     18 (+3)     13 (+1)       15 (+2)   1 (–5)     10 (+0)     4 (–3)
+
+Perícias Furtividade +6, Percepção +3                                 Perícias Percepção +2
+Sentidos Percepção passiva 13                                         Sentidos percepção às cegas 9 m, Percepção passiva 12
+Idiomas –                                                             Idiomas –
+Nível de Desafio 1 (200 XP)                                           Nível de Desafio 2 (450 XP)
+
+Bote. Se o tigre se mover, pelo menos, 6 metros em linha reta em
+                                                                      Frenesi de Sangue. O tubarão tem vantagem nas jogadas de
+direção de um alvo logo antes de atingi-lo com seu ataque de
+                                                                      ataque corpo-a-corpo contra qualquer criatura que não esteja
+garra, o alvo deve ser bem sucedido num teste de resistência de
+                                                                      com todos os seus pontos de vida.
+Força CD 13 para não cair no chão. Se o alvo cair no chão, o tigre
+poderá realizar uma ação bônus para realizar um ataque de             Respirar na Água. O tubarão pode respirar apenas em baixo
+mordida contra ele.                                                   d’água.
+                                                                      AÇÕES
+Faro Aguçado. O tigre tem vantagem em testes de Sabedoria
+(Percepção) relacionados ao olfato.                                   Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+                                                                      alcance 1,5 m, um alvo. Acerto: 13 (2d8 + 4) de dano perfurante.
+AÇÕES
+Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+                                                                     Menor que um tubarão gigante, mas maior e mais feroz
+alcance 1,5 m, um alvo. Acerto: 8 (1d10 + 3) de dano perfurante.
+                                                                     que um tubarão dos arrecifes, um tubarão caçador
+Garras. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance      assombra as águas profundas. Ele geralmente caça
+1,5 m, um alvo. Acerto: 7 (1d8 + 3) de dano cortante.                sozinho, mas diversos tubarões caçadores podem se
+                                                                     alimentar na mesma área. Um tubarão caçador
+                                                                     totalmente crescido tem entre 4,5 e 6 metros de
+TIGRE DENTES-DE-SABRE                                                comprimento.
+Besta Grande, imparcial
+
+Classe de Armadura 12                                                 TUBARÃO DOS ARRECIFES
+Pontos de Vida 57 (7d10 + 14)                                         Besta Média, imparcial
+Deslocamento 12 m
+                                                                      Classe de Armadura 12 (armadura natural)
+  FOR        DES           CON       INT        SAB         CAR       Pontos de Vida 22 (4d8 + 4)
+ 18 (+4)    14 (+2)       15 (+2)   3 (–3)     12 (+1)     8 (–1)     Deslocamento 0 m, natação 12 m
+
+Perícias Furtividade +6, Percepção +3                                  FOR         DES           CON       INT        SAB         CAR
+Sentidos Percepção passiva 13                                         14 (+2)     13 (+1)       13 (+1)   1 (–5)     10 (+0)     4 (–3)
+Idiomas –
+Nível de Desafio 2 (450 XP)                                           Perícias Percepção +2
+                                                                      Sentidos percepção às cegas 9 m, Percepção passiva 12
+Bote. Se o tigre se mover, pelo menos, 6 metros em linha reta em      Idiomas –
+direção de um alvo logo antes de atingi-lo com seu ataque de          Nível de Desafio 1/2 (100 XP)
+garra, o alvo deve ser bem sucedido num teste de resistência de
+Força CD 14 para não cair no chão. Se o alvo cair no chão, o tigre    Respirar na Água. O tubarão pode respirar apenas em baixo
+poderá realizar uma ação bônus para realizar um ataque de             d’água.
+mordida contra ele.
+                                                                      Táticas de Matilha. O tubarão tem vantagem nas jogadas de
+Faro Aguçado. O tigre tem vantagem em testes de Sabedoria             ataque contra uma criatura se, pelo menos, um dos aliados do
+(Percepção) relacionados ao olfato.                                   tubarão estiver a 1,5 metro da criaturas e não estiver
+                                                                      incapacitado.
+AÇÕES
+Mordida. Ataque Corpo-a-Corpo com Arma: +6 para atingir,
+                                                                      AÇÕES
+alcance 1,5 m, um alvo. Acerto: 10 (1d12 + 4) de dano perfurante.     Mordida. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
+                                                                      alcance 1,5 m, um alvo. Acerto: 6 (1d8 + 2) de dano perfurante.
+Garras. Ataque Corpo-a-Corpo com Arma: +6 para atingir, alcance
+1,5 m, um alvo. Acerto: 11 (2d6 + 4) de dano cortante.
+                                                                     Menores que os tubarões gigantes e os tubarões
+                                                                     caçadores, os tubarões dos arrecifes vivem em águas
+                                                                     rasas e em recifes de corais, se unindo em pequenos
+
+
+
+
+338
+grupos para caçar. Um espécime totalmente crescido                   URSO NEGRO
+mede entre 1,80 e 3 metros.
+                                                                     Besta Média, imparcial
+
+ TUBARÃO GIGANTE                                                     Classe de Armadura 11 (armadura natural)
+ Besta Enorme, imparcial                                             Pontos de Vida 19 (3d8 + 6)
+                                                                     Deslocamento 12 m, escalada 9 m
+ Classe de Armadura 13 (armadura natural)
+ Pontos de Vida 126 (11d12 + 55)                                      FOR         DES           CON       INT        SAB         CAR
+ Deslocamento 0 m, natação 15 m                                      15 (+2)     10 (+0)       14 (+2)   2 (–4)     12 (+1)     7 (–2)
+
+  FOR         DES           CON       INT        SAB         CAR     Perícias Percepção +3
+ 23 (+6)     11 (+0)       21 (+5)   1 (–5)     10 (+0)     5 (–3)   Sentidos Percepção passiva 13
+                                                                     Idiomas –
+ Perícias Percepção +3                                               Nível de Desafio 1/2 (100 XP)
+ Sentidos percepção às cegas 18 m, Percepção passiva 13
+ Idiomas –
+                                                                     Faro Aguçado. O urso tem vantagem em testes de Sabedoria
+ Nível de Desafio 5 (1.800 XP)
+                                                                     (Percepção) relacionados ao olfato.
+ Frenesi de Sangue. O tubarão tem vantagem nas jogadas de
+ ataque corpo-a-corpo contra qualquer criatura que não esteja
+                                                                     AÇÕES
+ com todos os seus pontos de vida.                                   Ataques Múltiplos. O urso realiza dois ataques: um com sua
+                                                                     mordida e um com suas garras.
+ Respirar na Água. O tubarão pode respirar apenas em baixo
+ d’água.                                                             Mordida. Ataque Corpo-a-Corpo com Arma: +3 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 5 (1d6 + 2) de dano perfurante.
+ AÇÕES
+                                                                     Garras. Ataque Corpo-a-Corpo com Arma: +3 para atingir, alcance
+ Mordida. Ataque Corpo-a-Corpo com Arma: +9 para atingir,            1,5 m, um alvo. Acerto: 7 (2d4 + 2) de dano cortante.
+ alcance 1,5 m, um alvo. Acerto: 22 (3d10 + 6) de dano perfurante.
+
+Um tubarão gigante tem 9 metros de comprimento e,                    URSO POLAR
+normalmente é encontrado em oceanos profundos.                       Besta Grande, imparcial
+Absolutamente destemido, ele caça qualquer coisa que
+cruze seu caminho, incluindo baleias e navios.                       Classe de Armadura 12 (armadura natural)
+                                                                     Pontos de Vida 42 (5d10 + 15)
+                                                                     Deslocamento 12 m, natação 9 m
+ URSO MARROM
+ Besta Grande, imparcial                                              FOR         DES           CON       INT        SAB         CAR
+                                                                     20 (+5)     10 (+0)       16 (+3)   2 (–4)     13 (+1)     7 (–2)
+ Classe de Armadura 11 (armadura natural)
+ Pontos de Vida 34 (4d10 + 12)                                       Perícias Percepção +3
+ Deslocamento 12 m, escalada 9 m                                     Sentidos Percepção passiva 13
+                                                                     Idiomas –
+  FOR         DES           CON       INT        SAB         CAR     Nível de Desafio 2 (450 XP)
+ 19 (+4)     10 (+0)       16 (+3)   2 (–4)     13 (+1)     7 (–2)
+                                                                     Faro Aguçado. O urso tem vantagem em testes de Sabedoria
+ Perícias Percepção +3
+                                                                     (Percepção) relacionados ao olfato.
+ Sentidos Percepção passiva 13
+ Idiomas –                                                           AÇÕES
+ Nível de Desafio 1 (200 XP)
+                                                                     Ataques Múltiplos. O urso realiza dois ataques: um com sua
+                                                                     mordida e um com suas garras.
+ Faro Aguçado. O urso tem vantagem em testes de Sabedoria
+ (Percepção) relacionados ao olfato.                                 Mordida. Ataque Corpo-a-Corpo com Arma: +7 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 8 (1d8 + 5) de dano perfurante.
+ AÇÕES
+                                                                     Garras. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance
+ Ataques Múltiplos. O urso realiza dois ataques: um com sua          1,5 m, um alvo. Acerto: 12 (2d6 + 5) de dano cortante.
+ mordida e um com suas garras.
+
+ Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+                                                                     VARIAÇÃO: URSO DAS CAVERNAS
+ alcance 1,5 m, um alvo. Acerto: 8 (1d8 + 4) de dano perfurante.     Alguns ursos se adaptaram à vida no subterrâneo, alimentando-se
+                                                                     de líquens e peixes cegos. Conhecidos como ursos das cavernas,
+ Garras. Ataque Corpo-a-Corpo com Arma: +5 para atingir, alcance     esses gigantes mal-humorados tem pelo grosso e negro e visão no
+ 1,5 m, um alvo. Acerto: 11 (2d6 + 4) de dano cortante.              escuro com alcance de 18 metros. No mais, eles tem as mesmas
+                                                                     estatísticas de um urso polar.
+
+
+
+
+                                                                                                                                       339
+VEADO                                                                AÇÕES
+Besta Média, imparcial                                               Mordida. Ataque Corpo-a-Corpo com Arma: +5 para atingir,
+                                                                     alcance 1,5 m, um alvo. Acerto: 10 (2d6 + 3) de dano perfurante.
+Classe de Armadura 13                                                Se o alvo for uma criatura, ele deve ser bem sucedido num teste
+Pontos de Vida 4 (1d8)                                               de resistência de Força CD 13 para não cair no chão.
+Deslocamento 15 m
+                                                                    Um worg é um predador maligno que sente prazer em
+  FOR        DES          CON       INT        SAB         CAR      caçar e devorar criaturas mais fracas que ele. Astutos e
+ 11 (+0)    16 (+3)      11 (+0)   2 (–4)     14 (+2)     5 (–3)
+                                                                    malévolos, os worgs vagam pelos ambientes selvagens
+Sentidos Percepção passiva 12                                       remotos ou são criados por goblins e hobgoblins. Essas
+Idiomas –                                                           criaturas usam os worgs como montarias, mas um worg
+Nível de Desafio 0 (10 XP)                                          se voltará contra seu cavaleiro caso se sinta maltratado
+                                                                    ou desnutrido. Os worgs falam em seu próprio idioma,
+AÇÕES                                                               Goblin e alguns poucos aprendem a falar em Comum
+                                                                    também.
+Mordida. Ataque Corpo-a-Corpo com Arma: +2 para atingir,
+alcance 1,5 m, um alvo. Acerto: 2 (1d4) de dano perfurante.
+
+
+VESPA GIGANTE
+Besta Média, imparcial
+
+Classe de Armadura 12
+Pontos de Vida 13 (3d8)
+Deslocamento 3 m, voo 15 m
+
+  FOR        DES          CON       INT        SAB         CAR
+ 10 (+0)    14 (+2)      10 (+9)   1 (–5)     10 (+0)     3 (–4)
+
+Sentidos Percepção passiva 10
+Idiomas –
+Nível de Desafio 1/2 (100 XP)
+
+AÇÕES
+Ferrão. Ataque Corpo-a-Corpo com Arma: +4 para atingir, alcance
+1,5 m, uma criatura. Acerto: 5 (1d6 + 2) de dano perfurante e o
+alvo deve realizar um teste de resistência de Constituição CD 11,
+sofrendo 10 (3d6) de dano de veneno se fracassar na resistência,
+ou metade desse dano se obtiver sucesso. Se o veneno reduzir os
+pontos de vida do alvo a 0, ele fica estável mas envenenado por 1
+hora, mesmo após recuperar pontos de vida, e fica paralisado
+enquanto estiver envenenado dessa forma.
+
+
+WORG
+Monstruosidade Grande, neutro e mau
+
+Classe de Armadura 13 (armadura natural)
+Pontos de Vida 26 (4d10 + 4)
+Deslocamento 15 m
+
+  FOR        DES          CON       INT        SAB         CAR
+ 16 (+3)    13 (+1)      13 (+1)   7 (–2)     11 (+0)     8 (–1)
+
+Perícias Percepção +4
+Sentidos visão no escuro 18 m, Percepção passiva 14
+Idiomas Goblin, Worg
+Nível de Desafio 1/2 (100 XP)
+
+Audição e Faro Aguçados. O worg tem vantagem em testes de
+Sabedoria (Percepção) relacionados à audição e ao olfato.
+
+
+
+
+340
+

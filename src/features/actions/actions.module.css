@@ -291,6 +291,17 @@
 .eyebrow { margin: 0 0 .15rem; color: var(--color-text-muted); font-family: var(--typography-label-font-family); font-size: .62rem; letter-spacing: .16em; }
 .description { margin: 0; color: var(--color-text-muted); font-size: .85rem; }
 .inputSection { display: grid; }
+.spellDecision { display: grid; gap: .4rem; min-width: 0; margin: 0; padding: .65rem; color: var(--color-text); background: rgba(12, 10, 8, .32); border: 1px solid color-mix(in srgb, var(--color-border) 48%, transparent); border-radius: 6px; }
+.spellDecision legend { padding: 0 .25rem; color: var(--color-secondary); font-size: .82rem; font-weight: 700; }
+.spellDecision > p { margin: 0; color: var(--color-text-muted); font-size: .78rem; line-height: 1.4; }
+.spellRestrictions { display: grid; gap: .2rem; margin: 0; padding-left: 1rem; color: var(--color-text-muted); font-size: .78rem; }
+.spellPointGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.featureCastingOption { display: flex; align-items: flex-start; gap: .65rem; min-height: 2.75rem; padding: .7rem; color: var(--color-text); background: rgba(12, 10, 8, .55); border: 1px solid color-mix(in srgb, var(--color-secondary) 48%, transparent); border-radius: 6px; cursor: pointer; }
+.featureCastingOption input { flex: 0 0 auto; width: 1.15rem; height: 1.15rem; margin: .15rem 0 0; accent-color: var(--color-secondary); }
+.featureCastingOption span { display: grid; gap: .25rem; min-width: 0; }
+.featureCastingOption strong { font-size: .9rem; }
+.featureCastingOption small { color: var(--color-text-muted); font-size: .78rem; line-height: 1.4; }
+.featureCastingOption:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .reviewGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .review h3 { margin: 0 0 .3rem; color: var(--color-secondary); font-family: var(--typography-heading-font-family); font-size: .82rem; letter-spacing: .06em; }
 .costList, .detailList { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; color: var(--color-text-muted); font-size: .8rem; }
@@ -575,6 +586,7 @@ button.rollChip:focus-visible { outline: 2px solid var(--color-focus); outline-o
 .restSource { color: var(--color-text-muted); font-size: .75rem; }
 
 @media (max-width: 560px) {
+  .spellPointGrid { grid-template-columns: minmax(0, 1fr); }
   .turnSlots { grid-template-columns: minmax(0, 1fr); }
   .turnActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .loadScale { grid-template-columns: repeat(2, minmax(0, 1fr)); }

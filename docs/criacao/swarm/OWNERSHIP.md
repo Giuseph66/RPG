@@ -130,3 +130,55 @@ Atualização da retomada: `followup_task` do owner original foi aceito assincro
 ## C03 — aceite final em 05/10/2026
 
 MAP-001/CLOUD-001 no escopo da correção base64 aprovados. QA jogador confirmou grande ausente após ocultação/reload sem limpar cache; pequeno público continua imagem real. Mestre e jogador retomados após reinício Vite com dados persistidos. Gates atuais 1.090/3 ignorados, typecheck/build 0, regras 2/2 executadas separadamente, diff check limpo. Produto devolvido, QA/relatórios fechados, reservas corretivas C03 liberadas. Pendência anterior de Storage retirada: não é requisito de novos mapas base64. Outros gates históricos/dispositivos fora desta rodada não são promovidos por inferência.
+# Reservas vigentes — SUP 11/11/2026
+
+Estas reservas substituem somente os paths necessários das reservas históricas encerradas. Um escritor por arquivo; consumidor solicita mudança ao produtor.
+
+| Owner | Escrita exclusiva nesta rodada |
+| --- | --- |
+| fontes_complementos / SUP-01 | `docs/fontes/complementos-2026-11/**`, `src/data/**`, `Testes/complementos-fontes.md`; criação/progressão de domínio somente após liberação pontual de SUP-02 |
+| dominio_criaturas / SUP-02 | `src/domain/**` exceto paths explicitamente liberados a SUP-01; `src/application/**`, persistência necessária em `src/infrastructure/persistence/**`, `src/app/bootstrap.tsx` e teste direto; `Testes/complementos-dominio.md` |
+| interface_criaturas / SUP-03 | `src/features/**`, componentes pertinentes em `src/components/**`, `src/app/router.tsx`, route-data/feature-registry e testes diretos; `Testes/complementos-interface.md` |
+| coordenador | Metadados em `docs/criacao/swarm/**`; sem implementação/build/testes de produto |
+
+Escopo amplo acima é fronteira, não autorização para refatoração geral. Cada worker declara arquivos exatos antes de editar. `CharacterCreationWizard.tsx` e `mapping.ts` contêm diff anterior do usuário e não podem ser restaurados ao HEAD.
+
+Paths declarados SUP-01: `src/data/creatures/catalog.ts`, `src/data/races/fairy.ts`, `src/data/classes/tasha-ranger.ts` e testes diretos. SUP-02: contratos Character/rules/derived, `src/domain/creatures/**`, `src/domain/rules/wild-shape/**`, combate/derivação e campanha/criaturas; serviços character/wild-shape/dispatcher, campaign/creature-service, compendium, port de journey-visibility e bootstrap. SUP-03: Compendium, CharacterSheet, wizard, CreatureBoard/PlayerCreatureBoard, router e feature-registry, com tipos/CSS/testes diretos. Extensões concretas de persistência/sync devem ser declaradas antes da edição.
+
+Extensão SUP-01: append localizado em `docs/criacao/14-CONTEUDO-E-FONTES.md` para as fontes novas. Extensão SUP-02: categoria de proposta no transporte JourneyVisibility existente; `firestore.rules`, teste de regras/emulador direto e adapter sync Firebase/teste pertinente (confirmar paths reais no handoff). Sem publicação remota antes de revisão e gates locais. Nenhum outro worker edita essas áreas.
+
+Transferência SUP-02 → SUP-01 ratificada: `src/domain/character/creation/**` e `src/domain/character/progression/**` exclusivamente para seleção/validação/gravação dos complementos. `src/domain/contracts/definitions/rulepack.ts` e `src/domain/creatures/index.ts` permanecem SUP-02. Alterações dependentes aguardam contrato compartilhado, sem dois writers.
+
+SUP-02 declarou ainda `src/domain/contracts/primitives.ts` e `src/domain/rules/core/modifiers.ts`: predicado de categoria de armadura para voo da Fada; resources de suplementos e fontes de conjuração raciais nos contratos pertinentes. Aprovação aditiva, sem refatoração geral de regras.
+
+SUP-02 mantém exclusivamente `src/domain/rules/derived/derive-character.ts`, `src/domain/character/evolution/spell-state.ts` e `src/domain/rules/rest/index.ts` para consumidores de suplementos/racial spell sources, forma efetiva e recuperação. SUP-01 não edita spell-state; outros paths de evolution exigem declaração antes da edição.
+
+SUP-02 declarou `src/domain/contracts/definitions/spell.ts` e `src/domain/spells/index.ts`: estado/payload de custo gratuito racial ou slot, validado e consumido atomicamente; IDs de recursos mutáveis não devem ser embutidos nas definições estáticas de magia.
+
+Persistência SUP-02 declarada nominalmente: `src/application/ports/journey-visibility-repository.ts`, `src/infrastructure/persistence/indexeddb/schema.ts`, `journey-visibility-repository.ts`, `campaign-repository.ts`, `cleanup-manifest-reader.ts`, `remote-hydration-repository.ts`, `src/application/sync/index.ts`, `firestore.rules` e `src/infrastructure/cloud/firebase/firestore-sync-adapter.ts`, com testes diretos. Eventual store novo/DB v6 deve justificar mudança do plano inicial de reuso de guesses e provar migração preservadora, backup e cleanup.
+
+SUP-QA-FORMA: transferido exclusivamente de SUP-02 para `qa_forma_selvagem` (Luna xhigh, leaf): `src/domain/rules/wild-shape/index.test.ts`, `Testes/complementos-qa-forma.md` e logs próprios `Testes/logs/qa-forma*`. Somente testes/evidência; código produto continua com SUP-02. SUP-01 encerrou implementação e está em REVIEW com34focais passados; slot de execução foi reutilizado, mantendo máximo3subagentes simultâneos.
+
+Transferência narrow de recuperação SUP: `src/data/rulepacks/phb-ptbr-local-2017/index.ts` passa temporariamente de SUP-01 encerrado para SUP-02, exclusivamente para publicar `appendixACreatures` no `RulePack.creatures` base. Demais dados/criação/progressão continuam com SUP-01 em REVIEW. Novo parâmetro de facade foi descartado para preservar uma única fonte de catálogo no pack.
+
+## Reserva vigente após recuperação — 12/11/2026
+
+As reservas abaixo substituem os owners SUP anteriores, cujos handles não estão no inventário. Todos são Luna xhigh, leaf; máximo três ativos.
+
+- `regras_retomada`: `src/domain/**`, exceto `src/domain/campaign/creatures/index.ts` e `src/domain/contracts/cloud-sync.ts`; `src/application/character/**`; bootstrap e teste; loader PHB local e teste; handoffs domínio/QA da forma. Assume também o novo teste `src/domain/rules/wild-shape/index.test.ts`, ainda ausente. Dados/criação/progressão em REVIEW só recebem correção se houver falha comprovada.
+- `persistencia_retomada`: application/campaign, ports e sync pertinentes; infraestrutura pertinente; Firestore rules e harness pertinente; domain/campaign/creatures e contracts/cloud-sync; testes dessas áreas; novo `Testes/complementos-persistencia.md`. Não edita bootstrap: solicita wiring ao owner de regras.
+- `interface_retomada`: features, componentes de criaturas, router/feature-registry e testes; handoff da interface e browser/logs/capturas isolados. Não edita domínio/aplicação/infra/dados/bootstrap.
+
+Alterações anteriores staged e hunks de autoria ambígua são preservados. Nenhum stage/reset/commit foi solicitado. Mudanças de contrato exigem comunicação direta entre produtores e consumidores.
+
+Extensões da retomada 12/11: `src/data/creatures/catalog.ts` (apenas mapper/tipagem, sem alterar estatísticas) fica com `regras_retomada`; `src/domain/contracts/backup.ts` e teste direto ficam exclusivamente com `persistencia_retomada`, para coleções opcionais de criaturas/avistamentos/palpites/propostas e leitura retrocompatível. UI não edita contratos de domínio.
+
+SUP-02P extensão necessária ao backup: `src/application/transfer/backup.ts`, `types.ts`, `backup.test.ts` e `src/application/ports/backup-service.ts` são de `persistencia_retomada`. Wiring de `commitBackupEnvelope` permanece exclusivamente `regras_retomada` no bootstrap, após receber contrato de P.
+
+SUP-02 extensão de fidelidade funcional: `src/data/classes/tasha-ranger.ts`, `src/data/races/fairy.ts` e testes diretos passam a `regras_retomada` somente para defeitos comprovados na auditoria dos benefícios passivos/recursos/casts. Anunciar causa/hunk antes; preservar valores/fontes revisados. O owner SUP-01 antigo permanece encerrado; não há quarto worker.
+
+SUP-QA global reservado a `interface_retomada`, sem ampliar escrita de produto: executar somente após B/P/UI em REVIEW e liberação da coordenação. Falhas retornam ao owner do arquivo. Raiz não executa build/testes de produto. Logs/capturas de QA ficam com o executor.
+
+Transferência SUP-CAT após auditoria integral: `src/data/creatures/catalog.ts`, `catalog.test.ts` e `Testes/complementos-catalogo-qa.md` passam exclusivamente a `persistencia_retomada`. Encerra a reserva narrow de mapper de B, cujas correções de tipagem devem ser preservadas. Corrigir somente divergências documentadas contra o Apêndice A: deslocamentos, segmentação/integridade de ações/traços/variantes e IDs únicos. Sem novo schema unilateral, reescrita do corpus, fonte externa ou normalização da fonte impressa. Gate global passa a exigir também REVIEW de SUP-CAT; janela de navegador aguarda estabilidade conjunta de dados e regras.
+
+13/11: SUP-QA global transferido de C para `persistencia_retomada`, exclusivamente execução e `Testes/complementos-qa-geral.md`/logs próprios. B/P/cat e implementação UI congelados; C conserva browser/relatório interface e smoke pós-build. Raiz libera execução paralela dos dois ramos de validação, sem ampliar ownership de produto; falhas exigem retorno ao owner e revalidação pertinente.

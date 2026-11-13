@@ -4,3 +4,4 @@ export {
   variantHuman, DRAGONBORN_ANCESTRIES, RACE_CHOICE_ALLOWED_OPTIONS, RACE_PENDING_DECISIONS, RACE_CONTENT_LIMITATIONS,
 } from "./races";
 export { RULESET_ID } from "./common";
+export { fairy, FAIRY_OPTIONAL_PACK, FAIRY_PHYSICAL_FEATURES } from "./fairy";

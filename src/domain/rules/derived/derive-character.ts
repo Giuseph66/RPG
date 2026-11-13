@@ -4,10 +4,12 @@ import { type Explanation, type CharacterDerived, type Contribution, type SkillD
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { type EquipmentDefinition } from "@domain/contracts/definitions/equipment";
 import { appError, err, ok, type AppError, type Result } from "@domain/contracts/errors";
-import { type DefinitionRef } from "@domain/contracts/ids";
+import { type DefinitionRef, type EntityId } from "@domain/contracts/ids";
 import { asCentimeters, type Ability, type Centimeters, type Skill, type SourceRef } from "@domain/contracts/primitives";
 import { type RuleContext } from "@domain/contracts/rules";
 import { deriveEquipmentImpact } from "@domain/inventory/impact";
+import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
+import { type CreatureStatBlock } from "@domain/creatures";
 import {
   ABILITIES,
   SKILL_ABILITY,
@@ -139,6 +141,8 @@ function modifierByAbility(scores: readonly AbilityScoreDerived[], ability: Abil
 function deriveSkills(
   scores: readonly AbilityScoreDerived[],
   rules: DerivedRules,
+  abilityCheckBonuses: readonly { readonly ability: Ability; readonly bonus: Explanation<number> }[],
+  form?: CreatureStatBlock,
 ): Result<readonly SkillDerived[], AppError> {
   const result: SkillDerived[] = [];
   for (const skill of SKILLS) {
@@ -146,15 +150,23 @@ function deriveSkills(
     const proficient = rules.skillProficiencies.has(skill) || rules.expertise.has(skill);
     const expertise = rules.expertise.has(skill);
     const skillMods = matchingModifiers(rules.modifiers, { kind: "skill", skill });
+    const abilityCheckBonus = abilityCheckBonuses.find((entry) => entry.ability === skillDefaultAbility(skill))?.bonus;
     const pb = rules.proficiencyBonus;
-    const value = numeric(
-      abilityMod.value + (proficient ? pb : 0) + (expertise ? pb : 0),
+    const characterValue = numeric(
+      abilityMod.value + (abilityCheckBonus?.value ?? 0) + (proficient ? pb : 0) + (expertise ? pb : 0),
       skillMods,
       [
         ...abilityMod.contributions,
+        ...(abilityCheckBonus?.contributions ?? []),
         contribution(rules.proficiencySource, proficient ? pb : 0, proficient ? (expertise ? "proficiência aplicada duas vezes (expertise)" : "bônus de proficiência") : "sem proficiência"),
       ],
     );
+    if (!characterValue.ok) return characterValue;
+    const formBonus = form?.skills?.[skill];
+    const useFormBonus = formBonus !== undefined && formBonus > characterValue.value.value;
+    const value = useFormBonus
+      ? ok(explanation(formBonus, [contribution({ rulesetId: rules.passiveSource.sourceId, entityId: form!.id }, formBonus, `bônus de ${skill} publicado no bloco da forma; prevalece sobre o bônus do personagem`)]))
+      : characterValue;
     if (!value.ok) return value;
     const passiveMods = matchingModifiers(rules.modifiers, { kind: "passive-score", skill });
     const passive = numeric(
@@ -170,9 +182,39 @@ function deriveSkills(
       value: passive.value.value + (advantage ? 5 : -5),
       contributions: [...passive.value.contributions, contribution(rules.passiveSource, advantage ? 5 : -5, advantage ? "vantagem na Percepção passiva" : "desvantagem na Percepção passiva")],
     };
-    result.push({ skill, modifier: value.value, proficient, expertise, passiveScore: passiveValue });
+    result.push({ skill, modifier: value.value, proficient: proficient || formBonus !== undefined, expertise, passiveScore: passiveValue });
   }
   return ok(result);
+}
+
+function deriveAbilityCheckBonuses(
+  scores: readonly AbilityScoreDerived[],
+  rules: DerivedRules,
+  pack: RulePack,
+): Result<readonly { readonly ability: Ability; readonly bonus: Explanation<number> }[], AppError> {
+  const values = new Map<Ability, { value: number; contributions: Contribution[] }>(ABILITIES.map((ability) => [ability, { value: 0, contributions: [] }]));
+  for (const feature of rules.features) {
+    for (const effect of feature.effects) {
+      if (effect.kind !== "ability-check-bonus") continue;
+      if (effect.minimum !== undefined && (!Number.isInteger(effect.minimum) || effect.minimum < 0)) {
+        return err(appError.validation(`features.${feature.id}.abilityCheckBonus.minimum`, "O mínimo de bônus em teste de atributo precisa ser um inteiro não negativo."));
+      }
+      const sourceAbility = modifierByAbility(scores, effect.modifierAbility);
+      const amount = Math.max(sourceAbility.value, effect.minimum ?? 0);
+      const target = values.get(effect.ability);
+      if (!target) return err(appError.validation(`features.${feature.id}.abilityCheckBonus.ability`, "A habilidade de destino do bônus é inválida."));
+      target.value += amount;
+      target.contributions.push(contribution(
+        { rulesetId: pack.manifest.id, entityId: feature.id },
+        amount,
+        `${feature.name}: bônus em testes de ${effect.ability.toUpperCase()} baseado em ${effect.modifierAbility.toUpperCase()} (mínimo ${effect.minimum ?? 0})`,
+      ));
+    }
+  }
+  return ok(ABILITIES.map((ability) => {
+    const value = values.get(ability)!;
+    return { ability, bonus: explanation(value.value, value.contributions) };
+  }));
 }
 
 type DerivedRules = ReturnType<typeof collectRules> extends Result<infer T, AppError> ? T & {
@@ -184,18 +226,25 @@ type DerivedRules = ReturnType<typeof collectRules> extends Result<infer T, AppE
 function deriveSaves(
   scores: readonly AbilityScoreDerived[],
   rules: DerivedRules,
+  form?: CreatureStatBlock,
 ): Result<readonly SavingThrowDerived[], AppError> {
   const result: SavingThrowDerived[] = [];
   for (const ability of ABILITIES) {
     const base = modifierByAbility(scores, ability);
     const proficient = rules.savingThrowProficiencies.has(ability);
-    const save = numeric(
+    const characterSave = numeric(
       base.value + (proficient ? rules.proficiencyBonus : 0),
       matchingModifiers(rules.modifiers, { kind: "saving-throw", ability }),
       [...base.contributions, contribution(rules.proficiencySource, proficient ? rules.proficiencyBonus : 0, proficient ? "proficiência em resistência" : "sem proficiência")],
     );
+    if (!characterSave.ok) return characterSave;
+    const formBonus = form?.savingThrows?.[ability];
+    const useFormBonus = formBonus !== undefined && formBonus > characterSave.value.value;
+    const save = useFormBonus
+      ? ok(explanation(formBonus, [contribution({ rulesetId: rules.passiveSource.sourceId, entityId: form!.id }, formBonus, `bônus de resistência de ${ability} publicado no bloco da forma; prevalece sobre o bônus do personagem`)]))
+      : characterSave;
     if (!save.ok) return save;
-    result.push({ ability, modifier: save.value, proficient });
+    result.push({ ability, modifier: save.value, proficient: proficient || formBonus !== undefined });
   }
   return ok(result);
 }
@@ -246,14 +295,44 @@ function deriveSpeed(
   character: Character,
   pack: RulePack,
   modifiers: readonly AppliedModifier[],
-): Result<readonly { readonly kind: "walk"; readonly value: Explanation<Centimeters> }[], AppError> {
-  const race = pack.races.get(character.raceRef.entityId);
-  if (!race) return err(appError.notFound("race", String(character.raceRef.entityId)));
-  const speed = numeric(Number(race.speedCm), matchingModifiers(modifiers, { kind: "speed", speedKind: "walk" }), [
-    contribution({ rulesetId: pack.manifest.id, entityId: race.id }, Number(race.speedCm), "deslocamento da raça"),
-  ]);
-  if (!speed.ok) return speed;
-  return ok([{ kind: "walk", value: { ...speed.value, value: asCentimeters(speed.value.value) } }]);
+  formBase?: {
+    readonly speeds: Readonly<Partial<Record<CharacterDerived["speedsCm"][number]["kind"], number>>>;
+    readonly sourceRef: DefinitionRef;
+  },
+): Result<CharacterDerived["speedsCm"], AppError> {
+  const race = formBase ? undefined : pack.races.get(character.raceRef.entityId);
+  if (!formBase && !race) return err(appError.notFound("race", String(character.raceRef.entityId)));
+  const kinds = ["walk", "fly", "swim", "climb", "burrow"] as const;
+  const values = new Map<string, { readonly value: number; readonly contributions: readonly Contribution[] }>();
+  const result: { readonly kind: (typeof kinds)[number]; readonly value: Explanation<Centimeters> }[] = [];
+  for (const kind of kinds) {
+    const copied = kind === "walk" ? [] : matchingModifiers(modifiers, { kind: "speed-copy", speedKind: kind, from: "walk" });
+    const directFormSpeed = formBase?.speeds[kind];
+    const copiedFormSpeed = formBase && copied.length > 0 ? values.get("walk")?.value : undefined;
+    const base = formBase
+      ? Math.max(directFormSpeed ?? 0, copiedFormSpeed ?? 0)
+      : kind === "walk" ? Number(race!.speedCm) : copied.length > 0 ? values.get("walk")?.value : 0;
+    if (base === undefined) return err(appError.unresolvedRule(`Deslocamento ${kind} tenta copiar caminhada antes de sua derivação.`));
+    const baseContributions = formBase
+      ? directFormSpeed !== undefined && directFormSpeed >= (copiedFormSpeed ?? 0)
+        ? [contribution(formBase.sourceRef, directFormSpeed, `deslocamento ${kind} do bloco da forma`)]
+        : copiedFormSpeed !== undefined
+          ? [...(values.get("walk")?.contributions ?? []), ...copied.map(({ modifier, scope }) => contribution(modifier.sourceRef, base, `${scope}: copia caminhada efetiva`))]
+          : []
+      : kind === "walk"
+      ? [contribution({ rulesetId: pack.manifest.id, entityId: race!.id }, base, "deslocamento de caminhada da raça")]
+      : copied.length > 0
+        ? [...(values.get("walk")?.contributions ?? []), ...copied.map(({ modifier, scope }) => contribution(modifier.sourceRef, base, `${scope}: copia caminhada efetiva`))]
+        : [];
+    const speedModifiers = matchingModifiers(modifiers, { kind: "speed", speedKind: kind });
+    if (base === 0 && speedModifiers.length === 0 && copied.length === 0) continue;
+    const speed = numeric(base, speedModifiers, baseContributions);
+    if (!speed.ok) return speed;
+    const entry = { value: speed.value.value, contributions: speed.value.contributions };
+    values.set(kind, entry);
+    result.push({ kind, value: { ...speed.value, value: asCentimeters(speed.value.value) } });
+  }
+  return ok(result);
 }
 
 function deriveAttacks(
@@ -307,6 +386,7 @@ function deriveResources(
   pack: RulePack,
   scores: readonly AbilityScoreDerived[],
   total: number,
+  proficiencyBonus: number,
   modifiers: readonly AppliedModifier[],
 ): Result<readonly ResourceCapacityDerived[], AppError> {
   const result: ResourceCapacityDerived[] = [];
@@ -321,6 +401,10 @@ function deriveResources(
       case "fixed":
         base = capacityRule.amount;
         baseContribution = contribution(state.definitionRef, base, "capacidade fixa do recurso");
+        break;
+      case "proficiency-bonus":
+        base = proficiencyBonus;
+        baseContribution = contribution(state.definitionRef, base, "bônus de proficiência do nível total");
         break;
       case "by-class-level": {
         const classLevel = character.classes.find((entry) => entry.classId === capacityRule.classRef.entityId);
@@ -366,8 +450,10 @@ function deriveSpells(
       return err(appError.missingRuleset({ id: state.grantingRef.rulesetId, version: pack.manifest.version }, "Referência estrangeira em castingSources.grantingRef."));
     }
     const racial = RACIAL_SPELLS[String(state.grantingRef.entityId)];
+    const raceSource = pack.races.get(character.raceRef.entityId)?.spellcastingSources?.find((entry) => entry.id === state.grantingRef.entityId);
+    const featureSource = pack.features.get(state.grantingRef.entityId)?.spellcastingSource;
     const source = pack.classes.get(state.grantingRef.entityId)?.spellcasting ?? pack.subclasses.get(state.grantingRef.entityId)?.spellcasting
-      ?? (racial ? { ability: racial.ability, kind: "known" as const, progressionType: "none-with-feature" as const, ritualCasting: false, spellcastingFocusAllowed: false } : undefined);
+      ?? (raceSource || racial || featureSource ? { ability: state.ability, kind: "known" as const, progressionType: "none-with-feature" as const, ritualCasting: false, spellcastingFocusAllowed: false } : undefined);
     if (!source) return err(appError.unresolvedRule(`Origem de conjuração "${state.grantingRef.entityId}" sem descritor de conjuração suportado.`));
     const ability = modifierByAbility(scores, state.ability);
     const target = { kind: "spell-save-dc" as const, castingSourceRef: state.grantingRef };
@@ -387,6 +473,60 @@ function deriveSpells(
   return ok(result);
 }
 
+function transformedScores(scores: readonly AbilityScoreDerived[], form: CreatureStatBlock | undefined, rulesetId: RulePack["manifest"]["id"]): readonly AbilityScoreDerived[] {
+  if (!form) return scores;
+  const ref: DefinitionRef = { rulesetId, entityId: form.id };
+  return scores.map((entry) => {
+    if (entry.ability !== "str" && entry.ability !== "dex" && entry.ability !== "con") return entry;
+    const score = form.abilityScores[entry.ability];
+    const modifier = Math.floor((score - 10) / 2);
+    return {
+      ...entry,
+      score: explanation(score, [contribution(ref, score, `valor de ${entry.ability} do bloco da forma`)]),
+      modifier: explanation(modifier, [contribution(ref, modifier, `modificador de ${entry.ability} da forma`)]),
+    };
+  });
+}
+
+function transformedSpeeds(
+  character: Character,
+  form: CreatureStatBlock,
+  pack: RulePack,
+  modifiers: readonly AppliedModifier[],
+): Result<CharacterDerived["speedsCm"], AppError> {
+  const speeds = deriveSpeed(character, pack, modifiers, {
+    speeds: {
+      walk: form.speeds.walkCm,
+      fly: form.speeds.flyCm,
+      swim: form.speeds.swimCm,
+      climb: form.speeds.climbCm,
+      burrow: form.speeds.burrowCm,
+    },
+    sourceRef: { rulesetId: pack.manifest.id, entityId: form.id },
+  });
+  if (!speeds.ok) return speeds;
+  return ok(speeds.value.filter(({ kind }) => kind !== "fly" && kind !== "swim"));
+}
+
+function transformedAttacks(form: CreatureStatBlock, rulesetId: RulePack["manifest"]["id"]): readonly AttackOption[] {
+  const ref: DefinitionRef = { rulesetId, entityId: form.id };
+  return (form.actions ?? []).flatMap((action) => {
+    if (action.requiresManualResolution === true || action.attackBonus === undefined) return [];
+    if ((action.damage ?? []).some((damage) => damage.requiresManualResolution !== true && !damage.formula && damage.flatBonus !== undefined)) return [];
+    const damageParts = (action.damage ?? []).flatMap((damage) => damage.formula && damage.requiresManualResolution !== true ? [{
+      expression: damage.formula,
+      damageType: damage.damageType,
+      modifierBonus: explanation(damage.flatBonus ?? 0, [contribution(ref, damage.flatBonus ?? 0, `${action.name}: bônus publicado no bloco da forma`)]),
+    }] : []);
+    return damageParts.length === 0 ? [] : [{
+      sourceRef: ref,
+      label: `${action.name} — ${form.name}`,
+      attackModifier: explanation(action.attackBonus, [contribution(ref, action.attackBonus, `${action.name}: bônus de ataque publicado no bloco da forma`)]),
+      damageParts,
+    }];
+  });
+}
+
 function directRuleSources(pack: RulePack): { readonly proficiencySource: SourceRef; readonly passiveSource: SourceRef } {
   const source = sourceRef(pack);
   return { proficiencySource: source, passiveSource: source };
@@ -397,83 +537,113 @@ export function deriveCharacter(
   rulePack: RulePack,
   context: RuleContext,
 ): Result<CharacterDerived, AppError> {
-  if (!context?.gameTime || !Array.isArray(context.availableActions) || !Array.isArray(context.tablePolicies)) {
+  if (!context || !Array.isArray(context.availableActions) || !Array.isArray(context.tablePolicies)) {
     return err(appError.validation("context", "Contexto de derivação incompleto."));
   }
-  const valid = validateRuleset(character, rulePack);
+  const composed = composeCharacterRuleContent(rulePack, character);
+  if (!composed.ok) return composed;
+  const pack = composed.value;
+  const valid = validateRuleset(character, pack);
   if (!valid.ok) return valid;
   const totalResult = totalLevel(character);
   if (!totalResult.ok) return totalResult;
   const total = totalResult.value;
-  const armorResult = equippedArmor(character, rulePack);
+  const form = character.transformation?.formSnapshot;
+  const derivationCharacter = form && character.transformation?.equipmentDisposition !== "worn"
+    ? { ...character, inventory: character.inventory.map((item) => item.equippedState === "equipped" ? { ...item, equippedState: "stored" as const } : item) }
+    : character;
+  const armorResult = equippedArmor(derivationCharacter, pack);
   if (!armorResult.ok) return armorResult;
-  const rulesResult = collectRules(character, rulePack, context, total, armorResult.value.categories);
+  const rulesResult = collectRules(derivationCharacter, pack, context, total, armorResult.value.categories);
   if (!rulesResult.ok) return rulesResult;
-  const proficiencyResult = proficiencyBonusForLevel(total, rulePack.progression.table);
+  const proficiencyResult = proficiencyBonusForLevel(total, pack.progression.table);
   if (!proficiencyResult.ok) return proficiencyResult;
   const proficiencyValue = proficiencyResult.value;
-  const sources = directRuleSources(rulePack);
+  const sources = directRuleSources(pack);
   const rules = { ...rulesResult.value, proficiencyBonus: proficiencyValue, ...sources };
   const pbResult = numeric(proficiencyValue, matchingModifiers(rules.modifiers, { kind: "proficiency-bonus" }), [
     contribution(sources.proficiencySource, proficiencyValue, `bônus de proficiência do nível total ${total}`),
   ]);
   if (!pbResult.ok) return pbResult;
   const effectiveRules = { ...rules, proficiencyBonus: pbResult.value.value };
-  const abilitiesResult = scoreDerived(character, rulePack, effectiveRules.modifiers);
+  const abilitiesResult = scoreDerived(character, pack, effectiveRules.modifiers);
   if (!abilitiesResult.ok) return abilitiesResult;
-  const skillsResult = deriveSkills(abilitiesResult.value, effectiveRules);
+  const abilities = transformedScores(abilitiesResult.value, form, pack.manifest.id);
+  const abilityCheckBonusesResult = deriveAbilityCheckBonuses(abilities, effectiveRules, pack);
+  if (!abilityCheckBonusesResult.ok) return abilityCheckBonusesResult;
+  const abilityCheckBonuses = abilityCheckBonusesResult.value;
+  const skillsResult = deriveSkills(abilities, effectiveRules, abilityCheckBonuses, form);
   if (!skillsResult.ok) return skillsResult;
-  const savesResult = deriveSaves(abilitiesResult.value, effectiveRules);
+  const savesResult = deriveSaves(abilities, effectiveRules, form);
   if (!savesResult.ok) return savesResult;
-  const initiative = numeric(modifierByAbility(abilitiesResult.value, "dex").value, matchingModifiers(effectiveRules.modifiers, { kind: "initiative" }), modifierByAbility(abilitiesResult.value, "dex").contributions);
+  const initiative = numeric(modifierByAbility(abilities, "dex").value, matchingModifiers(effectiveRules.modifiers, { kind: "initiative" }), modifierByAbility(abilities, "dex").contributions);
   if (!initiative.ok) return initiative;
-  const dexterity = modifierByAbility(abilitiesResult.value, "dex");
-  const strengthScore = abilitiesResult.value.find((entry) => entry.ability === "str")?.score.value;
+  const dexterity = modifierByAbility(abilities, "dex");
+  const strengthScore = abilities.find((entry) => entry.ability === "str")?.score.value;
   if (strengthScore === undefined) return err(appError.unresolvedRule("Habilidade Força não foi derivada."));
   // Inventory impact is the single source for equipped armor/shield math. Its
   // proficiency output receives only explicit refs collected from the sheet;
   // it never assumes proficiency from merely equipping an item.
-  const equipmentImpact = deriveEquipmentImpact(character, rulePack, {
+  const equipmentImpact = deriveEquipmentImpact(derivationCharacter, pack, {
     dexterityModifier: dexterity.value,
     strengthScore,
     proficiencyRefs: effectiveRules.proficiencyRefs,
   });
   if (!equipmentImpact.ok) return equipmentImpact;
-  const armorClass = numeric(equipmentImpact.value.armorClass.value, matchingModifiers(effectiveRules.modifiers, { kind: "armor-class" }), equipmentImpact.value.armorClass.contributions);
+  const shieldContribution = equipmentImpact.value.armorClass.contributions.filter(({ description }) => description === "escudo empunhado");
+  const formArmorClass = form
+    ? explanation(form.armorClass + shieldContribution.reduce((sum, entry) => sum + (entry.amount ?? 0), 0), [
+      contribution({ rulesetId: pack.manifest.id, entityId: form.id }, form.armorClass, form.armorClassNote ?? "CA publicada para a forma; já inclui a Destreza e a armadura natural"),
+      ...shieldContribution,
+    ])
+    : undefined;
+  const useWornEquipmentArmorClass = formArmorClass !== undefined && character.transformation?.equipmentDisposition === "worn" && equipmentImpact.value.armorClass.value > formArmorClass.value;
+  const armorClassBase = formArmorClass
+    ? useWornEquipmentArmorClass
+      ? equipmentImpact.value.armorClass
+      : formArmorClass
+    : equipmentImpact.value.armorClass;
+  const armorClass = numeric(armorClassBase.value, matchingModifiers(effectiveRules.modifiers, { kind: "armor-class" }), armorClassBase.contributions);
   if (!armorClass.ok) return armorClass;
-  const hitPoints = deriveHp(character, abilitiesResult.value, rulePack, total, effectiveRules.modifiers);
+  const hitPoints = deriveHp(character, abilities, pack, total, effectiveRules.modifiers);
   if (!hitPoints.ok) return hitPoints;
-  const speeds = deriveSpeed(character, rulePack, effectiveRules.modifiers);
+  const speeds = deriveSpeed(character, pack, effectiveRules.modifiers);
   if (!speeds.ok) return speeds;
-  const spellcasting = deriveSpells(character, rulePack, abilitiesResult.value, effectiveRules);
+  const effectiveSpeeds = form ? transformedSpeeds(character, form, pack, effectiveRules.modifiers) : speeds;
+  if (!effectiveSpeeds.ok) return effectiveSpeeds;
+  const spellcasting = deriveSpells(character, pack, abilities, effectiveRules);
   if (!spellcasting.ok) return spellcasting;
-  const resources = deriveResources(character, rulePack, abilitiesResult.value, total, effectiveRules.modifiers);
+  const resources = deriveResources(character, pack, abilities, total, effectiveRules.proficiencyBonus, effectiveRules.modifiers);
   if (!resources.ok) return resources;
-  const attacks = deriveAttacks(character, rulePack, abilitiesResult.value, effectiveRules);
+  const attacks = deriveAttacks(character, pack, abilities, effectiveRules);
   if (!attacks.ok) return attacks;
   const perception = skillsResult.value.find((skill) => skill.skill === "perception");
   if (!perception) return err(appError.unresolvedRule("Perícia Percepção não foi derivada."));
-  const abilityScores = abilitiesResult.value;
+  const abilityScores = abilities;
+  const transformedHitPoints = form && character.transformation?.formMaximumHitPoints
+    ? explanation(character.transformation.formMaximumHitPoints, [contribution({ rulesetId: pack.manifest.id, entityId: form.id }, character.transformation.formMaximumHitPoints, "PV máximos publicados para a forma")])
+    : hitPoints.value;
   return ok({
     characterId: character.id,
     characterRevision: character.revision,
     rulesetRef: character.rulesetRef,
     abilityScores,
+    abilityCheckBonuses,
     skills: skillsResult.value,
     savingThrows: savesResult.value,
     armorClass: armorClass.value,
     initiative: initiative.value,
-    speedsCm: speeds.value,
+    speedsCm: effectiveSpeeds.value,
     proficiencyBonus: pbResult.value,
-    hitPointsMax: hitPoints.value,
+    hitPointsMax: transformedHitPoints,
     resourceCapacities: resources.value,
-    attacks: attacks.value,
+    attacks: form ? transformedAttacks(form, pack.manifest.id) : attacks.value,
     spellcastingSources: spellcasting.value,
     resistanceProfile: {
-      resistances: effectiveRules.resistances,
-      immunities: effectiveRules.immunities,
-      vulnerabilities: effectiveRules.vulnerabilities,
-      conditionImmunities: effectiveRules.conditionImmunities,
+      resistances: [...new Set([...effectiveRules.resistances, ...(form?.damageResistances ?? [])])],
+      immunities: [...new Set([...effectiveRules.immunities, ...(form?.damageImmunities ?? [])])],
+      vulnerabilities: [...new Set([...effectiveRules.vulnerabilities, ...(form?.damageVulnerabilities ?? [])])],
+      conditionImmunities: [...new Map([...effectiveRules.conditionImmunities, ...(form?.conditionImmunities ?? []).map((entityId) => ({ rulesetId: pack.manifest.id, entityId: entityId as EntityId }))].map((ref) => [`${ref.rulesetId}:${ref.entityId}`, ref])).values()],
     },
     passivePerception: perception.passiveScore,
   });

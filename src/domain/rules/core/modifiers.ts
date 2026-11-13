@@ -6,6 +6,7 @@ import { appError, err, ok, type AppError, type Result } from "@domain/contracts
 import {
   type Ability,
   type ChoiceSelection,
+  type ChoiceDefinition,
   type RuleModifier,
   type RuleModifierPredicate,
   type RuleModifierTarget,
@@ -42,6 +43,7 @@ export interface AppliedModifier {
 }
 
 export interface CollectedRules {
+  readonly features: readonly FeatureDefinition[];
   readonly modifiers: readonly AppliedModifier[];
   readonly proficiencyRefs: readonly DefinitionRef[];
   readonly skillProficiencies: ReadonlySet<Skill>;
@@ -136,6 +138,7 @@ export function predicateApplies(
         .reduce((total, instance) => total + (instance.severity ?? 0), 0) >= predicate.severity;
     case "while-wearing-armor-category": return equippedArmorCategories.has(predicate.armorCategory);
     case "while-not-wearing-armor": return !["light", "medium", "heavy"].some((kind) => equippedArmorCategories.has(kind));
+    case "while-not-wearing-armor-categories": return !predicate.armorCategories.some((kind) => equippedArmorCategories.has(kind));
     case "while-wielding-shield": return equippedArmorCategories.has("shield");
     case "while-concentrating": return character.concentration !== undefined;
     case "min-total-level": return totalLevel >= predicate.level;
@@ -204,19 +207,26 @@ function collectChoiceProficiencies(
   selections: readonly ChoiceSelection[],
   skillProficiencies: Set<Skill>,
   expertise: Set<Skill>,
-): void {
+  activeChoiceDefinitions: ReadonlyMap<string, ChoiceDefinition>,
+): AppError | undefined {
   for (const selection of selections) {
     for (const selected of selection.selectedIds) {
       const value = refId(selected);
       if (isSkill(value)) {
-        if (selection.choiceId.toLowerCase().includes("expertise")) expertise.add(value);
-        else skillProficiencies.add(value);
+        const expertiseChoice = activeChoiceDefinitions.get(selection.choiceId)?.kind === "expertise" || selection.choiceId.toLowerCase().includes("expertise");
+        if (expertiseChoice) {
+          if (!skillProficiencies.has(value) && !expertise.has(value)) {
+            return appError.validation(`choices.${selection.choiceId}`, `Expertise exige proficiência já registrada em ${value}.`);
+          }
+          expertise.add(value);
+        } else skillProficiencies.add(value);
       } else if (isSkillExpertiseRef(selected)) {
         const skill = value.replace(/^expertise[.-]/, "");
         if (isSkill(skill)) expertise.add(skill);
       }
     }
   }
+  return undefined;
 }
 
 /** Escolha de Incremento de Habilidade de classe (`<classe>.asi.<nível>`). */
@@ -356,12 +366,23 @@ export function collectRules(
     }
   }
 
-  for (const selection of choiceSelections(character, character.classes)) {
-    collectChoiceProficiencies([selection], skills, expertise);
+  const selections = choiceSelections(character, character.classes);
+  const activeChoiceDefinitions = new Map<string, ChoiceDefinition>(featuresResult.value.flatMap((feature) => feature.choices.map((choice) => [choice.id, choice] as const)));
+  // Proficiências comuns são coletadas antes de expertise para que a validação não dependa da
+  // ordem persistida das escolhas do personagem.
+  for (const selection of selections) {
+    if (activeChoiceDefinitions.get(selection.choiceId)?.kind === "expertise" || selection.choiceId.toLowerCase().includes("expertise")) continue;
+    const error = collectChoiceProficiencies([selection], skills, expertise, activeChoiceDefinitions);
+    if (error) return err(error);
     for (const selected of selection.selectedIds) {
       const feat = pack.feats.get(selected.entityId);
       if (feat) for (const modifier of feat.grants) add(modifier, `talento ${feat.id}`);
     }
+  }
+  for (const selection of selections) {
+    if (activeChoiceDefinitions.get(selection.choiceId)?.kind !== "expertise" && !selection.choiceId.toLowerCase().includes("expertise")) continue;
+    const error = collectChoiceProficiencies([selection], skills, expertise, activeChoiceDefinitions);
+    if (error) return err(error);
   }
   const chosenAbilityIncreases = collectAbilityIncreaseChoices(
     choiceSelections(character, character.classes),
@@ -426,6 +447,7 @@ export function collectRules(
   }
 
   return ok({
+    features: featuresResult.value,
     modifiers,
     proficiencyRefs,
     skillProficiencies: skills,
@@ -450,6 +472,7 @@ export function matchingModifiers(
       case "skill": case "passive-score": return actual.kind === target.kind && actual.skill === target.skill;
       case "saving-throw": return actual.kind === target.kind && actual.ability === target.ability;
       case "speed": return actual.kind === target.kind && actual.speedKind === target.speedKind;
+      case "speed-copy": return actual.kind === target.kind && actual.speedKind === target.speedKind && actual.from === target.from;
       case "resource-capacity": return actual.kind === target.kind && sameRef(actual.resourceRef, target.resourceRef);
       case "spell-save-dc": case "spell-attack-modifier": return actual.kind === target.kind && sameRef(actual.castingSourceRef, target.castingSourceRef);
       default: return true;

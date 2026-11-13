@@ -35,6 +35,15 @@ describe("feature registry", () => {
     expect(registry.actions.bindProps({}).onIntent).toBe(actionDispatcher);
   });
 
+  it("expõe o catálogo/runtime de criaturas e mantém o serviço no painel da Jornada", () => {
+    const service = {};
+    const creatures = { definitions: [], service, wildShape: {} } as never;
+    const registry = createFeatureRegistry({ services: services(), compendiumService: catalog, creatures });
+
+    expect(registry.creatures).toBe(creatures);
+    expect(registry.journey.creatures).toBe(service);
+  });
+
   it("esconde fichas de elenco das listas gerais e as entrega só em listAll", async () => {
     const summary = (id: string, castSheet?: true) => ({ id, name: id, classSummary: [], totalLevel: 1, updatedAt: "2026-01-01T00:00:00.000Z", revision: 1, ...(castSheet ? { castSheet } : {}) }) as never;
     const listCharacters = vi.fn(async () => ({ ok: true as const, value: [summary("jogador"), summary("lobo", true)] }));

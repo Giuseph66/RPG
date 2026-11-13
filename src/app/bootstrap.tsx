@@ -54,6 +54,7 @@ import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { AvailableAction, RuleContext } from "@domain/contracts/rules";
 import type { ActionCapability } from "@features/actions";
 import { createCharacterDraft } from "@domain/character/creation";
+import { createCreatureApplicationRuntime, createWildShapeApplicationService, type CreatureApplicationRuntime } from "@application/character/wild-shape-service";
 import type { CreationWizardService } from "@features/character/creation";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { AuthPort } from "@application/ports/auth-port";
@@ -105,6 +106,7 @@ export interface ApplicationRuntime {
   /** Recalcula `ActionCapability[]` para o personagem informado; atualiza o dispatcher acoplado. */
   readonly computeActionCapabilities: (character: Character | undefined) => readonly ActionCapability[];
   readonly registry: FeatureRegistry;
+  readonly creatures: CreatureApplicationRuntime;
   /** Pack ativo, exposto para a rota de criação montar `CharacterCreationWizard`. */
   readonly pack: RulePack;
   /** Gera um `CharacterDraft` novo (novo ID/timestamp) a cada chamada; UI decide quando chamar. */
@@ -157,7 +159,7 @@ function decodeImportedAsset(asset: BackupEnvelope["assets"][number]): Asset {
  * registro existente (IDs são sempre novos), então não há nada para preservar.
  */
 function commitBackupEnvelope(database: IDBDatabase, clock: { readonly now: () => string }, input: { readonly envelope: BackupEnvelope; readonly mode: ImportMode }): Promise<Result<{ readonly rootId: BackupEnvelope["rootId"] }, AppError>> {
-  const stores = [STORE_NAMES.characters, STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.rolls, STORE_NAMES.favorites, STORE_NAMES.assets, STORE_NAMES.recovery];
+  const stores = [STORE_NAMES.characters, STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.rolls, STORE_NAMES.favorites, STORE_NAMES.assets, STORE_NAMES.recovery, STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals];
   return runTransaction(database, stores, "readwrite", async (tx) => {
     const { envelope, mode } = input;
     const now = clock.now();
@@ -179,6 +181,10 @@ function commitBackupEnvelope(database: IDBDatabase, clock: { readonly now: () =
     for (const record of envelope.records.campaigns) await put(STORE_NAMES.campaigns, record);
     for (const record of envelope.records.journalEntries) await put(STORE_NAMES.journalEntries, record);
     for (const record of envelope.records.maps) await put(STORE_NAMES.maps, record);
+    for (const record of envelope.records.creatures ?? []) await put(STORE_NAMES.creatures, record);
+    for (const record of envelope.records.sightings ?? []) await put(STORE_NAMES.sightings, record);
+    for (const record of envelope.records.guesses ?? []) await put(STORE_NAMES.guesses, record);
+    for (const record of envelope.records.proposals ?? []) await put(STORE_NAMES.proposals, record);
     // O envelope expõe DiceRoll diretamente, mas o store local mantém o wrapper
     // `StoredRoll` usado pelo DiceHistoryRepository. Gravar o DiceRoll cru faria a
     // importação parecer bem-sucedida e corromperia o histórico na próxima leitura.
@@ -207,7 +213,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 function resetLocalData(database: IDBDatabase, clock: { readonly now: () => string }, request: { readonly scope: ResetScope }): Promise<Result<void, AppError>> {
   const byScope: Record<ResetScope, readonly string[]> = {
     characters: [STORE_NAMES.characters, STORE_NAMES.drafts],
-    campaigns: [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps],
+    campaigns: [STORE_NAMES.campaigns, STORE_NAMES.journalEntries, STORE_NAMES.maps, STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals],
     assets: [STORE_NAMES.assets],
     "dice-history": [STORE_NAMES.rolls],
     all: Object.values(STORE_NAMES),
@@ -464,10 +470,14 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       })
     : undefined);
   const assets = createAssetSyncService(assetRepository, assetTransfer);
-  const creatures = createCreatureService({
+  const creatureService = createCreatureService({
     repository: journeyRepository,
     unitOfWork: new IndexedDbUnitOfWork(database),
     syncOutbox: createSyncOutboxService(gatedOutboxRepository),
+    currentAccountId: () => {
+      const uid = auth?.currentSession()?.uid;
+      return uid ? asAccountId(uid) : localIdentity.accountId;
+    },
     clock,
     idGenerator,
   });
@@ -588,6 +598,17 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const pack = loadPhbPtBrLocal2017();
     if (!pack.ok) throw new Error(pack.error.message);
     const activePack = pack.value;
+    const wildShape = createWildShapeApplicationService({
+      characterService: services.character,
+      creatureService,
+      baseRulePack: activePack,
+      idGenerator,
+      currentAccountId: () => {
+        const uid = auth?.currentSession()?.uid;
+        return uid ? asAccountId(uid) : localIdentity.accountId;
+      },
+    });
+    const creatureRuntime = createCreatureApplicationRuntime({ service: creatureService, wildShape, baseRulePack: activePack });
     const compendiumService = createCompendiumService({ packs: [activePack], excludePackEntityTypes: ["spell", "condition", "race", "subrace", "class", "subclass", "feature", "resource", "progression", "background", "feat"] });
     const loadCompendiumCatalog = createLazyCompendiumLoader(compendiumService);
 
@@ -668,6 +689,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       characters: characterRepository,
       campaigns: campaignRepository,
       assets: assetRepository,
+      journey: journeyRepository,
       appVersion: "0.0.0",
       now: () => clock.now(),
       idGenerator,
@@ -732,7 +754,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       listCharacterDrafts: () => characterRepository.listDrafts(),
       listJournalEntries: (campaignId) => campaignRepository.listJournalEntries(campaignId),
       getLocalAsset: (assetId) => assets.getLocal(assetId),
-      creatures,
+      creatures: creatureRuntime,
       mapPublication,
       journalDraftState: () => journalDispatcher.getDraftState(),
       dataManagement: { service: dataManagement, previewImport: (envelope) => backup.previewImport(envelope) },
@@ -824,7 +846,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       });
     }
 
-    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, createDraft, auth, authAvailability, sync: syncRuntime, dispose: () => { unsubscribeCharacterAuth?.(); unsubscribePortraitAuth?.(); unsubscribePortraitCharacter?.(); unsubscribeLiveRefresh?.(); }, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
+    return { database, services, membership: membershipWithSync, session, assets, diceOverlayController, registry, computeActionCapabilities, pack: activePack, creatures: creatureRuntime, createDraft, auth, authAvailability, sync: syncRuntime, dispose: () => { unsubscribeCharacterAuth?.(); unsubscribePortraitAuth?.(); unsubscribePortraitCharacter?.(); unsubscribeLiveRefresh?.(); }, onCharacterCreated: (character: Character) => { void services.character.select(character.id); } };
   } catch (cause) {
     services.character.dispose();
     services.campaign.dispose();

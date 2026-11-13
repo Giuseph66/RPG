@@ -1,10 +1,12 @@
 export { Actions, ActionPage } from "./Actions";
+export { readTurnActionBudget, spendTurnActionAfterSuccess, spendTurnActionBudget } from "./TurnPanel";
 export type {
   ActionCapability,
   ActionCapabilityKind,
   ActionCapabilityStatus,
   ActionCommitResult,
   ActionCost,
+  FeatureCastingOption,
   ActionId,
   ActionIntent,
   ActionPageProps,

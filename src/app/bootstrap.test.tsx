@@ -8,7 +8,7 @@ import { click, mount } from "@components/ui/testUtils";
 import type { ApplicationServices } from "@application/state";
 import { createCampaign } from "@domain/campaign/journal";
 import { diceRollAdvantageSample, fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
-import { asIsoTimestamp, asUuid } from "@domain/contracts/ids";
+import { asAccountId, asEntityId, asIsoTimestamp, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import {
   IndexedDbAssetRepository,
@@ -19,6 +19,10 @@ import {
   openDatabase,
 } from "@infrastructure/persistence/indexeddb";
 import type { Campaign } from "@domain/contracts/campaign";
+import type { BackupEnvelope } from "@domain/contracts/backup";
+import type { CreatureGuess, CreatureProposal, CreatureRecord, CreatureSighting } from "@domain/campaign/creatures";
+import type { CreatureStatBlock } from "@domain/creatures";
+import type { Character } from "@domain/contracts/character";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { AssetTransferPort } from "@application/ports/asset-transfer";
 
@@ -50,6 +54,55 @@ async function readRaw(db: IDBDatabase, storeName: string, id: string): Promise<
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+async function readAllRaw(db: IDBDatabase, storeName: string): Promise<unknown[]> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], "readonly");
+    const request = tx.objectStore(storeName).getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function putRaw(db: IDBDatabase, storeName: string, record: { readonly id: string; readonly [key: string]: unknown }): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([storeName], "readwrite");
+    tx.objectStore(storeName).put(record);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+function campaignCreatureRecords(campaignId: ReturnType<typeof asUuid>) {
+  const creatureId = asUuid("00000000-0000-4000-8000-000000000391");
+  const accountId = asAccountId("player-backup-test");
+  const statBlock: CreatureStatBlock = {
+    id: asEntityId("backup-test-wolf"), name: "Lobo do backup", creatureType: "beast", size: "medium", armorClass: 12,
+    hitPoints: { average: 11, hitDice: "2d8+2" }, speeds: { walkCm: 900 as never },
+    abilityScores: { str: 12, dex: 15, con: 12, int: 3, wis: 12, cha: 6 },
+    challengeRating: { numerator: 1, denominator: 4 }, sourceRefs: [],
+  };
+  const creature: CreatureRecord = {
+    id: creatureId, campaignId, schemaVersion: 1, revision: asRevision(0), kind: "enemy", name: "Lobo do backup",
+    appearance: "Lobo cinzento", race: "Lobo", description: "", hitPoints: "11", armorClass: "12", abilities: "", notes: "Privado",
+    statBlock, reveals: [{ accountId, fields: ["name", "statBlock"] }], createdAt: fixedClock.now(), updatedAt: fixedClock.now(),
+  };
+  const sighting: CreatureSighting = {
+    id: `${creatureId}__${accountId}`, campaignId, creatureId, accountId, schemaVersion: 1, revision: asRevision(0),
+    revealed: {}, createdAt: fixedClock.now(), updatedAt: fixedClock.now(),
+  };
+  const guess: CreatureGuess = {
+    id: "guess__backup-test", campaignId, creatureId, accountId, schemaVersion: 1, revision: asRevision(0),
+    name: "Lobo", note: "Pegadas e uivos", createdAt: fixedClock.now(), updatedAt: fixedClock.now(),
+  };
+  const proposal: CreatureProposal = {
+    id: "proposal__00000000-0000-4000-8000-000000000392", campaignId, schemaVersion: 1, revision: asRevision(0),
+    proposedBy: accountId, status: "pending", statBlock, suggestionReasons: ["Rastros recentes"],
+    createdAt: fixedClock.now(), updatedAt: fixedClock.now(),
+  };
+  return { creature, sighting, guess, proposal };
 }
 
 async function mountRoute(node: Parameters<typeof mount>[0]) {
@@ -105,7 +158,7 @@ describe("Bootstrap", () => {
       expect(mounted.container.textContent).toContain("Categorias");
       expect(mounted.container.innerHTML).toContain('aria-current="page"');
       expect(mounted.container.textContent).toContain("Regras");
-      const input = mounted.container.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null;
+      const input = mounted.container.querySelector('input[placeholder="Buscar por nome, categoria ou tag"]') as HTMLInputElement | null;
       expect(input).not.toBeNull();
       if (input) {
         const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -334,6 +387,9 @@ describe("Bootstrap", () => {
     const characters = new IndexedDbCharacterRepository(seeded.value, fixedClock);
     expect((await campaigns.save(campaign, asRevision(0))).ok).toBe(true);
     expect((await characters.save({ ...minimalCharacter, campaignId }, asRevision(0))).ok).toBe(true);
+    for (const [index, storeName] of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals].entries()) {
+      await putRaw(seeded.value, storeName, { id: `reset-${index}`, campaignId });
+    }
     seeded.value.close();
 
     const runtime = await createApplicationRuntime({ database: { name } });
@@ -347,6 +403,9 @@ describe("Bootstrap", () => {
       const stored = await storedCharacters.get(minimalCharacter.id);
       if (!stored.ok) throw new Error(stored.error.message);
       expect(stored.value.campaignId).toBeUndefined();
+      for (const storeName of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals]) {
+        expect(await readAllRaw(runtime.database, storeName)).toEqual([]);
+      }
     } finally {
       runtime.services.character.dispose();
       runtime.services.settings.dispose();
@@ -434,6 +493,132 @@ describe("Bootstrap", () => {
     } finally {
       runtime.services.character.dispose();
       runtime.services.settings.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("importa as quatro coleções de criaturas atomicamente em replace/copy e reseta com campanhas", async () => {
+    const name = "bootstrap-journey-collections-backup";
+    const runtime = await createApplicationRuntime({ database: { name } });
+    try {
+      const campaignId = asUuid("00000000-0000-4000-8000-000000000390");
+      const otherCampaignId = asUuid("00000000-0000-4000-8000-000000000393");
+      const otherBase = campaignCreatureRecords(otherCampaignId);
+      const otherCreature: CreatureRecord = { ...otherBase.creature, id: asUuid("00000000-0000-4000-8000-000000000395") };
+      const otherSighting: CreatureSighting = { ...otherBase.sighting, id: `${otherCreature.id}__${otherBase.sighting.accountId}`, creatureId: otherCreature.id };
+      const otherGuess: CreatureGuess = { ...otherBase.guess, id: "guess__backup-test-other", creatureId: otherCreature.id };
+      const otherProposal: CreatureProposal = { ...otherBase.proposal, id: "proposal__backup-test-other" };
+      await Promise.all([
+        putRaw(runtime.database, STORE_NAMES.creatures, otherCreature),
+        putRaw(runtime.database, STORE_NAMES.sightings, otherSighting),
+        putRaw(runtime.database, STORE_NAMES.guesses, otherGuess),
+        putRaw(runtime.database, STORE_NAMES.proposals, otherProposal),
+      ]);
+      const { creature, sighting, guess, proposal } = campaignCreatureRecords(campaignId);
+      const beastRef = { rulesetId: minimalCharacter.rulesetRef.id, entityId: creature.statBlock!.id };
+      const original: Character = {
+        ...minimalCharacter,
+        campaignId,
+        hp: { current: 17, temp: 2 },
+        beastSightings: [{ beastRef }],
+      };
+      const activeForm: Character = {
+        ...original,
+        transformation: {
+          id: asUuid("00000000-0000-4000-8000-000000000394"),
+          formRef: beastRef,
+          originalSnapshotRef: original.id,
+          originalSnapshot: original,
+          originalMaximumHitPoints: 17,
+          formSnapshot: creature.statBlock,
+          formMaximumHitPoints: 11,
+          formHp: { current: 4, temp: 5 },
+          duration: { kind: "hours", value: 1 },
+          equipmentDisposition: "stored",
+          retainedFeatureIds: [],
+        },
+      };
+      const campaigns = new IndexedDbCampaignRepository(runtime.database, fixedClock);
+      expect((await campaigns.save(emptyCampaign(campaignId, [activeForm.id]), asRevision(0))).ok).toBe(true);
+      const characters = new IndexedDbCharacterRepository(runtime.database, fixedClock);
+      expect((await characters.save(activeForm, asRevision(0))).ok).toBe(true);
+      const dataManagement = runtime.registry.dataManagement;
+      if (!dataManagement) throw new Error("dataManagement não registrado");
+      const exported = await dataManagement.service.exportCampaign(campaignId);
+      if (!exported.ok) throw new Error(exported.error.message);
+      const envelope: BackupEnvelope = {
+        ...exported.value,
+        records: {
+          ...exported.value.records,
+          creatures: [creature],
+          sightings: [sighting],
+          guesses: [guess],
+          proposals: [proposal],
+        },
+      };
+
+      expect(await dataManagement.service.import(envelope, "replace")).toMatchObject({ ok: true, value: { rootId: campaignId } });
+      for (const [storeName, id] of [
+        [STORE_NAMES.creatures, creature.id],
+        [STORE_NAMES.sightings, sighting.id],
+        [STORE_NAMES.guesses, guess.id],
+        [STORE_NAMES.proposals, proposal.id],
+      ] as const) expect(await readRaw(runtime.database, storeName, id)).toBeDefined();
+      expect(await readRaw(runtime.database, STORE_NAMES.creatures, otherCreature.id)).toEqual(otherCreature);
+      expect(await readRaw(runtime.database, STORE_NAMES.sightings, otherSighting.id)).toEqual(otherSighting);
+      expect(await readRaw(runtime.database, STORE_NAMES.guesses, otherGuess.id)).toEqual(otherGuess);
+      expect(await readRaw(runtime.database, STORE_NAMES.proposals, otherProposal.id)).toEqual(otherProposal);
+      const reloadedCharacters = new IndexedDbCharacterRepository(runtime.database, fixedClock);
+      const reloaded = await reloadedCharacters.get(activeForm.id);
+      if (!reloaded.ok) throw new Error(reloaded.error.message);
+      expect(reloaded.value).toMatchObject({
+        hp: { current: 17, temp: 2 },
+        beastSightings: [{ beastRef }],
+        transformation: {
+          formRef: beastRef,
+          originalSnapshot: { hp: { current: 17, temp: 2 } },
+          originalMaximumHitPoints: 17,
+          formSnapshot: { id: creature.statBlock!.id },
+          formMaximumHitPoints: 11,
+          formHp: { current: 4, temp: 5 },
+        },
+      });
+      expect(await readRaw(runtime.database, STORE_NAMES.creatures, creature.id)).toMatchObject({ reveals: [{ fields: ["name", "statBlock"] }] });
+
+      const validStoreState = await Promise.all([
+        readAllRaw(runtime.database, STORE_NAMES.creatures),
+        readAllRaw(runtime.database, STORE_NAMES.sightings),
+        readAllRaw(runtime.database, STORE_NAMES.guesses),
+        readAllRaw(runtime.database, STORE_NAMES.proposals),
+      ]);
+      const invalid = {
+        ...envelope,
+        records: { ...envelope.records, proposals: [{ ...proposal, statBlock: null }] },
+      } as unknown as BackupEnvelope;
+      const invalidImport = await dataManagement.service.import(invalid, "replace");
+      expect(invalidImport.ok).toBe(false);
+      const storesAfterInvalidImport = await Promise.all([
+        readAllRaw(runtime.database, STORE_NAMES.creatures),
+        readAllRaw(runtime.database, STORE_NAMES.sightings),
+        readAllRaw(runtime.database, STORE_NAMES.guesses),
+        readAllRaw(runtime.database, STORE_NAMES.proposals),
+      ]);
+      expect(storesAfterInvalidImport).toEqual(validStoreState);
+
+      const copied = await dataManagement.service.import(envelope, "copy");
+      expect(copied.ok).toBe(true);
+      for (const storeName of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals]) {
+        expect(await readAllRaw(runtime.database, storeName)).toHaveLength(3);
+      }
+      expect(await dataManagement.service.reset({ scope: "campaigns", confirmation: "explicit" })).toMatchObject({ ok: true });
+      for (const storeName of [STORE_NAMES.creatures, STORE_NAMES.sightings, STORE_NAMES.guesses, STORE_NAMES.proposals]) {
+        expect(await readAllRaw(runtime.database, storeName)).toEqual([]);
+      }
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
       runtime.database.close();
     }
   });

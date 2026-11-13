@@ -175,6 +175,36 @@ describe("integração local + outbox", () => {
     const unlinked = await service.unlinkFromCampaign(minimalCharacter.id, campaignId, linked.ok ? linked.value : asRevision(1));
     expect(unlinked).toMatchObject({ ok: true, value: 2 });
     expect(harness.getStored().campaignId).toBeUndefined();
+    // A cópia da campanha precisa sair do Firebase; senão a mesa continua vendo a ficha.
+    expect(harness.operations.slice(1)).toEqual([
+      expect.objectContaining({ aggregateType: "character", mutation: "delete", baseRevision: 1, scope: { campaignId } }),
+      expect.objectContaining({ aggregateType: "character", mutation: "upsert", payload: expect.not.objectContaining({ campaignId }) }),
+    ]);
+  });
+
+  it("ao vincular, apaga a cópia privada do dono", async () => {
+    const owner = asAccountId("owner-1");
+    const harness = makeHarness({ ...minimalCharacter, ownerUid: owner });
+    const service = createCharacterApplicationService({ repository: harness.repository, debounceMs: 0, ownerUid: owner, commandDependencies: { clock, idGenerator, unitOfWork: harness.unitOfWork, syncOutbox: harness.outbox } });
+    const campaignId = asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+
+    await service.linkToCampaign(minimalCharacter.id, campaignId, minimalCharacter.revision);
+
+    expect(harness.operations).toEqual([
+      expect.objectContaining({ mutation: "delete", baseRevision: minimalCharacter.revision, scope: { ownerUid: owner } }),
+      expect.objectContaining({ mutation: "upsert", payload: expect.objectContaining({ campaignId }) }),
+    ]);
+  });
+
+  it("mestre desvincula ficha de outro jogador sem criar cópia privada", async () => {
+    const campaignId = asUuid("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    const harness = makeHarness({ ...minimalCharacter, campaignId, ownerUid: asAccountId("player-1") });
+    const service = createCharacterApplicationService({ repository: harness.repository, debounceMs: 0, ownerUid: asAccountId("master-1"), commandDependencies: { clock, idGenerator, unitOfWork: harness.unitOfWork, syncOutbox: harness.outbox } });
+
+    const unlinked = await service.unlinkFromCampaign(minimalCharacter.id, campaignId, minimalCharacter.revision);
+
+    expect(unlinked.ok).toBe(true);
+    expect(harness.operations).toEqual([expect.objectContaining({ mutation: "delete", scope: { campaignId } })]);
   });
 
   it("não move personagem já ligado a outra campanha e respeita revisão", async () => {

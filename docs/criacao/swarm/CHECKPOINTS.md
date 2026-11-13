@@ -16,3 +16,17 @@ Estado atual: **CP0 documental concluído em 2026-09-11; nenhum checkpoint de so
 | CP9 — QA e entrega | UI-005, A11Y-001, QA-001..004, REL-001. | Aceite responsivo/acessível/manual, riscos declarados, performance e regressões fechadas. | Não iniciado. |
 
 Cada gate registra data, revisão/commit, ambiente, comandos, resultados, capturas quando úteis e limitações. Código existente ou componente com fixture não é prova de fluxo real. Falha bloqueadora mantém gate aberto; item não suportado por fonte fica explicitamente fora da capacidade entregue, com decisão de escopo, nunca desabilitado silenciosamente para aprovar.
+# Checkpoints SUP — 11/11/2026
+
+1. SUP-CP1: cinco anexos integralmente extraídos, hashes/páginas e campos dos blocos identificados; contratos aditivos publicados aos consumers.
+2. SUP-CP2: Fada/Tasha opt-in e catálogo completo disponível; Forma Selvagem provada com bestas vistas, PV, excedente, retorno e persistência.
+3. SUP-CP3: fluxo mestre/jogador, sugestões revisáveis e atributos efetivos integrados na interface existente.
+4. SUP-CP4: testes pertinentes, typecheck/build e QA integrado registrados; aceite somente após revisão. Estado inicial: todos pendentes.
+
+Heartbeat SUP-01: cinco extrações nativas gravadas; OCR separado concluído sem falhas em Tasha 162/162 páginas, Fada 1/1 e Apêndice A 24/24. Conferência visual/manifesto e aceite SUP-CP1 ainda pendentes. Contrato genérico v0.1 já compartilhado aos consumers.
+
+Inventário raw final SUP-01: 95 blocos no Apêndice A (88 bestas, das quais 6 enxames; 4 monstruosidades, 2 plantas, 1 fada). Este inventário substitui a contagem preliminar 81; publicação no catálogo/testes ainda pendente. Mídia de três PDFs compactada por fonte com índice/hash, sem milhares de binários avulsos.
+
+SUP-CP1 aceito pela coordenação: leitura independente do manifesto e hashing dos cinco originais confirmou 5/5 SHA-256; extrações existem com 162/1/24 separadores de página e 1 tabela por DOCX. Três ZIPs passaram CRC; 2.258 membros conferidos byte a byte em tamanho/SHA-256 contra media-index.csv, zero divergências. OCR integral/controle visual do owner estão registrados em `Testes/complementos-fontes.md`; contrato aditivo publicado e grafo reindexado. Isso aceita extração/proveniência, não catálogo/complementos funcionais nem SUP-02/03.
+
+Revisão intermediária SUP: interface de Forma Selvagem ligada à ficha (catálogo elegível, PV, equipamento, duração manual e orçamento de ações), ainda sem aceite integrado. Auditoria independente de Tasha p.51–56 encontrou regras/transcrições incompletas no pacote de dados; SUP-01 está corrigindo custos, níveis de magia, textos e referências. Testes de formato ou componentes não substituem essa fidelidade à fonte. SUP-CP2/3/4 permanecem abertos.

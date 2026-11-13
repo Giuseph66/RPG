@@ -4,7 +4,7 @@ import { minimalCharacter } from "@domain/contracts/fixtures";
 import { type Character } from "@domain/contracts/character";
 import { type CastRequest, type SpellDefinition } from "@domain/contracts/definitions/spell";
 import { type DiceRoll } from "@domain/contracts/dice";
-import { asCommandId, asEntityId, asUuid, type Uuid } from "@domain/contracts/ids";
+import { asCommandId, asEntityId, asRulesetId, asUuid, type Uuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import { classes } from "@data/classes";
 import { findSpell } from "@data/spells";
@@ -47,6 +47,25 @@ function healingRoll(id: Uuid, total: number): DiceRoll {
 }
 
 describe("spell domain", () => {
+  it("valida DefinitionRef contra o ruleset do catálogo composto e ainda rejeita ruleset ou entidade errados", () => {
+    const spell = findSpell("detect-magic")!;
+    const validCharacter = clericCharacter("detect-magic");
+    const wrongRuleset = castSpell(validCharacter, spell, request("detect-magic", "normal", {
+      spellRef: { rulesetId: asRulesetId("another-ruleset"), entityId: asEntityId("detect-magic") },
+    }), context);
+    expect(wrongRuleset.status).toBe("rejected");
+    if (wrongRuleset.status === "rejected") expect(wrongRuleset.errors[0]?.code).toBe("invalid-command");
+
+    const wrongEntity = asEntityId("not-detect-magic");
+    const characterWithOtherKnownRef = {
+      ...validCharacter,
+      castingSources: [{ ...validCharacter.castingSources[0]!, preparedSpellRefs: [ref(String(wrongEntity))] }],
+    };
+    const wrongEntityResult = castSpell(characterWithOtherKnownRef, spell, request(String(wrongEntity)), context);
+    expect(wrongEntityResult.status).toBe("rejected");
+    if (wrongEntityResult.status === "rejected") expect(wrongEntityResult.errors[0]?.code).toBe("invalid-command");
+  });
+
   it("exige magia preparada e rejeita slot esgotado", () => {
     const spell = findSpell("cure-wounds")!;
     const unprepared = clericCharacter("fireball");
@@ -63,6 +82,20 @@ describe("spell domain", () => {
     const result = castSpell(source, spell, request("cure-wounds", "normal", { slotLevel: 2 }), context);
     expect(result.status).toBe("success");
     if (result.status === "success") expect(result.nextState.spellSlots[0].spent).toBe(1);
+  });
+
+  it("permite espaço superior sem benefício quando higherLevels é none e mantém custom bloqueado", () => {
+    const spell = findSpell("cure-wounds")!;
+    const higherSlot = [{ poolId, kind: "spellcasting" as const, slotLevel: 2, spent: 0 }];
+    const noScaling = { ...spell, higherLevels: { kind: "none" as const } };
+    const freeUpcast = castSpell(clericCharacter("cure-wounds", higherSlot), noScaling, request("cure-wounds", "normal", { slotLevel: 2 }), context);
+    expect(freeUpcast.status).toBe("success");
+    if (freeUpcast.status === "success") expect(freeUpcast.nextState.spellSlots[0]?.spent).toBe(1);
+
+    const customScaling = { ...spell, higherLevels: { kind: "custom" as const, description: "Escalonamento não estruturado" } };
+    const unresolved = castSpell(clericCharacter("cure-wounds", higherSlot), customScaling, request("cure-wounds", "normal", { slotLevel: 2 }), context);
+    expect(unresolved.status).toBe("rejected");
+    if (unresolved.status === "rejected") expect(unresolved.errors[0]?.code).toBe("unresolved-rule");
   });
 
   it("aplica o modificador da fonte e os dados adicionais de Curar Ferimentos", () => {
@@ -134,6 +167,55 @@ describe("spell domain", () => {
       expect(result.nextState.inventory).toHaveLength(0);
       expect(result.effects.some((effect) => effect.kind === "inventory-changed" && effect.payload.inventoryItemId === itemId)).toBe(true);
     }
+  });
+
+  it("aplica exceção material e variante de concentração somente na concessão da feature", () => {
+    const base = findSpell("detect-magic")!;
+    const spell: SpellDefinition = {
+      ...base,
+      id: asEntityId("invocar-feerico"),
+      level: 3,
+      classes: [asEntityId("druid")],
+      components: { verbal: true, somatic: true, material: { descriptionSummary: "flor de ouro de 300 po", costCp: 30000 as never, consumed: false } },
+      concentration: true,
+      duration: { kind: "hours", amount: 1, unit: "hour", endTriggers: [{ kind: "concentration-ends" }] },
+      targetType: { type: "creature", count: 1, restrictions: [], visibilityRequired: true },
+    };
+    const featureSource = {
+      id: sourceId, grantingRef: ref("fey-wanderer-fey-reinforcements"), sourceKind: "feature" as const, ability: "wis" as const,
+      knownSpellRefs: [ref("invocar-feerico")], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [poolId], usesSpellSlots: true,
+      featureSpellOverrides: [{ spellRef: ref("invocar-feerico"), ignoreMaterialComponents: true, concentrationAlternativeMinutes: 1 }],
+    };
+    const baseState = character({
+      castingSources: [featureSource],
+      spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 3, spent: 0 }],
+      concentration: { effectId: uid("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), sourceRef: ref("detect-magic"), duration: { kind: "minutes", value: 10 }, pendingSaveIds: [] },
+    });
+    const normalFeatureCast = castSpell(baseState, spell, request("invocar-feerico", "normal", { slotLevel: 3, componentContext: { materialProvided: false, focusUsed: false } }), {
+      ...context, replaceConcentration: true, concentrationEffectId: uid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"),
+    });
+    expect(normalFeatureCast.status).toBe("success");
+    if (normalFeatureCast.status === "success") {
+      expect(normalFeatureCast.nextState.spellSlots[0].spent).toBe(1);
+      expect(normalFeatureCast.nextState.concentration?.effectId).toBe(uid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"));
+      expect(normalFeatureCast.nextState.inventory).toEqual(baseState.inventory);
+    }
+    const featureVariantCast = castSpell(baseState, spell, request("invocar-feerico", "normal", {
+      slotLevel: 3, featureCastingOption: { kind: "drop-concentration", durationMinutes: 1 },
+      componentContext: { materialProvided: false, focusUsed: false },
+    }), context);
+    expect(featureVariantCast.status).toBe("success");
+    if (featureVariantCast.status === "success") expect(featureVariantCast.nextState.concentration).toEqual(baseState.concentration);
+
+    const standardSourceState = { ...baseState, castingSources: [{ ...featureSource, sourceKind: "class" as const, featureSpellOverrides: undefined }] };
+    const standardCast = castSpell(standardSourceState, spell, request("invocar-feerico", "normal", { slotLevel: 3, componentContext: { materialProvided: false, focusUsed: false } }), context);
+    expect(standardCast.status).toBe("rejected");
+
+    const unauthorizedVariant = castSpell(standardSourceState, spell, request("invocar-feerico", "normal", {
+      slotLevel: 3, featureCastingOption: { kind: "drop-concentration", durationMinutes: 1 },
+      componentContext: { materialProvided: true, focusUsed: false },
+    }), context);
+    expect(unauthorizedVariant.status).toBe("rejected");
   });
 
   it("substitui concentração somente com decisão explícita", () => {

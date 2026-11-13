@@ -27,13 +27,15 @@ import {
   type ConcentrationState,
   type ConditionInstance,
   type DeathSaves,
+  type EquipmentDisposition,
   type InventoryEquippedState,
   type ProgressionHitPointGain,
   type TransformationState,
+  type TransformationExitReason,
 } from "./character";
 import { type Explanation } from "./derived";
 import { type QuestStatus } from "./campaign";
-import { type CastMode, type CastPreview, type SpellComponentContext, type SpellTargetContext } from "./definitions/spell";
+import { type CastMode, type CastPreview, type FeatureCastingOption, type SpellComponentContext, type SpellTargetContext } from "./definitions/spell";
 
 // ---------------------------------------------------------------------------
 // RuleContext
@@ -47,7 +49,7 @@ export type TablePolicy =
   | { readonly kind: "table-decision"; readonly pendencyId: string; readonly decision: string };
 
 export interface RuleContext {
-  readonly gameTime: GameTime;
+  readonly gameTime?: GameTime;
   readonly availableActions: readonly AvailableAction[];
   readonly targetContext?: SpellTargetContext;
   readonly tablePolicies: readonly TablePolicy[];
@@ -85,9 +87,34 @@ export interface ApplyTempHpPayload {
   readonly stacking: "highest-wins" | "replace";
 }
 
+export interface EnterWildShapePayload {
+  readonly beastRef: DefinitionRef;
+  readonly equipmentDisposition?: EquipmentDisposition;
+  readonly actionCost?: "action" | "bonus-action";
+}
+
+export interface ExitWildShapePayload {
+  readonly reason: TransformationExitReason;
+}
+
+export interface MarkBeastSeenPayload {
+  readonly beastRef: DefinitionRef;
+}
+
+export interface AdvanceWildShapeTimePayload {
+  readonly minutes: number;
+}
+
 export interface SpendResourcePayload {
   readonly resourceStateId: Uuid;
   readonly amount: number;
+}
+
+/** Ativação assistida da feature Incansável; vincula a rolagem e o recurso no mesmo comando. */
+export interface UseTirelessPayload {
+  readonly resourceStateId: Uuid;
+  readonly rollId: Uuid;
+  readonly sourceRef: DefinitionRef;
 }
 
 export interface ResolveAttackPayload {
@@ -103,6 +130,8 @@ export interface CastSpellPayload {
   readonly castingSourceId: Uuid;
   readonly mode: CastMode;
   readonly resourcePoolId?: Uuid;
+  readonly resourceStateId?: Uuid;
+  readonly featureCastingOption?: FeatureCastingOption;
   readonly slotLevel?: number;
   readonly targetContext: SpellTargetContext;
   readonly componentContext: SpellComponentContext;
@@ -136,6 +165,8 @@ export interface HitDiceSpendRequest {
 
 export interface RestPayload {
   readonly restKind: RestKind;
+  /** Horas informadas para avançar a duração de forma ativa; ausente usa mínimo publicado. */
+  readonly durationHours?: number;
   readonly hitDiceSpent?: readonly HitDiceSpendRequest[];
 }
 
@@ -173,7 +204,12 @@ export type Command =
   | CommandEnvelope<"apply-damage", ApplyDamagePayload>
   | CommandEnvelope<"apply-healing", ApplyHealingPayload>
   | CommandEnvelope<"apply-temp-hp", ApplyTempHpPayload>
+  | CommandEnvelope<"enter-wild-shape", EnterWildShapePayload>
+  | CommandEnvelope<"exit-wild-shape", ExitWildShapePayload>
+  | CommandEnvelope<"mark-beast-seen", MarkBeastSeenPayload>
+  | CommandEnvelope<"advance-wild-shape-time", AdvanceWildShapeTimePayload>
   | CommandEnvelope<"spend-resource", SpendResourcePayload>
+  | CommandEnvelope<"use-tireless", UseTirelessPayload>
   | CommandEnvelope<"resolve-attack", ResolveAttackPayload>
   | CommandEnvelope<"cast-spell", CastSpellPayload>
   | CommandEnvelope<"end-concentration", EndConcentrationPayload>
@@ -261,7 +297,7 @@ interface EffectEnvelope<Kind extends string, Payload> {
 }
 
 export type Effect =
-  | EffectEnvelope<"hp-changed", { readonly delta: number; readonly newCurrent: number; readonly newTemp: number }>
+  | EffectEnvelope<"hp-changed", { readonly delta: number; readonly newCurrent: number; readonly newTemp: number; readonly form?: true }>
   | EffectEnvelope<"resource-spent", { readonly resourceStateId: Uuid; readonly amount: number; readonly newSpent: number }>
   | EffectEnvelope<"condition-applied", { readonly conditionInstance: ConditionInstance }>
   | EffectEnvelope<"condition-removed", { readonly conditionInstanceId: Uuid }>
@@ -272,7 +308,7 @@ export type Effect =
   | EffectEnvelope<"choice-recorded", { readonly selection: ChoiceSelection }>
   | EffectEnvelope<"level-changed", { readonly classId: EntityId; readonly newLevel: number }>
   | EffectEnvelope<"death-save-recorded", { readonly deathSaves: DeathSaves }>
-  | EffectEnvelope<"transformation-started", { readonly transformation: TransformationState }>
+  | EffectEnvelope<"transformation-started", { readonly transformation: TransformationState; readonly actionCost?: "action" | "bonus-action" }>
   | EffectEnvelope<"transformation-ended", { readonly transformationId: Uuid }>;
 
 // ---------------------------------------------------------------------------

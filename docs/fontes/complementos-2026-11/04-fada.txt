@@ -1,0 +1,58 @@
+                                 Fada
+                                 A Faéria é lar de muitos povos fantásticos, incluindo
+                                 as fadas. As fadas são um povo pequenino, mas
+                                 não tanto quanto seus amigos pixies e sprites.
+                                 As primeiras fadas falavam Elfico, Goblin ou Silvestre,
+                                 e os encontros com visitantes humanos levaram
+                                 muitas delas a aprender também o idioma Comum.
+                                   Infundidas com a magia da Faéria, a maioria das
+                                 fadas se parece com pequenos elfos com asas de
+                                 inseto' mas cada fada tem uma característica física
+                                 especial que a diferencia. Para sua fada, role na tabela
+                                 Características Feéricas, ou escolha uma opção nela.
+                                 Você também está livre para criar suas próprias
+                                 características se nenhuma das sugestões abaixo
+                                 se encaixar no seu personagem.
+
+                                 Características Feéricas
+                                   d8    Característica
+                                    1    Suas asas são como as de um pássaro.
+                                    2    Você tem a pele brilhante e multicolorida.
+                                    3    Você tem orelhas especialmente longas.
+                                    4    Uma névoa cintilante te envolve
+                                         permanentemente.
+                                    5    Você tem um pequeno chifre espectral na testa,
+                                         como um chifrezinho de unicórnio.
+                                    6    Você tem pernas de inseto.
+                                    7    Você cheira a brownies frescos.
+                                    8    Um frio perceptível mas inofensivo te envolve.
+
+
+                                 Traços das Fadas
+                                 Como uma fada, você tem os seguintes traços raciais.
+                                   Tipo de Criatura. Você é um feérico.
+                                   Tamanho. Você é Pequeno.
+                                   Deslocamento. Seu deslocamento de caminhada
+                                 é de 9 metros.
+                                   Magia das Fadas. Você conhece o truque
+                                 arte drufdica.
+                                   A partir do 3o nível, você pode conjurar a magia
+                                 fogo das fadas usando este traço. A partir do 5o nível,
+                                 você também pode conjurar a magia aumentar/
+                                 reduzir usando este traço. Uma vez que conjurar
+                                 fogo das fadas ou aumentar/reduzir usando este traço,
+                                 você não poderá conjurar essa magia novamente
+                                 até terminar um descanso longo. Você também pode
+                                 conjurar essas magias usando quaisquer espaços
+                                 de magia que tiver do círculo apropriado.
+                                   Inteligência, Sabedoria ou Carisma é seu atributo
+                                 de conjuração ao conjurar estas magias utilizando
+                                 este traço (escolha um ao selecionar esta raça).
+                                   Voo. Devido às suas asas, você tem deslocamento
+                                 de voo equivalente ao seu deslocamento de caminhada.
+                                 Você não pode usar esse deslocamento de voo se
+                                 estiver usando uma armadura média ou pesada.
+
+
+CAPÍTULO 1 | RAÇAS FANTÁSTICAS
+

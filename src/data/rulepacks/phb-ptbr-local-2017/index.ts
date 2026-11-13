@@ -7,7 +7,7 @@
  */
 
 import { asEntityId } from "@domain/contracts/ids";
-import { type AppError, type Result } from "@domain/contracts/errors";
+import { ok, type AppError, type Result } from "@domain/contracts/errors";
 import { type RulePack } from "@domain/contracts/definitions/rulepack";
 import { type BackgroundDefinition } from "@domain/contracts/definitions/background";
 import { type CharacterTemplate } from "@domain/contracts/definitions/character-template";
@@ -37,6 +37,8 @@ import { characterTemplates } from "../../character-templates";
 import { equipment } from "../../equipment";
 import { SPELL_CATALOG_COVERAGE, SPELL_DEFINITIONS } from "../../spells";
 import { CONDITION_DEFINITIONS } from "../../conditions";
+import { OPTIONAL_RULE_PACKS } from "../optional-supplements";
+import { appendixACreatures } from "@data/creatures";
 
 const publishedRaces: readonly RaceDefinition[] = races;
 
@@ -108,5 +110,10 @@ export { SPELL_CATALOG_COVERAGE };
 
 /** Monta e valida o pack local atual. */
 export function loadPhbPtBrLocal2017(): Result<RulePack, AppError> {
-  return loadRulePack(PHB_PTBR_LOCAL_2017_INPUT);
+  const loaded = loadRulePack(PHB_PTBR_LOCAL_2017_INPUT);
+  return loaded.ok ? ok({
+    ...loaded.value,
+    creatures: new Map(appendixACreatures.map((creature) => [creature.id, creature] as const)),
+    optionalRulePacks: OPTIONAL_RULE_PACKS,
+  }) : loaded;
 }

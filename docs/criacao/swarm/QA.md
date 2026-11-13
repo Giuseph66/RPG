@@ -34,3 +34,62 @@ DONE exige critérios individuais, revisão do diff, provas adequadas, ausência
 ## Auditoria documental CP0
 
 Conferir árvore mínima, 20 passos de 17 seções, 36 tarefas com campos, links relativos, IDs e DAG, ownership disjunto, fontes/páginas e pendências explícitas. Comparar declarações UI/arquitetura sobre quatro destinos, dados global, external store, IndexedDB por ports e ausência de implementação. Essa revisão de documentos não constitui execução de testes do aplicativo.
+# Aceite da rodada SUP — 11/11/2026
+
+Usuário autorizou validação funcional e comandos de teste/build; execução delegada aos owners. Fixtures sintéticas devem preservar dados reais e diferenciar teste local de colaboração remota.
+
+| Área | Prova necessária nesta rodada |
+| --- | --- |
+| Fontes | Cinco anexos extraídos integralmente, páginas/tabelas preservadas, hashes e mídia inventariados; regras rastreáveis |
+| Complementos | Criação/progressão Fada e Patrulheiro Tasha explícitos, sem alterar personagens legados; escolhas e recursos persistem |
+| Catálogo | Criaturas completas da fonte, filtro besta/tamanho/ND, detalhes conforme template e Ariel, sem tornar catálogo automaticamente avistado |
+| Mestre/jogador | Criação manual, sugestão editável e aprovação; proposta do jogador chega ao mestre sem conceder privilégios nem avistamento |
+| Forma Selvagem | Druida elegível transforma besta vista; não-besta/não-vista rejeitada; voar/nadar suprimidos sem bloquear escolha |
+| Estado efetivo | STR/DEX/CON, CA, PV, tamanho, ações e derivados usam forma; atributos mentais e estado original preservados |
+| Transições | Dano/cura/PV temporários, 0 PV e excedente, retorno voluntário, usos/descanso/duração; sem consumo duplicado em falha/CAS |
+| Persistência | Forma ativa e PV originais sobrevivem à recarga; dados legados, import/export e validação de entradas continuam compatíveis |
+| Integração | Typecheck/build, focos de domínio/componentes/persistência e smoke navegador desktop/mobile; limitações explícitas |
+
+Estado inicial: provas pendentes. Gates históricos abaixo não substituem essas evidências.
+
+Prova documental SUP-CP1 pela coordenação: Python stdlib (`hashlib`, `csv`, `zipfile`) confrontou manifesto com os cinco anexos originais e os 2.258 membros de mídia com o índice. Resultado: cinco hashes corretos; divisões nativas 162/1/24; duas tabelas DOCX preservadas; três arquivos ZIP sem falha CRC; zero divergências de tamanho/hash de mídia. Esta verificação documental não executou testes/build do produto nem prova integração de regras.
+
+## Revisões SUP ainda abertas
+
+- SUP-01: fidelidade de Tasha p.51–56 (lista expandida integral, opções independentes, troca da habilidade local, magias por nível, custos, PB global e referências corretas); conjurações solicitadas sem bloqueio artificial quando há fonte.
+- SUP-01/02: Fada no pipeline real 1→3→5, escolha de atributo, voo vinculado à caminhada, armadura e uso gratuito versus espaço; persistência das opções sem mutar pack base.
+- SUP-02: Forma Selvagem não perde equipamento/recursos ao retornar; bônus de equipamento mesclado/largado ficam inativos; perícias/salvaguardas usam maior bônus aplicável, sentidos/passiva e imunidades efetivos.
+- SUP-02: dano excedente sem dupla resistência e sem restaurar PV temporários já gastos; cura/temporários, retorno voluntário/zero PV/duração/inconsciência; a condição adicionada via ficha também passa pela transição correta.
+- SUP-02/03: customizar animal sugerido → enviar pending → mestre aprovar atomicamente → catálogo permitido → registrar visto explicitamente → transformar → recarregar. Proposta pendente de outro autor não vaza; jogador comum/offline não falha por consulta incompatível com ACL.
+- SUP-02: migração aditiva v5→v6 preserva dados, snapshot ativo, import/export/backup, CAS, outbox/hidratação, limpeza de campanha e regras remotas cobrem proposal e statBlock.
+- SUP-03: sugestão automática por referência publicada/porte/tipo/ND com razões e revisão; edição manual guiada de campos comuns do template; remoção de campos avançados realmente remove o dado.
+- SUP-QA: worker Luna executa gates globais somente após contratos estáveis; QA real desktop/mobile com dados sintéticos e recarga. A raiz coordena/revisa e não executa build/testes de produto.
+
+Mudanças de autoria anterior/externa em arquivos compartilhados não devem ser revertidas por inferência a partir de diff contra HEAD; cada owner limita as correções aos próprios hunks e registra os demais como preservados.
+
+Diagnóstico de tipos foi antecipado durante integração para capturar erros de contratos/imports: `npm run typecheck` falhou; log integral atual em `Testes/logs/complementos-typecheck-diagnostico.log`. Isso não constitui gate final. Focais de UI 60/8 e bootstrap15/15 passaram em revisões intermediárias. Novo focal facade1/1 usa memória/mock, portanto não substitui migração/backup/transação reais. Tipagem final, build, casos específicos de PV/retorno/equipamento/magias, migração6, ACL e navegador continuam abertos.
+
+Atualização intermediária12/11: 12 testes de serviço/Forma Selvagem,16 de bootstrap e41 de recursos/magias passaram nas respectivas execuções focais. Revisão exige saldo temporário distinto do inicial e cura que altere PV reais, além de CA `worn` e conjurações18/20 com fontes reais. Projeções e gravação de PV pelo mestre foram corrigidas; ACL e navegador devem provar esse caminho. Não somar execuções sobrepostas como uma suíte nem promover gates sem as evidências restantes.
+
+Revisão adicional12/11: CA `worn` deve preservar a base natural e acrescentar escudo compatível uma vez, sem duplicar DES nem bônus gerais. Descanso em forma precisa manter pools separados: máximo da besta não pode capar/curar o original; expiração e recuperação usam o estado correto ao término, e descanso longo não pode restaurar temporários antigos por meio da saída. Ambos os casos retornaram ao owner de regras, com regressões novas exigidas.
+
+Retomada23:54UTC: revisão de código confirma correções de histórico alvo/material e liberação assistida racial restrita a efeitos narrativos, sem dano/cura; ainda faltam provas de execução. A ponte deve demonstrar custo gratuito versus espaço separados, alvo/material explícitos, cancelamento/pendência/falha/CAS sem gasto, e duração alternativa de Reforço sem perder concentração anterior. Não aceitar simples presença de metadados como prova do fluxo. SUP-CP2/3/4 continuam abertos; execução global aguarda REVIEW dos produtores e liberação da coordenação.
+
+### Matriz de aceite SUP vigente — 12/11/2026
+
+| Pedido | Evidência atual | Aceite restante |
+| --- | --- | --- |
+| Extrair integralmente cinco anexos, separando fonte de instruções | Manifesto, extração nativa/OCR187 páginas, duas tabelas DOCX, mídias e hashes conferidos; SUP-CP1 aceito | Nenhum para extração; não implica automação integral de Tasha |
+| Fada e opções do Patrulheiro Tasha na criação/evolução | Dados opt-in, referências e testes de criação/progressão; revisão mecânica documentada | Dispatcher/UI reais de conjuração gratuita/espaço, materiais, Incansável e smoke de complementos |
+| Blocos de monstros/NPCs manuais ou sugeridos, padrão template/Ariel | Contrato genérico, catálogo95, renderer/editor e sugestão determinística por tipo/porte/ND | Concluir smoke de bloco personalizado revisado na campanha |
+| Catálogo de bestas e avistamento explícito por personagem | Navegador mostrou95/0→95/1 após marcar LOBO e recarregar | Completar o mesmo percurso com animal personalizado aprovado; aprovação/reveal não contam como avistamento |
+| Forma Selvagem Druida2, atributos/PV/retorno e regra sem voo/natação | Navegador e testes de pools separados, dano/cura/temp/excedente, atributos/CA, equipamentos, duração, descanso e inconsciência | Gates integrados e repetição estável da sequência que coincidiu com HMR |
+| Sugestões editáveis de animais em seis portes, revisão mestre/jogador | Componentes/serviço/UoW/ACL; aprovação exige ND final e não altera beastSightings | Catálogo→marcar visto→transformar/recarregar com o registro aprovado; distinguir fixture de vínculo/reveal de ação real |
+| Persistir sem perda, respeitando visibilidade/conflitos | SUP-02P REVIEW: focais7 arquivos/88 testes; emulador1 arquivo/3 testes; bootstrap16 com repositórios reais sobre fake-indexeddb | Gate global; testes em memória/emulador não são prova de duas contas no serviço hospedado |
+| Validar entrega funcional | Focais e QA nuclear de navegador registrados nos handoffs | Suíte global, typecheck, build, smoke de produção, reindexação final e revisão SUP-CP2/3/4 |
+
+Esta matriz preserva o escopo integral. Cada pendência deve receber evidência ou permanecer aberta; nenhum aceite global foi concedido nesta atualização.
+
+Auditoria integral do catálogo revelou divergências apesar da contagem95 e dos valores básicos corretos. SUP-CAT retorna a IN_PROGRESS para corrigir5 deslocamentos e segmentações de ações/traços/variantes, com teste da integridade/IDs e comparação à fonte. A linha de catálogo da matriz continua pendente também dessa correção e revisão; não aceitar um corpus somente por contagem ou amostras. Relatório nominal e focais serão entregues por P.
+
+13/11: SUP-CAT REVIEW após correções e auditoria95/95 documentadas em `Testes/complementos-catalogo-qa.md`; focal catálogo6/6. B REVIEW inclui testes com ações reais do catálogo: danos condicionais/recorrentes e ações sem bônus publicado permanecem manuais; nomes legíveis chegam ao histórico. Fonte congelada. SUP-QA geral liberado para P; C mantém QA navegador e smoke pós-build. Matriz acima continua aberta nos itens de runtime/gates, sem inferir aceite de resultado focal.

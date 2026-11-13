@@ -16,6 +16,9 @@ import { createSequenceRandomSource, rollExpression } from "@domain/dice";
 import { type DiceRoll } from "@domain/contracts/dice";
 
 import { deriveActionCapabilities, type ActionCapabilityExecution } from "./action-capabilities";
+import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
+import { composeOptionalRuleContent } from "@domain/character/creation/optional-rules";
+import { TASHA_RANGER_SUPPLEMENT_ID } from "@data/rulepacks/optional-supplements";
 
 const RULESET_ID = minimalCharacter.rulesetRef.id;
 const ref = (entityId: string): DefinitionRef => ({ rulesetId: RULESET_ID, entityId: asEntityId(entityId) });
@@ -65,6 +68,17 @@ const selfHealingSpell: SpellDefinition = {
   targetType: { type: "creature", count: 1, restrictions: [], visibilityRequired: false },
   damage: [],
   healing: [{ expression: { quantity: 1, faces: 8 }, bonusPerCastingSourceAbility: true }],
+};
+
+const featureConcentrationSpell: SpellDefinition = {
+  ...knownSpell,
+  id: asEntityId("fey-summon"),
+  name: "Invocar Feérico",
+  classes: [asEntityId("ranger")],
+  components: { verbal: false, somatic: false },
+  concentration: true,
+  duration: { kind: "minutes", amount: 1, unit: "minute", endTriggers: [] },
+  damage: [],
 };
 
 const blockedSpell: SpellDefinition = {
@@ -126,10 +140,40 @@ function pack(): RulePack {
     resources: new Map([[resourceDefinition.id, resourceDefinition], [variableResourceDefinition.id, variableResourceDefinition]]),
     conditions: new Map(),
     equipment: new Map([[weaponDefinition.id, weaponDefinition]]),
-    spells: new Map([[knownSpell.id, knownSpell], [blockedSpell.id, blockedSpell], [selfHealingSpell.id, selfHealingSpell]]),
+    spells: new Map([[knownSpell.id, knownSpell], [blockedSpell.id, blockedSpell], [selfHealingSpell.id, selfHealingSpell], [featureConcentrationSpell.id, featureConcentrationSpell]]),
     progression: { id: asEntityId("progression"), name: "", tags: [], sourceRefs: [], table: [] },
     characterTemplates: new Map(),
   } as unknown as RulePack;
+}
+
+function tirelessPack(): RulePack {
+  const base = pack();
+  const feature: FeatureDefinition = {
+    id: asEntityId("ranger.tireless"), name: "Incansável", tags: [], sourceRefs: [],
+    activation: { kind: "action" }, eligibility: [],
+    effects: [{ kind: "grants-resource", resourceRef: ref("ranger.tireless-use") }],
+    resourceCosts: [], choices: [], automationStatus: "assisted", pendingDecisionIds: [],
+  };
+  const resource: ResourceDefinition = {
+    id: asEntityId("ranger.tireless-use"), name: "Incansável", tags: [], sourceRefs: [], ownerRef: ref("ranger.tireless"),
+    unit: "uses", capacityRule: { kind: "proficiency-bonus" }, spendRules: [{ kind: "per-use", amount: 1 }],
+    recoveryTriggers: [{ kind: "long-rest" }], recoveryAmountRule: { kind: "full" },
+  };
+  const rangerClass: ClassDefinition = {
+    ...wizardClass,
+    id: asEntityId("ranger"), name: "Guardião",
+    progression: Array.from({ length: 10 }, (_, index) => ({
+      level: index + 1,
+      featureRefs: index === 9 ? [ref("ranger.tireless")] : [],
+      resourceChanges: [], choicesGranted: [],
+    })),
+  };
+  return {
+    ...base,
+    classes: new Map([...base.classes, [rangerClass.id, rangerClass]]),
+    features: new Map([...base.features, [feature.id, feature]]),
+    resources: new Map([...base.resources, [resource.id, resource]]),
+  };
 }
 
 function character(overrides: Partial<Character> = {}): Character {
@@ -165,6 +209,96 @@ function derivedFor(char: Character): CharacterDerived {
 }
 
 describe("deriveActionCapabilities", () => {
+  it("usa o nome de ação da forma no capability e nos rótulos de rolagem, preservando armas", () => {
+    const char = character();
+    const transformed = {
+      ...derivedFor(char),
+      attacks: [{
+        sourceRef: ref("appendix-a-ra-gigante"),
+        label: "Mordida — Rã Gigante",
+        attackModifier: exp(3),
+        damageParts: [{ expression: { quantity: 1, faces: 6 }, damageType: "piercing" as const, modifierBonus: exp(1) }],
+      }],
+    };
+    const { capabilities, executions } = deriveActionCapabilities(char, transformed, pack(), fakeIdGenerator());
+    const capability = capabilities.find(({ id }) => id === "attack:0:appendix-a-ra-gigante");
+    expect(capability).toMatchObject({
+      label: "Atacar com Mordida — Rã Gigante",
+      description: expect.stringContaining("efeitos condicionais publicados devem ser resolvidos manualmente"),
+    });
+    const execution = executions.get(capability!.id)!;
+    expect(execution.rollPlan.map(({ label }) => label)).toEqual([
+      "Mordida — Rã Gigante — ataque",
+      "Mordida — Rã Gigante — dano piercing",
+    ]);
+  });
+
+  it("executa Incansável como uma ação atômica com d8 e Sabedoria negativa mínima 1", () => {
+    const stateId = asUuid("99999999-9999-4999-8999-999999999991");
+    const char = character({
+      classes: [{ classId: asEntityId("ranger"), level: 10, choices: [] }],
+      hp: { current: 8, temp: 0 },
+      resources: [{ id: stateId, definitionRef: ref("ranger.tireless-use"), ownerInstanceId: minimalCharacter.id, spent: 0 }],
+    });
+    const derived = {
+      ...derivedFor(char),
+      abilityScores: [{ ability: "wis" as const, score: exp(8), modifier: exp(-1) }],
+      resourceCapacities: [{ definitionRef: ref("ranger.tireless-use"), capacity: exp(6) }],
+    };
+    const { capabilities, executions } = deriveActionCapabilities(char, derived, tirelessPack(), fakeIdGenerator());
+    const capability = capabilities.find(({ id }) => id === `resource:${stateId}`);
+    expect(capability).toMatchObject({ kind: "resource", status: "available", actionCost: "action" });
+    const execution = executions.get(`resource:${stateId}`);
+    expect(execution?.command.kind).toBe("use-tireless");
+    expect(execution?.rollPlan).toHaveLength(1);
+    expect(execution?.rollPlan?.[0]).toMatchObject({ expression: { quantity: 1, faces: 8, modifier: 0 }, purpose: "healing" });
+    if (!execution?.rollPlan?.[0]) return;
+    const roll: DiceRoll = {
+      id: execution.rollPlan[0].id,
+      expression: execution.rollPlan[0].expression,
+      purpose: "healing", timestamp: asIsoTimestamp("2026-10-01T00:00:00.000Z"),
+      rawDice: [1], selectedIndexes: [0], discardedIndexes: [], subtotal: 1, modifier: 0, total: 1, rngVersion: "test",
+    };
+    const result = execution.resolve({ character: char, rolls: new Map([[roll.id, roll]]) });
+    expect(result.status).toBe("success");
+    if (result.status === "success") {
+      expect(result.nextState.resources[0]?.spent).toBe(1);
+      expect(result.nextState.hp.temp).toBe(1); // max(1, d8 1 + SAB -1)
+      expect(result.effects.map(({ kind }) => kind)).toEqual(["resource-spent", "hp-changed"]);
+    }
+
+    const existingTempHp = { ...char, hp: { ...char.hp, temp: 5 } };
+    const doesNotStack = execution.resolve({ character: existingTempHp, rolls: new Map([[roll.id, roll]]) });
+    expect(doesNotStack.status).toBe("success");
+    if (doesNotStack.status === "success") expect(doesNotStack.nextState.hp.temp).toBe(5);
+  });
+
+  it("reduz exaustão no descanso curto apenas quando Incansável está realmente concedido", () => {
+    const exhaustion = {
+      id: asUuid("99999999-9999-4999-8999-999999999993"),
+      definitionRef: ref("exhaustion"),
+      origin: { kind: "environment" as const, description: "teste" },
+      severity: 1,
+    };
+    const runShortRest = (level: number, rules: RulePack) => {
+      const char = character({ classes: [{ classId: asEntityId("ranger"), level, choices: [] }], conditions: [exhaustion] });
+      const { executions } = deriveActionCapabilities(char, derivedFor(char), rules, fakeIdGenerator());
+      return executions.get("rest:short")?.resolve({ character: char, rolls: new Map() });
+    };
+
+    const active = runShortRest(10, tirelessPack());
+    expect(active?.status).toBe("success");
+    if (active?.status === "success") expect(active.nextState.conditions).toEqual([]);
+
+    const belowLevel = runShortRest(9, tirelessPack());
+    expect(belowLevel?.status).toBe("success");
+    if (belowLevel?.status === "success") expect(belowLevel.nextState.conditions).toEqual([exhaustion]);
+
+    const withoutOptionalPack = runShortRest(10, pack());
+    expect(withoutOptionalPack?.status).toBe("success");
+    if (withoutOptionalPack?.status === "success") expect(withoutOptionalPack.nextState.conditions).toEqual([exhaustion]);
+  });
+
   it("deriva ataque, magia, dano/cura manual, descanso, recurso e feature bloqueada", () => {
     const char = character();
     const idGenerator = fakeIdGenerator();
@@ -178,9 +312,10 @@ describe("deriveActionCapabilities", () => {
     expect(attack?.inputKind).toBe("target-armor-class");
     expect(attack?.inputDefault).toBeUndefined();
 
-    const knownSpellCapability = capabilities.find((c) => c.id.endsWith(":magic-missile"));
-    expect(knownSpellCapability?.status).toBe("available");
-    expect(executions.has(knownSpellCapability!.id)).toBe(true);
+    const knownSpellCapability = capabilities.find((c) => c.id.endsWith(":magic-missile:slot"));
+    expect(knownSpellCapability?.status).toBe("blocked"); // sem espaço, a capacidade não pode prometer uma conjuração
+    expect(knownSpellCapability?.blockedReason).toContain("Nenhum espaço");
+    expect(executions.has(knownSpellCapability!.id)).toBe(false);
 
     const blockedSpellCapability = capabilities.find((c) => c.id.endsWith(":wish"));
     expect(blockedSpellCapability?.status).toBe("blocked");
@@ -238,12 +373,13 @@ describe("deriveActionCapabilities", () => {
     });
     const derived = { ...derivedFor(char), abilityScores: [{ ability: "cha" as const, score: exp(16), modifier: exp(3) }] };
     const { capabilities, executions } = deriveActionCapabilities(char, derived, pack(), fakeIdGenerator());
-    const capability = capabilities.find((entry) => entry.id.endsWith(":cure-wounds"));
+    const capability = capabilities.find((entry) => entry.id.endsWith(":cure-wounds:slot"));
     expect(capability?.status).toBe("available");
     expect(capability?.effectSummary?.[0]).toContain("1d8");
     expect(capability?.effectSummary?.[0]).toContain("CAR");
-    expect(capability?.description).toContain("Espaço de 1º nível escolhido automaticamente");
+    expect(capability?.description).toContain("Usa espaço de 1º nível");
     expect(capability?.preview).toBeDefined();
+    expect(capability?.spellTargeting).toBeUndefined(); // o comando já tem a própria ficha como alvo explícito
     const execution = executions.get(capability!.id)!;
     expect(execution.command.kind).toBe("cast-spell");
     if (execution.command.kind === "cast-spell") {
@@ -263,6 +399,95 @@ describe("deriveActionCapabilities", () => {
     }
   });
 
+  it("aceita foco druídico em truque de Guerreiro Druídico somente com a opção Tasha ativa", () => {
+    const loaded = loadPhbPtBrLocal2017();
+    if (!loaded.ok) throw new Error(loaded.error.message);
+    const basePack = loaded.value;
+    const tashaId = TASHA_RANGER_SUPPLEMENT_ID;
+    const tashaRef = (entityId: string): DefinitionRef => ({ rulesetId: basePack.manifest.id, entityId: asEntityId(entityId) });
+    const spellRef = tashaRef("bordao-mistico");
+
+    const scenario = (withFocus: boolean) => {
+      const selections = [
+        { supplementId: tashaId, optionId: asEntityId("ranger.optional-fighting-style"), selectedFeatureRefs: [] },
+        ...(withFocus ? [{ supplementId: tashaId, optionId: asEntityId("ranger.optional-druidic-focus"), selectedFeatureRefs: [tashaRef("ranger.druidic-focus")] }] : []),
+      ];
+      const composed = composeOptionalRuleContent(basePack, [tashaId], selections);
+      if (!composed.ok) throw new Error(composed.error.message);
+      const sourceId = asUuid(withFocus ? "88888888-8888-4888-8888-888888888881" : "88888888-8888-4888-8888-888888888880");
+      const sourceFeature = composed.value.features.get(asEntityId("ranger.druidic-warrior"));
+      if (!sourceFeature?.spellcastingSource) throw new Error("Guerreiro Druídico sem origem de conjuração publicada");
+      const char = character({
+        selectedSupplementIds: [tashaId],
+        optionalRuleSelections: selections,
+        classes: [{
+          classId: asEntityId("ranger"), level: 2, choices: [{
+            choiceId: "ranger.fighting-style.2", selectedIds: [tashaRef("ranger.druidic-warrior")],
+            grantedAtLevel: 2, grantingRef: tashaRef("ranger.fighting-style"),
+          }],
+        }],
+        castingSources: [{
+          id: sourceId, grantingRef: tashaRef("ranger.druidic-warrior"), sourceKind: "feature",
+          ability: sourceFeature.spellcastingSource.ability, spellListClassId: sourceFeature.spellcastingSource.spellListClassId,
+          knownSpellRefs: [spellRef], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [],
+        }],
+      });
+      const { capabilities } = deriveActionCapabilities(char, derivedFor(char), composed.value, fakeIdGenerator());
+      const capability = capabilities.find((entry) => entry.id === `spell:${sourceId}:bordao-mistico`);
+      return { char, capability };
+    };
+
+    const withoutOption = scenario(false);
+    const withOption = scenario(true);
+    expect(basePack.spells.get(spellRef.entityId)?.components.material).toBeDefined();
+    expect(withoutOption.char.castingSources[0]).toMatchObject({ sourceKind: "feature", ability: "wis", spellListClassId: "druid" });
+    expect(withoutOption.capability).toMatchObject({ spellAllowsFocus: false, spellRequiresMaterial: true });
+    expect(withOption.capability).toMatchObject({ spellAllowsFocus: true, spellRequiresMaterial: true });
+  });
+
+  it("expõe a alternativa de 1 minuto somente para a magia concedida pela fonte de característica", () => {
+    const poolId = asUuid("99999999-9999-4999-8999-999999999991");
+    const sourceId = asUuid("11111111-1111-4111-8111-111111111991");
+    const option = { kind: "drop-concentration" as const, durationMinutes: 1 };
+    const char = character({
+      classes: [{ classId: asEntityId("ranger"), level: 11, choices: [] }],
+      castingSources: [{
+        id: sourceId,
+        grantingRef: ref("fey-wanderer-fey-reinforcements"),
+        sourceKind: "feature",
+        spellListClassId: asEntityId("ranger"),
+        ability: "wis",
+        knownSpellRefs: [ref("fey-summon")],
+        preparedSpellRefs: [],
+        spellbookRefs: [],
+        resourcePoolIds: [poolId],
+        usesSpellSlots: true,
+        featureSpellOverrides: [{ spellRef: ref("fey-summon"), ignoreMaterialComponents: true, concentrationAlternativeMinutes: 1 }],
+      }],
+      spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }],
+      concentration: { effectId: asUuid("22222222-2222-4222-8222-222222222292"), sourceRef: ref("old-concentration"), duration: { kind: "instant" }, pendingSaveIds: [] },
+    });
+    const { capabilities, executions } = deriveActionCapabilities(char, derivedFor(char), pack(), fakeIdGenerator());
+    const capability = capabilities.find((entry) => entry.id === `spell:${sourceId}:fey-summon:slot`);
+    expect(capability?.featureCastingOptions).toEqual([{ ...option, label: expect.stringContaining("assistida") }]);
+    const execution = executions.get(capability!.id)!;
+    expect(execution.featureCastingOptions).toEqual([option]);
+    if (execution.command.kind !== "cast-spell") throw new Error("esperava comando de conjuração");
+    const requestedCommand = { ...execution.command, payload: { ...execution.command.payload, targetContext: { targetIds: [char.id] }, featureCastingOption: option } };
+    const result = execution.resolve({ character: char, rolls: new Map(), command: requestedCommand });
+    expect(result.status, JSON.stringify(result)).toBe("success");
+    if (result.status === "success") {
+      expect(result.nextState.concentration).toEqual(char.concentration);
+      expect(result.explanations.map((item) => item.value).join(" ")).toContain("sem concentração por 1 minuto");
+      expect(result.nextState.spellSlots[0].spent).toBe(1);
+    }
+
+    const classSource = { ...char.castingSources[0], sourceKind: "class" as const };
+    const nonFeature = { ...char, castingSources: [classSource] };
+    const nonFeatureCapability = deriveActionCapabilities(nonFeature, derivedFor(nonFeature), pack(), fakeIdGenerator()).capabilities.find((entry) => entry.id === `spell:${sourceId}:fey-summon:slot`);
+    expect(nonFeatureCapability?.featureCastingOptions).toBeUndefined();
+  });
+
   it("bloqueia a revisão de cura quando não resta espaço compatível", () => {
     const poolId = asUuid("99999999-9999-4999-8999-999999999999");
     const char = character({
@@ -271,7 +496,7 @@ describe("deriveActionCapabilities", () => {
       spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 1 }],
     });
     const { capabilities } = deriveActionCapabilities(char, derivedFor(char), pack(), fakeIdGenerator());
-    const capability = capabilities.find((entry) => entry.id.endsWith(":cure-wounds"));
+    const capability = capabilities.find((entry) => entry.id.endsWith(":cure-wounds:slot"));
     expect(capability?.status).toBe("blocked");
     expect(capability?.blockedReason).toContain("Nenhum espaço");
   });

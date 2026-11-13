@@ -102,3 +102,6 @@ Produto devolvido pelos dois owners; nenhuma dependência ou faturamento ativado
 ## C03 — aceite final em 05/10/2026
 
 MAP-001/CLOUD-001 no escopo da correção base64 aprovados. QA jogador confirmou grande ausente após ocultação/reload sem limpar cache; pequeno público continua imagem real. Mestre e jogador retomados após reinício Vite com dados persistidos. Gates atuais 1.090/3 ignorados, typecheck/build 0, regras 2/2 executadas separadamente, diff check limpo. Produto devolvido, QA/relatórios fechados, reservas corretivas C03 liberadas. Pendência anterior de Storage retirada: não é requisito de novos mapas base64. Outros gates históricos/dispositivos fora desta rodada não são promovidos por inferência.
+# Rodada vigente — complementos e criaturas 11/11/2026
+
+SUP-01/02/03 em execução por `fontes_complementos`, `dominio_criaturas` e `interface_criaturas`, Luna disponível `gpt-6-luna`/`xhigh`. Escopo e reservas em [TASKS](TASKS.md) e [OWNERSHIP](OWNERSHIP.md). Fontes → contratos/conteúdo → domínio/interface → SUP-QA. Usuário autorizou testes e implementação sem perguntas; alterações prévias do wizard preservadas. Nenhum aceite desta rodada é inferido dos gates históricos abaixo.

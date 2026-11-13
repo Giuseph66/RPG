@@ -1,5 +1,5 @@
 import { type Character, type CastingSourceState, type ConditionInstance, type InventoryItem } from "@domain/contracts/character";
-import { type ClassDefinition } from "@domain/contracts/definitions/class";
+import { type ClassDefinition, type SubclassDefinition } from "@domain/contracts/definitions/class";
 import { type ConditionDefinition } from "@domain/contracts/definitions/condition";
 import { type SpellDefinition, type CastRequest, type CastPreview, type SpellDuration, type SpellComponentContext } from "@domain/contracts/definitions/spell";
 import { type CommandId, type DefinitionRef, type EntityId, type Uuid } from "@domain/contracts/ids";
@@ -8,10 +8,14 @@ import { type DiceRoll } from "@domain/contracts/dice";
 import { type Duration, type DurationExpiryTrigger, type SourceRef } from "@domain/contracts/primitives";
 import { applyDamage, applyHealing, type DamageDefense } from "@domain/rules/combat";
 import { applyCondition } from "@domain/rules/conditions";
+import { spendResource } from "@domain/rules/resources";
 
 export interface SpellResolutionContext {
   readonly classId?: EntityId;
   readonly classDefinition?: ClassDefinition;
+  readonly subclassDefinitions?: ReadonlyMap<EntityId, SubclassDefinition>;
+  /** Política explícita do foco para origens que não são classes. */
+  readonly spellcastingFocusAllowed?: boolean;
   readonly availableActions?: readonly AvailableAction[];
   readonly canSpeak?: boolean;
   readonly freeHands?: boolean;
@@ -38,6 +42,8 @@ export interface SpellResolutionContext {
   /** Resultado já resolvido de uma resistência mágica. */
   readonly spellSaveSucceeded?: boolean;
   readonly defense?: DamageDefense;
+  /** Capacidades derivadas indexadas pelo estado do recurso. */
+  readonly resourceCapacities?: ReadonlyMap<string, number>;
 }
 
 const SOURCE: SourceRef = {
@@ -80,7 +86,7 @@ function sourceFor(character: Character, request: CastRequest): CastingSourceSta
 }
 
 function classIdFor(source: CastingSourceState, context: SpellResolutionContext): EntityId {
-  return context.classId ?? source.grantingRef.entityId;
+  return context.classId ?? source.spellListClassId ?? source.grantingRef.entityId;
 }
 
 function hasRef(refs: readonly DefinitionRef[], target: DefinitionRef): boolean {
@@ -97,6 +103,10 @@ function actionAvailable(request: CastRequest, context: SpellResolutionContext, 
 
 function validateTargets(request: CastRequest, spell: SpellDefinition): string | undefined {
   const targets = request.targetContext.targetIds;
+  // Uma invocação cria o alvo da magia; ele ainda não existe como criatura/objeto
+  // selecionável na ficha. Sua posição e resolução continuam assistidas pela mesa.
+  const createsSummon = spell.effects.some((effect) => effect.kind === "summon");
+  if (targets.length === 0 && createsSummon && spell.targetType.type !== "point" && spell.targetType.type !== "self") return undefined;
   if (targets.length === 0 && spell.targetType.type !== "point") return "Informe explicitamente ao menos um alvo; o motor não escolhe alvos.";
   if (spell.targetType.type === "point" && !request.targetContext.pointCm) return "Informe o ponto de origem da área; o motor não escolhe posição.";
   if (spell.targetType.count !== undefined && targets.length !== spell.targetType.count) return `A magia exige exatamente ${spell.targetType.count} alvo(s), mas recebeu ${targets.length}.`;
@@ -247,14 +257,14 @@ function applySpellEffects(character: Character, spell: SpellDefinition, request
   return { nextState, effects, descriptions };
 }
 
-function validateComponents(character: Character, request: CastRequest, spell: SpellDefinition, context: SpellResolutionContext): { readonly item?: InventoryItem; readonly error?: RuleResult } {
+function validateComponents(character: Character, request: CastRequest, spell: SpellDefinition, context: SpellResolutionContext, ignoreMaterialComponents = false): { readonly item?: InventoryItem; readonly error?: RuleResult } {
   const components = request.componentContext as SpellComponentContext & { readonly canSpeak?: boolean; readonly freeHands?: boolean };
   if (spell.components.verbal && components.canSpeak !== true && context.canSpeak !== true) return { error: ask(spell, request.commandId as unknown as Uuid, "Confirme que a criatura pode vocalizar o componente verbal.") };
   if (spell.components.somatic && components.freeHands !== true && context.freeHands !== true) return { error: ask(spell, request.commandId as unknown as Uuid, "Confirme uma mão livre para o componente somático.") };
-  const material = spell.components.material;
+  const material = ignoreMaterialComponents ? undefined : spell.components.material;
   if (!material) return {};
   const focus = request.componentContext.focusUsed;
-  if (focus && context.classDefinition?.spellcasting?.spellcastingFocusAllowed === false) return { error: reject(spell, "A fonte de conjuração não permite usar foco como componente material.") };
+  if (focus && (context.spellcastingFocusAllowed ?? context.classDefinition?.spellcasting?.spellcastingFocusAllowed) === false) return { error: reject(spell, "A fonte de conjuração não permite usar foco como componente material.") };
   if (!request.componentContext.materialProvided && !focus) return { error: reject(spell, "Componente material ou foco permitido não foi fornecido.") };
   if (material.costCp !== undefined || material.consumed || material.requiredItemKind !== undefined) {
     const itemId = context.consumedInventoryItemId;
@@ -301,7 +311,8 @@ function slotFor(character: Character, source: CastingSourceState, request: Cast
 
 function validateScaling(request: CastRequest, spell: SpellDefinition): RuleResult | undefined {
   if (request.slotLevel === undefined || request.slotLevel <= spell.level || spell.level === 0) return undefined;
-  if (spell.higherLevels.kind === "none" || spell.higherLevels.kind === "custom") return reject(spell, "Escalonamento acima do nível base não está estruturado para resolução automática; consulte a pendência da magia.", "unresolved-rule");
+  if (spell.higherLevels.kind === "none") return undefined;
+  if (spell.higherLevels.kind === "custom") return reject(spell, "Escalonamento acima do nível base não está estruturado para resolução automática; consulte a pendência da magia.", "unresolved-rule");
   return undefined;
 }
 
@@ -313,11 +324,25 @@ export function castSpell(character: Character, spell: SpellDefinition, request:
   if (blocked) return blocked;
   const source = sourceFor(character, request);
   if (!source) return reject(spell, "Fonte de conjuração não encontrada no personagem.");
-  const classId = classIdFor(source, context);
-  if (request.spellRef.rulesetId !== (spell.sourceRefs[0]?.sourceId ?? SOURCE.sourceId) || request.spellRef.entityId !== spell.id) return reject(spell, "A referência da requisição não corresponde à definição de magia recebida.", "invalid-command");
-  if (!spell.classes.some((id) => id === classId)) return reject(spell, `A classe ${classId} não concede acesso a esta magia.`);
+  const featureSpellOverride = source.sourceKind === "feature" ? source.featureSpellOverrides?.find((entry) => sameRef(entry.spellRef, request.spellRef)) : undefined;
+  const noConcentrationAlternative = request.featureCastingOption;
+  if (noConcentrationAlternative && (!spell.concentration || !featureSpellOverride?.concentrationAlternativeMinutes || featureSpellOverride.concentrationAlternativeMinutes !== noConcentrationAlternative.durationMinutes || !Number.isInteger(noConcentrationAlternative.durationMinutes) || noConcentrationAlternative.durationMinutes <= 0)) {
+    return reject(spell, "A variante sem concentração não foi concedida por esta fonte de magia.", "invalid-command");
+  }
+  const classId = source.sourceKind === "race" ? source.grantingRef.entityId : classIdFor(source, context);
+  // Definitions from optional supplements remain indexed by the active RulePack's ruleset ID;
+  // their printed source IDs identify the book, not the DefinitionRef namespace.
+  if (request.spellRef.rulesetId !== character.rulesetRef.id || request.spellRef.entityId !== spell.id) return reject(spell, "A referência da requisição não corresponde à definição de magia recebida.", "invalid-command");
   const known = hasRef(source.knownSpellRefs, request.spellRef);
   const prepared = hasRef(source.preparedSpellRefs, request.spellRef);
+  const explicitlyGrantedFeatureSpell = source.sourceKind === "feature" && source.usesSpellSlots === true && known;
+  const activeSubclassGrant = character.classes.flatMap((entry) => {
+    if (entry.classId !== classId || !entry.subclassId) return [];
+    const subclass = context.subclassDefinitions?.get(entry.subclassId);
+    if (!subclass || subclass.classId !== classId) return [];
+    return subclass.spellGrants.filter((grant) => grant.level <= entry.level && sameRef(grant.spellRef, request.spellRef));
+  }).some((grant) => (grant.knownWithoutCount === true && known) || (grant.alwaysPrepared && prepared));
+  if (source.sourceKind !== "race" && !spell.classes.some((id) => id === classId) && !explicitlyGrantedFeatureSpell && !activeSubclassGrant) return reject(spell, `A classe ${classId} não concede acesso a esta magia.`);
   const inSpellbook = hasRef(source.spellbookRefs, request.spellRef);
   const classDescriptor = context.classDefinition?.spellcasting;
   const accessKind = classDescriptor?.kind;
@@ -335,18 +360,36 @@ export function castSpell(character: Character, spell: SpellDefinition, request:
   if (effectContextError) return effectContextError;
   const actionError = actionAvailable(request, context, spell);
   if (actionError) return actionError;
-  const components = validateComponents(character, request, spell, context);
+  const components = validateComponents(character, request, spell, context, featureSpellOverride?.ignoreMaterialComponents === true);
   if (components.error) return components.error;
   const slot = slotFor(character, source, request, spell, classDescriptor?.progressionType === "pact" || classId === "warlock");
   if (slot.error) return slot.error;
+  let featureSpend: RuleResult | undefined;
+  const spellResourceId = source.featureSpellResources?.find((entry) => sameRef(entry.spellRef, request.spellRef))?.resourceId ?? source.featureResourceId;
+  const requiresFeatureResource = request.mode === "feature" && spell.level > 0 && (source.requiresFeatureResource === true || spellResourceId !== undefined);
+  if (requiresFeatureResource) {
+    if (!spellResourceId) return reject(spell, "A fonte exige um pool de uso por descanso, mas ele não foi restaurado; magia bloqueada.", "unsupported-ruleset");
+    if (request.resourceStateId !== spellResourceId) return ask(spell, request.commandId as unknown as Uuid, "Selecione o uso por descanso da fonte desta magia.");
+    const capacity = context.resourceCapacities?.get(String(spellResourceId));
+    if (capacity === undefined) return reject(spell, "Capacidade do uso por descanso não foi derivada; nenhum recurso foi gasto.", "unsupported-ruleset");
+    featureSpend = spendResource(character, { resourceStateId: spellResourceId, amount: 1, capacity, ownerInstanceId: source.id, sourceRef: request.spellRef });
+    if (featureSpend.status !== "success") return featureSpend;
+  } else if (request.resourceStateId !== undefined) {
+    return reject(spell, "Pool de usos por descanso não é válido para este modo/fonte de conjuração.", "invalid-command");
+  }
   const scaling = validateScaling(request, spell);
   if (scaling) return scaling;
-  if (spell.concentration && character.concentration && context.replaceConcentration !== true) return ask(spell, request.commandId as unknown as Uuid, "Confirme explicitamente a substituição da concentração ativa.");
-  if (spell.concentration && !context.concentrationEffectId) return ask(spell, request.commandId as unknown as Uuid, "Forneça o ID do novo efeito de concentração para persistir sua identidade.");
+  if (spell.concentration && !noConcentrationAlternative && character.concentration && context.replaceConcentration !== true) return ask(spell, request.commandId as unknown as Uuid, "Confirme explicitamente a substituição da concentração ativa.");
+  if (spell.concentration && !noConcentrationAlternative && !context.concentrationEffectId) return ask(spell, request.commandId as unknown as Uuid, "Forneça o ID do novo efeito de concentração para persistir sua identidade.");
   const spellRef = request.spellRef;
-  let nextState = character;
+  let nextState = featureSpend?.status === "success" ? featureSpend.nextState : character;
   const effects: Effect[] = [];
-  const descriptions: string[] = [request.mode === "ritual" ? "Conjuração ritual elegível: adicionou 10 minutos ao tempo e não consumiu espaço." : spell.level === 0 ? "Truque conjurado sem consumo de espaço." : `Espaço de nível ${request.slotLevel} consumido somente após validação completa.`];
+  const descriptions: string[] = [
+    ...(featureSpend?.status === "success" ? ["Uso por descanso consumido na mesma transação da conjuração."] : []),
+    request.mode === "ritual" ? "Conjuração ritual elegível: adicionou 10 minutos ao tempo e não consumiu espaço." : spell.level === 0 ? "Truque conjurado sem consumo de espaço." : request.mode === "feature" ? "Magia concedida por característica conjurada após validar seu recurso." : `Espaço de nível ${request.slotLevel} consumido somente após validação completa.`,
+    ...(noConcentrationAlternative ? [`Variante da fonte aplicada: sem concentração por ${noConcentrationAlternative.durationMinutes} minuto(s). A invocação e sua expiração permanecem assistidas; registre a criatura e encerre-a manualmente ao fim da duração.`] : []),
+  ];
+  if (featureSpend?.status === "success") effects.push(...featureSpend.effects);
   if (slot.index >= 0) {
     const slotState = character.spellSlots[slot.index];
     const spellSlots = character.spellSlots.map((entry, index) => index === slot.index ? { ...entry, spent: entry.spent + 1 } : entry);
@@ -359,7 +402,7 @@ export function castSpell(character: Character, spell: SpellDefinition, request:
     effects.push({ kind: "inventory-changed", targetCharacterId: character.id, sourceRef: spellRef, payload: { inventoryItemId: components.item.id } });
     descriptions.push(`Componente material consumido: item ${components.item.id}; a remoção ocorreu na mesma transação.`);
   }
-  if (spell.concentration) {
+  if (spell.concentration && !noConcentrationAlternative) {
     const concentration = { effectId: context.concentrationEffectId as Uuid, sourceRef: spellRef, duration: concentrationDuration(spell), pendingSaveIds: [] };
     if (character.concentration) {
       effects.push({ kind: "concentration-ended", targetCharacterId: character.id, sourceRef: character.concentration.sourceRef, payload: { reason: "replaced" } });
@@ -388,8 +431,8 @@ export function previewCast(character: Character, spell: SpellDefinition, reques
     ...(request.mode === "normal" && spell.level > 0 && request.resourcePoolId && request.slotLevel !== undefined ? { slotCost: { poolId: request.resourcePoolId, slotLevel: request.slotLevel } } : {}),
     resourceCosts: [],
     actionCost: request.mode === "ritual" ? { kind: "minutes", amount: 10, unit: "minute" } : spell.castingTime,
-    componentsConsumed: spell.components.material?.consumed && spell.components.material.requiredItemKind ? [spell.components.material.requiredItemKind] : [],
-    ...(character.concentration && spell.concentration ? { concentrationReplaced: { priorEffectSourceRef: character.concentration.sourceRef } } : {}),
+    componentsConsumed: sourceFor(character, request)?.featureSpellOverrides?.some((entry) => sameRef(entry.spellRef, request.spellRef) && entry.ignoreMaterialComponents === true) ? [] : spell.components.material?.consumed && spell.components.material.requiredItemKind ? [spell.components.material.requiredItemKind] : [],
+    ...(character.concentration && spell.concentration && !request.featureCastingOption ? { concentrationReplaced: { priorEffectSourceRef: character.concentration.sourceRef } } : {}),
     interventionsRequired: spell.pendingDecisionIds.map((pendencyId) => ({ reason: `Pendência da magia: ${pendencyId}`, relatedRef: request.spellRef })),
     sourceRefs: sourceRefs(spell),
   };

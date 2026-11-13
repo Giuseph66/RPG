@@ -137,6 +137,21 @@ describe("CharacterSheet", () => {
     await mounted.unmount();
   });
 
+  it("mostra a condição Inconsciente sem iniciar salvamentos contra a morte com PV positivos", async () => {
+    const unconscious = {
+      id: asUuid("99999999-9999-4999-8999-999999999999"),
+      definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("unconscious") },
+      origin: { kind: "environment" as const, description: "Sono mágico" },
+    };
+    const mounted = await mount(<CharacterSheet character={withCharacter({ hp: { current: 8, temp: 0 }, conditions: [unconscious] })} derived={derived} resolveName={(type, id) => type === "condition" && id === "unconscious" ? "Inconsciente" : undefined} />);
+    const paragraphs = [...mounted.container.querySelectorAll("p")].map((paragraph) => paragraph.textContent);
+    expect(paragraphs).toContain("Inconsciente.");
+    expect(paragraphs).not.toContain("Consciente.");
+    expect(paragraphs).not.toContain("Morrendo — role um salvamento a cada turno.");
+    expect(mounted.container.textContent).toContain("Falhas 0/3");
+    await mounted.unmount();
+  });
+
   it("oculta raça e classe conforme a preferência de exibição", async () => {
     const mounted = await mount(<CharacterSheet character={withCharacter({ sheetDisplay: { hideRace: true, hideClass: true } })} derived={derived} resolveName={(type) => type === "race" ? "Anão" : type === "class" ? "Mago" : undefined} />);
     const hero = mounted.container.querySelector("header") as HTMLElement;

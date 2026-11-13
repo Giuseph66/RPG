@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "react";
 
 import { asEntityId, asIsoTimestamp, asPackVersion, asRulesetId, asUuid } from "@domain/contracts/ids";
+import type { CharacterDraft } from "@domain/contracts/character";
 import { asRevision } from "@domain/contracts/versioning";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { equipmentBundles } from "@data/equipment/bundles";
@@ -64,6 +65,45 @@ describe("CharacterCreationWizard", () => {
       const language = [...mounted.container.querySelectorAll("select")].find((select) => [...select.options].some((option) => option.value === "elvish")) as HTMLSelectElement | undefined;
       expect(language).toBeDefined();
       expect([...language?.options ?? []].map((option) => option.value)).toContain("elvish");
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("recolhe explicitamente o atributo de conjuração da Fada e o marca como obrigatório", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("12121212-1212-4212-8212-121212121212"), rulesetRef, createdAt: now,
+      partial: { name: "Fada de teste" },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const onDraftChange = vi.fn((next: CharacterDraft) => { void next; });
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={catalog()} onDraftChange={onDraftChange} />);
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "2. Raça") as HTMLElement);
+      const fairy = [...mounted.container.querySelectorAll('input[type="checkbox"]')].find((input) => input.parentElement?.textContent?.includes("Fada")) as HTMLInputElement;
+      expect(fairy).toBeDefined();
+      await click(fairy);
+
+      const race = [...mounted.container.querySelectorAll("select")].find((select) => [...select.options].some((option) => option.value === "fairy")) as HTMLSelectElement;
+      expect(race).toBeDefined();
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(race, "fairy");
+      await fireEvent(race, new Event("change", { bubbles: true }));
+
+      const spellcastingAbility = [...mounted.container.querySelectorAll("select")].find((select) => ["int", "wis", "cha"].every((id) => [...select.options].some((option) => option.value === id))) as HTMLSelectElement;
+      expect(spellcastingAbility.required).toBe(true);
+      expect(spellcastingAbility.labels?.[0]?.textContent).toContain("Atributo de conjuração · Fada");
+      expect(spellcastingAbility.options[0]?.textContent).toBe("Selecione uma opção");
+      expect(mounted.container.textContent).toContain("Obrigatório · escolha 1 opção");
+
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(spellcastingAbility, "wis");
+      await fireEvent(spellcastingAbility, new Event("change", { bubbles: true }));
+      const capturedDraft = onDraftChange.mock.calls.map(([next]) => next).at(-1);
+      expect(capturedDraft?.partial.choices).toContainEqual(expect.objectContaining({
+        choiceId: "fairy.spellcasting-ability",
+        selectedIds: [ref("wis")],
+        grantedAtLevel: 1,
+        grantingRef: ref("fairy"),
+      }));
     } finally {
       await mounted.unmount();
     }

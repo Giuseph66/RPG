@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { fireEvent, mount } from "@components/ui/testUtils";
-import { CREATURE_SCHEMA_VERSION, type CreatureRecord, type CreatureSighting } from "@domain/campaign/creatures";
+import { CREATURE_SCHEMA_VERSION, type CreatureProposal, type CreatureRecord, type CreatureSighting } from "@domain/campaign/creatures";
 import { ok } from "@domain/contracts/errors";
-import { asAccountId, asIsoTimestamp, asUuid } from "@domain/contracts/ids";
+import { asAccountId, asEntityId, asIsoTimestamp, asRulesetId, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
+import { asCentimeters } from "@domain/contracts/primitives";
+import { suggestCreatureStatBlock, type CreatureStatBlock } from "@domain/creatures";
 
-import { CreatureBoard, PlayerCreatureBoard } from "./index";
+import { CreatureBoard, CreatureProposalBoard, PlayerCreatureBoard } from "./index";
 
 const at = asIsoTimestamp("2026-09-28T12:00:00.000Z");
 const tester = asAccountId("player-teste");
@@ -236,6 +238,98 @@ describe("PlayerCreatureBoard (jogador)", () => {
     expect(compare.querySelector("[data-verdict='close']")?.textContent).toContain("Você achou: uns 35");
     // Habilidades continuam mistério: o palpite existe, mas não há revelação para comparar.
     expect(compare.textContent).not.toContain("mordida");
+    await unmount();
+  });
+});
+
+describe("CreatureProposalBoard", () => {
+  const block: CreatureStatBlock = {
+    id: asEntityId("lobo-da-lua"), name: "Lobo da lua", creatureType: "beast", size: "medium", armorClass: 13,
+    hitPoints: { average: 18, hitDice: "4d8" }, speeds: { walkCm: asCentimeters(400) },
+    abilityScores: { str: 14, dex: 15, con: 12, int: 3, wis: 12, cha: 6 }, challengeRating: { numerator: 1, denominator: 4 },
+    sourceRefs: [{ sourceId: asRulesetId("manual-campaign"), chapter: "Sugestão de jogador" }],
+  };
+  const proposal: CreatureProposal = {
+    id: "proposal-lobo-da-lua", campaignId: creature.campaignId, schemaVersion: CREATURE_SCHEMA_VERSION, revision: asRevision(1),
+    proposedBy: tester, status: "pending", statBlock: block, suggestionReasons: ["Avistado na trilha"], createdAt: at, updatedAt: at,
+  };
+
+  it("envia um bloco editável e mostra somente o status confirmado pelo serviço", async () => {
+    const onSubmit = vi.fn(async (submitted: CreatureStatBlock) => ok({ ...proposal, statBlock: submitted }));
+    const { container, unmount } = await mount(<CreatureProposalBoard mode="player" proposals={[]} onSubmit={onSubmit} />);
+    await click(byText(container, "button", "Adicionar bloco estatístico"));
+    const name = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Nome no bloco"))!.querySelector("input")!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(name, "Lobo da lua");
+    await fireEvent(name, new Event("input", { bubbles: true }));
+    const reason = container.querySelector("textarea[maxlength='600']")!;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(reason, "Avistado na trilha");
+    await fireEvent(reason, new Event("input", { bubbles: true }));
+    await click(byText(container, "button[type='submit']", "Enviar para revisão"));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: "Lobo da lua" }), ["Avistado na trilha"]);
+    expect(container.textContent).toContain("Aguardando o mestre");
+    expect(container.textContent).toContain("não foi aprovada nem registrada como avistamento");
+    await unmount();
+  });
+
+  it("apresenta o resultado persistido da revisão do mestre", async () => {
+    const approved = { ...proposal, status: "approved" as const, revision: asRevision(2) };
+    const onReview = vi.fn(async () => ok({ proposal: approved }));
+    const { container, unmount } = await mount(<CreatureBoard creatures={[]} proposals={[proposal]} onReviewProposal={onReview} />);
+    expect(container.textContent).toContain("Sugestões dos jogadores");
+    await click(byText(container, "button", "Aprovar no catálogo"));
+    expect(onReview).toHaveBeenCalledWith(proposal.id, "approve", undefined, block);
+    expect(container.textContent).toContain("Aprovada");
+    await unmount();
+  });
+
+  it("gera sugestão de besta para o jogador, permite editar e inclui as razões no envio", async () => {
+    const onSuggest = vi.fn((input: Omit<Parameters<typeof suggestCreatureStatBlock>[0], "catalog">) => suggestCreatureStatBlock({ ...input, catalog: [block] }));
+    const onSubmit = vi.fn(async (submitted: CreatureStatBlock, reasons: readonly string[]) => ok({ ...proposal, statBlock: submitted, suggestionReasons: reasons }));
+    const { container, unmount } = await mount(<CreatureProposalBoard mode="player" proposals={[]} onSubmit={onSubmit} onSuggestStatBlock={onSuggest} />);
+    await click(byText(container, "button", "Adicionar bloco estatístico"));
+    const name = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Nome sugerido"))!.querySelector("input")!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Lobo da lua");
+    await fireEvent(name, new Event("input", { bubbles: true }));
+    await click(byText(container, "button", "Gerar sugestão pelo catálogo"));
+    expect(onSuggest).toHaveBeenCalledWith(expect.objectContaining({ role: "player-beast", creatureType: "beast" }));
+    const reason = container.querySelector("textarea[maxlength='600']")!;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, "Visto na trilha");
+    await fireEvent(reason, new Event("input", { bubbles: true }));
+    await click(byText(container, "button[type='submit']", "Enviar para revisão"));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: "Lobo da lua", creatureType: "beast" }), expect.arrayContaining(["Visto na trilha", expect.stringContaining("Template de mesmo tipo")]));
+    await unmount();
+  });
+
+  it("permite enviar uma sugestão sem ND conhecido quando não há modelo no catálogo", async () => {
+    const onSuggest = vi.fn((input: Omit<Parameters<typeof suggestCreatureStatBlock>[0], "catalog">) => suggestCreatureStatBlock({ ...input, catalog: [] }));
+    const onSubmit = vi.fn(async (submitted: CreatureStatBlock) => ok({ ...proposal, statBlock: submitted }));
+    const { container, unmount } = await mount(<CreatureProposalBoard mode="player" proposals={[]} onSubmit={onSubmit} onSuggestStatBlock={onSuggest} />);
+    await click(byText(container, "button", "Adicionar bloco estatístico"));
+    const name = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Nome sugerido"))!.querySelector("input")!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Animal sem modelo");
+    await fireEvent(name, new Event("input", { bubbles: true }));
+    await click(byText(container, "button", "Gerar sugestão pelo catálogo"));
+    const reason = container.querySelector("textarea[maxlength='600']")!;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, "Criatura encontrada fora dos manuais");
+    await fireEvent(reason, new Event("input", { bubbles: true }));
+    await click(byText(container, "button[type='submit']", "Enviar para revisão"));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: "Animal sem modelo", creatureType: "beast", challengeRating: null }), expect.arrayContaining(["Criatura encontrada fora dos manuais"]));
+    await unmount();
+  });
+
+  it("exige que o mestre defina o ND no bloco revisado antes de aprovar", async () => {
+    const unknownNd = { ...proposal, statBlock: { ...block, challengeRating: null } };
+    const approved = { ...unknownNd, status: "approved" as const, revision: asRevision(2) };
+    const onReview = vi.fn(async () => ok({ proposal: approved }));
+    const { container, unmount } = await mount(<CreatureProposalBoard mode="master" proposals={[unknownNd]} onReview={onReview} />);
+    const approve = byText(container, "button", "Aprovar no catálogo") as HTMLButtonElement;
+    expect(approve.getAttribute("aria-disabled")).toBe("true");
+    const ndUnknown = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("ND não informado"))!.querySelector("input")!;
+    await click(ndUnknown);
+    expect((ndUnknown as HTMLInputElement).checked).toBe(false);
+    expect(byText(container, "button", "Aprovar no catálogo").getAttribute("aria-disabled")).toBeNull();
+    await click(byText(container, "button", "Aprovar no catálogo"));
+    expect(onReview).toHaveBeenCalledWith(proposal.id, "approve", undefined, expect.objectContaining({ challengeRating: { numerator: 0, denominator: 1 } }));
     await unmount();
   });
 });
