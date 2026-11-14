@@ -30,7 +30,7 @@ function create(classId: string, raceId: string, choices: ChoiceSelection[] = []
 }
 
 function levelTwo(character: Character, classId: string): Character {
-  const result = evolveCharacter(character, { classId: asEntityId(classId), targetClassLevel: 2, mode: "milestone", hitPointGain: { kind: "fixed-average", amount: 5 }, choices: [] }, { rulePack: pack, equipmentBundles }, { idGenerator, now: asIsoTimestamp("2024-01-02T00:00:00.000Z") });
+  const result = evolveCharacter(character, { classId: asEntityId(classId), targetClassLevel: 2, mode: "milestone", hitPointGain: { kind: "fixed-average", amount: 5 }, choices: [] }, pack, { idGenerator, now: asIsoTimestamp("2024-01-02T00:00:00.000Z") });
   if (!result.ok) throw new Error(JSON.stringify(result.error));
   return result.value;
 }
