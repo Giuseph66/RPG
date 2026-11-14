@@ -99,7 +99,10 @@ describe("evolução: escolhas específicas de cada classe", () => {
   });
 
   it("Ladino repete Especialização no 6º nível sem dobrar a mesma perícia", () => {
-    let rogue = create("rogue", [pick("rogue.expertise.1", ["stealth"])]);
+    let rogue = create("rogue", [
+      pick("rogue.skills", ["stealth", "acrobatics", "perception", "sleight-of-hand"]),
+      pick("rogue.expertise.1", ["stealth"]),
+    ]);
     rogue = advance(rogue, "rogue", 5, { 3: { subclassId: "thief" } });
     expect(evolve(rogue, "rogue", 6, { choices: [pick("rogue.expertise.6", ["stealth", "acrobatics"], 6)] }).ok).toBe(false);
     expect(evolve(rogue, "rogue", 6, { choices: [pick("rogue.expertise.6", ["acrobatics", "perception"], 6)] }).ok).toBe(true);

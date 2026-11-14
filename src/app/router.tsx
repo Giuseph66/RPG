@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { AppShell, type AppShellProps } from "@components/layout/AppShell";
 import { Button, InlineStatus } from "@components/ui";
-import type { BeastSightingState, Character, CharacterDraft, EquipmentDisposition, ManualAdjustment } from "@domain/contracts/character";
+import type { Character, CharacterDraft, EquipmentDisposition, ManualAdjustment } from "@domain/contracts/character";
 import { appError, err, ok } from "@domain/contracts/errors";
 import type { CharacterSummary } from "@domain/contracts/character";
 import type { DraftSummary } from "@features/character/selection";
@@ -111,6 +111,15 @@ export interface AppNavigation {
 
 function PendingDestination({ title, reasons }: { readonly title: string; readonly reasons: readonly string[] }) {
   return <section aria-labelledby="destination-pending-title"><p>{title}</p><h1 id="destination-pending-title">Integração pendente</h1><InlineStatus tone="warning">{reasons.join(" ")}</InlineStatus></section>;
+}
+
+function hasDruidLevelTwo(character: Character, pack?: RulePack): boolean {
+  return character.classes.some((entry) => {
+    if (entry.level < 2) return false;
+    const id = String(entry.classId).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
+    const name = pack?.classes.get(entry.classId)?.name.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
+    return id === "druid" || id.endsWith(".druid") || name === "druida" || name === "druid";
+  });
 }
 
 /** Dono do estado local do rascunho — a criação nunca duplica isso no store de personagem
@@ -448,6 +457,7 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
     spellOptions: spellOptionsFor(currentCharacter, pack),
     spellInfo: spellInfoFor(pack),
     onLevelUp: () => navigate(`/character/${currentCharacter.id}/evolve`),
+    ...(hasDruidLevelTwo(currentCharacter, pack) ? { onManageCreatures: () => navigate(`/character/${currentCharacter.id}/creatures`) } : {}),
     conditionOptions: conditionOptionsFor(pack),
     ...(wildShape ? { wildShape: {
       eligibleBeasts,
@@ -488,6 +498,50 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
     } } : {}),
   });
   return <RuleLookupBoundary registry={registry}><div><Sheet {...sheetProps} />{registry.inventory.pendingDependencies.length ? <InlineStatus tone="warning">{registry.inventory.pendingDependencies.join(" ")}</InlineStatus> : null}<Inventory {...registry.inventory.bindProps({ items: inventory, currency: currentCharacter.currency, catalog: equipmentCatalog(pack), carrying: carryingFor(currentCharacter, sheetProps.derived, pack) })} /></div></RuleLookupBoundary>;
+}
+
+function CharacterCreatureRoute({ registry, character, pack, id, navigate }: { readonly registry: FeatureRegistry; readonly character: AppRouterProps["character"]; readonly pack?: RulePack; readonly id: string; readonly navigate: (to: string) => void }) {
+  const validId = isUuid(id) ? asUuid(id) : undefined;
+  const wildShape = registry.creatures?.wildShape;
+  const [campaignCatalog, setCampaignCatalog] = useState<{ readonly characterId: string; readonly definitions: readonly CreatureStatBlock[]; readonly error?: string }>({ characterId: "", definitions: [] });
+  useEffect(() => {
+    if (validId && character?.value?.id !== validId) void registry.character.service.select(validId);
+  }, [character?.value?.id, registry.character.service, validId]);
+  const currentCharacter = validId && character?.value?.id === validId ? character.value : undefined;
+  const permitted = currentCharacter ? hasDruidLevelTwo(currentCharacter, pack) : false;
+  useEffect(() => {
+    if (!wildShape || !currentCharacter || !permitted) { setCampaignCatalog({ characterId: "", definitions: [] }); return; }
+    let active = true;
+    setCampaignCatalog({ characterId: String(currentCharacter.id), definitions: [] });
+    void wildShape.listCampaignCatalog(currentCharacter.id).then((result) => {
+      if (active) setCampaignCatalog({ characterId: String(currentCharacter.id), definitions: result.ok ? result.value : [], ...(!result.ok ? { error: result.error.message } : {}) });
+    }, () => {
+      if (active) setCampaignCatalog({ characterId: String(currentCharacter.id), definitions: [], error: "Não foi possível carregar as criaturas compartilhadas da campanha." });
+    });
+    return () => { active = false; };
+  }, [currentCharacter?.id, currentCharacter?.revision, permitted, wildShape]);
+  const baseCatalog = wildShape && currentCharacter ? wildShape.listCatalog({ selectedSupplementIds: currentCharacter.selectedSupplementIds }) : undefined;
+  const creatureDefinitions = useMemo(() => {
+    const merged = new Map<EntityId, CreatureStatBlock>();
+    for (const creature of baseCatalog?.ok ? baseCatalog.value : []) merged.set(creature.id, creature);
+    if (campaignCatalog.characterId === String(currentCharacter?.id ?? "")) {
+      for (const creature of campaignCatalog.definitions) if (!merged.has(creature.id)) merged.set(creature.id, creature);
+    }
+    return [...merged.values()];
+  }, [baseCatalog?.ok ? baseCatalog.value : undefined, campaignCatalog, currentCharacter?.id]);
+  const sightings = wildShape && currentCharacter && permitted ? wildShape.listSightings(currentCharacter.id) : undefined;
+  const CreatureCatalogComponent = LazyCreatureCatalog;
+  if (!validId) return <PendingDestination title="Criaturas" reasons={["O identificador da ficha é inválido."]} />;
+  if (character?.status === "error") return <section aria-live="assertive"><h1>Não foi possível carregar o personagem</h1><InlineStatus tone="error">{character.errorMessage ?? "A ficha não está disponível neste dispositivo."}</InlineStatus><Button variant="secondary" onClick={() => navigate(`/character/${id}`)}>Voltar à ficha</Button></section>;
+  if (!currentCharacter) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
+  if (!permitted) return <section aria-labelledby="creature-access-title"><h1 id="creature-access-title">Catálogo de bestas</h1><InlineStatus tone="info">O gerenciamento pessoal de bestas fica disponível para druidas a partir do nível 2.</InlineStatus><Button variant="secondary" onClick={() => navigate(`/character/${id}`)}>Voltar à ficha</Button></section>;
+  if (!wildShape) return <PendingDestination title="Criaturas" reasons={["O runtime do catálogo de criaturas não está disponível."]} />;
+  return <main><header><Button variant="secondary" onClick={() => navigate(`/character/${currentCharacter.id}`)}>Voltar à ficha</Button><p>Forma Selvagem · {currentCharacter.name}</p><h1>Gerenciar bestas</h1></header>{campaignCatalog.error ? <InlineStatus tone="error" assertive>{campaignCatalog.error}</InlineStatus> : null}<CreatureCatalogComponent creatures={creatureDefinitions} beastsOnly sightings={sightings?.ok ? sightings.value : []} characterName={currentCharacter.name} error={baseCatalog && !baseCatalog.ok ? baseCatalog.error.message : sightings && !sightings.ok ? sightings.error.message : undefined} onMarkSeen={async (creature) => {
+    const beastRef: DefinitionRef = { rulesetId: currentCharacter.rulesetRef.id, entityId: creature.id };
+    const result = await wildShape.markSeen({ characterId: currentCharacter.id, expectedRevision: currentCharacter.revision, beastRef });
+    if (result.ok) void registry.character.service.select(currentCharacter.id);
+    return result;
+  }} /></main>;
 }
 
 function JournalRoute({ registry, campaign, viewerId, role = "master", authors, authorFilter, refreshKey, onSaved }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly viewerId?: string; readonly role?: "master" | "player"; readonly authors?: readonly { readonly id: string; readonly name: string }[]; readonly authorFilter?: string; readonly refreshKey?: object; readonly onSaved?: () => void }) {
@@ -827,10 +881,28 @@ function CollaborationRoute({ registry, campaign, navigate, view, playerOnly = f
         const previous = current.manualAdjustments.find((entry) => entry.id === adjustment.id);
         return { id: adjustment.id, target: { kind: adjustment.target }, value: { kind: "number" as const, amount: adjustment.amount }, reason: adjustment.reason.trim(), createdAt: previous?.createdAt ?? asIsoTimestamp(new Date().toISOString()), ...(previous?.sourceRef ? { sourceRef: previous.sourceRef } : {}) };
       })];
-      return registry.character.service.saveSheetState(characterId, expectedRevision, {
+      const saved = await registry.character.service.saveSheetState(characterId, expectedRevision, {
         hp: { current: values.hp, temp: values.tempHp },
         conditions: [...existing, ...added],
         manualAdjustments,
+      });
+      if (!saved.ok) return saved;
+      const persisted = await registry.character.service.get(characterId);
+      if (!persisted.ok) return persisted;
+      const character = persisted.value;
+      const sheet = registry.character.bindSheetProps({ character });
+      const derived = sheet.derived;
+      const displayCondition = (id: string) => sheet.resolveName?.("condition", id) ?? id.replace(/[-_]/g, " ");
+      const supportedTargets: readonly CampaignAdjustmentTarget[] = ["armor-class", "initiative", "attack-roll", "ability-check"];
+      const adjustments = character.manualAdjustments.flatMap((adjustment) => supportedTargets.includes(adjustment.target.kind as CampaignAdjustmentTarget) && adjustment.value.kind === "number" ? [{ id: adjustment.id, target: adjustment.target.kind as CampaignAdjustmentTarget, amount: adjustment.value.amount, reason: adjustment.reason }] : []);
+      return ok({
+        revision: character.revision,
+        hitPoints: { current: character.transformation?.formHp.current ?? character.hp.current, temporary: character.transformation?.formHp.temp ?? character.hp.temp, ...(derived ? { maximum: derived.hitPointsMax.value } : {}) },
+        armorClass: derived?.armorClass.value,
+        initiative: derived?.initiative.value,
+        conditionIds: character.conditions.map((condition) => String(condition.definitionRef.entityId)),
+        conditions: character.conditions.map((condition) => displayCondition(condition.definitionRef.entityId)),
+        adjustments,
       });
     }}
   />;
@@ -859,7 +931,7 @@ function visibleMaps(maps: readonly MapRecord[], role: JourneyRole, viewerId?: s
   return maps.filter((map) => (map.visibleTo ?? []).some((audience) => audience === "*" || audience === viewerId));
 }
 
-function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack, syncState, syncMessage, syncHydration, onRefreshSync }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly campaignRole?: JourneyRole; readonly match: RouteMatch; readonly navigate: (to: string) => void; readonly pack?: RulePack; readonly syncState?: AccountSyncState; readonly syncMessage?: string; readonly syncHydration?: object; readonly onRefreshSync?: () => Promise<void> }) {
+function JourneyRoute({ registry, campaign, campaignRole, isAccountMaster, match, navigate, pack, syncState, syncMessage, syncHydration, onRefreshSync }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly campaignRole?: JourneyRole; readonly isAccountMaster: boolean; readonly match: RouteMatch; readonly navigate: (to: string) => void; readonly pack?: RulePack; readonly syncState?: AccountSyncState; readonly syncMessage?: string; readonly syncHydration?: object; readonly onRefreshSync?: () => Promise<void> }) {
   const activeCampaign = campaign?.value ?? undefined;
   const campaignId = activeCampaign?.id;
   // Sem vínculo remoto a campanha é deste aparelho e quem a usa é o mestre.
@@ -1043,8 +1115,9 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
   ) => mutate(creaturesService.submitProposal({ campaignId, proposedBy: viewerId, statBlock, suggestionReasons }))
     : undefined;
   const creaturesPanel = !campaignId || !creaturesService ? undefined : master
-    ? <Creatures {...sheetTools} creatures={data.creatures} guesses={data.guesses} players={data.players} loading={!data.loaded} proposals={data.proposals} proposalLoading={!data.loaded} proposalError={data.proposalError} onReviewProposal={onReviewProposal} onSuggestStatBlock={onSuggestCreatureStatBlock("master")} {...creatureActions} />
-    : <PlayerCreatures sightings={data.sightings} guesses={data.guesses} loading={!data.loaded} proposals={data.proposals} proposalLoading={!data.loaded} proposalError={data.proposalError} onSubmitProposal={onSubmitProposal} onSuggestStatBlock={onSuggestCreatureStatBlock("player-beast")} onSaveGuess={viewerId ? (creatureId, guess) => mutate(creaturesService.saveGuess({ campaignId, creatureId, accountId: viewerId, ...guess })) : undefined} />;
+    ? <Creatures {...sheetTools} creatures={data.creatures} guesses={data.guesses} players={data.players} loading={!data.loaded} proposals={data.proposals} proposalLoading={!data.loaded} proposalError={data.proposalError} onReviewProposal={onReviewProposal} onSuggestStatBlock={onSuggestCreatureStatBlock("master")} bookCreatures={publishedCreatureCatalog?.ok ? publishedCreatureCatalog.value : undefined} {...creatureActions} />
+    : !campaignId || !creaturesService ? undefined
+      : <PlayerCreatures sightings={data.sightings} guesses={data.guesses} loading={!data.loaded} proposals={data.proposals} proposalLoading={!data.loaded} proposalError={data.proposalError} onSubmitProposal={onSubmitProposal} onSuggestStatBlock={onSuggestCreatureStatBlock("player-beast")} onSaveGuess={viewerId ? (creatureId, guess) => mutate(creaturesService.saveGuess({ campaignId, creatureId, accountId: viewerId, ...guess })) : undefined} />;
 
   const publication = registry.journey.mapPublication;
   const mapPanel = <MapWorkspace campaignId={campaignId} canManage={master}
@@ -1087,7 +1160,8 @@ function JourneyRoute({ registry, campaign, campaignRole, match, navigate, pack,
     journalPanel={<JournalRoute registry={registry} campaign={campaign} viewerId={viewerId ? String(viewerId) : undefined} role={role} authors={authors} authorFilter={journalAuthor} refreshKey={syncHydration} onSaved={reload} />}
     creaturesPanel={creaturesPanel}
     sessionsPanel={sessionMatch ? <SessionRoute registry={registry} match={sessionMatch} campaign={campaign} canManage={master} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} /> : undefined}
-    participantsPanel={master || campaignRole === "player" ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="participants" playerOnly={campaignRole === "player"} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} /> : undefined} />;
+    participantsPanel={master || campaignRole === "player" ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="participants" playerOnly={campaignRole === "player"} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} /> : undefined}
+    creaturesCatalogPanel={isAccountMaster ? <MasterCreatureCatalogRoute registry={registry} campaign={campaign} navigate={navigate} /> : undefined} />;
   return registry.journey.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.journey.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
 }
 
@@ -1138,49 +1212,15 @@ function campaignStatus(status: StoreStatus | undefined): "idle" | "loading" | "
   return "idle";
 }
 
-function CompendiumRoute({ registry, character }: { readonly registry: FeatureRegistry; readonly character?: Character }): ReactNode {
+function CompendiumRoute({ registry }: { readonly registry: FeatureRegistry }): ReactNode {
   const service = registry.compendium.service;
   const [filters, setFilters] = useState<CompendiumFilters>({ query: "" });
-  const [selected, setSelected] = useState<CompendiumDetail | undefined>();
+  const [selected, setSelected] = useState<CompendiumDetail>();
   const [status, setStatus] = useState<"idle" | "loading" | "error">("loading");
   const [catalogReady, setCatalogReady] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [favoriteRevision, setFavoriteRevision] = useState(0);
-  const [beastSightings, setBeastSightings] = useState<readonly BeastSightingState[]>([]);
-  const [campaignCreatureDefinitions, setCampaignCreatureDefinitions] = useState<readonly CreatureStatBlock[]>([]);
-  const [sightingsLoading, setSightingsLoading] = useState(false);
-  const [sightingsError, setSightingsError] = useState<string>();
-  const [campaignCatalogError, setCampaignCatalogError] = useState<string>();
   void favoriteRevision;
-
-  const wildShape = registry.creatures?.wildShape;
-  const catalogResult = wildShape?.listCatalog({ selectedSupplementIds: character?.selectedSupplementIds });
-  const creatureDefinitions = useMemo(() => {
-    const merged = new Map<EntityId, CreatureStatBlock>();
-    for (const definition of catalogResult?.ok ? catalogResult.value : []) merged.set(definition.id, definition);
-    for (const definition of campaignCreatureDefinitions) if (!merged.has(definition.id)) merged.set(definition.id, definition);
-    return [...merged.values()];
-  }, [campaignCreatureDefinitions, catalogResult?.ok ? catalogResult.value : undefined]);
-  useEffect(() => {
-    if (!wildShape || !character) { setBeastSightings([]); setSightingsError(undefined); setSightingsLoading(false); return; }
-    setSightingsLoading(false);
-    const result = wildShape.listSightings(character.id);
-    if (result.ok) { setBeastSightings(result.value); setSightingsError(undefined); }
-    else { setBeastSightings([]); setSightingsError(result.error.message); }
-  }, [wildShape, character?.id, character?.revision]);
-
-  useEffect(() => {
-    if (!wildShape || !character) { setCampaignCreatureDefinitions([]); setCampaignCatalogError(undefined); return; }
-    let active = true;
-    void wildShape.listCampaignCatalog(character.id).then((result) => {
-      if (!active) return;
-      setCampaignCreatureDefinitions(result.ok ? result.value : []);
-      setCampaignCatalogError(result.ok ? undefined : result.error.message);
-    }, (reason: unknown) => {
-      if (active) { setCampaignCreatureDefinitions([]); setCampaignCatalogError(reason instanceof Error ? reason.message : "Não foi possível carregar as criaturas compartilhadas da campanha."); }
-    });
-    return () => { active = false; };
-  }, [wildShape, character?.id, character?.revision]);
 
   useEffect(() => {
     let active = true;
@@ -1253,18 +1293,6 @@ function CompendiumRoute({ registry, character }: { readonly registry: FeatureRe
     if (result.value.status === "loaded") setFilters((current) => ({ ...current, category }));
   };
 
-  const CreatureCatalogComponent = LazyCreatureCatalog;
-  const creaturePanel = wildShape ? <CreatureCatalogComponent creatures={creatureDefinitions} sightings={beastSightings} characterName={character?.name} loading={sightingsLoading} error={sightingsError ?? campaignCatalogError ?? (catalogResult && !catalogResult.ok ? catalogResult.error.message : undefined)} onMarkSeen={character ? async (creature) => {
-    const beastRef: DefinitionRef = { rulesetId: character.rulesetRef.id, entityId: creature.id };
-    const result = await wildShape.markSeen({ characterId: character.id, expectedRevision: character.revision, beastRef });
-    if (result.ok) {
-      const refreshed = wildShape.listSightings(character.id);
-      if (refreshed.ok) setBeastSightings(refreshed.value);
-      void registry.character.service.select(character.id);
-    }
-    return result;
-  } : undefined} /> : <InlineStatus tone="info">O runtime do catálogo de criaturas ainda não está disponível.</InlineStatus>;
-
   const CompendiumComponent = LazyCompendium;
   return (
     <CompendiumComponent
@@ -1281,10 +1309,38 @@ function CompendiumRoute({ registry, character }: { readonly registry: FeatureRe
         onSelect,
         onToggleFavorite,
         onLoadCategory,
-        creaturePanel,
       })}
     />
   );
+}
+
+function MasterCreatureCatalogRoute({ registry, campaign, navigate }: { readonly registry: FeatureRegistry; readonly campaign: AppRouterProps["campaign"]; readonly navigate: (to: string) => void }): ReactNode {
+  const wildShape = registry.creatures?.wildShape;
+  const campaignId = campaign?.value?.id;
+  const [campaignCreatures, setCampaignCreatures] = useState<{ readonly campaignId: string; readonly items: readonly CreatureRecord[]; readonly error?: string }>({ campaignId: "", items: [] });
+  useEffect(() => {
+    if (!campaignId || !registry.journey.creatures) {
+      setCampaignCreatures({ campaignId: "", items: [] });
+      return;
+    }
+    let active = true;
+    setCampaignCreatures({ campaignId: String(campaignId), items: [] });
+    void registry.journey.creatures.listCreatures(campaignId).then((result) => {
+      if (active) setCampaignCreatures({ campaignId: String(campaignId), items: result.ok ? result.value : [], ...(!result.ok ? { error: result.error.message } : {}) });
+    }, () => {
+      if (active) setCampaignCreatures({ campaignId: String(campaignId), items: [], error: "Não foi possível carregar as criaturas desta campanha." });
+    });
+    return () => { active = false; };
+  }, [campaignId, registry.journey.creatures]);
+  const catalog = wildShape?.listCatalog({});
+  const campaignDefinitions = campaignCreatures.campaignId === String(campaignId ?? "") ? campaignCreatures.items.flatMap((item) => item.statBlock ? [item.statBlock] : []) : [];
+  const definitions = useMemo(() => {
+    const merged = new Map<string, CreatureStatBlock>();
+    for (const creature of catalog?.ok ? catalog.value : []) merged.set(String(creature.id), creature);
+    for (const creature of campaignDefinitions) if (!merged.has(String(creature.id))) merged.set(String(creature.id), creature);
+    return [...merged.values()];
+  }, [catalog?.ok ? catalog.value : undefined, campaignDefinitions]);
+  return <section><header><p>Catálogo completo · Mestre</p><h2>Criaturas</h2><p>Consulte blocos de estatísticas e criaturas compartilhadas da campanha.</p><Button variant="secondary" onClick={() => navigate("/journey/npcs")}>Criar e revisar criaturas da campanha</Button></header>{campaignCreatures.error ? <InlineStatus tone="error" assertive>{campaignCreatures.error}</InlineStatus> : null}{!wildShape ? <InlineStatus tone="warning">O catálogo de criaturas não está disponível neste dispositivo.</InlineStatus> : null}<LazyCreatureCatalog creatures={definitions} showSightings={false} error={catalog && !catalog.ok ? catalog.error.message : undefined} /></section>;
 }
 
 function renderRegistryRoute(
@@ -1304,6 +1360,7 @@ function renderRegistryRoute(
   accountCharacterId: Character["id"] | undefined,
   actionsDice: ActionsDice | undefined,
   isCampaignMaster: boolean,
+  isAccountMaster: boolean,
   navigate: (to: string) => void,
   replace: (to: string) => void,
   campaignRole?: "master" | "player",
@@ -1319,6 +1376,7 @@ function renderRegistryRoute(
     }
     if (!match.params.id) return isCampaignMaster ? <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} view="characters" pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} /> : <CharacterHomeRoute registry={registry} character={character} navigate={navigate} replace={replace} signedIn={signedIn} accountCharacterId={accountCharacterId} />;
     if (match.params.mode === "evolve") return <EvolveCharacterRoute registry={registry} character={character} pack={pack} id={match.params.id} navigate={navigate} />;
+    if (match.params.mode === "creatures") return <CharacterCreatureRoute registry={registry} character={character} pack={pack} id={match.params.id} navigate={navigate} />;
     return <CharacterDetailRoute registry={registry} character={character} pack={pack} id={match.params.id} navigate={navigate} />;
   }
   if (match.kind === "actions") {
@@ -1327,9 +1385,10 @@ function renderRegistryRoute(
     const content = <RuleLookupBoundary registry={registry}><ActionPage {...registry.actions.bindProps({ character: currentCharacter, capabilities: actionCapabilities ?? [], availableActions: AVAILABLE_ACTION_KINDS })} derived={derived} restInfo={currentCharacter ? restInfoFor(currentCharacter, derived, pack) : undefined} carrying={currentCharacter ? carryingFor(currentCharacter, derived, pack) : undefined} walkSpeedCm={walkSpeedFor(derived)} attackRolls={currentCharacter ? attackRollsFor(currentCharacter, derived, pack) : undefined} unequippedWeapons={currentCharacter ? unequippedWeaponsFor(currentCharacter, pack) : undefined} spellRolls={currentCharacter ? spellRollsFor(currentCharacter, derived, pack) : undefined} dice={actionsDice} onOpenConditions={currentCharacter ? () => navigate(`/character/${currentCharacter.id}#condicoes`) : undefined} historyPanel={currentCharacter?.campaignId ? <CampaignLogRoute registry={registry} campaignId={String(currentCharacter.campaignId)} focusCharacterId={String(currentCharacter.id)} /> : undefined} /></RuleLookupBoundary>;
     return registry.actions.pendingDependencies.length ? <div><InlineStatus tone="warning">{registry.actions.pendingDependencies.join(" ")}</InlineStatus>{content}</div> : content;
   }
-  if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} campaignRole={campaignRole} match={match} navigate={navigate} pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
+  if (match.kind === "journey" && match.params.id === "creatures" && !isAccountMaster) return <section aria-labelledby="creatures-access-title"><h1 id="creatures-access-title">Criaturas</h1><InlineStatus tone="info">O catálogo está disponível apenas para contas do tipo mestre.</InlineStatus></section>;
+  if (match.kind === "journey") return <JourneyRoute registry={registry} campaign={campaign} campaignRole={campaignRole} isAccountMaster={isAccountMaster} match={match} navigate={navigate} pack={pack} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
   if (match.kind === "compendium") {
-    return <CompendiumRoute registry={registry} character={currentCharacter} />;
+    return <CompendiumRoute registry={registry} />;
   }
   if (match.kind === "collaboration") return <CollaborationRoute registry={registry} campaign={campaign} navigate={navigate} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
   if (match.kind === "session") return <SessionRoute registry={registry} match={match} campaign={campaign} canManage={isCampaignMaster || (!signedIn && !campaignRole)} syncState={syncState} syncMessage={syncMessage} syncHydration={syncHydration} onRefreshSync={onRefreshSync} />;
@@ -1417,6 +1476,9 @@ export function connectionFor(syncState: AccountSyncState | undefined, signedIn:
 /** Small History API router: keeps the shell usable without adding a package. */
 export function AppRouter({ renderRoute, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, initialPath, diceOverlayController, ...shellProps }: AppRouterProps) {
   const navigation = useAppNavigation(initialPath);
+  useEffect(() => {
+    if (navigation.path === "/creatures") navigation.replace("/journey/creatures");
+  }, [navigation.path, navigation.replace]);
   // A ficha é a tela mais aberta e seus chunks são pesados no celular. Baixá-los quando o
   // navegador estiver ocioso evita a espera em "Carregando destino" no primeiro "Editar ficha".
   useEffect(() => {
@@ -1432,6 +1494,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   const accountAuth = registry?.account.auth;
   const membership = registry?.membership;
   const [accountSession, setAccountSession] = useState(() => accountAuth?.currentSession() ?? null);
+  const [accountRoleResolution, setAccountRoleResolution] = useState<{ readonly actorId: string; readonly syncHydration?: object; readonly role?: "master" | "player" }>();
   const [roleResolution, setRoleResolution] = useState<{ readonly actorId: string; readonly campaignId: string; readonly syncHydration?: object; readonly role?: "master" | "player" }>();
   const localIdentity = membership?.localActor();
   const actorId = accountSession ? asAccountId(accountSession.uid) : localIdentity?.accountId;
@@ -1440,6 +1503,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   const roleReady = !membership || !actorId || !activeCampaignId || roleMatches;
   const campaignRole = roleMatches ? roleResolution?.role : undefined;
   const isCampaignMaster = campaignRole === "master";
+  const isAccountMaster = Boolean(membership && actorId && accountRoleResolution?.actorId === String(actorId) && accountRoleResolution.syncHydration === syncHydration && accountRoleResolution.role === "master");
 
   useEffect(() => {
     if (!accountAuth) {
@@ -1467,6 +1531,17 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
     });
     return () => { current = false; };
   }, [activeCampaignId, actorId, membership, syncHydration]);
+
+  useEffect(() => {
+    let current = true;
+    if (!membership || !actorId) return () => { current = false; };
+    void membership.getAccount(actorId).then((result) => {
+      if (current) setAccountRoleResolution({ actorId: String(actorId), syncHydration, role: result.ok && result.value?.preferredCampaignRole === "master" ? "master" : result.ok && result.value?.preferredCampaignRole === "player" ? "player" : undefined });
+    }).catch(() => {
+      if (current) setAccountRoleResolution({ actorId: String(actorId), syncHydration });
+    });
+    return () => { current = false; };
+  }, [actorId, membership, navigation.path, syncHydration]);
 
   const diceState = useSyncExternalStore(
     diceOverlayController?.subscribe ?? EMPTY_DICE_SUBSCRIBE,
@@ -1502,7 +1577,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   const cloudHydrationPending = Boolean(accountSession && !syncHydration && (syncState === "pending" || syncState === "synced"));
   const awaitingCharacterRole = navigation.match.kind === "character" && !navigation.match.params.id && !navigation.match.params.mode && (!roleReady || cloudHydrationPending);
   const accountCharacterId = accountSession ? shellProps.settingsStore?.settings?.activeCharacterIdsByAccount?.[accountSession.uid] : undefined;
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, navigation.navigate, navigation.replace, campaignRole) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, isAccountMaster, navigation.navigate, navigation.replace, campaignRole) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
 
   return (
     <AppShell

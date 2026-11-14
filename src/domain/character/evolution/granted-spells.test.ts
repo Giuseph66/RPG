@@ -13,6 +13,7 @@ import { CIRCLE_TERRAIN_SPELLS } from "./terrain-spells";
 import { TASHA_RANGER_SUPPLEMENT_ID } from "@data/rulepacks/optional-supplements";
 import { resolveCharacterCommand } from "@application/character/command-dispatcher";
 import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
+import { syncSpellcasting } from "./spell-state";
 
 const rulesetRef = { id: asRulesetId("phb-ptbr-local-2017"), version: asPackVersion("1.0.0") };
 const now = asIsoTimestamp("2024-01-01T00:00:00.000Z");
@@ -181,6 +182,66 @@ describe("magias concedidas por subclasse, raça de escolha e características",
     expect(finalSource.knownSpellRefs.map((entry) => pack.spells.get(entry.entityId)?.level).filter((level) => level !== undefined)).toHaveLength(6);
   });
 
+  it("Andarilho Feérico nível 11 mantém um único uso de Reforço e preserva gasto ao reconciliar JSON", () => {
+    let ranger = createTashaRanger();
+    const learned = new Set<string>();
+    const newSpellChoice = (level: number, count = 1) => {
+      const selected = spellsOf("ranger", 1).filter((spellId) => !learned.has(spellId)).slice(0, count);
+      expect(selected).toHaveLength(count);
+      selected.forEach((spellId) => learned.add(spellId));
+      return pick(`ranger.spells.${level}`, selected, level, "ranger");
+    };
+
+    const level2 = spellsOf("ranger", 1).slice(0, 2);
+    level2.forEach((spellId) => learned.add(spellId));
+    ranger = mustEvolve(ranger, "ranger", 2, { choices: [pick("ranger.spells.2", level2, 2, "ranger")] });
+    ranger = mustEvolve(ranger, "ranger", 3, { subclassId: "fey-wanderer", choices: [
+      newSpellChoice(3),
+      pick("fey-wanderer.otherworldly-glamour.skill", ["performance"], 3, "fey-wanderer.otherworldly-glamour"),
+    ] });
+    ranger = mustEvolve(ranger, "ranger", 4);
+    ranger = mustEvolve(ranger, "ranger", 5, { choices: [newSpellChoice(5)] });
+    ranger = mustEvolve(ranger, "ranger", 6);
+    ranger = mustEvolve(ranger, "ranger", 7, { choices: [newSpellChoice(7)] });
+    ranger = mustEvolve(ranger, "ranger", 8);
+    ranger = mustEvolve(ranger, "ranger", 9, { choices: [newSpellChoice(9)] });
+    ranger = mustEvolve(ranger, "ranger", 10);
+    expect(ranger.classes.find((entry) => String(entry.classId) === "ranger")?.level).toBe(10);
+
+    ranger = mustEvolve(ranger, "ranger", 11, { choices: [newSpellChoice(11)] });
+    const featureRef = ref("fey-wanderer.fey-reinforcements-use");
+    const featureSource = ranger.castingSources.find((source) => String(source.grantingRef.entityId) === "fey-wanderer-fey-reinforcements");
+    const firstPools = ranger.resources.filter((entry) => entry.definitionRef.entityId === featureRef.entityId);
+    expect(firstPools).toHaveLength(1);
+    expect(firstPools[0]?.spent).toBe(0);
+    expect(featureSource?.featureSpellResources?.find((entry) => String(entry.spellRef.entityId) === "invocar-feerico")?.resourceId).toBe(firstPools[0]?.id);
+    const composed = composeCharacterRuleContent(pack, ranger);
+    expect(composed.ok).toBe(true);
+    if (!composed.ok) return;
+    expect(composed.value.resources.get(featureRef.entityId)?.capacityRule).toEqual({ kind: "fixed", amount: 1 });
+
+    // Represent an older JSON where the generic progression pool and feature-source pool both
+    // existed. Reconciliation must retain the higher spent value and collapse only this duplicate.
+    const legacyDuplicate: Character = {
+      ...ranger,
+      resources: [
+        ...ranger.resources.map((entry) => entry.id === firstPools[0]?.id ? { ...entry, spent: 1 } : entry),
+        { id: asUuid("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"), definitionRef: featureRef, ownerInstanceId: ranger.id, spent: 0 },
+      ],
+    };
+    const reloaded = JSON.parse(JSON.stringify(legacyDuplicate)) as Character;
+    const reconciled = syncSpellcasting(reloaded, pack, []);
+    const finalPools = reconciled.resources.filter((entry) => entry.definitionRef.entityId === featureRef.entityId);
+    expect(finalPools).toHaveLength(1);
+    expect(finalPools[0]?.spent).toBe(1);
+    expect(finalPools[0]?.ownerInstanceId).toBe(featureSource?.id);
+    const finalSource = reconciled.castingSources.find((source) => String(source.grantingRef.entityId) === "fey-wanderer-fey-reinforcements");
+    expect(finalSource?.featureSpellResources?.find((entry) => String(entry.spellRef.entityId) === "invocar-feerico")?.resourceId).toBe(finalPools[0]?.id);
+    const repeatedlyReconciled = syncSpellcasting(reconciled, pack, []);
+    expect(repeatedlyReconciled.resources.filter((entry) => entry.definitionRef.entityId === featureRef.entityId)).toHaveLength(1);
+    expect(repeatedlyReconciled.resources.find((entry) => entry.definitionRef.entityId === featureRef.entityId)?.spent).toBe(1);
+  });
+
   it("aceita conjuração da magia concedida pela subclasse, mas não de outra subclasse ou nível", () => {
     let ranger = createTashaRanger();
     const level2Picks = spellsOf("ranger", 1).slice(0, 2);
@@ -205,7 +266,7 @@ describe("magias concedidas por subclasse, raça de escolha e características",
       payload: {
         spellRef: ref("passo-nebuloso"), castingSourceId: source.id, mode: "normal" as const,
         resourcePoolId: pool.poolId, slotLevel: pool.slotLevel,
-        targetContext: { targetIds: [ranger.id] }, componentContext: { materialProvided: false, focusUsed: false }, choices: [],
+        targetContext: { targetIds: [ranger.id] }, componentContext: { materialProvided: false, focusUsed: false }, choices: [], diceResultIds: [],
       },
     };
     const context = {

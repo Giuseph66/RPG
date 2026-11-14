@@ -247,13 +247,13 @@ describe("IndexedDbRemoteHydrationRepository", () => {
       request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
       request.onerror = () => reject(request.error);
     });
-    const sheet = (id: string, ownerUid: string) => ({ id, ownerUid, campaignId: "c1", schemaVersion: 1, revision: 3, createdAt: clock.now(), updatedAt: clock.now() });
+    const sheet = (id: string, ownerUid: string, campaignId: string | undefined = "c1", revision = 3) => ({ id, ownerUid, ...(campaignId === undefined ? {} : { campaignId }), schemaVersion: 1, revision, createdAt: clock.now(), updatedAt: clock.now() });
     await put(sheet("own", "player"));
     await put(sheet("other", "someone"));
     await put(sheet("kept", "someone"));
     // A cópia privada antiga não segura o vínculo; só a coleção da campanha conta.
     const records = [...pull().records,
-      { aggregateType: "character" as const, aggregateId: "own", scope: { ownerUid: "player" as never }, revision: asRevision(1), payload: { ...sheet("own", "player"), campaignId: undefined, revision: 1 } },
+      { aggregateType: "character" as const, aggregateId: "own", scope: { ownerUid: "player" as never }, revision: asRevision(1), payload: sheet("own", "player", undefined, 1) },
       { aggregateType: "character" as const, aggregateId: "kept", scope: { campaignId: "c1" as never }, revision: asRevision(3), payload: sheet("kept", "someone") }];
 
     const partial = await repository.hydrate({ ownerUid: "player", pull: { records, visibleCampaigns: [{ campaignId: "c1", role: "player", types: ["map"] }] }, pending: [], clock });

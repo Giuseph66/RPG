@@ -58,6 +58,13 @@ describe("AppShell", () => {
     await mounted.unmount();
   });
 
+  it("keeps Criaturas inside Jornada instead of the primary sidebar", async () => {
+    const mounted = await mount(<AppShell route={matchRoute("/journey/creatures")} navigate={vi.fn()} isCampaignMaster />);
+    const navigation = mounted.container.querySelector('[aria-label="Destinos principais"]')!;
+    expect([...navigation.querySelectorAll("button")].some((button) => button.textContent?.includes("Criaturas"))).toBe(false);
+    await mounted.unmount();
+  });
+
   it("announces boot and error states without inventing character statistics", async () => {
     const mounted = await mount(<AppShell route={matchRoute("/character")} navigate={vi.fn()} bootState="booting" />);
     expect(mounted.container.textContent).toContain("Abrindo dados locais");

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { AppModal, Button, InlineStatus } from "@components/ui";
-import { ChatCircleDots, Eye, EyeSlash, LockSimple, PencilSimple, Plus, Trash, UsersThree } from "@phosphor-icons/react";
+import { BookOpen, ChatCircleDots, Eye, EyeSlash, IdentificationCard, LockSimple, PencilSimple, Plus, Sword, Trash, UsersThree } from "@phosphor-icons/react";
 import {
   CREATURE_FIELD_LABELS,
   CREATURE_FIELDS,
@@ -17,9 +18,12 @@ import {
   type CreatureRecord,
 } from "@domain/campaign/creatures";
 import type { AccountId, Uuid } from "@domain/contracts/ids";
+import type { CreatureStatBlock } from "@domain/creatures";
 import { StatBlock } from "@components/creatures/StatBlock";
 import { StatBlockEditor } from "@components/creatures/StatBlockEditor";
 import { CreatureProposalBoard } from "./CreatureProposalBoard";
+import { BookCreaturePicker } from "./BookCreaturePicker";
+import { applyBookBase, friendlyName } from "./book-base";
 
 import { CreatureKindIcon, CreatureToolbar, countByKind, kindLabel, matchesQuery } from "./shared";
 import type { CreatureBoardProps, CreatureFilter, JourneyPlayer } from "./types";
@@ -61,24 +65,85 @@ function coverage(creature: CreatureRecord, accounts: readonly AccountId[], fiel
   }).length;
 }
 
-function CreatureForm({ draft, onChange, onStatBlockValidityChange, onSuggestStatBlock }: { readonly draft: CreatureContent; readonly onChange: (patch: Partial<CreatureContent>) => void; readonly onStatBlockValidityChange: (valid: boolean) => void; readonly onSuggestStatBlock?: CreatureBoardProps["onSuggestStatBlock"] }) {
-  const text = (field: keyof CreatureContent, label: string, options: { readonly multiline?: boolean; readonly max: number; readonly placeholder?: string; readonly wide?: boolean }) => <label className={[styles.field, options.wide ? styles.wide : ""].join(" ")}>
-    <span>{label}</span>
-    {options.multiline
-      ? <textarea rows={3} maxLength={options.max} placeholder={options.placeholder} value={String(draft[field] ?? "")} onChange={(event) => onChange({ [field]: event.currentTarget.value })} />
-      : <input maxLength={options.max} placeholder={options.placeholder} value={String(draft[field] ?? "")} onChange={(event) => onChange({ [field]: event.currentTarget.value })} />}
-  </label>;
-  return <div className={styles.formGrid}>
-    <label className={[styles.field, styles.wide].join(" ")}><span>Nome</span><input autoFocus required maxLength={80} value={draft.name} onChange={(event) => onChange({ name: event.currentTarget.value })} placeholder="Como o mestre chama esta criatura" /></label>
-    <fieldset className={[styles.field, styles.wide, styles.kindPicker].join(" ")}><legend>Categoria</legend><div>{CREATURE_KINDS.map((kind) => <button key={kind} type="button" aria-pressed={draft.kind === kind} onClick={() => onChange({ kind })}><CreatureKindIcon kind={kind} size={17} />{kindLabel(kind)}</button>)}</div></fieldset>
-    {text("appearance", "Aparência", { multiline: true, max: 600, placeholder: "O que os olhos percebem primeiro", wide: true })}
-    {text("race", "Raça ou espécie", { max: 80, placeholder: "Ex.: lobo atroz" })}
-    {text("hitPoints", "Pontos de vida", { max: 40, placeholder: "Ex.: 37 (5d10+10)" })}
-    {text("armorClass", "Classe de armadura", { max: 40, placeholder: "Ex.: 14" })}
-    {text("abilities", "Habilidades e magias", { multiline: true, max: 1200, placeholder: "Ataques, magias, resistências…", wide: true })}
-    <div className={[styles.field, styles.wide].join(" ")}><StatBlockEditor value={draft.statBlock} name={draft.name} onChange={(statBlock) => onChange({ statBlock })} onValidityChange={onStatBlockValidityChange} onSuggest={onSuggestStatBlock} /></div>
-    {text("description", "O que se sabe", { multiline: true, max: 1200, placeholder: "História, motivação, rumores", wide: true })}
-    {text("notes", "Notas do mestre (nunca reveladas)", { multiline: true, max: 2000, placeholder: "Segredos, planos, ganchos", wide: true })}
+const KIND_HINTS: Readonly<Record<CreatureKind, string>> = {
+  npc: "Pessoa com quem o grupo conversa: aliados, mercadores, rivais.",
+  enemy: "Quem ou o que se opõe ao grupo, em combate ou em intriga.",
+  animal: "Fauna e bestas. Dá para usar uma criatura dos livros como base.",
+  unknown: "Deixe assim se ainda não sabe o que é; dá para mudar depois.",
+};
+
+function FormSection({ icon, title, hint, action, children }: { readonly icon: ReactNode; readonly title: string; readonly hint?: string; readonly action?: ReactNode; readonly children: ReactNode }) {
+  const headingId = useId();
+  return <section className={styles.formSection} aria-labelledby={headingId}>
+    <header className={styles.formSectionHead}>
+      <span className={styles.formSectionIcon} aria-hidden="true">{icon}</span>
+      <div><h3 id={headingId}>{title}</h3>{hint ? <p>{hint}</p> : null}</div>
+      {action ? <div className={styles.formSectionAction}>{action}</div> : null}
+    </header>
+    <div className={styles.formGrid}>{children}</div>
+  </section>;
+}
+
+interface BookBaseState { readonly name: string; readonly blockId: string }
+
+function CreatureForm({ draft, onChange, onStatBlockValidityChange, onSuggestStatBlock, bookBase, onOpenBookPicker }: {
+  readonly draft: CreatureContent;
+  readonly onChange: (patch: Partial<CreatureContent>) => void;
+  readonly onStatBlockValidityChange: (valid: boolean) => void;
+  readonly onSuggestStatBlock?: CreatureBoardProps["onSuggestStatBlock"];
+  readonly bookBase?: BookBaseState;
+  /** Presente só quando há catálogo de criaturas dos livros para escolher. */
+  readonly onOpenBookPicker?: () => void;
+}) {
+  const baseId = useId();
+  const wideClass = (wide?: boolean) => [styles.fieldCell, wide ? styles.wide : ""].filter(Boolean).join(" ");
+  const text = (field: keyof CreatureContent, label: string, options: { readonly multiline?: boolean; readonly max: number; readonly placeholder?: string; readonly wide?: boolean; readonly hint?: string }) => {
+    const hintId = options.hint ? `${baseId}-${String(field)}` : undefined;
+    return <div className={wideClass(options.wide)}>
+      <label className={styles.field}>
+        <span>{label}</span>
+        {options.multiline
+          ? <textarea rows={3} maxLength={options.max} placeholder={options.placeholder} aria-describedby={hintId} value={String(draft[field] ?? "")} onChange={(event) => onChange({ [field]: event.currentTarget.value })} />
+          : <input maxLength={options.max} placeholder={options.placeholder} aria-describedby={hintId} value={String(draft[field] ?? "")} onChange={(event) => onChange({ [field]: event.currentTarget.value })} />}
+      </label>
+      {options.hint ? <small id={hintId} className={styles.fieldHint}>{options.hint}</small> : null}
+    </div>;
+  };
+  // A base só vale enquanto o bloco copiado ainda é o do rascunho; trocar o bloco ou removê-lo apaga o rótulo.
+  const activeBase = bookBase && draft.statBlock && String(draft.statBlock.id) === bookBase.blockId ? bookBase : undefined;
+  return <div className={styles.formStack}>
+    <FormSection icon={<IdentificationCard size={20} weight="duotone" />} title="Quem é" hint="O que identifica a criatura no elenco." action={onOpenBookPicker ? <>
+      <Button type="button" variant="secondary" size="sm" aria-describedby={`${baseId}-book`} onClick={onOpenBookPicker}><BookOpen size={15} aria-hidden="true" /> Criatura do livro</Button>
+      <small id={`${baseId}-book`}>{activeBase ? `Copiado de ${activeBase.name}.` : "Copia CA, PV e ações de uma criatura dos livros."}</small>
+    </> : undefined}>
+      <div className={wideClass(true)}>
+        <label className={styles.field}><span>Nome</span><input autoFocus required maxLength={80} aria-describedby={`${baseId}-name`} value={draft.name} onChange={(event) => onChange({ name: event.currentTarget.value })} placeholder="Como o mestre chama esta criatura" /></label>
+        <small id={`${baseId}-name`} className={styles.fieldHint}>É o nome que aparece na carta do elenco. Os jogadores só o veem quando você revelar.</small>
+      </div>
+      <fieldset className={[styles.field, styles.wide, styles.kindPicker].join(" ")} aria-describedby={`${baseId}-kind`}>
+        <legend>Categoria</legend>
+        <div>{CREATURE_KINDS.map((kind) => <button key={kind} type="button" aria-pressed={draft.kind === kind} onClick={() => onChange({ kind })}><CreatureKindIcon kind={kind} size={17} />{kindLabel(kind)}</button>)}</div>
+        <small id={`${baseId}-kind`} className={styles.fieldHint}>{KIND_HINTS[draft.kind]}</small>
+      </fieldset>
+    </FormSection>
+
+    <FormSection icon={<Eye size={20} weight="duotone" />} title="Aparência e história" hint="Cada texto pode ser revelado aos jogadores separadamente, depois de salvar.">
+      {text("appearance", "Aparência", { multiline: true, max: 600, placeholder: "O que os olhos percebem primeiro", wide: true, hint: "O que qualquer pessoa vê ao encontrar a criatura." })}
+      {text("description", "O que se sabe", { multiline: true, max: 1200, placeholder: "História, motivação, rumores", wide: true, hint: "Conhecimento comum: o que se ouve falar, o que ela quer." })}
+    </FormSection>
+
+    <FormSection icon={<Sword size={20} weight="duotone" />} title="Resumo para a mesa" hint="Anotações rápidas em texto livre. Os números exatos ficam no bloco estatístico abaixo.">
+      {text("race", "Raça ou espécie", { max: 80, placeholder: "Ex.: lobo atroz", hint: "Povo ou espécie da criatura." })}
+      {text("hitPoints", "Pontos de vida", { max: 40, placeholder: "Ex.: 37 (5d10+10)", hint: "Valor médio e, se quiser, os dados." })}
+      {text("armorClass", "Classe de armadura", { max: 40, placeholder: "Ex.: 14", hint: "O que um ataque precisa tirar para acertar." })}
+      {text("abilities", "Habilidades e magias", { multiline: true, max: 1200, placeholder: "Ataques, magias, resistências…", wide: true, hint: "Lembrete do que a criatura faz de especial." })}
+    </FormSection>
+
+    <StatBlockEditor value={draft.statBlock} name={draft.name} onChange={(statBlock) => onChange({ statBlock })} onValidityChange={onStatBlockValidityChange} onSuggest={onSuggestStatBlock} />
+
+    <FormSection icon={<LockSimple size={20} weight="duotone" />} title="Só para o mestre" hint="Nunca é revelado aos jogadores, nem pelo olho de revelação.">
+      {text("notes", "Notas do mestre", { multiline: true, max: 2000, placeholder: "Segredos, planos, ganchos", wide: true, hint: "Segredos, planos e ganchos de aventura." })}
+    </FormSection>
   </div>;
 }
 
@@ -242,6 +307,9 @@ export function CreatureBoard(props: CreatureBoardProps) {
   const [sheet, setSheet] = useState<SheetChoice>(NO_SHEET);
   const [confirmSheetDelete, setConfirmSheetDelete] = useState(false);
   const [statBlockValid, setStatBlockValid] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [bookBase, setBookBase] = useState<BookBaseState>();
+  const bookCreatures = props.bookCreatures ?? [];
   const sideBySide = useMediaQuery("(min-width: 1400px)");
 
   // A gravação local responde antes do recarregamento da lista; a versão mais nova vence.
@@ -255,8 +323,16 @@ export function CreatureBoard(props: CreatureBoardProps) {
   const guessesFor = (id: string) => guesses.filter((guess) => guess.creatureId === id);
 
   const remember = (creature: CreatureRecord) => setSaved((current) => ({ ...current, [creature.id]: creature }));
-  const close = () => { if (busy) return; setOpenId(undefined); setMode("view"); setMessage(undefined); setConfirmDelete(false); setConfirmSheetDelete(false); };
-  const beginCreate = () => { setDraft(EMPTY_CONTENT); setSheet(NO_SHEET); setStatBlockValid(true); setMode("create"); setOpenId(undefined); setMessage(undefined); };
+  const close = () => { if (busy) return; setOpenId(undefined); setMode("view"); setMessage(undefined); setConfirmDelete(false); setConfirmSheetDelete(false); setPickerOpen(false); setBookBase(undefined); };
+  const beginCreate = () => { setDraft(EMPTY_CONTENT); setSheet(NO_SHEET); setStatBlockValid(true); setBookBase(undefined); setPickerOpen(false); setMode("create"); setOpenId(undefined); setMessage(undefined); };
+  /** Copia o bloco do livro para o rascunho, sem sobrescrever o que o mestre já escreveu. */
+  const applyBook = (template: CreatureStatBlock) => {
+    const patch = applyBookBase(draft, template);
+    setDraft((current) => ({ ...current, ...patch }));
+    if (patch.statBlock) setBookBase({ name: friendlyName(template.name), blockId: String(patch.statBlock.id) });
+    setStatBlockValid(true);
+    setPickerOpen(false);
+  };
   const persist = async (next: CreatureRecord) => {
     if (!onSave) return;
     setBusy(true); setMessage(undefined);
@@ -342,10 +418,10 @@ export function CreatureBoard(props: CreatureBoardProps) {
         </button></li>;
       })}</ul>}
 
-    <AppModal open={formOpen || open !== undefined} title={dialogTitle} onClose={close} className={styles.dialog} aside={mode === "view" && open && sideBySide ? { title: "Palpites dos jogadores", children: <GuessList guesses={guessesFor(open.id)} players={players} showHeading={false} /> } : undefined} headerActions={mode === "view" && open ? <>{onSave ? <Button size="sm" variant="ghost" aria-label={`Editar ${open.name}`} onClick={() => { setDraft(contentOf(open)); setSheet({ ...NO_SHEET, mode: open.characterRef ? "existing" : "none" }); setStatBlockValid(true); setMode("edit"); }}><PencilSimple size={17} aria-hidden="true" /></Button> : null}{onDelete ? <Button size="sm" variant="ghost" aria-label={`Remover ${open.name}`} onClick={() => setConfirmDelete(true)}><Trash size={17} aria-hidden="true" /></Button> : null}</> : undefined}>
+    <AppModal open={formOpen || open !== undefined} title={dialogTitle} onClose={close} className={styles.dialog} aside={mode === "view" && open && sideBySide ? { title: "Palpites dos jogadores", children: <GuessList guesses={guessesFor(open.id)} players={players} showHeading={false} /> } : undefined} headerActions={mode === "view" && open ? <>{onSave ? <Button size="sm" variant="ghost" aria-label={`Editar ${open.name}`} onClick={() => { setDraft(contentOf(open)); setSheet({ ...NO_SHEET, mode: open.characterRef ? "existing" : "none" }); setStatBlockValid(true); setBookBase(undefined); setMode("edit"); }}><PencilSimple size={17} aria-hidden="true" /></Button> : null}{onDelete ? <Button size="sm" variant="ghost" aria-label={`Remover ${open.name}`} onClick={() => setConfirmDelete(true)}><Trash size={17} aria-hidden="true" /></Button> : null}</> : undefined}>
       {message ? <InlineStatus tone="error" assertive>{message}</InlineStatus> : null}
       {formOpen ? <form className={styles.form} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <CreatureForm key={mode === "create" ? "new-creature" : open?.id} draft={draft} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} onStatBlockValidityChange={setStatBlockValid} onSuggestStatBlock={props.onSuggestStatBlock} />
+        <CreatureForm key={mode === "create" ? "new-creature" : open?.id} draft={draft} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} onStatBlockValidityChange={setStatBlockValid} onSuggestStatBlock={props.onSuggestStatBlock} bookBase={bookBase} onOpenBookPicker={bookCreatures.length > 0 ? () => setPickerOpen(true) : undefined} />
         <SheetSection choice={sheet} onChoice={(next) => { setSheet(next); if (next.mode === "generate" && next.race && !draft.race.trim()) { const name = props.raceOptions?.find((option) => String(option.id) === next.race)?.name; if (name) setDraft((current) => ({ ...current, race: current.race.trim() ? current.race : name })); } }} draft={draft} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} tools={props} otherLinked={otherLinked} editing={mode === "edit" ? open : undefined} onDeleteSheet={() => { setMode("view"); setConfirmSheetDelete(true); }} />
         <p className={styles.hint}>Tudo começa oculto. Depois de salvar, use o olho de cada informação para revelá-la.</p>
         <div className={styles.formActions}><Button type="button" variant="ghost" disabled={busy} onClick={() => mode === "create" ? close() : setMode("view")}>Cancelar</Button><Button type="submit" disabled={busy || !statBlockValid || !draft.name.trim() || Boolean(sheetProblem(sheet, draft)) || (sheet.mode === "existing" && !draft.characterRef)}>{busy ? (sheet.mode === "generate" ? "Criando ficha…" : "Salvando…") : sheet.mode === "generate" ? (mode === "create" ? "Criar ficha e adicionar ao elenco" : "Criar ficha e salvar") : mode === "create" ? "Adicionar ao elenco" : "Salvar alterações"}</Button></div>
@@ -357,6 +433,7 @@ export function CreatureBoard(props: CreatureBoardProps) {
         {sideBySide ? null : <GuessList guesses={guessesFor(open.id)} players={players} hideWhenEmpty />}
       </div> : null}
     </AppModal>
+    {pickerOpen && formOpen ? <BookCreaturePicker creatures={bookCreatures} replacing={Boolean(draft.statBlock)} onClose={() => setPickerOpen(false)} onPick={applyBook} /> : null}
   </section>
   {props.onReviewProposal ? <CreatureProposalBoard mode="master" proposals={props.proposals ?? []} loading={props.proposalLoading} error={props.proposalError} onReview={props.onReviewProposal} /> : null}
   </>;

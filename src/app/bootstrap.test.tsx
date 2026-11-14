@@ -8,7 +8,7 @@ import { click, mount } from "@components/ui/testUtils";
 import type { ApplicationServices } from "@application/state";
 import { createCampaign } from "@domain/campaign/journal";
 import { diceRollAdvantageSample, fixtureRulesetRef, minimalCharacter } from "@domain/contracts/fixtures";
-import { asAccountId, asEntityId, asIsoTimestamp, asUuid } from "@domain/contracts/ids";
+import { asAccountId, asEntityId, asIsoTimestamp, asPackVersion, asRulesetId, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 import {
   IndexedDbAssetRepository,
@@ -25,6 +25,11 @@ import type { CreatureStatBlock } from "@domain/creatures";
 import type { Character } from "@domain/contracts/character";
 import type { JournalDraftState } from "@domain/campaign/journal";
 import type { AssetTransferPort } from "@application/ports/asset-transfer";
+import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
+import { equipmentBundles } from "@data/equipment/bundles";
+import { createCharacterDraft, materializeCharacter } from "@domain/character/creation";
+import { evolveCharacter } from "@domain/character/evolution/apply";
+import { TASHA_RANGER_SUPPLEMENT_ID } from "@data/rulepacks/optional-supplements";
 
 const fixedClock = { now: () => asIsoTimestamp("2026-09-12T12:00:00.000Z") };
 
@@ -65,7 +70,7 @@ async function readAllRaw(db: IDBDatabase, storeName: string): Promise<unknown[]
   });
 }
 
-async function putRaw(db: IDBDatabase, storeName: string, record: { readonly id: string; readonly [key: string]: unknown }): Promise<void> {
+async function putRaw<T extends { readonly id: string }>(db: IDBDatabase, storeName: string, record: T): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction([storeName], "readwrite");
     tx.objectStore(storeName).put(record);
@@ -197,6 +202,148 @@ describe("Bootstrap", () => {
     }
   });
 
+  it("compõe conteúdo opt-in ao derivar e confirmar ações reais", async () => {
+    const runtime = await createApplicationRuntime();
+    try {
+      const ref = (entityId: string) => ({ rulesetId: runtime.pack.manifest.id, entityId: asEntityId(entityId) });
+      const fairySupplementId = asEntityId("fairy-supplement");
+      expect(runtime.pack.races.has(asEntityId("fairy"))).toBe(false);
+      const draft = createCharacterDraft({
+        id: asUuid("00000000-0000-4000-8000-000000000451"),
+        rulesetRef: { id: runtime.pack.manifest.id, version: runtime.pack.manifest.version },
+        createdAt: fixedClock.now(),
+        partial: {
+          name: "Fada runtime de teste",
+          raceRef: ref("fairy"),
+          backgroundRef: ref("acolyte"),
+          classes: [{ classId: asEntityId("druid"), level: 1, choices: [] }],
+          selectedSupplementIds: [fairySupplementId],
+          optionalRuleSelections: [],
+          abilityGeneration: { method: "manual", baseScores: { str: 8, dex: 14, con: 12, int: 10, wis: 15, cha: 10 } },
+          choices: [
+            { choiceId: "fairy.spellcasting-ability", selectedIds: [ref("wis")], grantedAtLevel: 1, grantingRef: ref("fairy") },
+            { choiceId: "druid.cantrips.1", selectedIds: [ref("druidismo")], grantedAtLevel: 1, grantingRef: ref("druid") },
+            { choiceId: "druid.spells.1", selectedIds: [ref("cure-wounds")], grantedAtLevel: 1, grantingRef: ref("druid") },
+          ],
+        },
+      });
+      expect(draft.ok).toBe(true);
+      if (!draft.ok) return;
+      const built = materializeCharacter({ rulePack: runtime.pack, equipmentBundles }, draft.value);
+      expect(built.ok).toBe(true);
+      if (!built.ok) return;
+      const fairy = built.value.character;
+      const classSource = fairy.castingSources.find((source) => source.grantingRef.entityId === asEntityId("druid") && source.knownSpellRefs.some((spell) => spell.entityId === asEntityId("druidismo")));
+      const racialSource = fairy.castingSources.find((source) => source.sourceKind === "race" && source.grantingRef.entityId === asEntityId("fairy.magic-druidcraft"));
+      expect(classSource).toBeDefined();
+      expect(racialSource?.knownSpellRefs).toContainEqual(ref("druidismo"));
+      const saved = await runtime.services.character.saveCharacter(fairy, fairy.revision);
+      expect(saved.ok).toBe(true);
+      const selected = await runtime.services.character.select(fairy.id);
+      expect(selected.ok).toBe(true);
+      const persistedFairy = runtime.services.character.store.getSnapshot().value;
+      expect(persistedFairy).toBeDefined();
+      if (!persistedFairy) return;
+
+      const fairyCapabilities = runtime.computeActionCapabilities(persistedFairy);
+      const classCantrip = fairyCapabilities.find((capability) => capability.id === `spell:${classSource!.id}:druidismo`);
+      const racialCantrip = fairyCapabilities.find((capability) => capability.id === `spell:${racialSource!.id}:druidismo`);
+      expect(classCantrip).toMatchObject({ status: "blocked", blockedReason: expect.stringContaining("PEND-SPELL-STRUCTURE") });
+      expect(racialCantrip).toMatchObject({
+        status: "available",
+        costs: [{ label: "Custo", value: "Sem gasto" }],
+        description: expect.stringContaining("sem alvo de ficha"),
+        effectSummary: [expect.stringContaining("sem efeito automático")],
+      });
+      expect(racialCantrip?.spellTargeting).toBeUndefined();
+      const actionProps = runtime.registry.actions.bindProps({ character: persistedFairy, capabilities: fairyCapabilities });
+      const result = await actionProps.onIntent?.({
+        commandId: racialCantrip!.commandId,
+        characterId: persistedFairy.id,
+        capabilityId: racialCantrip!.id,
+        kind: "spell",
+        spellComponentContext: { materialProvided: false, focusUsed: false },
+      });
+      expect(result?.status, JSON.stringify(result)).toBe("success");
+      if (result?.status === "success") expect(result.effects).toEqual([]);
+      const afterCantrip = runtime.services.character.store.getSnapshot().value;
+      expect(afterCantrip?.spellSlots).toEqual(persistedFairy.spellSlots);
+      expect(afterCantrip?.resources).toEqual(persistedFairy.resources);
+
+      const tashaRef = (entityId: string) => ({ rulesetId: runtime.pack.manifest.id, entityId: asEntityId(entityId) });
+      const rangerId = asUuid("00000000-0000-4000-8000-000000000452");
+      const rangerDraft = createCharacterDraft({
+        id: rangerId,
+        rulesetRef: { id: runtime.pack.manifest.id, version: runtime.pack.manifest.version },
+        createdAt: fixedClock.now(),
+        partial: {
+          name: "Guardião Tasha runtime",
+          raceRef: tashaRef("human"),
+          classes: [{ classId: asEntityId("ranger"), level: 1, choices: [] }],
+          selectedSupplementIds: [TASHA_RANGER_SUPPLEMENT_ID],
+          optionalRuleSelections: [{
+            supplementId: TASHA_RANGER_SUPPLEMENT_ID,
+            optionId: asEntityId("ranger.optional-canny"),
+            selectedFeatureRefs: ["ranger.canny", "ranger.roving", "ranger.tireless"].map(tashaRef),
+          }],
+          abilityGeneration: { method: "manual", baseScores: { str: 12, dex: 16, con: 14, int: 10, wis: 14, cha: 10 } },
+          choices: [],
+        },
+      });
+      expect(rangerDraft.ok).toBe(true);
+      if (!rangerDraft.ok) return;
+      const rangerBuilt = materializeCharacter({ rulePack: runtime.pack, equipmentBundles }, rangerDraft.value);
+      expect(rangerBuilt.ok).toBe(true);
+      if (!rangerBuilt.ok) return;
+      const rangerSpells = [...runtime.pack.spells.values()]
+        .filter((spell) => spell.level === 1 && spell.classes.some((classId) => String(classId) === "ranger"))
+        .map((spell) => String(spell.id))
+        .filter((spellId) => !["enfeiticar-pessoa", "passo-nebuloso"].includes(spellId));
+      const rangerPick = (level: number, spellIds: string | readonly string[]) => ({
+        choiceId: `ranger.spells.${level}`, selectedIds: (typeof spellIds === "string" ? [spellIds] : spellIds).map(tashaRef), grantedAtLevel: level, grantingRef: tashaRef("ranger"),
+      });
+      const evolveRanger = (character: Character, level: number, choices: ReturnType<typeof rangerPick>[] = []) => evolveCharacter(character, {
+        classId: asEntityId("ranger"), targetClassLevel: level, mode: "milestone",
+        ...(level === 3 ? { subclassId: asEntityId("fey-wanderer") } : {}),
+        hitPointGain: { kind: "fixed-average", amount: 5 }, choices,
+      }, { rulePack: runtime.pack });
+      const evolveOk = (character: Character, level: number, choices: ReturnType<typeof rangerPick>[] = []) => {
+        const result = evolveRanger(character, level, choices);
+        expect(result.ok, result.ok ? undefined : JSON.stringify(result.error)).toBe(true);
+        return result.ok ? result.value : character;
+      };
+      let ranger = rangerBuilt.value.character;
+      ranger = evolveOk(ranger, 2, [rangerPick(2, rangerSpells.slice(0, 2))]);
+      ranger = evolveOk(ranger, 3, [rangerPick(3, rangerSpells[2]!), {
+        choiceId: "fey-wanderer.otherworldly-glamour.skill", selectedIds: [tashaRef("performance")], grantedAtLevel: 3,
+        grantingRef: tashaRef("fey-wanderer.otherworldly-glamour"),
+      }]);
+      ranger = evolveOk(ranger, 4);
+      ranger = evolveOk(ranger, 5, [rangerPick(5, rangerSpells[3]!)]);
+      ranger = evolveOk(ranger, 6);
+      ranger = evolveOk(ranger, 7, [rangerPick(7, rangerSpells[4]!)]);
+      ranger = evolveOk(ranger, 8);
+      ranger = evolveOk(ranger, 9, [rangerPick(9, rangerSpells[5]!)]);
+      ranger = evolveOk(ranger, 10);
+      ranger = evolveOk(ranger, 11, [rangerPick(11, rangerSpells[6]!)]);
+      const rangerCapabilities = runtime.computeActionCapabilities(ranger);
+      const tirelessPool = ranger.resources.filter((resource) => resource.definitionRef.entityId === tashaRef("ranger.tireless-use").entityId);
+      expect(tirelessPool).toHaveLength(1);
+      const tireless = rangerCapabilities.find((capability) => capability.id === `resource:${tirelessPool[0]!.id}`);
+      expect(tireless).toMatchObject({ kind: "resource", label: "Incansável", status: "available" });
+      const reinforcementsSource = ranger.castingSources.find((source) => source.grantingRef.entityId === asEntityId("fey-wanderer-fey-reinforcements"));
+      expect(reinforcementsSource?.knownSpellRefs).toContainEqual(tashaRef("invocar-feerico"));
+      const reinforcements = rangerCapabilities.find((capability) => capability.id === `spell:${reinforcementsSource!.id}:invocar-feerico:feature`);
+      expect(reinforcements).toMatchObject({ status: "available", spellRequiresMaterial: false });
+    } finally {
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
   it("passes one stable dice controller through repeated renders", async () => {
     const runtime = await createApplicationRuntime();
     try {
@@ -217,7 +364,9 @@ describe("Bootstrap", () => {
   });
 
   it("adopts the registry for all four destinations with truthful local states", async () => {
-    const runtime = await createApplicationRuntime();
+    // An earlier integration test saves characters into the default database;
+    // this case specifically verifies the empty local state.
+    const runtime = await createApplicationRuntime({ database: { name: "bootstrap-four-destinations-empty-state" } });
     try {
       await runtime.registry.compendium.loadCatalog();
       expect(runtime.registry.compendium.service.getIndex().length).toBeGreaterThan(0);
@@ -296,7 +445,7 @@ describe("Bootstrap", () => {
       expect(container.textContent ?? "").not.toContain("Abrindo dados locais");
     } finally {
       await act(async () => root.unmount());
-      expect(removeEventListener).toHaveBeenCalledWith("updatefound", expect.any(Function));
+      await vi.waitFor(() => expect(removeEventListener).toHaveBeenCalledWith("updatefound", expect.any(Function)));
       container.remove();
       runtime.services.character.dispose();
       runtime.services.settings.dispose();

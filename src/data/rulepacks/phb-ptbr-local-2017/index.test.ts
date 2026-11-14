@@ -22,7 +22,7 @@ describe("loadPhbPtBrLocal2017", () => {
       expect(result.value.conditions.size).toBe(15);
       expect(result.value.progression.table).toHaveLength(20);
       expect(result.value.creatures?.size).toBe(95);
-      expect(result.value.creatures?.get(asEntityId("wolf"))?.name).toBe("LOBO");
+      expect(result.value.creatures?.get(asEntityId("appendix-a-lobo"))?.name).toBe("LOBO");
       expect(isOk(resolveRace(result.value, ref("dwarf")))).toBe(true);
       expect(isOk(resolveClass(result.value, ref("barbarian")))).toBe(true);
       expect(isOk(resolveEquipment(result.value, ref("dagger")))).toBe(true);

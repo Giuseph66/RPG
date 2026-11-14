@@ -43,6 +43,17 @@ describe("CharacterSheet", () => {
     await unmount();
   });
 
+  it("mostra Gerenciar criaturas somente quando a rota contextual foi autorizada", async () => {
+    const onManageCreatures = vi.fn();
+    const mounted = await mount(<CharacterSheet character={minimalCharacter} onManageCreatures={onManageCreatures} />);
+    const manage = [...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "Gerenciar");
+    expect(manage).toBeTruthy();
+    expect(mounted.container.textContent).toContain("Criaturas");
+    await click(manage as HTMLElement);
+    expect(onManageCreatures).toHaveBeenCalledOnce();
+    await mounted.unmount();
+  });
+
   it("mapeia PV temporários separadamente, marca 0 PV e expõe origem de bônus", async () => {
     const character = withCharacter({ hp: { current: 0, temp: 4 }, conditions: [{ id: asUuid("55555555-5555-4555-8555-555555555555"), definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("poisoned") }, origin: { kind: "environment", description: "Névoa do pântano" } }] });
     const { container, unmount } = await mount(<CharacterSheet character={character} derived={derived} />);
@@ -179,5 +190,22 @@ describe("CharacterSheet", () => {
     expect(spells.textContent).toContain("Curar Ferimentos");
     expect(spells.textContent).toContain("1º · Evocação");
     await mounted.unmount();
+  });
+
+  it("mantém chaves distintas para a mesma magia concedida por origens diferentes", async () => {
+    const rulesetId = minimalCharacter.rulesetRef.id;
+    const ref = (id: string) => ({ rulesetId, entityId: asEntityId(id) });
+    const spellRef = ref("druidismo");
+    const castingSources = [
+      { id: asUuid("88888888-8888-4888-8888-888888888888"), grantingRef: ref("druid"), ability: "wis" as const, knownSpellRefs: [spellRef], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [] },
+      { id: asUuid("77777777-7777-4777-8777-777777777777"), grantingRef: ref("fairy"), ability: "wis" as const, knownSpellRefs: [spellRef], preparedSpellRefs: [], spellbookRefs: [], resourcePoolIds: [] },
+    ];
+    const spellOptions = [{ ref: spellRef, name: "Druidismo", level: 0, school: "transmutation", ritual: false, concentration: false }];
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const mounted = await mount(<CharacterSheet character={withCharacter({ castingSources })} derived={derived} spellOptions={spellOptions} />);
+    expect(mounted.container.querySelectorAll('section[aria-label="Truques"] ul > li')).toHaveLength(2);
+    expect(error.mock.calls.some(([message]) => String(message).includes("same key"))).toBe(false);
+    await mounted.unmount();
+    error.mockRestore();
   });
 });

@@ -108,6 +108,10 @@ export interface ActionCapability {
   readonly inputDefault?: number;
   /** Decisões especiais validadas pelo resolver para a fonte e magia desta capacidade. */
   readonly featureCastingOptions?: readonly FeatureCastingOption[];
+  /** A conjuração normal exige encerrar a concentração ativa antes da confirmação. */
+  readonly spellRequiresEndingConcentration?: true;
+  /** Concessão racial narrativa validada pelo produtor; efeito/alvo ficam para a mesa. */
+  readonly assistedRacialGrant?: true;
   /** Regras de alvo copiadas da definição; a apresentação recolhe IDs explícitos. */
   readonly spellTargeting?: SpellTargeting;
   /** Indica que M precisa ser fornecido/foco pelo usuário antes da confirmação. */
@@ -116,6 +120,8 @@ export interface ActionCapability {
   readonly spellAllowsFocus?: boolean;
   /** `true` quando o componente material exige seleção de item do inventário. */
   readonly spellMaterialRequiresTrackedItem?: boolean;
+  /** IDs de rolagens que o dispatcher executa somente após a confirmação do jogador. */
+  readonly rollsOnConfirm?: readonly Uuid[];
 }
 
 export interface ActionIntent {

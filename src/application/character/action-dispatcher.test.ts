@@ -255,6 +255,7 @@ describe("createActionDispatcher", () => {
       const scenario = tirelessScenario();
       const { service, saves, persisted } = await persistentService(scenario.character);
       const execution = tirelessExecutionFor(scenario);
+      if (execution.command.kind !== "use-tireless") throw new Error("Comando inesperado.");
       const commitSpy = vi.spyOn(service.commands!, "commit");
       const dispatch = createActionDispatcher({
         characterService: service,
@@ -539,11 +540,16 @@ describe("createActionDispatcher", () => {
       expect(capability).toMatchObject({
         status: "available",
         costs: [{ label: "Custo", value: "Sem gasto" }],
-        description: expect.stringContaining("assistidos pela mesa"),
+        description: expect.stringContaining("escolha/resolva o efeito"),
       });
+      expect(capability?.spellTargeting).toBeUndefined();
       const execution = executions.get(capabilityId);
       expect(execution).toBeDefined();
       if (!execution) return;
+      expect(execution.command).toMatchObject({
+        kind: "cast-spell",
+        payload: { targetContext: { targetIds: [], manualResolution: true } },
+      });
       const active = await persistentService(character);
       const dispatch = createActionDispatcher({
         characterService: active.service,
@@ -557,7 +563,6 @@ describe("createActionDispatcher", () => {
         characterId: character.id,
         capabilityId,
         kind: "spell",
-        spellTargetContext: { targetIds: [character.id] },
         spellComponentContext: { materialProvided: false, focusUsed: false },
       }) as RuleResult;
       expect(result.status, JSON.stringify(result)).toBe("success");
@@ -753,7 +758,7 @@ describe("createActionDispatcher", () => {
       const { capabilities, executions } = deriveActionCapabilities(scenario.character, scenario.derived, scenario.pack, fakeIdGenerator());
       const featureId = `spell:${scenario.sourceId}:invocar-feerico:feature`;
       const slotId = `spell:${scenario.sourceId}:invocar-feerico:slot`;
-      const option = { kind: "drop-concentration" as const, durationMinutes: 1 };
+      const option = { kind: "drop-concentration" as const, durationMinutes: 1 as const };
       expect(capabilities.find(({ id }) => id === featureId)).toMatchObject({ status: "available", spellRequiresMaterial: false, spellMaterialRequiresTrackedItem: false, featureCastingOptions: [expect.objectContaining(option)] });
       expect(capabilities.find(({ id }) => id === slotId)).toMatchObject({ status: "available", spellRequiresMaterial: false, spellMaterialRequiresTrackedItem: false, featureCastingOptions: [expect.objectContaining(option)] });
 
@@ -857,7 +862,7 @@ describe("createActionDispatcher", () => {
   it("repassa e persiste somente a opção de conjuração anunciada para a capacidade", async () => {
     const character: Character = { ...minimalCharacter };
     const { service, saves } = await activeService(character);
-    const featureCastingOption = { kind: "drop-concentration" as const, durationMinutes: 1 };
+    const featureCastingOption = { kind: "drop-concentration" as const, durationMinutes: 1 as const };
     const command: Command = {
       commandId: asCommandId("cmd-feature-cast"), characterId: character.id, expectedRevision: character.revision,
       kind: "cast-spell", payload: {

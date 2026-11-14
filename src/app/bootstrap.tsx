@@ -28,12 +28,13 @@ import { requestToPromise, runTransaction } from "@infrastructure/persistence/in
 import { LocalStorageSettingsRepository } from "@infrastructure/preferences";
 import { createPlatformRandomSource } from "@domain/dice";
 import { createDiceOverlayController, type DiceOverlayController } from "@features/dice/controller";
-import { createCompendiumService } from "@application/compendium";
+import { catalogItemsFromCreatureStatBlocks, createCompendiumService } from "@application/compendium";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { createLazyCompendiumLoader } from "./lazy-compendium";
 import { registerPwa, type PwaPlatform, type RegisteredPwa } from "@infrastructure/pwa";
 import { deriveCharacter } from "@domain/rules";
 import { deriveActionCapabilities, type DeriveActionCapabilitiesResult } from "@application/character/action-capabilities";
+import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
 import { publishLocalCharacters } from "@application/character";
 import { createActionDispatcher } from "@application/character/action-dispatcher";
 import { createInventoryDispatcher } from "@application/character/inventory-dispatcher";
@@ -610,7 +611,11 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     });
     const creatureRuntime = createCreatureApplicationRuntime({ service: creatureService, wildShape, baseRulePack: activePack });
     const compendiumService = createCompendiumService({ packs: [activePack], excludePackEntityTypes: ["spell", "condition", "race", "subrace", "class", "subclass", "feature", "resource", "progression", "background", "feat"] });
-    const loadCompendiumCatalog = createLazyCompendiumLoader(compendiumService);
+    const loadCompendiumCatalog = createLazyCompendiumLoader(compendiumService, () => {
+      // Criaturas publicadas viram a categoria “Criaturas” de Regras; blocos da campanha ficam fora.
+      const published = wildShape.listCatalog({});
+      return published.ok ? catalogItemsFromCreatureStatBlocks(published.value, { id: activePack.manifest.id, version: activePack.manifest.version }) : [];
+    });
 
     // `executionsHolder` liga a lista reativa de capacidades (recalculada a cada snapshot de
     // personagem por `computeActionCapabilities`, chamado de `ReadyApplication`) ao dispatcher
@@ -655,12 +660,18 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
         executionsHolder.current = new Map();
         return [];
       }
-      const derived = deriveCharacter(character, activePack, STATIC_RULE_CONTEXT);
+      const composed = composeCharacterRuleContent(activePack, character);
+      if (!composed.ok) {
+        executionsHolder.current = new Map();
+        return [];
+      }
+      const characterPack = composed.value;
+      const derived = deriveCharacter(character, characterPack, STATIC_RULE_CONTEXT);
       if (!derived.ok) {
         executionsHolder.current = new Map();
         return [];
       }
-      const { capabilities, executions } = deriveActionCapabilities(character, derived.value, activePack, idGenerator);
+      const { capabilities, executions } = deriveActionCapabilities(character, derived.value, characterPack, idGenerator);
       executionsHolder.current = executions;
       return capabilities;
     }

@@ -56,8 +56,8 @@ const otherTools: readonly (readonly [string, string, number, number])[] = [
 const gaming: readonly (readonly [string, string, number, number])[] = [
   ["dice-set", "Jogo de dados", 1 / 10, 0],
   ["playing-card-set", "Baralho", 5 / 10, 0],
-  ["three-dragon-ante-set", "Três Dragões", 1 / 10, 0],
-  ["dragonchess-set", "Xadrez do dragão", 0, 250],
+  ["three-dragon-ante-set", "Três Dragões", 5, 0],
+  ["dragonchess-set", "Xadrez do dragão", 1, 250],
 ];
 
 const instruments: readonly (readonly [string, string, number, number])[] = [

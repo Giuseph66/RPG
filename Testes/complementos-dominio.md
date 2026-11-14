@@ -1,6 +1,6 @@
 # Handoff — domínio e persistência de criaturas (SUP-02)
 
-Atualizado em 2026-11-12. Registra provas focais desta retomada e limites ainda em aberto; aceite global depende dos gates do orquestrador.
+Atualizado em 2026-11-14. Registra provas focais desta retomada e limites ainda em aberto; aceite global depende dos gates do orquestrador.
 
 ## Contratos e superfície publicados
 
@@ -15,13 +15,13 @@ Atualizado em 2026-11-12. Registra provas focais desta retomada e limites ainda 
 
 - `node scripts/run-tests.mjs src/domain/rules/derived/derive-character.test.ts src/domain/rules/combat/combat.test.ts src/domain/character/creation/creation.test.ts` — 3 arquivos, 27 testes passaram em uma execução anterior desta retomada.
 - `node scripts/run-tests.mjs src/application/character/service.test.ts src/domain/rules/rest/rest.test.ts src/application/character/command-dispatcher.test.ts` — 3 arquivos, 10 testes passaram após cobrir inconsciência por atualização direta e expiração durante descanso curto.
-- O smoke anterior de `bootstrap.test.tsx` parou por um ID inválido de recurso Tasha. O identificador foi corrigido; o teste focal do bootstrap passou posteriormente (16/16).
+- O smoke inicial de `bootstrap.test.tsx` usava um Ranger sintético com recurso inválido. O teste foi substituído por criação/materialização/evolução oficial até Ranger 11; o focal atualizado está registrado no fechamento SUP-02 abaixo.
 
 ## Limites e gates restantes
 
 - Efeitos de magia que dependem de posição, área, salvaguarda ou adjudicação da mesa continuam assistidos. A ponte coleta alvo e componente declarados e grava contexto/custo; summons não criam criaturas, posições nem relógios de duração.
 - M com custo, consumo ou tipo obrigatório de item fica bloqueado até existir seleção/consumo de item no inventário. `spellMaterialRequiresTrackedItem` permite à UI distinguir esses componentes; foco não os substitui. Reforço Feérico declara dispensa de M na própria origem.
-- A interface já passou o focal de preview da variante de Reforço Feérico sem concentração; o runtime em browser com concentração ativa ainda não foi provado. O domínio preserva a concentração anterior e oferece a opção de 1 minuto.
+- O review bloqueia a conjuração normal quando existe concentração ativa e oferece `concentration:end` com preview real. A variante de Reforço Feérico por 1 minuto só ignora esse bloqueio quando selecionada e revalidada pelo domínio; ela preserva a concentração anterior. O runtime em browser após este ajuste ainda aguarda reteste.
 - Typecheck global, build e suíte integral não foram executados por esta lane; o log diagnóstico antigo é obsoleto. O gate global continua pendente com o orquestrador.
 
 ## Autoria e escopo
@@ -42,6 +42,19 @@ Arquivos de UI, `firestore.rules`, sincronização e infraestrutura de IndexedDB
 - O foco druídico só é aceito para magia de origem Ranger com `ranger.druidic-focus` realmente concedido. Guerreiro Druídico continua `sourceKind: feature`, atributo SAB e lista de truques Druida; sua lista não herda o foco do Druida base. M rastreável bloqueia e desativa foco.
 - Evidências mais recentes: `npx vitest run src/application/character/action-dispatcher.test.ts src/application/character/action-capabilities.test.ts src/domain/spells/spells.test.ts src/domain/rules/derived/derive-character.test.ts` — 4 arquivos, 60 testes passaram; `npx vitest run src/application/character/service.test.ts src/domain/rules/wild-shape/index.test.ts` — 2 arquivos, 12 testes passaram; `npx vitest run src/app/bootstrap.test.tsx` — 1 arquivo, 16 testes passaram.
 - A interface confirmou no browser catálogo real com 95 criaturas (88 bestas, incluindo seis enxames) e reload/retorno de forma: Druida 2/Círculo da Lua, LOBO visto, CA 13, atributos 12/15/12, PV da forma 11, PV original 17 preservado; ao retornar, PV original 17 e usos 2/2→1/2.
+
+## Confirmação runtime — 13–14/11/2026
+
+- A reconciliação de Ranger 11 mantém um único pool de Reforço Feérico. O teste `Andarilho Feérico nível 11 mantém um único uso de Reforço e preserva gasto ao reconciliar JSON` em `src/domain/character/evolution/granted-spells.test.ts` cobre JSON legado com dois pools da mesma feature: a migração colapsa somente essa duplicata, preserva o maior gasto, atualiza a referência do recurso da magia e é idempotente na reconciliação seguinte. O focal registrado acima passou junto com `tasha-ranger.test.ts` e `creation.test.ts` (3 arquivos, 33 testes).
+- O bootstrap cria uma Fada 1 válida com `fairy.spellcasting-ability=wis` e constrói Ranger 11 por `createCharacterDraft`, `materializeCharacter` e `evolveCharacter`, sem inserir concessões/fontes manualmente. Com pack base e suplementos opt-in, `runtime.computeActionCapabilities` publica Incansável e Reforço Feérico. Comando: `npx vitest run src/app/bootstrap.test.tsx -t 'compõe conteúdo opt-in ao derivar e confirmar ações reais'` — 1 passou, 16 ignorados pelo filtro.
+- O dispatcher confirma Druidismo racial sem UUID de alvo nem custo, com `targetIds: []` e decisão manual explícita; não aplica efeitos automáticos. Druidismo de Druida segue bloqueado por `PEND-SPELL-STRUCTURE`. O teste de bootstrap usa a ficha Fada montada pelo builder e confirma a composição de conteúdo opt-in na fronteira runtime.
+- O preview canônico agora considera resolvida a pendência de estrutura somente depois que `castSpell` aceitou a decisão manual racial exata. O teste `só aceita alvo vazio na resolução manual autorizada de Druidismo racial` verifica preview sem alvo e sem intervenção obrigatória; classe e concessão racial sem contexto trusted continuam rejeitadas. Comando: `npx vitest run src/domain/spells/spells.test.ts -t 'só aceita alvo vazio na resolução manual autorizada de Druidismo racial'` — 1 passou, 11 ignorados.
+- Incansável publica `rollsOnConfirm` somente após preview canônico real cujas pendências não vazias são todas rolagens planejadas pelo dispatcher. A UI libera confirmar apenas quando os IDs pendentes estão cobertos; rolagem e gravação de PV temporários/gasto continuam no dispatcher em commit atômico. O focal de UI reportado por C passou 32/32. No browser, C confirmou d8=4 + SAB 3, 7 PV temporários e usos 4→3. Glamour aplicou +3 em teste de Carisma e +0 em salvaguarda.
+- O checksum declarado para `spell` foi atualizado a `37fd9608`. Um reload real sem limpar cache carregou esse valor e resolveu a Recovery antiga, que mostrava o hash anterior.
+- `ActionCapability.spellRequiresEndingConcentration` informa ao review quando uma magia normal precisa encerrar a concentração ativa. Não há campo de substituição no intent: a UI orienta usar `concentration:end`, cujo `preview` é produzido por `resolveCombatCommand` sem mutar a ficha. A opção validada de Reforço Feérico por 1 minuto é a única exceção no review e preserva a concentração anterior. `src/application/character/action-capabilities.test.ts` prova preview de encerramento bem-sucedido sem mutação, Fogo das Fadas real da Fada com preview ainda rejeitado por alvo vazio e flag de bloqueio, e a exceção por característica; o focal `npx vitest run src/application/character/action-capabilities.test.ts` passou 15/15. A UI reportou 2 casos focais para bloqueio normal e variante de 1 minuto.
+- `ActionCapability.assistedRacialGrant` só é publicado depois que o predicado racial assistido é validado. A UI remove a frase de bloqueio estrutural apenas para essa metadata e preserva o resumo de resolução manual; a definição original permanece intacta e uma origem de classe continua bloqueada por `PEND-SPELL-STRUCTURE`.
+- **Validação UI pendente:** após esses ajustes, C ainda precisa repetir o smoke no browser para Druidismo e magias Fada/Reforço, inclusive concentração anterior após reload. Não considerar confirmada a conclusão visual até esse reteste.
+- Materiais custosos, consumidos ou de tipo obrigatório seguem bloqueados sem seleção real de inventário; efeitos que dependem de alvos, posição, área, salvaguardas ou adjudicação da mesa seguem assistidos. Typecheck global, build, suíte integral e aceite global permanecem pendentes. Este handoff não declara QA concluído.
 
 ## SUP-02 — fechamento da retomada de magias e ataques de forma
 

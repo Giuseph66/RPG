@@ -473,6 +473,7 @@ function buildSpellCapabilities(
       );
       const assistedRacialGrant = spell.automationStatus === "blocked"
         && (explicitlySupportedRacialAssist || explicitlySupportedRacialCantripAssist);
+      const manualRacialCantripResolution = explicitlySupportedRacialCantripAssist && spell.targetType.manualResolution === true;
       if (spell.automationStatus === "blocked" && !assistedRacialGrant) {
         capabilities.push({
           id: baseId,
@@ -513,9 +514,10 @@ function buildSpellCapabilities(
         ...(casterAbilityModifier !== undefined ? { casterAbilityModifier } : {}),
         ...(selfHealing ? { canSpeak: true, freeHands: true, maximumHitPoints: derived.hitPointsMax.value } : {}),
         spellcastingFocusAllowed: spellFocusAllowed,
+        ...(manualRacialCantripResolution ? { manualRacialCantripRef: spellRef } : {}),
       };
-      const featureCastingOptions = spell.concentration && featureSpellOverride?.concentrationAlternativeMinutes !== undefined
-        ? [{ kind: "drop-concentration" as const, durationMinutes: featureSpellOverride.concentrationAlternativeMinutes }]
+      const featureCastingOptions = spell.concentration && featureSpellOverride?.concentrationAlternativeMinutes === 1
+        ? [{ kind: "drop-concentration" as const, durationMinutes: 1 as const }]
         : undefined;
 
       const modes = spell.level === 0
@@ -549,7 +551,10 @@ function buildSpellCapabilities(
             })),
           ]),
         ];
-        const targetContext = { targetIds: selfHealing ? [character.id] : [] };
+        const targetContext: SpellTargetContext = {
+          targetIds: selfHealing ? [character.id] : [],
+          ...(manualRacialCantripResolution ? { manualResolution: true } : {}),
+        };
         const featureMode = castingMode.kind === "feature";
         const featureRemaining = featureResourceState && featureResourceCapacity
           ? Math.max(0, featureResourceCapacity.capacity.value - featureResourceState.spent)
@@ -597,7 +602,9 @@ function buildSpellCapabilities(
             ? slot ? `Usa espaço de ${slot.slotLevel}º nível; o slot é descontado no mesmo commit.` : `Nenhum espaço compatível de nível ${spell.level} ou superior está disponível.`
             : "Truque: não consome espaço nem uso por descanso.";
         const assistedDescription = assistedRacialGrant
-          ? "Esta concessão racial permite registrar a conjuração e seu custo; alvo e efeito ficam assistidos pela mesa conforme a modelagem da fonte."
+          ? manualRacialCantripResolution
+            ? "Concessão racial sem alvo de ficha: confirme a conjuração e escolha/resolva o efeito, alvo ou posição manualmente na mesa; nada é aplicado automaticamente."
+            : "Esta concessão racial permite registrar a conjuração e seu custo; alvo e efeito ficam assistidos pela mesa conforme a modelagem da fonte."
           : undefined;
         const description = [
           modeDescription,
@@ -624,11 +631,17 @@ function buildSpellCapabilities(
                 { label: "Usos restantes", remaining: featureRemaining },
               ]
               : [{ label: "Custo", value: slot ? `Espaço ${slot.slotLevel}º nível` : `Espaço de nível ${spell.level}+` }],
-          effectSummary: assistedRacialGrant ? ["Registre alvo e resultado manualmente após confirmar a conjuração."] : effectSummary,
+          effectSummary: assistedRacialGrant
+            ? [manualRacialCantripResolution
+              ? "Escolha e resolva o efeito e qualquer alvo ou posição manualmente na mesa; sem alvo de ficha e sem efeito automático."
+              : "Registre alvo e resultado manualmente após confirmar a conjuração."]
+            : effectSummary,
           sourceRefs: spell.sourceRefs,
           preview,
+          ...(spell.concentration && character.concentration ? { spellRequiresEndingConcentration: true as const } : {}),
+          ...(assistedRacialGrant ? { assistedRacialGrant: true as const } : {}),
           ...(actionCostForSpell(spell) ? { actionCost: actionCostForSpell(spell) } : {}),
-          ...(!selfHealing && !spell.effects.some((effect) => effect.kind === "summon") ? { spellTargeting: spell.targetType } : {}),
+          ...(!selfHealing && !spell.effects.some((effect) => effect.kind === "summon") && !manualRacialCantripResolution ? { spellTargeting: spell.targetType } : {}),
           spellRequiresMaterial: Boolean(spell.components.material && !featureSpellOverride?.ignoreMaterialComponents),
           spellMaterialRequiresTrackedItem: requiresTrackedMaterial,
           spellAllowsFocus: spellFocusAllowed,
@@ -664,11 +677,16 @@ function buildSpellCapabilities(
               const resolvedCommand = currentCommand?.kind === "cast-spell" ? currentCommand : castCommand;
               const resolvedTargetContext = spellTargetContext ?? resolvedCommand.payload.targetContext;
               const resolvedComponentContext = spellComponentContext ?? resolvedCommand.payload.componentContext;
+              const targetContext = manualRacialCantripResolution
+                && resolvedTargetContext.targetIds.length === 0
+                && resolvedTargetContext.pointCm === undefined
+                ? { ...resolvedTargetContext, manualResolution: true as const }
+                : resolvedTargetContext;
               const commandForDomain = {
                 ...resolvedCommand,
                 characterId: liveCharacter.id,
                 expectedRevision: liveCharacter.revision,
-                payload: { ...resolvedCommand.payload, targetContext: resolvedTargetContext, componentContext: resolvedComponentContext },
+                payload: { ...resolvedCommand.payload, targetContext, componentContext: resolvedComponentContext },
               } as Extract<Command, { readonly kind: "cast-spell" }>;
               return resolveCharacterCommand(liveCharacter, commandForDomain, {
                 spellDefinitions: new Map([[spell.id, spell]]),
@@ -819,6 +837,7 @@ function buildConcentrationCapability(
       label: "Encerrar concentração",
       sourceRefs: [concentration.sourceRef],
       status: "available",
+      preview: resolveCombatCommand(character, command, {}),
     }],
     executions: [[id, {
       command,
@@ -891,7 +910,20 @@ function buildResourceCapabilities(
           sourceRef: { rulesetId: pack.manifest.id, entityId: tirelessFeature.id },
         },
       };
-      const available = (remaining ?? 0) > 0;
+      const wisdomModifier = derived.abilityScores.find((entry) => entry.ability === "wis")?.modifier.value;
+      const tirelessContext = {
+        diceResults: new Map<Uuid, DiceRoll>(),
+        resourceCapacities: new Map([[String(resourceState.id), capacity.capacity.value]]),
+        resourceDefinitions: pack.resources,
+        ...(wisdomModifier !== undefined ? { abilityModifiers: { wis: wisdomModifier } } : {}),
+      };
+      const preview = resolveCharacterCommand(character, command, tirelessContext);
+      const rollRequestIds = preview.status === "needsInput"
+        && preview.requests.length > 0
+        && preview.requests.every(({ id }) => id === rollId)
+        ? [rollId]
+        : undefined;
+      const available = (remaining ?? 0) > 0 && rollRequestIds !== undefined;
       capabilities.push({
         id,
         commandId,
@@ -900,8 +932,12 @@ function buildResourceCapabilities(
         description: "Ação: role 1d8 e some o modificador de Sabedoria (mínimo 1) para ganhar PV temporários; eles não acumulam.",
         sourceRefs: definition.sourceRefs,
         costs: [{ label: "Usos restantes", remaining: remaining ?? 0 }],
+        preview,
+        ...(rollRequestIds ? { rollsOnConfirm: rollRequestIds } : {}),
         status: available ? "available" : "blocked",
-        ...(available ? {} : { blockedReason: "Todos os usos de Incansável foram gastos até o próximo descanso longo." }),
+        ...(available ? {} : { blockedReason: (remaining ?? 0) <= 0
+          ? "Todos os usos de Incansável foram gastos até o próximo descanso longo."
+          : "A prévia canônica não está aguardando apenas a rolagem d8 planejada; nenhum recurso será gasto." }),
         actionCost: "action",
       });
       if (available) executions.push([
@@ -911,7 +947,6 @@ function buildResourceCapabilities(
           rollPlan: [{ id: rollId, expression: { quantity: 1, faces: 8, modifier: 0, mode: "normal" }, purpose: "healing", label: "Incansável — PV temporários" }],
           resolve: ({ character: liveCharacter, rolls, command: prepared }) => {
             const liveCommand = prepared?.kind === "use-tireless" ? prepared : command;
-            const wisdomModifier = derived.abilityScores.find((entry) => entry.ability === "wis")?.modifier.value;
             return resolveCharacterCommand(liveCharacter, liveCommand, {
               diceResults: rolls,
               resourceCapacities: new Map([[String(resourceState.id), capacity.capacity.value]]),

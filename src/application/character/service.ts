@@ -224,7 +224,12 @@ export class CharacterApplicationService {
         ? { transformation: { ...current.value.transformation, formHp: hp } }
         : { hp }),
     };
-    return this.writeRepository.save(normalizeWildShapeExit(updated), expectedRevision);
+    const saved = await this.writeRepository.save(normalizeWildShapeExit(updated), expectedRevision);
+    if (!saved.ok) return saved;
+    // A saída automática muda o estado efetivo exibido pela ficha; publique o
+    // registro confirmado apenas se ele ainda for a seleção ativa.
+    if (this.store.selectedId === id) await this.store.hydrate(id);
+    return saved;
   }
 
   /** Links an unassigned character to a campaign using optimistic concurrency. */
@@ -236,7 +241,13 @@ export class CharacterApplicationService {
       return err(appError.validation("campaignId", "Este personagem já está vinculado a outra campanha."));
     }
     if (current.value.campaignId === campaignId) return ok(current.value.revision);
-    return this.writeRepository.save({ ...current.value, campaignId }, expectedRevision);
+    const saved = await this.writeRepository.save({ ...current.value, campaignId }, expectedRevision);
+    if (!saved.ok) return saved;
+    // Publica a revisão nova no editor somente se a mesma ficha ainda estiver ativa.
+    // hydrate mantém a proteção de seleção do AggregateStore quando a navegação muda
+    // enquanto a gravação está em andamento.
+    if (this.store.selectedId === id) await this.store.hydrate(id);
+    return saved;
   }
 
   /** Removes a campaign link only when it still belongs to the requested campaign. */

@@ -182,3 +182,30 @@ SUP-QA global reservado a `interface_retomada`, sem ampliar escrita de produto: 
 Transferência SUP-CAT após auditoria integral: `src/data/creatures/catalog.ts`, `catalog.test.ts` e `Testes/complementos-catalogo-qa.md` passam exclusivamente a `persistencia_retomada`. Encerra a reserva narrow de mapper de B, cujas correções de tipagem devem ser preservadas. Corrigir somente divergências documentadas contra o Apêndice A: deslocamentos, segmentação/integridade de ações/traços/variantes e IDs únicos. Sem novo schema unilateral, reescrita do corpus, fonte externa ou normalização da fonte impressa. Gate global passa a exigir também REVIEW de SUP-CAT; janela de navegador aguarda estabilidade conjunta de dados e regras.
 
 13/11: SUP-QA global transferido de C para `persistencia_retomada`, exclusivamente execução e `Testes/complementos-qa-geral.md`/logs próprios. B/P/cat e implementação UI congelados; C conserva browser/relatório interface e smoke pós-build. Raiz libera execução paralela dos dois ramos de validação, sem ampliar ownership de produto; falhas exigem retorno ao owner e revalidação pertinente.
+
+Correções do gate13/11: P recebe extensão narrow de `tests/integration/session-persistence.integration.test.ts` para adequar o contrato obrigatório de journey no backup; mantém mapper de catalog.ts e backup/infra. B mantém erros de bootstrap/application-character/domain/loader e recebe `src/application/state/context.test.ts` somente para stub de CharacterRepository conforme contrato real. C mantém `src/app/router.test.tsx` e interface. Não remover validações nem enfraquecer contratos para aprovar testes. Logs da rodada falha preservados antes de reexecução.
+
+QA de complementos13/11: B recebe somente `output/playwright/sup03-fixtures-regras-2026-11-13/` para gerar backups sintéticos Ranger10/11 pelos builders atuais, sem editar fonte ou perfil Chromium de C. Níveis avançados preparados por API devem ser distinguidos da criação/ações UI. C importa pelo fluxo normal e prova casts reais; concentração anterior deve preferencialmente nascer de conjuração normal, seguida pela variante de 1 minuto.
+
+Correção de Druidismo13/11: extensão narrow a B de `src/data/spells/spells.ts` e teste direto para metadado de alvo assistido exclusivamente do Druidismo textual. Contratos de SpellTargetContext/SpellTargeting, validação canônica e capabilities/bootstrap continuam com B. Não liberar fallback mixed universal nem dispensar alvo de magia com dano/cura/efeito de estado. UI permanece com C após contrato anunciado.
+
+B também possui `src/data/rulepacks/manifest.ts` apenas para atualizar checksums.spell pela função vigente após o metadado de Druidismo. Loader continua fail-closed; proibido executar correção ampla SRD/--aplica ou substituir validação por bypass.
+
+QA de papéis: P recebe exclusivamente `output/playwright/sup03-roles-qa-2026-11-13/**`, sessões Chromium novas e `Testes/complementos-roles-qa.md`/logs próprios. Meta: submit jogador e aprovação mestre via UI, transporte entre perfis por backup normal explicitamente local, catálogo do jogador não registra visto automaticamente. Fixtures só para vínculos/memberships iniciais; não escrever submit/approval/seen diretamente no storage. Não operar perfis de C nem editar produto. Gates globais aguardam retorno do runtime e esta prova, sem ampliar limite de3workers.
+
+Fechamento14/11: ownership temporário SUP liberado após revisão/gates/smoke dist7. Nenhum worker deve continuar editando produto nesta rodada. Perfis e dados de QA preservados; servidor próprio de C restaurado ao dev em 127.0.0.1:5173 (PID711677, HTTP200), sem tocar listener IPv6 ou projetos alheios. Raiz permanece orquestradora conforme política global do projeto.
+
+
+NAV-CRIATURAS: writer exclusivo criaturas_navegacao (Luna xhigh), src/app/router.tsx/test, navegação estritamente relacionada, features/character/sheet, compendium e pontos de entrada collaboration/tipos; registry apenas ligação necessária. Sem domínio/persistência/dados. Raiz coordena e registra evidências; nenhum outro writer de produto nesta mudança.
+
+NAV-CRIATURAS extensão focal: owner único também pode alterar contratos de categoria e application/compendium/catalogItemsFromPacks/testes diretamente necessários para indexar criaturas na busca comum. Sem alterar domínio de transformação, fonte ou persistência. Regras recebe consulta, sem controles de gerenciamento/avistamento.
+
+NAV-CRIATURAS QA: interface_retomada, Luna xhigh, somente navegador em perfil novo output/playwright/nav-criaturas-2026-11-14, relatório Testes/nav-criaturas-qa.md/logs próprios. Não edita produto/não toca perfis antigos/não reinicia listeners. Depende de freeze do writer para evidência final.
+
+NAV-CRIATURAS correção: mesmo writer autorizado a componentes/layout PrimaryNavigation/AppShell/layout.types e contratos/routes/configuração de navegação estritamente necessária para aba /creatures exclusiva contaMestre; testes diretos. QA interface_retomada pausado, sem novas navegações. Servidor5174 próprio preservado.
+
+NAV-CRIATURAS writer concluído após focais/typecheck. Nenhum worker deve continuar editando esta mudança sem novo pedido. QA anterior interrompida; não há prova visual final desta correção de escopo.
+
+NAV-CRIATURAS writer reativado criaturas_navegacao para tabs JourneyCampaign/tipos/testes, router/nav e CreatureCatalog/estilos/testes. Preservar acesso fichaDruida2, regra contaMestre para aba Jornada. Sem domínio/persistência/dados/novas dependências.
+
+REGRAS-LINGUAGENS: criaturas_navegacao único writer para categoria/indexação application/compendium e dados informativos existentes de Regras/compendium/tests. Sem domínio/persistência/navCriaturas. Raiz coordena/fontes e docs swarm; nenhum outro worker necessário.

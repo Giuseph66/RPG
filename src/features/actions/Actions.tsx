@@ -28,7 +28,7 @@ import type { ActionAttackRoll, ActionCapability, ActionCapabilityKind, ActionCo
 import { ABILITY_LABELS, SKILL_ABILITY, SKILL_LABELS } from "@features/character/sheet/mapping";
 import { LoadPanel, loadSpeedPenaltyCm, loadTier } from "./LoadPanel";
 import { RestPanel, type RestKind } from "./RestPanel";
-import { TurnPanel } from "./TurnPanel";
+import { readTurnActionBudget, spendTurnActionAfterSuccess, TURN_ACTION_BUDGET_CHANGED, TurnPanel } from "./TurnPanel";
 import { useRuleHint, type RuleQuery } from "@features/compendium";
 import styles from "./actions.module.css";
 
@@ -196,6 +196,49 @@ function capabilityState(capability: ActionCapability, preview: ActionPreview | 
   if (details.pending.length) return { status: "pending", reasons: reasons.length ? reasons : details.pending, details };
   if (reasons.length) return { status: "blocked", reasons, details };
   return { status: "available", reasons: [], details };
+}
+
+function sameStringMultiset(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const counts = new Map<string, number>();
+  for (const item of left) counts.set(item, (counts.get(item) ?? 0) + 1);
+  for (const item of right) {
+    const count = counts.get(item) ?? 0;
+    if (count === 0) return false;
+    if (count === 1) counts.delete(item);
+    else counts.set(item, count - 1);
+  }
+  return counts.size === 0;
+}
+
+function resolveRollsOnConfirm(capability: ActionCapability, preview: ActionPreview | undefined, state: ReturnType<typeof capabilityState>): { readonly ready: boolean; readonly state: ReturnType<typeof capabilityState> } {
+  if (!preview || !isRuleResult(preview) || preview.status !== "needsInput") return { ready: false, state };
+  const allowedIds = capability.rollsOnConfirm;
+  const requests = preview.requests;
+  if (!allowedIds?.length || !requests.length) return { ready: false, state };
+
+  const requestedIds = requests.map((request) => String(request.id));
+  const allowed = allowedIds.map(String);
+  const exactIds = new Set(requestedIds).size === requestedIds.length
+    && new Set(allowed).size === allowed.length
+    && requestedIds.length === allowed.length
+    && requestedIds.every((id) => allowed.includes(id));
+  const requestReasons = requests.map((request) => request.reason);
+  const onlyPlannedRollsPending = state.status === "pending"
+    && state.details.blocked.length === 0
+    && sameStringMultiset(state.details.pending, requestReasons)
+    && sameStringMultiset(state.reasons, requestReasons);
+  const capabilityAllowsConfirmation = capability.status !== "pending"
+    && capability.status !== "blocked"
+    && capability.status !== "unsupported"
+    && !capability.blockedReason
+    && !capability.pendingReasons?.length;
+
+  if (!exactIds || !onlyPlannedRollsPending || !capabilityAllowsConfirmation) return { ready: false, state };
+  return {
+    ready: true,
+    state: { ...state, status: "available", reasons: [], details: { ...state.details, pending: [] } },
+  };
 }
 
 function CostList({ costs }: { readonly costs?: readonly ActionCost[] }) {
@@ -371,12 +414,32 @@ function resolveSpellInputs(capability: ActionCapability, preview: ActionPreview
   return { ready, reason, targetContext, componentContext, state: resolvedState };
 }
 
-function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitting, alreadySubmitted, hasHandler, inputValue, onInputChange, featureCastingOptionSelected, onFeatureCastingOptionChange, spellInput, onSpellInputChange, spellInputResolution, characterName }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly onConfirm: () => void; readonly onCancel: () => void; readonly submitting: boolean; readonly alreadySubmitted: boolean; readonly hasHandler: boolean; readonly inputValue: string; readonly onInputChange: (value: string) => void; readonly featureCastingOptionSelected: boolean; readonly onFeatureCastingOptionChange: (selected: boolean) => void; readonly spellInput: SpellInputSelection; readonly onSpellInputChange: (patch: Partial<SpellInputSelection>) => void; readonly spellInputResolution?: SpellInputResolution; readonly characterName: string }) {
+function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitting, alreadySubmitted, hasHandler, inputValue, onInputChange, featureCastingOptionSelected, onFeatureCastingOptionChange, spellInput, onSpellInputChange, spellInputResolution, rollOnConfirmReady, characterName }: { readonly capability: ActionCapability; readonly preview?: ActionPreview; readonly state: ReturnType<typeof capabilityState>; readonly onConfirm: () => void; readonly onCancel: () => void; readonly submitting: boolean; readonly alreadySubmitted: boolean; readonly hasHandler: boolean; readonly inputValue: string; readonly onInputChange: (value: string) => void; readonly featureCastingOptionSelected: boolean; readonly onFeatureCastingOptionChange: (selected: boolean) => void; readonly spellInput: SpellInputSelection; readonly onSpellInputChange: (patch: Partial<SpellInputSelection>) => void; readonly spellInputResolution?: SpellInputResolution; readonly rollOnConfirmReady: boolean; readonly characterName: string }) {
   const { details } = state;
   const missingRequiredInput = capability.inputKind === "target-armor-class" && !isValidArmorClassInput(inputValue);
-  const disabledReason = !hasHandler ? "A ficha não está pronta para salvar." : state.status === "blocked" || state.status === "unsupported" ? state.reasons.join(" ") : state.status === "pending" ? state.reasons.join(" ") : alreadySubmitted ? "Já enviado; aguarde a ficha atualizar." : missingRequiredInput ? "Informe a CA do alvo para habilitar a confirmação." : spellInputResolution && !spellInputResolution.ready ? spellInputResolution.reason : undefined;
-  const disabled = Boolean(disabledReason) || submitting;
+  const preservesConcentration = featureCastingOptionSelected
+    && capability.featureCastingOptions?.some((option) => option.kind === "drop-concentration" && option.durationMinutes === 1) === true;
+  const concentrationMustEnd = capability.kind === "spell"
+    && ((capability.spellRequiresEndingConcentration === true && !preservesConcentration)
+      || details.pending.includes(SPELL_CONCENTRATION_REPLACEMENT_REQUIRED)
+      || state.reasons.includes(SPELL_CONCENTRATION_REPLACEMENT_REQUIRED));
+  const hasUnresolvedPreview = details.pending.length > 0 || details.blocked.length > 0;
+  const unresolvedPreviewReason = concentrationMustEnd
+    ? "Encerre explicitamente a concentração ativa pela capacidade Encerrar concentração antes de conjurar esta magia."
+    : [...details.pending, ...details.blocked].join(" ");
+  const disabledReason = !hasHandler ? "A ficha não está pronta para salvar." : concentrationMustEnd ? unresolvedPreviewReason : state.status === "blocked" || state.status === "unsupported" ? state.reasons.join(" ") || "A capacidade ainda não está disponível." : state.status === "pending" ? state.reasons.join(" ") || "A capacidade ainda aguarda uma decisão." : hasUnresolvedPreview ? unresolvedPreviewReason || "A prévia ainda contém decisões não resolvidas." : alreadySubmitted ? "Já enviado; aguarde a ficha atualizar." : missingRequiredInput ? "Informe a CA do alvo para habilitar a confirmação." : spellInputResolution && !spellInputResolution.ready ? spellInputResolution.reason ?? "Complete os dados da magia antes de confirmar." : undefined;
+  const disabled = !hasHandler
+    || state.status !== "available"
+    || hasUnresolvedPreview
+    || concentrationMustEnd
+    || alreadySubmitted
+    || missingRequiredInput
+    || spellInputResolution !== undefined && !spellInputResolution.ready
+    || submitting;
   const targeting = capability.kind === "spell" ? capability.spellTargeting : undefined;
+  const targetingRestrictions = targeting?.restrictions.filter((restriction) => !(capability.kind === "spell"
+    && capability.assistedRacialGrant === true
+    && restriction === "Alvo e efeito aguardam modelagem estruturada; a entrada permanece bloqueada.")) ?? [];
   const canSelectCurrentCharacter = (targeting?.type === "creature" || targeting?.type === "mixed") && (targeting.count === undefined || targeting.count === 1);
   const canDeclareSimpleMaterial = capability.spellMaterialRequiresTrackedItem === false && (castPreviewOf(preview)?.componentsConsumed.length ?? 0) === 0;
   const canUseFocus = capability.spellAllowsFocus === true && canDeclareSimpleMaterial;
@@ -388,8 +451,8 @@ function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitti
     {capability.description ? <p className={styles.description}>{capability.description}</p> : null}
     {capability.inputKind === "amount" ? <div className={styles.inputSection}><Input label="Quantidade" type="number" min={1} inputMode="numeric" value={inputValue} onChange={(event) => onInputChange(event.target.value)} hint={`Sem preenchimento, usa o valor padrão (${capability.inputDefault ?? 5}).`} /></div> : null}
     {capability.inputKind === "target-armor-class" ? <div className={styles.inputSection}><Input label="CA do alvo" type="number" min={0} inputMode="numeric" value={inputValue} onChange={(event) => onInputChange(event.target.value)} hint="Obrigatório: o motor não deriva a CA de um alvo desconhecido." /></div> : null}
-    {targeting?.type === "point" ? <fieldset className={styles.spellDecision}><legend>Ponto escolhido na mesa (cm)</legend>{targeting.restrictions.length ? <ul className={styles.spellRestrictions}>{targeting.restrictions.map((restriction, index) => <li key={`${restriction}-${index}`}>{restriction}</li>)}</ul> : null}<p>Informe a posição inteira da área; nenhum ponto é preenchido automaticamente.</p><div className={styles.spellPointGrid}><Input label="Coordenada X (cm)" type="number" step="1" inputMode="numeric" value={spellInput.pointX} onChange={(event) => onSpellInputChange({ pointX: event.target.value })} /><Input label="Coordenada Y (cm)" type="number" step="1" inputMode="numeric" value={spellInput.pointY} onChange={(event) => onSpellInputChange({ pointY: event.target.value })} /></div></fieldset> : null}
-    {canSelectCurrentCharacter ? <fieldset className={styles.spellDecision}><legend>Alvo</legend>{targeting.restrictions.length ? <ul className={styles.spellRestrictions}>{targeting.restrictions.map((restriction, index) => <li key={`${restriction}-${index}`}>{restriction}</li>)}</ul> : null}<label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.currentCharacterTarget} onChange={(event) => onSpellInputChange({ currentCharacterTarget: event.target.checked, targetVisibilityConfirmed: event.target.checked ? spellInput.targetVisibilityConfirmed : false })} /><span><strong>Selecionar {characterName}</strong><small>Usar a ficha atual como alvo desta magia.</small></span></label>{targeting?.visibilityRequired ? <label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.targetVisibilityConfirmed} disabled={!spellInput.currentCharacterTarget} onChange={(event) => onSpellInputChange({ targetVisibilityConfirmed: event.target.checked })} /><span><strong>Confirmo que o alvo está visível</strong></span></label> : null}</fieldset> : null}
+    {targeting?.type === "point" ? <fieldset className={styles.spellDecision}><legend>Ponto escolhido na mesa (cm)</legend>{targetingRestrictions.length ? <ul className={styles.spellRestrictions}>{targetingRestrictions.map((restriction, index) => <li key={`${restriction}-${index}`}>{restriction}</li>)}</ul> : null}<p>Informe a posição inteira da área; nenhum ponto é preenchido automaticamente.</p><div className={styles.spellPointGrid}><Input label="Coordenada X (cm)" type="number" step="1" inputMode="numeric" value={spellInput.pointX} onChange={(event) => onSpellInputChange({ pointX: event.target.value })} /><Input label="Coordenada Y (cm)" type="number" step="1" inputMode="numeric" value={spellInput.pointY} onChange={(event) => onSpellInputChange({ pointY: event.target.value })} /></div></fieldset> : null}
+    {canSelectCurrentCharacter ? <fieldset className={styles.spellDecision}><legend>Alvo</legend>{targetingRestrictions.length ? <ul className={styles.spellRestrictions}>{targetingRestrictions.map((restriction, index) => <li key={`${restriction}-${index}`}>{restriction}</li>)}</ul> : null}<label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.currentCharacterTarget} onChange={(event) => onSpellInputChange({ currentCharacterTarget: event.target.checked, targetVisibilityConfirmed: event.target.checked ? spellInput.targetVisibilityConfirmed : false })} /><span><strong>Selecionar {characterName}</strong><small>Usar a ficha atual como alvo desta magia.</small></span></label>{targeting?.visibilityRequired ? <label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.targetVisibilityConfirmed} disabled={!spellInput.currentCharacterTarget} onChange={(event) => onSpellInputChange({ targetVisibilityConfirmed: event.target.checked })} /><span><strong>Confirmo que o alvo está visível</strong></span></label> : null}</fieldset> : null}
     {unsupportedTargetChoice ? <InlineStatus tone="warning">{spellInputResolution?.reason ?? "Esta revisão não dispõe de todos os alvos exigidos; nenhuma seleção será inventada."}</InlineStatus> : null}
     {capability.spellRequiresMaterial ? <fieldset className={styles.spellDecision}><legend>Componente material</legend>{canDeclareSimpleMaterial ? canUseFocus ? <><label className={styles.featureCastingOption}><input type="radio" name={`spell-material-${capability.id}`} checked={spellInput.materialChoice === "material"} onChange={() => onSpellInputChange({ materialChoice: "material" })} /><span><strong>Forneço o componente material real</strong></span></label><label className={styles.featureCastingOption}><input type="radio" name={`spell-material-${capability.id}`} checked={spellInput.materialChoice === "focus"} onChange={() => onSpellInputChange({ materialChoice: "focus" })} /><span><strong>Usarei um foco permitido por esta fonte</strong></span></label></> : <label className={styles.featureCastingOption}><input type="checkbox" checked={spellInput.materialChoice === "material"} onChange={(event) => onSpellInputChange({ materialChoice: event.target.checked ? "material" : "" })} /><span><strong>Confirmo que forneço o componente material real</strong></span></label> : <InlineStatus tone="warning">{spellInputResolution?.reason ?? "Esta magia exige item específico do inventário, ainda sem seleção nesta revisão."}</InlineStatus>}</fieldset> : null}
     {capability.featureCastingOptions?.map((option) => <label className={styles.featureCastingOption} key={`${option.kind}-${option.durationMinutes}`}>
@@ -398,9 +461,10 @@ function ReviewPanel({ capability, preview, state, onConfirm, onCancel, submitti
     </label>)}
     <div className={styles.reviewGrid}>
       <div><h3>Custo</h3><CostList costs={capability.costs ?? previewCosts(preview)} /></div>
-      <div><h3>Efeito previsto</h3>{capability.effectSummary?.length ? <ul className={styles.detailList}>{capability.effectSummary.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : details.effects.length ? <ul className={styles.detailList}>{details.effects.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : <p className={styles.muted}>Sem efeito automático na ficha.</p>}</div>
+      <div><h3>Efeito previsto</h3>{capability.effectSummary?.length ? <ul className={styles.detailList}>{capability.effectSummary.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : details.effects.length ? <ul className={styles.detailList}>{details.effects.map((effect, index) => <li key={`${effect}-${index}`}>{effect}</li>)}</ul> : rollOnConfirmReady ? <p className={styles.muted}>Efeito calculado após a rolagem autorizada.</p> : <p className={styles.muted}>Sem efeito automático na ficha.</p>}</div>
     </div>
     {details.explanations.length ? <div className={styles.explanations}><h3>Explicação</h3><ul className={styles.detailList}>{details.explanations.map((explanation, index) => <li key={`${explanation}-${index}`}>{explanation}</li>)}</ul></div> : null}
+    {rollOnConfirmReady ? <InlineStatus tone="info">O dado autorizado será rolado ao confirmar. A ficha e o recurso só mudam se a regra for concluída com sucesso.</InlineStatus> : null}
     {details.pending.length ? <InlineStatus tone="warning" assertive>{details.pending.join(" ")}</InlineStatus> : null}
     {state.reasons.length && state.status !== "available" ? <InlineStatus tone={state.status === "pending" ? "warning" : "error"} assertive>{state.reasons.join(" ")}</InlineStatus> : null}
     <div className={styles.provenance}><h3>Fonte</h3>{(capability.sourceRefs?.length || details.sources.length) ? <ul className={styles.detailList}>{[...(capability.sourceRefs ?? []), ...details.sources].filter((source): source is ActionSourceRef => Boolean(source)).map((source, index) => <li key={`${sourceLabel(source)}-${index}`}>{sourceLabel(source)}</li>)}</ul> : <p className={styles.muted}>Fonte não registrada.</p>}</div>
@@ -570,7 +634,7 @@ function SkillTestModal({ open, onClose, derived, onRoll }: { readonly open: boo
   const rows: readonly { readonly key: string; readonly name: string; readonly meta: string; readonly modifier: number; readonly proficient: boolean; readonly purpose: DicePurpose; readonly label: string }[] = !derived ? [] : tab === "skills"
     ? [...derived.skills].sort((a, b) => SKILL_LABELS[a.skill].localeCompare(SKILL_LABELS[b.skill], "pt-BR")).map((skill) => ({ key: skill.skill, name: SKILL_LABELS[skill.skill], meta: ABILITY_LABELS[SKILL_ABILITY[skill.skill as Skill]].short, modifier: skill.modifier.value, proficient: skill.proficient, purpose: "skill-check" as const, label: `Teste de perícia (${SKILL_LABELS[skill.skill]})` }))
     : tab === "abilities"
-      ? ABILITY_ORDER.flatMap((ability) => { const entry = derived.abilityScores.find((item) => item.ability === ability); return entry ? [{ key: ability, name: ABILITY_LABELS[ability].name, meta: `Valor ${entry.score.value}`, modifier: entry.modifier.value, proficient: false, purpose: "skill-check" as const, label: `Teste de ${ABILITY_LABELS[ability].name}` }] : []; })
+      ? ABILITY_ORDER.flatMap((ability) => { const entry = derived.abilityScores.find((item) => item.ability === ability); const checkBonus = derived.abilityCheckBonuses?.find((item) => item.ability === ability)?.bonus.value ?? 0; return entry ? [{ key: ability, name: ABILITY_LABELS[ability].name, meta: `Valor ${entry.score.value}`, modifier: entry.modifier.value + checkBonus, proficient: false, purpose: "skill-check" as const, label: `Teste de ${ABILITY_LABELS[ability].name}` }] : []; })
       : ABILITY_ORDER.flatMap((ability) => { const entry = derived.savingThrows.find((item) => item.ability === ability); return entry ? [{ key: ability, name: ABILITY_LABELS[ability].name, meta: entry.proficient ? "Proficiente" : ABILITY_LABELS[ability].short, modifier: entry.modifier.value, proficient: entry.proficient, purpose: "saving-throw" as const, label: `Resistência de ${ABILITY_LABELS[ability].name}` }] : []; });
   return (
     <AppModal open={open} title="Teste de perícia" onClose={onClose} className={styles.actionModal}>
@@ -693,7 +757,7 @@ function groupOf(capability: ActionCapability): CapabilityGroup {
   return "spells";
 }
 
-export function Actions({ character, derived, dice, capabilities = [], previews, availableActions = [], status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [], restInfo, carrying, walkSpeedCm, onOpenInventory, historyPanel }: ActionsProps) {
+export function Actions({ character, derived, dice, capabilities = [], previews, availableActions, status = "idle", error, title = "Ações", onIntent, onCancel, onOpenConditions, attackRolls = [], unequippedWeapons = [], spellRolls = [], restInfo, carrying, walkSpeedCm, onOpenInventory, historyPanel }: ActionsProps) {
   const [selectedId, setSelectedId] = useState<string>();
   const [openGroup, setOpenGroup] = useState<CapabilityGroup>();
   const [skillsOpen, setSkillsOpen] = useState(false);
@@ -703,6 +767,7 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
   const [inputValue, setInputValue] = useState("");
   const [featureCastingOptionSelected, setFeatureCastingOptionSelected] = useState(false);
   const [spellInput, setSpellInput] = useState<SpellInputSelection>(EMPTY_SPELL_INPUT);
+  const [, setTurnBudgetRevision] = useState(0);
   const submittedCommands = useRef(new Set<string>());
 
   const selected = capabilities.find((capability) => capability.id === selectedId);
@@ -717,6 +782,17 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
     setFeatureCastingOptionSelected(false);
     setSpellInput(EMPTY_SPELL_INPUT);
     submittedCommands.current.clear();
+  }, [character?.id]);
+
+  useEffect(() => {
+    if (!character) return;
+    const characterId = String(character.id);
+    const refreshBudget = (event: Event) => {
+      const detail = (event as CustomEvent<{ readonly characterId: string }>).detail;
+      if (detail?.characterId === characterId) setTurnBudgetRevision((revision) => revision + 1);
+    };
+    window.addEventListener(TURN_ACTION_BUDGET_CHANGED, refreshBudget);
+    return () => window.removeEventListener(TURN_ACTION_BUDGET_CHANGED, refreshBudget);
   }, [character?.id]);
 
   // Uma vez por personagem: o histórico salvo alimenta "Último resultado" e a atividade recente.
@@ -737,11 +813,20 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
   if (!character) return <section className={styles.state} aria-labelledby="actions-empty-title"><span className={styles.stateMark} aria-hidden="true">✦</span><h1 id="actions-empty-title">Nenhum personagem selecionado</h1><p>Selecione uma ficha para revisar ataques, magia, recursos, itens, descanso e concentração.</p></section>;
 
   const selectedPreview = selected ? lookupPreview(selected, previews) : undefined;
-  const selectedState = selected ? capabilityState(selected, selectedPreview, availableActions) : undefined;
-  const spellInputResolution = selected && selectedState
+  const ledgerAvailableActions = character ? readTurnActionBudget(String(character.id))?.availableActions : undefined;
+  const currentAvailableActions = availableActions === undefined
+    ? ledgerAvailableActions ?? []
+    : ledgerAvailableActions
+      ? availableActions.filter((action) => ledgerAvailableActions.includes(action))
+      : availableActions;
+  const selectedState = selected ? capabilityState(selected, selectedPreview, currentAvailableActions) : undefined;
+  const rollOnConfirmResolution = selected && selectedState
+    ? resolveRollsOnConfirm(selected, selectedPreview, selectedState)
+    : undefined;
+  const spellInputResolution = selected?.kind === "spell" && selectedState
     ? resolveSpellInputs(selected, selectedPreview, selectedState, character.id, spellInput, featureCastingOptionSelected)
     : undefined;
-  const selectedReviewState = spellInputResolution?.state ?? selectedState;
+  const selectedReviewState = spellInputResolution?.state ?? rollOnConfirmResolution?.state ?? selectedState;
   const groupCapabilities = openGroup ? capabilities.filter((capability) => groupOf(capability) === openGroup) : [];
   // A composição real usa os IDs `rest:short`/`rest:long` e recebe o painel de
   // descanso com prévia própria. Capacidades injetadas por integrações antigas ou
@@ -778,7 +863,12 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       const resolved = await result;
       if (resolved && "status" in resolved) {
         setFeedback(resultMessage(resolved, intent.featureCastingOption));
-        if (resolved.status === "success") setSelectedId(undefined);
+        if (resolved.status === "success") {
+          if (selected.actionCost === "action" || selected.actionCost === "bonus-action" || selected.actionCost === "reaction") {
+            spendTurnActionAfterSuccess(String(character.id), selected.actionCost, resolved.status);
+          }
+          setSelectedId(undefined);
+        }
         else submittedCommands.current.delete(commandId);
       } else {
         setFeedback({ tone: "success", message: "Aplicado na ficha." });
@@ -880,9 +970,9 @@ export function Actions({ character, derived, dice, capabilities = [], previews,
       {usesRestPanel ? <RestPanel key={restKind} character={character} info={restInfo} capabilities={groupCapabilities} initialKind={restKind} onIntent={onIntent} onDone={(outcome) => { setFeedback(outcome); setOpenGroup(undefined); }} /> : null}
       {!usesRestPanel && groupCapabilities.length ? <h3 className={styles.modalSubheading}>Aplicar na ficha</h3> : null}
       {usesRestPanel || groupCapabilities.length === 0 ? null : (
-        <div className={styles.capabilityList}>{groupCapabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, availableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>
+        <div className={styles.capabilityList}>{groupCapabilities.map((capability) => { const preview = lookupPreview(capability, previews); const state = capabilityState(capability, preview, currentAvailableActions); return <CapabilityCard key={capability.id} capability={capability} preview={preview} state={state} selected={selectedId === capability.id} onSelect={() => { setSelectedId(capability.id); setFeedback(undefined); }} />; })}</div>
       )}
-      {usesRestPanel ? null : selected && selectedReviewState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedReviewState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} featureCastingOptionSelected={featureCastingOptionSelected} onFeatureCastingOptionChange={setFeatureCastingOptionSelected} spellInput={spellInput} onSpellInputChange={(patch) => setSpellInput((current) => ({ ...current, ...patch }))} spellInputResolution={spellInputResolution} characterName={character.name} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
+      {usesRestPanel ? null : selected && selectedReviewState ? <ReviewBoundary resetKey={selected.id}><ReviewPanel capability={selected} preview={selectedPreview} state={selectedReviewState} onConfirm={() => void confirm()} onCancel={cancel} submitting={submitting} alreadySubmitted={submittedCommands.current.has(String(selected.commandId))} hasHandler={Boolean(onIntent)} inputValue={inputValue} onInputChange={setInputValue} featureCastingOptionSelected={featureCastingOptionSelected} onFeatureCastingOptionChange={setFeatureCastingOptionSelected} spellInput={spellInput} onSpellInputChange={(patch) => setSpellInput((current) => ({ ...current, ...patch }))} spellInputResolution={spellInputResolution} rollOnConfirmReady={rollOnConfirmResolution?.ready === true} characterName={character.name} /></ReviewBoundary> : groupCapabilities.length ? <p className={styles.emptyReview}>Revisão aguardando seleção: escolha uma opção para conferir custo, efeitos e fonte.</p> : null}
     </AppModal>
     {historyPanel}
   </section>;

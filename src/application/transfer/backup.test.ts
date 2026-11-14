@@ -215,8 +215,9 @@ describe("DATA-006 backup transfer", () => {
       formSnapshot: statBlock,
     });
     expect(restoredCharacter?.beastSightings).toEqual(activeCharacter.beastSightings);
-    expect(roundTrip.value.records.creatures).toEqual([creature]);
-    expect(roundTrip.value.records.creatures[0]?.reveals).toEqual([{ accountId, fields: ["name", "kind", "statBlock"] }]);
+    const restoredCreatures = roundTrip.value.records.creatures ?? [];
+    expect(restoredCreatures).toEqual([creature]);
+    expect(restoredCreatures[0]?.reveals).toEqual([{ accountId, fields: ["name", "kind", "statBlock"] }]);
     expect(roundTrip.value.records.sightings).toEqual([sighting]);
     expect(roundTrip.value.records.guesses).toEqual([guess]);
     expect(roundTrip.value.records.proposals).toEqual([proposal]);

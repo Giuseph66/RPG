@@ -2,9 +2,10 @@ import type { AnyDefinition } from "@data/rulepacks/lookup";
 import type { RulePack } from "@domain/contracts/definitions/rulepack";
 import type { EntityType, PackVersion, RulesetId, RulesetRef } from "@domain/contracts/ids";
 import type { SourceRef } from "@domain/contracts/primitives";
+import type { CreatureStatBlock } from "@domain/creatures";
 
-export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras";
-export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "spell" | "condition" | "race" | "subrace" | "class" | "subclass" | "feature" | "resource" | "progression" | "background" | "equipment" | "feat";
+export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras" | "creature";
+export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "creature" | "spell" | "condition" | "race" | "subrace" | "class" | "subclass" | "feature" | "resource" | "progression" | "background" | "equipment" | "feat";
 
 export type CompendiumCategoryStatus = "available" | "pending";
 
@@ -31,6 +32,7 @@ export const COMPENDIUM_CATEGORIES: readonly CompendiumCategory[] = [
   { id: "armor", label: "Armaduras", status: "available", targetId: "equipment" },
   { id: "feat", label: "Talentos", status: "available" },
   { id: "spell", label: "Magia", status: "available" },
+  { id: "creature", label: "Criaturas", status: "available" },
   { id: "resource", label: "Recursos", status: "available" },
   { id: "feature", label: "Características", status: "available" },
   { id: "progression", label: "Progressão", status: "available" },
@@ -64,6 +66,11 @@ export const COMPENDIUM_CATEGORY_ALIASES: Readonly<Record<string, CompendiumCate
   atributos: "attributes",
   pericias: "skills",
   perícias: "skills",
+  criatura: "creature",
+  criaturas: "creature",
+  creatures: "creature",
+  monstro: "creature",
+  monstros: "creature",
 };
 
 export interface CompendiumStaticDefinition {
@@ -95,12 +102,18 @@ export interface CompendiumBookRuleDefinition extends CompendiumStaticDefinition
   readonly text: string;
 }
 
+/** Bloco estatístico publicado de uma criatura; o texto integral do bloco entra na busca. */
+export interface CompendiumBookCreatureDefinition extends CompendiumStaticDefinition {
+  readonly kind: "book-creature";
+  readonly statBlock: CreatureStatBlock;
+}
+
 export interface CompendiumCatalogItem {
   /** Present for rule-pack definitions; static entries use `kind: "static"`. */
   readonly kind?: "rulepack" | "static";
   readonly entityType?: EntityType;
   readonly category?: StaticCompendiumCategory;
-  readonly definition: AnyDefinition | CompendiumStaticDefinition | CompendiumBookSpellDefinition | CompendiumBookRuleDefinition;
+  readonly definition: AnyDefinition | CompendiumStaticDefinition | CompendiumBookSpellDefinition | CompendiumBookRuleDefinition | CompendiumBookCreatureDefinition;
   readonly ruleset: RulesetRef;
   readonly aliases?: readonly string[];
   readonly summary?: string;
@@ -120,7 +133,7 @@ export interface CompendiumIndexEntry {
 }
 
 export interface CompendiumDetail extends CompendiumIndexEntry {
-  readonly definition: AnyDefinition | CompendiumStaticDefinition;
+  readonly definition: AnyDefinition | CompendiumStaticDefinition | CompendiumBookSpellDefinition | CompendiumBookRuleDefinition | CompendiumBookCreatureDefinition;
 }
 
 export interface CompendiumFilters {

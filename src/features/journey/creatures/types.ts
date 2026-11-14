@@ -30,6 +30,8 @@ export interface CreatureBoardProps extends CreatureSheetTools {
   readonly error?: string;
   readonly onCreate?: (content: CreatureContent) => Promise<Result<CreatureRecord, AppError>>;
   readonly onSuggestStatBlock?: StatBlockEditorProps["onSuggest"];
+  /** Criaturas publicadas (livros e suplementos) que o mestre pode copiar como base de um animal. */
+  readonly bookCreatures?: readonly import("@domain/creatures").CreatureStatBlock[];
   readonly onSave?: (creature: CreatureRecord) => Promise<Result<CreatureRecord, AppError>>;
   readonly onDelete?: (creature: CreatureRecord) => Promise<Result<void, AppError>>;
   readonly proposals?: readonly CreatureProposal[];

@@ -14,6 +14,7 @@ import { asRevision } from "@domain/contracts/versioning";
 import { type IdGenerator } from "@application/ports/id-generator";
 import { createSequenceRandomSource, rollExpression } from "@domain/dice";
 import { type DiceRoll } from "@domain/contracts/dice";
+import { FAIRY_SUPPLEMENT_ID } from "@data/rulepacks/optional-supplements";
 
 import { deriveActionCapabilities, type ActionCapabilityExecution } from "./action-capabilities";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
@@ -217,7 +218,7 @@ describe("deriveActionCapabilities", () => {
         sourceRef: ref("appendix-a-ra-gigante"),
         label: "Mordida — Rã Gigante",
         attackModifier: exp(3),
-        damageParts: [{ expression: { quantity: 1, faces: 6 }, damageType: "piercing" as const, modifierBonus: exp(1) }],
+        damageParts: [{ expression: { quantity: 1, faces: 6 as const }, damageType: "piercing" as const, modifierBonus: exp(1) }],
       }],
     };
     const { capabilities, executions } = deriveActionCapabilities(char, transformed, pack(), fakeIdGenerator());
@@ -253,6 +254,11 @@ describe("deriveActionCapabilities", () => {
     expect(execution?.rollPlan).toHaveLength(1);
     expect(execution?.rollPlan?.[0]).toMatchObject({ expression: { quantity: 1, faces: 8, modifier: 0 }, purpose: "healing" });
     if (!execution?.rollPlan?.[0]) return;
+    expect(capability?.rollsOnConfirm).toEqual([execution.rollPlan[0].id]);
+    expect(capability?.preview).toMatchObject({
+      status: "needsInput",
+      requests: [{ id: execution.rollPlan[0].id, reason: expect.stringContaining("rolagem d8") }],
+    });
     const roll: DiceRoll = {
       id: execution.rollPlan[0].id,
       expression: execution.rollPlan[0].expression,
@@ -445,6 +451,64 @@ describe("deriveActionCapabilities", () => {
     expect(withOption.capability).toMatchObject({ spellAllowsFocus: true, spellRequiresMaterial: true });
   });
 
+  it("explica efeito manual somente para a concessão racial assistida autorizada", () => {
+    const loaded = loadPhbPtBrLocal2017();
+    if (!loaded.ok) throw new Error(loaded.error.message);
+    const composed = composeOptionalRuleContent(loaded.value, [FAIRY_SUPPLEMENT_ID], []);
+    if (!composed.ok) throw new Error(composed.error.message);
+    const fairyGrant = composed.value.races.get(asEntityId("fairy"))?.spellcastingSources?.find((entry) => String(entry.id) === "fairy.magic-faerie-fire");
+    if (!fairyGrant) throw new Error("A concessão Fogo das Fadas da Fada não foi publicada");
+    const spellRef = ref("fogo-das-fadas");
+    const poolId = asUuid("55555555-5555-4555-8555-555555555551");
+    const racialSourceId = asUuid("55555555-5555-4555-8555-555555555552");
+    const racialCharacter = character({
+      raceRef: ref("fairy"),
+      selectedSupplementIds: [FAIRY_SUPPLEMENT_ID],
+      castingSources: [{
+        id: racialSourceId,
+        grantingRef: ref("fairy.magic-faerie-fire"),
+        sourceKind: "race",
+        ability: "wis",
+        knownSpellRefs: [spellRef],
+        preparedSpellRefs: [],
+        spellbookRefs: [],
+        resourcePoolIds: [poolId],
+      }],
+      spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }],
+      concentration: {
+        effectId: asUuid("55555555-5555-4555-8555-555555555554"),
+        sourceRef: ref("old-concentration"),
+        duration: { kind: "instant" },
+        pendingSaveIds: [],
+      },
+    });
+    const racial = deriveActionCapabilities(racialCharacter, derivedFor(racialCharacter), composed.value, fakeIdGenerator()).capabilities
+      .find((entry) => entry.id === `spell:${racialSourceId}:fogo-das-fadas:slot`);
+    expect(racial).toMatchObject({ status: "available", assistedRacialGrant: true, spellRequiresEndingConcentration: true, preview: { status: "rejected" } });
+    expect(racial?.effectSummary?.join(" ")).toContain("manualmente");
+    expect(racial?.spellTargeting?.restrictions).toContain("Alvo e efeito aguardam modelagem estruturada; a entrada permanece bloqueada.");
+
+    const classSourceId = asUuid("55555555-5555-4555-8555-555555555553");
+    const classCharacter = character({
+      castingSources: [{
+        id: classSourceId,
+        grantingRef: ref("wizard"),
+        sourceKind: "class",
+        ability: "int",
+        knownSpellRefs: [spellRef],
+        preparedSpellRefs: [],
+        spellbookRefs: [],
+        resourcePoolIds: [poolId],
+      }],
+      spellSlots: [{ poolId, kind: "spellcasting", slotLevel: 1, spent: 0 }],
+    });
+    const classCapability = deriveActionCapabilities(classCharacter, derivedFor(classCharacter), composed.value, fakeIdGenerator()).capabilities
+      .find((entry) => entry.id === `spell:${classSourceId}:fogo-das-fadas`);
+    expect(classCapability).toMatchObject({ status: "blocked", blockedReason: expect.stringContaining("PEND-SPELL-STRUCTURE") });
+    expect(classCapability?.assistedRacialGrant).toBeUndefined();
+    expect(classCapability?.effectSummary).toBeUndefined();
+  });
+
   it("expõe a alternativa de 1 minuto somente para a magia concedida pela fonte de característica", () => {
     const poolId = asUuid("99999999-9999-4999-8999-999999999991");
     const sourceId = asUuid("11111111-1111-4111-8111-111111111991");
@@ -470,6 +534,7 @@ describe("deriveActionCapabilities", () => {
     const { capabilities, executions } = deriveActionCapabilities(char, derivedFor(char), pack(), fakeIdGenerator());
     const capability = capabilities.find((entry) => entry.id === `spell:${sourceId}:fey-summon:slot`);
     expect(capability?.featureCastingOptions).toEqual([{ ...option, label: expect.stringContaining("assistida") }]);
+    expect(capability?.spellRequiresEndingConcentration).toBe(true);
     const execution = executions.get(capability!.id)!;
     expect(execution.featureCastingOptions).toEqual([option]);
     if (execution.command.kind !== "cast-spell") throw new Error("esperava comando de conjuração");
@@ -486,6 +551,7 @@ describe("deriveActionCapabilities", () => {
     const nonFeature = { ...char, castingSources: [classSource] };
     const nonFeatureCapability = deriveActionCapabilities(nonFeature, derivedFor(nonFeature), pack(), fakeIdGenerator()).capabilities.find((entry) => entry.id === `spell:${sourceId}:fey-summon:slot`);
     expect(nonFeatureCapability?.featureCastingOptions).toBeUndefined();
+    expect(nonFeatureCapability?.spellRequiresEndingConcentration).toBe(true);
   });
 
   it("bloqueia a revisão de cura quando não resta espaço compatível", () => {
@@ -509,8 +575,13 @@ describe("deriveActionCapabilities", () => {
     const { capabilities, executions } = deriveActionCapabilities(char, derivedFor(char), pack(), idGenerator);
     const concentration = capabilities.find((c) => c.kind === "concentration");
     expect(concentration?.status).toBe("available");
+    expect(concentration?.preview).toMatchObject({ status: "success", effects: [{ kind: "concentration-ended" }] });
     const execution = executions.get(concentration!.id);
     expect(execution?.command.kind).toBe("end-concentration");
+    expect(char.concentration).toBeDefined(); // prévia real e pura: a ficha só muda no commit.
+    const endResult = execution!.resolve({ character: char, rolls: new Map() });
+    expect(endResult.status).toBe("success");
+    expect(char.concentration).toBeDefined();
   });
 
   it("nunca lança quando o pack não tem a definição da magia referenciada", () => {

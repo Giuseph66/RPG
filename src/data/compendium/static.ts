@@ -234,7 +234,7 @@ const BOOK_RULE_SOURCES: readonly ExtractedBookRuleSource[] = [
   { category: "class", chapter: "Capítulo 3", tags: ["classe", "nível"], entries: PHB_CLASSES },
   { category: "combat", chapter: "Capítulo 9", tags: ["combate"], entries: PHB_COMBAT },
   { category: "condition", chapter: "Apêndice A", tags: ["condição"], entries: PHB_CONDITIONS },
-  { category: "adventure", chapter: "Apêndice D", tags: ["criatura", "monstro"], entries: PHB_CREATURES },
+  { category: "creature", chapter: "Apêndice D", tags: ["criatura", "monstro"], entries: PHB_CREATURES },
   { category: "adventure", chapter: "Apêndice B", tags: ["divindade", "panteão"], entries: PHB_DEITIES },
   { category: "equipment", chapter: "Capítulo 5", tags: ["equipamento"], entries: PHB_EQUIPMENT },
   { category: "feat", chapter: "Capítulo 6", tags: ["talento"], entries: PHB_FEATS },
@@ -250,6 +250,45 @@ function bookRuleId(chapter: string, sourceIndex: number, name: string, index: n
   return `book-${chapter.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${sourceIndex}-${name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${index}`;
 }
 
+const CREATURE_STAT_LABEL = /^(Classe de Armadura|Pontos de Vida|Deslocamento|Testes de Resistência|Perícias|Vulnerabilidades a Dano|Resistências a Dano|Imunidades a Dano|Imunidades a Condição|Sentidos|Idiomas|Nível de Desafio)\b/;
+const CREATURE_ABILITY = /^(FOR|DES|CON|INT|SAB|CAR)$/;
+const CREATURE_ABILITY_VALUE = /^\d+ \([+–-]\d+\)$/;
+
+/**
+ * Bloco de criatura que só existe como texto: cada linha de estatística vira um parágrafo e os seis atributos
+ * ficam numa linha (“FOR 6 (–2) · DES 17 (+3) …”), em vez de virarem subtítulos soltos. Traços e ações seguem o
+ * tratamento comum. Sem a linha “Nível de Desafio” (fim do cabeçalho) cai no tratamento comum.
+ */
+function formatBookCreatureText(raw: string, sourceHeading: string): string {
+  const lines = stripLeadingHeading(raw, sourceHeading).split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const challengeAt = lines.findIndex((line) => /^Nível de Desafio\b/.test(line));
+  if (challengeAt < 0) return normalizeBookText(stripLeadingHeading(raw, sourceHeading));
+  const items: string[] = [];
+  const abilities: string[] = [];
+  let abilitiesAt = -1;
+  for (let index = 0; index <= challengeAt; index += 1) {
+    const line = lines[index]!;
+    const value = lines[index + 1];
+    if (CREATURE_ABILITY.test(line) && value !== undefined && CREATURE_ABILITY_VALUE.test(value)) {
+      if (abilitiesAt < 0) { abilitiesAt = items.length; items.push(""); }
+      abilities.push(`${line} ${value}`);
+      index += 1;
+    } else if (index === 0 || CREATURE_STAT_LABEL.test(line) || items.length === 0) items.push(line);
+    else items[items.length - 1] = `${items[items.length - 1]} ${line}`.trim();
+  }
+  if (abilitiesAt >= 0) items[abilitiesAt] = `Atributos: ${abilities.join(" · ")}`;
+  const body = normalizeBookText(lines.slice(challengeAt + 1).join("\n"));
+  return [...items, ...(body ? [body] : [])].join("\n\n");
+}
+
+/** Resumo de criatura só com texto: “Corruptor miúdo (diabo), leal e mau · CA 13 · PV 10”, no estilo do catálogo estruturado. */
+function bookCreatureSummary(text: string): string | undefined {
+  const kind = text.split("\n")[1]?.trim();
+  const armorClass = /Classe de Armadura\s+(\d+)/.exec(text)?.[1];
+  const hitPoints = /Pontos de Vida\s+(\d+)/.exec(text)?.[1];
+  return kind && armorClass && hitPoints ? `${kind} · CA ${armorClass} · PV ${hitPoints}` : undefined;
+}
+
 /**
  * A extração do PDF devolveu duas tabelas de progressão vazias ("O MONGE", "O PATRULHEIRO").
  * Cards sem texto não são publicados; a lacuna depende da fonte e não é preenchida por suposição.
@@ -259,7 +298,7 @@ const BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = BOOK_RULE_SOURCES.flat
   category,
   ruleset,
   aliases: [entry.sourceHeading],
-  summary: `${entry.owner ? `${entry.owner} · ` : ""}${chapter} · p. ${entry.printedPages[0]}`,
+  summary: (category === "creature" ? bookCreatureSummary(entry.text) : undefined) ?? `${entry.owner ? `${entry.owner} · ` : ""}${chapter} · p. ${entry.printedPages[0]}`,
   definition: {
     kind: "book-rule" as const,
     id: bookRuleId(chapter, sourceIndex, entry.name, index),
@@ -267,7 +306,7 @@ const BOOK_RULE_ITEMS: readonly CompendiumCatalogItem[] = BOOK_RULE_SOURCES.flat
     tags: [...tags, entry.sourceHeading.toLocaleLowerCase("pt-BR")],
     sourceRefs: [sourceRef(chapter, entry.printedPages[0], entry.pdfPages[0], entry.sourceHeading)],
     sourceHeading: entry.sourceHeading,
-    text: normalizeBookText(stripLeadingHeading(entry.text, entry.sourceHeading)),
+    text: category === "creature" ? formatBookCreatureText(entry.text, entry.sourceHeading) : normalizeBookText(stripLeadingHeading(entry.text, entry.sourceHeading)),
   },
 })).filter((item) => item.definition.text.trim().length > 0));
 

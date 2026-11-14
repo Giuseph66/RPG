@@ -97,7 +97,7 @@ export function CreatureProposalBoard({ mode, proposals, loading, error, onSubmi
           creatureTypeMode="beast-only"
         />
         {((Object.prototype.hasOwnProperty.call(reviewBlocks, String(proposal.id)) ? reviewBlocks[String(proposal.id)] : proposal.reviewedStatBlock ?? proposal.statBlock)?.challengeRating === null) ? <p className={styles.reviewNote} role="status">O ND da sugestão não foi informado. Defina o ND final do bloco para poder aprovar.</p> : null}
-        <label className={styles.reason}><span>Nota de revisão (opcional)</span><textarea rows={2} maxLength={600} value={reviewNotes[String(proposal.id)] ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [String(proposal.id)]: event.currentTarget.value }))} /></label>
+        <label className={styles.reason}><span>Nota de revisão (opcional)</span><textarea rows={2} maxLength={600} value={reviewNotes[String(proposal.id)] ?? ""} onChange={(event) => { const value = event.currentTarget.value; setReviewNotes((current) => ({ ...current, [String(proposal.id)]: value })); }} /></label>
         <div className={styles.actions}><Button size="sm" disabled={Boolean(busyId) || reviewValidity[String(proposal.id)] === false || (Object.prototype.hasOwnProperty.call(reviewBlocks, String(proposal.id)) ? reviewBlocks[String(proposal.id)] : proposal.reviewedStatBlock ?? proposal.statBlock)?.challengeRating === null} busy={busyId === String(proposal.id)} onClick={() => void review(proposal, "approve")}>Aprovar no catálogo</Button><Button size="sm" variant="secondary" disabled={Boolean(busyId)} onClick={() => void review(proposal, "reject")}>Recusar</Button></div>
       </div> : null}
     </li>)}</ul>}

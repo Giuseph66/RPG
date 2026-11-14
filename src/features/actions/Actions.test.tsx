@@ -18,6 +18,14 @@ function preview(message = "Regra validada"): RuleResult {
   return { status: "success", nextState: characterA, effects: [], explanations: [{ value: message, contributions: [] }], sourceRefs: [sourceRef] };
 }
 
+function needsInputRollPreview(ids: readonly ReturnType<typeof asUuid>[], reasons?: readonly string[]): RuleResult {
+  return {
+    status: "needsInput",
+    requests: ids.map((id, index) => ({ id, reason: reasons?.[index] ?? "A rolagem d8 será vinculada ao comando.", validOptions: [] })),
+    sourceRefs: [sourceRef],
+  };
+}
+
 function capability(id: string, kind: ActionCapability["kind"], extra: Partial<ActionCapability> = {}): ActionCapability {
   return { id, commandId: asCommandId(`command-${id}`), kind, label: id, preview: preview(), sourceRefs: [sourceRef], ...extra };
 }
@@ -200,6 +208,7 @@ describe("Actions", () => {
     const onIntent = vi.fn(() => preview());
     const mounted = await mount(<Actions character={characterA} capabilities={[capability("Reforço Feérico", "spell", {
       preview: needsInput,
+      spellRequiresEndingConcentration: true,
       featureCastingOptions: [{ ...option, label: "Sem concentração (assistido; duração manual de 1 minuto)" }],
     })]} onIntent={onIntent} />);
 
@@ -211,6 +220,136 @@ describe("Actions", () => {
     expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).not.toBe("true");
     await click(button(mounted.container, "Confirmar execução"));
     expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({ featureCastingOption: option }));
+    await mounted.unmount();
+  });
+
+  it("mantém a conjuração bloqueada enquanto a concentração anterior não for encerrada", async () => {
+    const needsInput = realConcentrationPreview();
+    expect(needsInput.status).toBe("needsInput");
+    if (needsInput.status !== "needsInput") throw new Error("esperava preview real pendente de substituição da concentração");
+    expect(needsInput.requests.map((request) => request.reason)).toContain("Confirme explicitamente a substituição da concentração ativa.");
+    const onIntent = vi.fn();
+    const onCancel = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Reforço Feérico", "spell", {
+      preview: needsInput,
+      spellTargeting: { type: "creature", count: 1, restrictions: [], visibilityRequired: false },
+    })]} onCancel={onCancel} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    const target = mounted.container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    await click(target);
+    expect(mounted.container.textContent).toContain("Encerre explicitamente a concentração ativa pela capacidade Encerrar concentração");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).not.toHaveBeenCalled();
+    await click(button(mounted.container, "Cancelar"));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onIntent).not.toHaveBeenCalled();
+    await mounted.unmount();
+  });
+
+  it("não libera a magia ao resolver somente o alvo quando uma concentração precisa ser encerrada", async () => {
+    const missingTarget = realTargetMaterialPreview();
+    expect(missingTarget.status).toBe("rejected");
+    if (missingTarget.status !== "rejected") throw new Error("esperava rejeição real por alvo ausente");
+    expect(missingTarget.errors.map((error) => error.message)).toContain("Informe explicitamente ao menos um alvo; o motor não escolhe alvos.");
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Fogo das Fadas (espaço)", "spell", {
+      preview: missingTarget,
+      spellRequiresEndingConcentration: true,
+      spellTargeting: { type: "creature", count: 1, restrictions: ["Alvo e efeito aguardam resolução manual pela mesa."], visibilityRequired: false },
+    })]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(mounted.container.querySelector('input[type="checkbox"]') as HTMLElement);
+    expect(mounted.container.textContent).toContain("Encerre explicitamente a concentração ativa pela capacidade Encerrar concentração");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    expect(onIntent).not.toHaveBeenCalled();
+    await mounted.unmount();
+  });
+
+  it("permite a rolagem autorizada somente ao confirmar e cancelar não a executa", async () => {
+    const rollId = asUuid("12121212-1212-4212-8212-121212121212");
+    const roll = vi.fn();
+    const onCancel = vi.fn();
+    const onIntent = vi.fn(() => preview("Incansável aplicado após a rolagem real."));
+    const mounted = await mount(<Actions character={characterA} dice={{ history: [], roll }} capabilities={[capability("Incansável", "resource", {
+      preview: needsInputRollPreview([rollId]),
+      rollsOnConfirm: [rollId],
+      description: "Role 1d8 ao confirmar para determinar os PV temporários.",
+      costs: [{ label: "Usos restantes", remaining: 4 }],
+      actionCost: "action",
+    })]} availableActions={["action"]} onCancel={onCancel} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain("O dado autorizado será rolado ao confirmar");
+    expect(mounted.container.textContent).toContain("Efeito calculado após a rolagem autorizada.");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBeNull();
+    await click(button(mounted.container, "Cancelar"));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onIntent).not.toHaveBeenCalled();
+    expect(roll).not.toHaveBeenCalled();
+
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).toHaveBeenCalledTimes(1);
+    expect(onIntent).toHaveBeenCalledWith(expect.objectContaining({ kind: "resource", capabilityId: "Incansável" }));
+    expect(roll).not.toHaveBeenCalled(); // O dispatcher, não a UI, rola no commit.
+    await mounted.unmount();
+  });
+
+  it.each([
+    {
+      name: "sem preview",
+      preview: undefined,
+      allowed: [asUuid("13131313-1313-4313-8313-131313131313")],
+      pendingReasons: undefined,
+    },
+    {
+      name: "preview rejeitado",
+      preview: { status: "rejected", errors: [{ code: "invalid-context", message: "Ação inválida." }], sourceRefs: [sourceRef] } as RuleResult,
+      allowed: [asUuid("14141414-1414-4414-8414-141414141414")],
+      pendingReasons: undefined,
+    },
+    {
+      name: "pedido extra não autorizado",
+      preview: needsInputRollPreview([
+        asUuid("15151515-1515-4515-8515-151515151515"),
+        asUuid("16161616-1616-4616-8616-161616161616"),
+      ]),
+      allowed: [asUuid("15151515-1515-4515-8515-151515151515")],
+      pendingReasons: undefined,
+    },
+    {
+      name: "allowlist com pedido ausente",
+      preview: needsInputRollPreview([asUuid("17171717-1717-4717-8717-171717171717")]),
+      allowed: [asUuid("17171717-1717-4717-8717-171717171717"), asUuid("18181818-1818-4818-8818-181818181818")],
+      pendingReasons: undefined,
+    },
+    {
+      name: "pendência adicional da capacidade",
+      preview: needsInputRollPreview([asUuid("19191919-1919-4919-8919-191919191919")]),
+      allowed: [asUuid("19191919-1919-4919-8919-191919191919")],
+      pendingReasons: ["Outra decisão ainda é necessária."],
+    },
+  ])("mantém bloqueada a rolagem autorizada para $name", async ({ preview: rollPreview, allowed, pendingReasons }) => {
+    const onIntent = vi.fn();
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Incansável", "resource", {
+      preview: rollPreview,
+      rollsOnConfirm: allowed,
+      ...(pendingReasons ? { pendingReasons } : {}),
+      costs: [{ label: "Usos restantes", remaining: 4 }],
+      actionCost: "action",
+    })]} availableActions={["action"]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(onIntent).not.toHaveBeenCalled();
     await mounted.unmount();
   });
 
@@ -286,6 +425,30 @@ describe("Actions", () => {
     await click(button(mounted.container, "Confirmar execução"));
     expect(onIntent).not.toHaveBeenCalled();
     await mounted.unmount();
+  });
+
+  it("oculta somente o bloqueio estrutural para concessão racial assistida validada", async () => {
+    const structuralRestriction = "Alvo e efeito aguardam modelagem estruturada; a entrada permanece bloqueada.";
+    const manualRestriction = "Esta concessão racial é registrada para resolução manual pela mesa.";
+    const assisted = await mount(<Actions character={characterA} capabilities={[capability("Druidismo racial", "spell", {
+      assistedRacialGrant: true,
+      spellTargeting: { type: "creature", count: 1, restrictions: [structuralRestriction, manualRestriction], visibilityRequired: false },
+      effectSummary: ["A mesa decide o alvo e resolve o efeito; nenhum efeito é automatizado."],
+    })]} onIntent={vi.fn()} />);
+    await openQuickAction(assisted.container, "Magias");
+    await click(button(assisted.container, "Revisar capacidade"));
+    expect(assisted.container.textContent).not.toContain(structuralRestriction);
+    expect(assisted.container.textContent).toContain(manualRestriction);
+    expect(assisted.container.textContent).toContain("A mesa decide o alvo e resolve o efeito");
+    await assisted.unmount();
+
+    const blocked = await mount(<Actions character={characterA} capabilities={[capability("Druidismo de classe", "spell", {
+      spellTargeting: { type: "creature", count: 1, restrictions: [structuralRestriction], visibilityRequired: false },
+    })]} onIntent={vi.fn()} />);
+    await openQuickAction(blocked.container, "Magias");
+    await click(button(blocked.container, "Revisar capacidade"));
+    expect(blocked.container.textContent).toContain(structuralRestriction);
+    await blocked.unmount();
   });
 
   it("não transforma componente rastreado em declaração simples sem seleção de inventário", async () => {
@@ -423,13 +586,96 @@ describe("Actions", () => {
     await mounted.unmount();
   });
 
+  it("consome a ação do turno só após sucesso explícito do dispatcher e atualiza o painel", async () => {
+    const turnKey = `rpg.turn.${characterA.id}`;
+    sessionStorage.setItem(turnKey, JSON.stringify({ round: 1, used: { action: false, bonus: false, reaction: false }, movedSquares: 0, dashed: false, effects: [] }));
+    const onIntent = vi.fn(() => preview("Conjuração confirmada"));
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia com ação", "spell", { actionCost: "action" })]} availableActions={["action"]} onIntent={onIntent} />);
+
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(button(mounted.container, "Confirmar execução"));
+
+    expect(onIntent).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(sessionStorage.getItem(turnKey) ?? "{}").used.action).toBe(true);
+    expect(mounted.container.querySelector('button[data-slot="action"]')?.textContent).toContain("Usada");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain("Ação indisponível: Ação.");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+
+    await mounted.unmount();
+    sessionStorage.removeItem(turnKey);
+  });
+
+  it("não consome ação ao abrir ou cancelar conjuração, nem em CAS rejeitado, needsInput ou retorno void", async () => {
+    const turnKey = `rpg.turn.${characterA.id}`;
+    sessionStorage.setItem(turnKey, JSON.stringify({ round: 1, used: { action: false, bonus: false, reaction: false }, movedSquares: 0, dashed: false, effects: [] }));
+    const outcomes: Array<RuleResult | void> = [
+      { status: "rejected", errors: [{ code: "invalid-context", message: "Revisão CAS desatualizada." }], sourceRefs: [sourceRef] },
+      needsInputRollPreview([asUuid("cccccccc-cccc-4ccc-8ccc-cccccccccccc")]),
+      undefined,
+    ];
+    const onIntent = vi.fn(() => outcomes.shift());
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia com ação", "spell", { actionCost: "action" })]} availableActions={["action"]} onIntent={onIntent} />);
+
+    await click(button(mounted.container, "Conjurar magia"));
+    await click(button(mounted.container, "Usar e escolher magia"));
+    expect(JSON.parse(sessionStorage.getItem(turnKey) ?? "{}").used.action).toBe(false);
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(button(mounted.container, "Cancelar"));
+    expect(onIntent).not.toHaveBeenCalled();
+    expect(JSON.parse(sessionStorage.getItem(turnKey) ?? "{}").used.action).toBe(false);
+
+    await click(button(mounted.container, "Revisar capacidade"));
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(mounted.container.textContent).toContain("Revisão CAS desatualizada.");
+    expect(JSON.parse(sessionStorage.getItem(turnKey) ?? "{}").used.action).toBe(false);
+
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(JSON.parse(sessionStorage.getItem(turnKey) ?? "{}").used.action).toBe(false);
+    await click(button(mounted.container, "Confirmar execução"));
+    expect(mounted.container.textContent).toContain("Aplicado na ficha.");
+    expect(JSON.parse(sessionStorage.getItem(turnKey) ?? "{}").used.action).toBe(false);
+    expect(onIntent).toHaveBeenCalledTimes(3);
+
+    await mounted.unmount();
+    sessionStorage.removeItem(turnKey);
+  });
+
   it("traduz a ação indisponível na revisão", async () => {
+    const turnKey = `rpg.turn.${characterA.id}`;
+    sessionStorage.removeItem(turnKey);
     const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia bônus", "spell", { actionCost: "bonus-action" })]} availableActions={["action"]} onIntent={vi.fn()} />);
     await openQuickAction(mounted.container, "Magias");
     await click(button(mounted.container, "Revisar capacidade"));
     expect(mounted.container.textContent).toContain("Ação indisponível: Ação bônus.");
     expect(mounted.container.textContent).not.toContain("bonus-action");
     await mounted.unmount();
+    sessionStorage.removeItem(turnKey);
+  });
+
+  it("preserva a lista explícita vazia apesar do orçamento inicial do painel", async () => {
+    const turnKey = `rpg.turn.${characterA.id}`;
+    sessionStorage.removeItem(turnKey);
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia de ação", "spell", { actionCost: "action" })]} availableActions={[]} onIntent={vi.fn()} />);
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).toContain("Ação indisponível: Ação.");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe("true");
+    await mounted.unmount();
+    sessionStorage.removeItem(turnKey);
+  });
+
+  it("mantém permitida a ação livre explicitamente fornecida", async () => {
+    const turnKey = `rpg.turn.${characterA.id}`;
+    sessionStorage.removeItem(turnKey);
+    const mounted = await mount(<Actions character={characterA} capabilities={[capability("Magia livre", "spell", { actionCost: "free" })]} availableActions={["free"]} onIntent={vi.fn()} />);
+    await openQuickAction(mounted.container, "Magias");
+    await click(button(mounted.container, "Revisar capacidade"));
+    expect(mounted.container.textContent).not.toContain("Ação indisponível:");
+    expect(button(mounted.container, "Confirmar execução").getAttribute("aria-disabled")).toBe(null);
+    await mounted.unmount();
+    sessionStorage.removeItem(turnKey);
   });
 
   it("bloqueia recurso zerado e opção não suportada", async () => {
@@ -572,6 +818,31 @@ describe("Actions", () => {
     expect(roll).toHaveBeenCalledWith({ faces: 20, modifier: 4, purpose: "skill-check", label: "Teste de perícia (Sobrevivência)" });
     await openQuickAction(mounted.container, "Iniciativa");
     expect(roll).toHaveBeenLastCalledWith({ faces: 20, modifier: 2, purpose: "initiative", label: "Iniciativa" });
+    await mounted.unmount();
+  });
+
+  it("soma bônus de teste de atributo ao teste simples de Carisma, mas não à salvaguarda", async () => {
+    const roll = vi.fn();
+    const explanation = (value: number) => ({ value, contributions: [] });
+    const derived = {
+      characterId: characterA.id, characterRevision: characterA.revision, rulesetRef: characterA.rulesetRef,
+      abilityScores: [{ ability: "cha" as const, score: explanation(11), modifier: explanation(0) }],
+      abilityCheckBonuses: [{ ability: "cha" as const, bonus: explanation(3) }],
+      skills: [], savingThrows: [{ ability: "cha" as const, modifier: explanation(0), proficient: false }],
+      armorClass: explanation(12), initiative: explanation(2), speedsCm: [], proficiencyBonus: explanation(2),
+      hitPointsMax: explanation(10), resourceCapacities: [], attacks: [], spellcastingSources: [],
+      resistanceProfile: { resistances: [], immunities: [], vulnerabilities: [], conditionImmunities: [] }, passivePerception: explanation(12),
+    } as never;
+    const mounted = await mount(<Actions character={characterA} derived={derived} dice={{ history: [], roll }} />);
+    await openQuickAction(mounted.container, "Teste de perícia");
+    await click(button(mounted.container, "Atributos"));
+    expect(button(mounted.container, "Carisma").getAttribute("aria-label")).toBe("Rolar Teste de Carisma (+3)");
+    await click(button(mounted.container, "Carisma"));
+    expect(roll).toHaveBeenCalledWith({ faces: 20, modifier: 3, purpose: "skill-check", label: "Teste de Carisma" });
+
+    await openQuickAction(mounted.container, "Teste de perícia");
+    await click(button(mounted.container, "Resistências"));
+    expect(button(mounted.container, "Carisma").getAttribute("aria-label")).toBe("Rolar Resistência de Carisma (+0)");
     await mounted.unmount();
   });
 

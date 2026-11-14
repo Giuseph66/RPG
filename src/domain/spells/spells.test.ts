@@ -9,7 +9,7 @@ import { asRevision } from "@domain/contracts/versioning";
 import { classes } from "@data/classes";
 import { findSpell } from "@data/spells";
 
-import { castSpell } from "./index";
+import { castSpell, previewCast } from "./index";
 
 const uid = (value: string) => asUuid(value);
 const ref = (value: string) => ({ rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId(value) });
@@ -64,6 +64,77 @@ describe("spell domain", () => {
     const wrongEntityResult = castSpell(characterWithOtherKnownRef, spell, request(String(wrongEntity)), context);
     expect(wrongEntityResult.status).toBe("rejected");
     if (wrongEntityResult.status === "rejected") expect(wrongEntityResult.errors[0]?.code).toBe("invalid-command");
+  });
+
+  it("só aceita alvo vazio na resolução manual autorizada de Druidismo racial", () => {
+    const druidcraft = findSpell("druidismo")!;
+    expect(druidcraft.targetType.manualResolution).toBe(true);
+    const racial = character({
+      castingSources: [{
+        id: sourceId,
+        grantingRef: ref("fairy.magic-druidcraft"),
+        sourceKind: "race",
+        ability: "wis",
+        knownSpellRefs: [ref("druidismo")],
+        preparedSpellRefs: [],
+        spellbookRefs: [],
+        resourcePoolIds: [],
+      }],
+    });
+    const manualRequest = request("druidismo", "normal", {
+      resourcePoolId: undefined,
+      slotLevel: undefined,
+      targetContext: { targetIds: [], manualResolution: true },
+    });
+    const withoutGrantApproval = castSpell(racial, druidcraft, manualRequest, context);
+    expect(withoutGrantApproval.status).toBe("rejected");
+
+    const manualContext = {
+      ...context,
+      manualRacialCantripRef: ref("druidismo"),
+    };
+    const authorized = castSpell(racial, druidcraft, manualRequest, manualContext);
+    expect(authorized.status, JSON.stringify(authorized)).toBe("success");
+    const manualPreview = previewCast(racial, druidcraft, manualRequest, manualContext);
+    expect(manualPreview.status).toBe("needsInput");
+    if (manualPreview.status === "needsInput") {
+      expect(manualPreview.preview?.kind).toBe("cast-spell");
+      if (manualPreview.preview?.kind === "cast-spell") expect(manualPreview.preview.castPreview.interventionsRequired).toEqual([]);
+    }
+
+    const classSource = {
+      ...racial.castingSources[0]!,
+      sourceKind: "class" as const,
+      grantingRef: ref("druid"),
+    };
+    const classCharacter = { ...racial, castingSources: [classSource] };
+    const classPending = castSpell(classCharacter, druidcraft, manualRequest, manualContext);
+    expect(classPending.status).toBe("rejected");
+    expect(previewCast(classCharacter, druidcraft, manualRequest, manualContext).status).toBe("rejected");
+
+    const fireBolt = findSpell("fire-bolt")!;
+    const wizard = character({
+      classes: [{ classId: asEntityId("wizard"), level: 1, choices: [] }],
+      castingSources: [{
+        id: sourceId,
+        grantingRef: ref("wizard"),
+        sourceKind: "class",
+        ability: "int",
+        knownSpellRefs: [ref("fire-bolt")],
+        preparedSpellRefs: [],
+        spellbookRefs: [],
+        resourcePoolIds: [],
+      }],
+    });
+    const targetlessOrdinarySpell = castSpell(wizard, fireBolt, request("fire-bolt", "normal", {
+      resourcePoolId: undefined,
+      slotLevel: undefined,
+      targetContext: { targetIds: [] },
+    }), context);
+    expect(targetlessOrdinarySpell.status).toBe("rejected");
+    if (targetlessOrdinarySpell.status === "rejected") {
+      expect(targetlessOrdinarySpell.errors[0]?.message).toContain("Informe explicitamente ao menos um alvo");
+    }
   });
 
   it("exige magia preparada e rejeita slot esgotado", () => {

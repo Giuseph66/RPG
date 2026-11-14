@@ -7,12 +7,13 @@ import type { BackupEnvelope } from "@domain/contracts/backup";
 import type { Character } from "@domain/contracts/character";
 import { DataManagementService } from "@application/transfer";
 import { DefaultBackupService, hashBytes, parseBackupJson } from "@application/transfer/backup";
-import type { AtomicImportWriter, BackupServiceOptions } from "@application/transfer/types";
+import type { AtomicImportWriter } from "@application/transfer/types";
 import { migratePayload } from "@infrastructure/persistence/migrations";
 import { IndexedDbAssetRepository } from "@infrastructure/persistence/indexeddb/asset-repository";
 import { IndexedDbCampaignRepository } from "@infrastructure/persistence/indexeddb/campaign-repository";
 import { IndexedDbCharacterRepository } from "@infrastructure/persistence/indexeddb/character-repository";
 import { IndexedDbDiceHistoryRepository } from "@infrastructure/persistence/indexeddb/dice-history-repository";
+import { IndexedDbJourneyVisibilityRepository } from "@infrastructure/persistence/indexeddb/journey-visibility-repository";
 import { openDatabase } from "@infrastructure/persistence/indexeddb/open-database";
 import { STORE_NAMES } from "@infrastructure/persistence/indexeddb/schema";
 import { createCampaignApplicationService } from "@application/campaign";
@@ -24,11 +25,11 @@ const opened: IDBDatabase[] = [];
 
 function unwrap<T>(result: Result<T, AppError>): T { if (!result.ok) throw new Error(result.error.message); return result.value; }
 async function db(): Promise<IDBDatabase> { const result = await openDatabase({ name: `qa-002-${sequence++}` }); if (!result.ok) throw new Error(result.error.message); opened.push(result.value); return result.value; }
-function repos(database: IDBDatabase) { return { characters: new IndexedDbCharacterRepository(database, clock), campaigns: new IndexedDbCampaignRepository(database, clock), assets: new IndexedDbAssetRepository(database, clock), dice: new IndexedDbDiceHistoryRepository(database, clock) }; }
+function repos(database: IDBDatabase) { return { characters: new IndexedDbCharacterRepository(database, clock), campaigns: new IndexedDbCampaignRepository(database, clock), assets: new IndexedDbAssetRepository(database, clock), dice: new IndexedDbDiceHistoryRepository(database, clock), journey: new IndexedDbJourneyVisibilityRepository(database, clock) }; }
 function testIdGenerator() { let counter = 0; return { uuid: () => asUuid(`eeeeeeee-eeee-4eee-8eee-${String(++counter).padStart(12, "0")}`), commandId: () => `command-${++counter}` as never }; }
 function service(database: IDBDatabase, writer: AtomicImportWriter["commitImport"]): DefaultBackupService {
   const current = repos(database);
-  return new DefaultBackupService({ characters: current.characters, campaigns: current.campaigns, assets: current.assets, diceHistory: current.dice, commitImport: writer, idGenerator: testIdGenerator(), appVersion: "qa", now: clock.now } as BackupServiceOptions);
+  return new DefaultBackupService({ characters: current.characters, campaigns: current.campaigns, assets: current.assets, diceHistory: current.dice, journey: current.journey, commitImport: writer, idGenerator: testIdGenerator(), appVersion: "qa", now: clock.now });
 }
 function decode(value: string): Uint8Array { const binary = atob(value); const bytes = new Uint8Array(binary.length); for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index); return bytes; }
 function writeEnvelope(database: IDBDatabase, envelope: BackupEnvelope, abort = false): Promise<Result<{ readonly rootId: typeof envelope.rootId }, AppError>> {
@@ -109,9 +110,9 @@ describe("QA-002 sessão e persistência", () => {
     expect((await sourceRepos.characters.save(character, asRevision(0))).ok).toBe(true);
     const asset = { ...canonicalAsset, hash: hashBytes(canonicalAsset.bytes) };
     expect((await sourceRepos.assets.put(asset)).ok).toBe(true);
-    const exported = await new DefaultBackupService({ characters: sourceRepos.characters, campaigns: sourceRepos.campaigns, assets: sourceRepos.assets, appVersion: "qa", now: clock.now, commitImport: async () => err(appError.storageUnavailable("não usado")) } as BackupServiceOptions).exportCharacter(character.id);
+    const exported = await new DefaultBackupService({ characters: sourceRepos.characters, campaigns: sourceRepos.campaigns, assets: sourceRepos.assets, journey: sourceRepos.journey, appVersion: "qa", now: clock.now, commitImport: async () => err(appError.storageUnavailable("não usado")) }).exportCharacter(character.id);
     const envelope = unwrap(exported); const parsed = unwrap(parseBackupJson(JSON.stringify(envelope)));
-    const quotaService = new DefaultBackupService({ characters: sourceRepos.characters, campaigns: sourceRepos.campaigns, assets: sourceRepos.assets, appVersion: "qa", now: clock.now, maxImportBytes: 1, commitImport: async () => writeEnvelope(source, envelope) } as BackupServiceOptions);
+    const quotaService = new DefaultBackupService({ characters: sourceRepos.characters, campaigns: sourceRepos.campaigns, assets: sourceRepos.assets, journey: sourceRepos.journey, appVersion: "qa", now: clock.now, maxImportBytes: 1, commitImport: async () => writeEnvelope(source, envelope) });
     expect(await quotaService.commitImport(parsed, "replace")).toMatchObject({ ok: false, error: { code: "quota-exceeded" } });
     const target = await db(); const targetService = service(target, ({ envelope: input }) => writeEnvelope(target, input));
     expect((await targetService.commitImport(parsed, "copy")).ok).toBe(true);
@@ -133,7 +134,7 @@ describe("QA-002 sessão e persistência", () => {
 
   it("preserva original quando commit real é abortado", async () => {
     const source = await db(); const sourceRepos = repos(source); expect((await sourceRepos.characters.save(minimalCharacter, asRevision(0))).ok).toBe(true);
-    const envelope = unwrap(await new DefaultBackupService({ characters: sourceRepos.characters, campaigns: sourceRepos.campaigns, assets: sourceRepos.assets, appVersion: "qa", now: clock.now, commitImport: async () => err(appError.storageUnavailable("não usado")) } as BackupServiceOptions).exportCharacter(minimalCharacter.id));
+    const envelope = unwrap(await new DefaultBackupService({ characters: sourceRepos.characters, campaigns: sourceRepos.campaigns, assets: sourceRepos.assets, journey: sourceRepos.journey, appVersion: "qa", now: clock.now, commitImport: async () => err(appError.storageUnavailable("não usado")) }).exportCharacter(minimalCharacter.id));
     const target = await db(); const targetRepos = repos(target); const original = { ...minimalCharacter, name: "Original" }; expect((await targetRepos.characters.save(original, asRevision(0))).ok).toBe(true);
     const failed = await service(target, ({ envelope: input }) => writeEnvelope(target, input, true)).commitImport(envelope, "replace");
     expect(failed.ok).toBe(false); expect(unwrap(await targetRepos.characters.get(minimalCharacter.id)).name).toBe("Original");

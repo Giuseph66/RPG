@@ -47,12 +47,14 @@ export function matchRoute(pathname: string): RouteMatch {
   if (first === "settings" && segments.length === 1) return { kind: "settings", path, params: {} };
   if (first === "account" && segments.length === 1) return { kind: "account", path, params: {} };
   if (first === "collaboration" && segments.length === 1) return { kind: "collaboration", primary: "collaboration", path, params: {} };
+  if (first === "creatures" && segments.length === 1) return { kind: "journey", primary: "journey", path, params: { id: "creatures" } };
   if (first === "session" && second && segments.length === 2) return { kind: "session", path, params: { campaignId: second } };
   if ((first === "data" || (first === "settings" && second === "data")) && (segments.length === 1 || segments.length === 2)) {
     return { kind: "data", path, params: {} };
   }
   if (first === "character") {
     if (second === "create" && segments.length <= 3) return { kind: "character", primary: "character", path, params: { mode: "create", ...(third ? { draftId: third } : {}) } };
+    if (second && third === "creatures" && segments.length === 3) return { kind: "character", primary: "character", path, params: { id: second, mode: "creatures" } };
     if (second && third === "evolve" && segments.length === 3) return { kind: "character", primary: "character", path, params: { id: second, mode: "evolve" } };
     if (second) return { kind: "character", primary: "character", path, params: { id: second } };
     return { kind: "character", primary: "character", path, params: {} };

@@ -95,6 +95,8 @@ export interface JourneyCampaignProps extends CampaignPanelProps {
   readonly sessionsPanel?: ReactNode;
   readonly participantsPanel?: ReactNode;
   readonly creaturesPanel?: ReactNode;
+  /** Catálogo completo em uma aba separada do Elenco, exibido apenas para conta mestre. */
+  readonly creaturesCatalogPanel?: ReactNode;
   /** Mestre vê tudo; jogador vê a própria jornada. Ausente = mestre local. */
   readonly role?: "master" | "player";
   readonly playerJourneys?: readonly PlayerJourneySummary[];

@@ -170,6 +170,7 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
     selectionIds.add(selection.choiceId);
   }
   const knownIds = new Set<string>();
+  const choicesById = new Map(choices.map((choice) => [choice.id, choice]));
   for (const choice of choices) {
     knownIds.add(choice.id);
     issues.push(...validateChoice(choice, selectedFor(choice, selections), pack, equipmentBundles, `choices.${choice.id}`, classDefinition?.id ? String(classDefinition.id) : undefined, classEntry?.level, creationChoiceLimit(pack, partial, choice).max, expandedSpellIds(pack, classEntry?.subclassId ? String(classEntry.subclassId) : undefined, classEntry?.level ?? 1)));
@@ -182,6 +183,9 @@ export function validateCharacterCreation(input: CreationCatalogInput, draft: Ch
   if (partial.subraceRef) for (const trait of pack.subraces.get(partial.subraceRef.entityId)?.traits ?? []) for (const modifier of trait.modifiers) if (modifier.operator === "grant-proficiency") addProficiency(modifier.id, "proficiencies");
   if (classDefinition) for (const proficiency of classDefinition.initialProficiencies) addProficiency(String(proficiency.entityId), "proficiencies");
   if (background) for (const skill of background.skillProficiencies) addProficiency(skill, "proficiencies");
-  for (const selection of selections) for (const selected of selection.selectedIds) if (skills.has(String(selected.entityId)) || String(selected.entityId).startsWith("proficiency.")) addProficiency(String(selected.entityId), `choices.${selection.choiceId}`);
+  for (const selection of selections) {
+    if (choicesById.get(selection.choiceId)?.kind === "expertise") continue;
+    for (const selected of selection.selectedIds) if (skills.has(String(selected.entityId)) || String(selected.entityId).startsWith("proficiency.")) addProficiency(String(selected.entityId), `choices.${selection.choiceId}`);
+  }
   return { valid: issues.length === 0, issues };
 }

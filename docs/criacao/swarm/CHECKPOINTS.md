@@ -30,3 +30,22 @@ Inventário raw final SUP-01: 95 blocos no Apêndice A (88 bestas, das quais 6 e
 SUP-CP1 aceito pela coordenação: leitura independente do manifesto e hashing dos cinco originais confirmou 5/5 SHA-256; extrações existem com 162/1/24 separadores de página e 1 tabela por DOCX. Três ZIPs passaram CRC; 2.258 membros conferidos byte a byte em tamanho/SHA-256 contra media-index.csv, zero divergências. OCR integral/controle visual do owner estão registrados em `Testes/complementos-fontes.md`; contrato aditivo publicado e grafo reindexado. Isso aceita extração/proveniência, não catálogo/complementos funcionais nem SUP-02/03.
 
 Revisão intermediária SUP: interface de Forma Selvagem ligada à ficha (catálogo elegível, PV, equipamento, duração manual e orçamento de ações), ainda sem aceite integrado. Auditoria independente de Tasha p.51–56 encontrou regras/transcrições incompletas no pacote de dados; SUP-01 está corrigindo custos, níveis de magia, textos e referências. Testes de formato ou componentes não substituem essa fidelidade à fonte. SUP-CP2/3/4 permanecem abertos.
+
+## Aceite SUP — 14/11/2026
+
+Estado vigente desta extensão, independente dos checkpoints históricos CP0–CP9:
+
+| Gate | Estado | Evidência revisada pela coordenação |
+| --- | --- | --- |
+| SUP-CP1 | Aceito | Cinco originais/extrações e mídias conferidos conforme registro acima. |
+| SUP-CP2 | Aceito após correção e prova no dist7 | Fada/Tasha opt-in; catálogo auditado 95/95; domínio e runtime de Forma Selvagem, pools separados, excedente, retorno e reabertura persistente. Casts gratuitos/espaços, material e concentração provados na UI; Incansável/Glamour aplicados. |
+| SUP-CP3 | Aceito | Proposta real pending → mestre define ND/aprova → backup → jogador vincula ficha pela UI → catálogo 96/0 vistas sem reload; marcar visto exige ação separada. Custom vista/transformada persistiu em outro percurso documentado. Blocos/editor/sugestões e atributos efetivos integrados. |
+| SUP-CP4 | Aceito | Rodada 7: 176 arquivos passaram/4 condicionais ignorados; 1.308 testes passaram/7 condicionais ignorados. Typecheck, build e ambos diff checks passaram. Dist7, mesmo perfil/origem: card8→17 imediatamente após Inconsciente (rev28), condição removida, nova forma8/original17/recurso2 de2 preservados após reload (rev30); console sem erros/avisos. |
+
+Relatório consolidado: [SUP-ENTREGA.md](SUP-ENTREGA.md). Logs e limitações: [QA geral](../../../Testes/complementos-qa-geral.md), [interface](../../../Testes/complementos-interface.md), [papéis](../../../Testes/complementos-roles-qa.md). Snapshot avaliado: worktree sobre `7fb54db`, sem commit desta coordenação. Não há prova de sincronização hospedada; ACL de criaturas passou separadamente no emulador (3/3). Nenhum deploy desta rodada.
+
+Finding posterior ao gate da rodada 5: no dist, inconsciência encerrou a forma e gravou PV17 originais, mas o card manteve PV8 até reload. SUP-CP2 reaberto nesse ponto; SUP-CP4 não aceito. Correção Luna no fluxo de publicação do store e prova imediata sem reload são obrigatórias.
+
+Rodada 6: suíte1.306/7 condicionais ignorados, typecheck/build/diffs verdes; smoke do novo bundle repetiu o card stale (IDB rev24 sem forma/PV17; card8). Patch do store insuficiente para o fluxo real; CP2/4 permanecem abertos e owners investigam estado UI.
+
+Fechamento vigente SUP, 14/11: causa final do card stale estava no estado local de Colaboração, que copiava PV do formulário anterior à normalização. Callback agora devolve projeção canônica persistida; painel atualiza só o card alvo. Focal13/13, rodada7 global1.308/7 condicionais ignorados, tipo/build/diffs e smoke novo passaram. SUP-CP2/4 novamente aceitos; SUP-CP1/3 mantidos. Captura independente revista pela coordenação: `output/playwright/sup03-qa-2026-11-12/production-cp4-round7-immediate-card.png`. Limitações de automação e prova local/emulador em SUP-ENTREGA permanecem explícitas.

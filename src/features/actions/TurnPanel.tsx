@@ -42,6 +42,12 @@ interface TurnState {
 }
 
 const FRESH: TurnState = { round: 1, used: { action: false, bonus: false, reaction: false }, movedSquares: 0, dashed: false, effects: [] };
+export const TURN_ACTION_BUDGET_CHANGED = "rpg:turn-action-budget-changed";
+
+interface TurnActionBudgetChange {
+  readonly characterId: string;
+  readonly source: "panel" | "external";
+}
 
 type TurnActionId = "attack" | "cast" | "dash" | "disengage" | "dodge" | "help" | "hide" | "ready" | "search" | "use-object" | "two-weapon" | "opportunity";
 
@@ -75,6 +81,11 @@ const SQUARE_CM = 150;
 
 function storageKey(characterId: string): string {
   return `rpg.turn.${characterId}`;
+}
+
+function notifyTurnActionBudgetChanged(characterId: string, source: TurnActionBudgetChange["source"]): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<TurnActionBudgetChange>(TURN_ACTION_BUDGET_CHANGED, { detail: { characterId, source } }));
 }
 
 function readTurn(characterId: string): TurnState {
@@ -117,6 +128,7 @@ export function spendTurnActionBudget(characterId: string, action: "action" | "b
     const slot: Slot = action === "bonus-action" ? "bonus" : action;
     if (current.used[slot]) return false;
     sessionStorage.setItem(storageKey(characterId), JSON.stringify({ ...current, used: { ...current.used, [slot]: true } }));
+    notifyTurnActionBudgetChanged(characterId, "external");
     return true;
   } catch {
     return false;
@@ -146,8 +158,20 @@ export function TurnPanel({ characterId, walkSpeedCm, speedPenaltyCm = 0, overCa
 
   useEffect(() => { setTurn(readTurn(characterId)); setSelectedId(undefined); }, [characterId]);
   useEffect(() => {
-    try { sessionStorage.setItem(storageKey(characterId), JSON.stringify(turn)); } catch { /* sem armazenamento: o turno vive só na memória */ }
+    try {
+      sessionStorage.setItem(storageKey(characterId), JSON.stringify(turn));
+      notifyTurnActionBudgetChanged(characterId, "panel");
+    } catch { /* sem armazenamento: o turno vive só na memória */ }
   }, [characterId, turn]);
+
+  useEffect(() => {
+    const syncExternalBudget = (event: Event) => {
+      const detail = (event as CustomEvent<TurnActionBudgetChange>).detail;
+      if (detail?.characterId === characterId && detail.source === "external") setTurn(readTurn(characterId));
+    };
+    window.addEventListener(TURN_ACTION_BUDGET_CHANGED, syncExternalBudget);
+    return () => window.removeEventListener(TURN_ACTION_BUDGET_CHANGED, syncExternalBudget);
+  }, [characterId]);
 
   const baseSpeed = walkSpeedCm === undefined ? undefined : overCapacity ? Math.min(walkSpeedCm, SQUARE_CM) : Math.max(0, walkSpeedCm - speedPenaltyCm);
   const squares = baseSpeed === undefined ? 0 : Math.floor(baseSpeed / SQUARE_CM) * (turn.dashed ? 2 : 1);
@@ -159,6 +183,11 @@ export function TurnPanel({ characterId, walkSpeedCm, speedPenaltyCm = 0, overCa
   const resetCombat = () => { setTurn(FRESH); setSelectedId(undefined); };
 
   const perform = (action: TurnAction) => {
+    if (action.id === "cast" && onCast) {
+      onCast();
+      setSelectedId(undefined);
+      return;
+    }
     setTurn((current) => ({
       ...current,
       used: { ...current.used, [action.slot]: true },

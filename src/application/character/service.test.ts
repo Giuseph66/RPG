@@ -43,14 +43,24 @@ function transformedCharacter(): Character {
 }
 
 function repositoryFor(initial: Character): CharacterRepository {
-  let current = initial;
+  return repositoryForMany([initial]);
+}
+
+function repositoryForMany(initial: readonly Character[]): CharacterRepository {
+  const currentById = new Map(initial.map((character) => [character.id, character]));
   return {
-    get: async (id) => id === current.id ? ok(current) : err(appError.notFound("character", id)),
+    get: async (id) => {
+      const current = currentById.get(id);
+      return current ? ok(current) : err(appError.notFound("character", id));
+    },
     list: async () => ok([]),
     save: async (character, expectedRevision) => {
+      const current = currentById.get(character.id);
+      if (!current) return err(appError.notFound("character", character.id));
       if (expectedRevision !== current.revision) return err(appError.conflict(expectedRevision, current.revision));
-      current = { ...character, revision: asRevision(expectedRevision + 1) };
-      return ok(current.revision);
+      const saved = { ...character, revision: asRevision(expectedRevision + 1) };
+      currentById.set(character.id, saved);
+      return ok(saved.revision);
     },
     delete: async () => ok(undefined),
     getDraft: async () => err(appError.notFound("draft", "missing")),
@@ -61,6 +71,103 @@ function repositoryFor(initial: Character): CharacterRepository {
 }
 
 describe("CharacterApplicationService direct updates", () => {
+  it("publica o vínculo e revisão no store da ficha ativa após a gravação", async () => {
+    const characterId = asUuid("66666666-6666-4666-8666-666666666661");
+    const campaignId = asUuid("66666666-6666-4666-8666-666666666662");
+    const initial = { ...minimalCharacter, id: characterId, revision: asRevision(1) };
+    const service = createCharacterApplicationService({ repository: repositoryFor(initial) });
+    await service.select(characterId);
+
+    const stale = await service.linkToCampaign(characterId, campaignId, asRevision(0));
+    expect(stale.ok).toBe(false);
+    expect(service.store.getSnapshot().value).toMatchObject({ id: characterId, revision: asRevision(1) });
+    expect(service.store.getSnapshot().value?.campaignId).toBeUndefined();
+
+    const linked = await service.linkToCampaign(characterId, campaignId, initial.revision);
+    expect(linked).toMatchObject({ ok: true, value: asRevision(2) });
+    expect(service.store.getSnapshot().value).toMatchObject({ id: characterId, campaignId, revision: asRevision(2) });
+    service.dispose();
+  });
+
+  it("vincula outra ficha sem trocar a seleção ativa", async () => {
+    const activeId = asUuid("66666666-6666-4666-8666-666666666663");
+    const otherId = asUuid("66666666-6666-4666-8666-666666666664");
+    const campaignId = asUuid("66666666-6666-4666-8666-666666666665");
+    const active = { ...minimalCharacter, id: activeId, revision: asRevision(1) };
+    const other = { ...minimalCharacter, id: otherId, revision: asRevision(1) };
+    const service = createCharacterApplicationService({ repository: repositoryForMany([active, other]) });
+    await service.select(activeId);
+
+    const linked = await service.linkToCampaign(otherId, campaignId, other.revision);
+    expect(linked.ok).toBe(true);
+    expect(service.store.selectedId).toBe(activeId);
+    expect(service.store.getSnapshot().value).toMatchObject({ id: activeId, revision: asRevision(1) });
+    expect(service.store.getSnapshot().value?.campaignId).toBeUndefined();
+    const otherAfter = await service.get(otherId);
+    expect(otherAfter).toMatchObject({ ok: true, value: { campaignId, revision: asRevision(2) } });
+    service.dispose();
+  });
+
+  it("publica imediatamente a saída automática da forma na ficha ativa após salvar Inconsciente", async () => {
+    const initial = { ...transformedCharacter(), revision: asRevision(1) };
+    const service = createCharacterApplicationService({ repository: repositoryFor(initial) });
+    await service.select(initial.id);
+    expect(service.store.getSnapshot().value?.transformation).toBeDefined();
+    const condition = {
+      id: asUuid("77777777-7777-4777-8777-777777777771"),
+      definitionRef: { rulesetId: initial.rulesetRef.id, entityId: asEntityId("unconscious") },
+      origin: { kind: "table-decision" as const, description: "Salvo pelo mestre" },
+    };
+
+    const stale = await service.saveSheetState(initial.id, asRevision(0), {
+      hp: { current: 4, temp: 1 }, conditions: [condition],
+    });
+    expect(stale.ok).toBe(false);
+    expect(service.store.getSnapshot().value?.transformation).toBeDefined();
+    expect(service.store.getSnapshot().value?.hp).toEqual(initial.hp);
+
+    const saved = await service.saveSheetState(initial.id, initial.revision, {
+      hp: { current: 4, temp: 1 }, conditions: [condition],
+    });
+    expect(saved).toMatchObject({ ok: true, value: asRevision(2) });
+    expect(service.store.getSnapshot().value).toMatchObject({
+      id: initial.id,
+      revision: asRevision(2),
+      hp: { current: 7, temp: 1 },
+      conditions: [condition],
+    });
+    expect(service.store.getSnapshot().value?.transformation).toBeUndefined();
+    service.dispose();
+  });
+
+  it("salva estado de outra ficha sem trocar o snapshot selecionado", async () => {
+    const active = { ...minimalCharacter, id: asUuid("77777777-7777-4777-8777-777777777772"), revision: asRevision(1) };
+    const other = { ...transformedCharacter(), revision: asRevision(1) };
+    const service = createCharacterApplicationService({ repository: repositoryForMany([active, other]) });
+    await service.select(active.id);
+    const condition = {
+      id: asUuid("77777777-7777-4777-8777-777777777774"),
+      definitionRef: { rulesetId: other.rulesetRef.id, entityId: asEntityId("unconscious") },
+      origin: { kind: "table-decision" as const, description: "Salvo pelo mestre" },
+    };
+
+    const saved = await service.saveSheetState(other.id, other.revision, {
+      hp: { current: 4, temp: 1 }, conditions: [condition],
+    });
+
+    expect(saved.ok).toBe(true);
+    expect(service.store.selectedId).toBe(active.id);
+    expect(service.store.getSnapshot().value).toMatchObject({ id: active.id, revision: active.revision });
+    expect(service.store.getSnapshot().value?.conditions).toEqual(active.conditions);
+    const otherAfter = await service.get(other.id);
+    expect(otherAfter).toMatchObject({
+      ok: true,
+      value: { hp: { current: 7, temp: 1 }, conditions: [condition] },
+    });
+    if (otherAfter.ok) expect(otherAfter.value.transformation).toBeUndefined();
+    service.dispose();
+  });
+
   it("retorna da forma ao ficar inconsciente por uma atualização direta da ficha, sem custo", async () => {
     const initial = transformedCharacter();
     const service = createCharacterApplicationService({ repository: repositoryFor(initial), debounceMs: 0 });

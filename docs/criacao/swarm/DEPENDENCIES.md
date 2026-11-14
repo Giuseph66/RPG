@@ -185,3 +185,8 @@ SUP-QA-FORMA depende da superfície de domínio SUP-02 e dados SUP-01 (34focais 
 Retomada 12/11: regras e persistência agora são produtores paralelos, com contratos compartilhados explícitos. UI executa diagnóstico de tipos atual e browser sobre o loader que já publica mapa95. Cada owner corrige seus paths; bootstrap tem writer único de regras. Gate global posterior depende de ambos os produtores em REVIEW e prova de browser. Não repetir extração aceita.
 
 Backup: P publica envelope retrocompatível e API de transferência; B liga commitBackupEnvelope às quatro coleções no bootstrap; P então executa roundtrip/import inválido com IndexedDB. UI segue browser em paralelo.
+
+Fechamento14/11: produtores e consumidores SUP entregues, gates rodada7 e smoke dist7 aceitos; DAG desta extensão encerrado. Nenhuma pendência de handoff de implementação SUP; limitações funcionais e de prova hospedada estão em SUP-ENTREGA.md. Checkpoints globais do projeto continuam independentes.
+
+
+NAV-CRIATURAS: descoberta dos componentes/rotas existentes → mover/reutilizar catálogo com contexto mestre/druida e categoria comum → regressões de visibilidade/deeplink/navegação → typecheck e revisão. Reutiliza SUP aceito; não reabre extração nem altera motor da Forma Selvagem.

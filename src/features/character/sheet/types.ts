@@ -115,6 +115,8 @@ export interface CharacterSheetProps {
   readonly spellInfo?: SpellInfoLookup;
   /** Abre a evolução (subir de nível); sem ela o botão não aparece. */
   readonly onLevelUp?: () => void;
+  /** Abre o catálogo de bestas para Forma Selvagem; habilitado a partir do nível 2 de druida. */
+  readonly onManageCreatures?: () => void;
   /** Condições do pack para o seletor "Adicionar condição". */
   readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
   readonly portrait?: SheetPortrait;

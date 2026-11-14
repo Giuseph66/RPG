@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { type CharacterRepository } from "@application/ports/character-repository";
 import { type OutboxRepository } from "@application/ports/outbox-repository";
 import { minimalCharacter } from "@domain/contracts/fixtures";
-import { ok } from "@domain/contracts/errors";
+import { appError, err, ok } from "@domain/contracts/errors";
 import { asCommandId, asIsoTimestamp, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
 
@@ -12,6 +12,7 @@ import { createApplicationServices } from "./context";
 describe("createApplicationServices", () => {
   it("enqueues a newly created character when sync dependencies are available", async () => {
     const characterRepository = {
+      get: vi.fn(async (id: string) => err(appError.notFound("character", id))),
       save: vi.fn(async () => ok(asRevision(1))),
     } as unknown as CharacterRepository;
     const outboxRepository = {

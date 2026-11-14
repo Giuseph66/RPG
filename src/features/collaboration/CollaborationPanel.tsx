@@ -421,8 +421,7 @@ export function CollaborationPanel({ membership, session, campaigns = [], charac
     const result = await onUpdateCharacter(editingCharacter.id, editingCharacter.revision, { hp: hpValue, tempHp: tempHpValue, conditionIds, adjustments });
     setBusy(false);
     if (!result.ok) { setEditingError(result.error.message); return; }
-    const adjustmentDelta = (target: CampaignAdjustmentTarget) => adjustments.filter((item) => item.target === target).reduce((sum, item) => sum + item.amount, 0) - (editingCharacter.adjustments ?? []).filter((item) => item.target === target).reduce((sum, item) => sum + item.amount, 0);
-    setCharacterLinks((current) => current.map((character) => character.id === editingCharacter.id ? { ...character, revision: result.value, hitPoints: { ...character.hitPoints, current: hpValue, temporary: tempHpValue }, conditionIds, conditions: conditionIds.map((id) => conditionOptions.find((option) => String(option.ref.entityId) === id)?.name ?? id), adjustments, ...(character.armorClass !== undefined ? { armorClass: character.armorClass + adjustmentDelta("armor-class") } : {}), ...(character.initiative !== undefined ? { initiative: character.initiative + adjustmentDelta("initiative") } : {}) } : character));
+    setCharacterLinks((current) => current.map((character) => character.id === editingCharacter.id ? { ...character, ...result.value } : character));
     setEditingCharacter(undefined); setMessage("Estado do personagem atualizado.");
   }
 

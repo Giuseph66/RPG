@@ -272,8 +272,29 @@ function applyFeatureSpellChoices(character: Character, pack: RulePack, selectio
           unresolvedFeatureResource = true;
           continue;
         }
-        let state = next.resources.find((entry) => sameRef(entry.definitionRef, effect.resourceRef!) && entry.ownerInstanceId === sourceId);
-        if (!state) {
+        // Level-up also records a generic grants-resource state owned by the character. Reuse
+        // that exact pool for the feature spell instead of creating a second use. If an older
+        // JSON already contains both copies, collapse only the character-owned and this source's
+        // matching states; the greatest spent value preserves use already recorded in either.
+        const matchingStates = next.resources.filter((entry) =>
+          sameRef(entry.definitionRef, effect.resourceRef!) &&
+          (entry.ownerInstanceId === sourceId || entry.ownerInstanceId === character.id),
+        );
+        const linkedResourceId = next.sources[sourceIndex].featureSpellResources?.find((entry) => sameRef(entry.spellRef, effect.spellRef))?.resourceId;
+        const reusableState = matchingStates.find((entry) => entry.id === linkedResourceId)
+          ?? matchingStates.find((entry) => entry.ownerInstanceId === sourceId)
+          ?? matchingStates.find((entry) => entry.ownerInstanceId === character.id);
+        let state: ResourceState;
+        if (reusableState) {
+          const matchingIds = new Set(matchingStates.map((entry) => entry.id));
+          state = {
+            ...reusableState,
+            ownerInstanceId: sourceId,
+            spent: Math.max(...matchingStates.map((entry) => entry.spent)),
+          };
+          next.resources = next.resources.filter((entry) => !matchingIds.has(entry.id));
+          next.resources.push(state);
+        } else {
           state = { id: newId("feature-spell-resource"), definitionRef: effect.resourceRef, ownerInstanceId: sourceId, spent: 0 };
           next.resources.push(state);
         }

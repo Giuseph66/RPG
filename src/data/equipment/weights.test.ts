@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { catalogWeightGrams, PHB_EQUIPMENT_WEIGHT_GRAMS, PHB_EQUIPMENT_WITHOUT_PRINTED_WEIGHT } from "@data/correto/integracao/equipment-weights";
+import { catalogWeightGrams, printedCostCp, PHB_EQUIPMENT_WEIGHT_GRAMS, PHB_EQUIPMENT_WITHOUT_PRINTED_WEIGHT } from "@data/correto/integracao/equipment-weights";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 
 /**
@@ -22,6 +22,14 @@ describe("pesos do equipamento", () => {
       .map((definition) => ({ id: String(definition.id), repo: Number(definition.weightGrams), book: catalogWeightGrams(String(definition.id)) }))
       .filter((entry) => entry.book !== undefined && entry.book !== entry.repo)
       .map((entry) => `${entry.id}: ${entry.repo}g ≠ ${entry.book}g`);
+    expect(drift).toEqual([]);
+  });
+
+  it("custo segue exatamente a tabela impressa do Livro do Jogador", () => {
+    const drift = equipment
+      .map((definition) => ({ id: String(definition.id), repo: Number(definition.valueCp), book: printedCostCp(String(definition.id)) }))
+      .filter((entry) => entry.book !== undefined && entry.book !== entry.repo)
+      .map((entry) => `${entry.id}: ${entry.repo}cp ≠ ${entry.book}cp`);
     expect(drift).toEqual([]);
   });
 

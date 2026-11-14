@@ -29,7 +29,7 @@ describe("rest rules", () => {
       origin: { kind: "environment" as const, description: "teste" },
       severity: 2,
     };
-    const sourceRef = { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("ranger.tireless") };
+    const sourceRef = { sourceId: minimalCharacter.rulesetRef.id, chapter: "Capítulo 3" };
     const reduced = resolveRest({ ...minimalCharacter, conditions: [exhaustion] }, {
       restKind: "short", tirelessActive: true, tirelessSourceRef: sourceRef,
     });

@@ -76,15 +76,21 @@ function validateEnvelope(value: unknown, maxAssetBytes: number): Result<BackupE
   if (schemaVersion > CURRENT_BACKUP_SCHEMA_VERSION) return err(appError.unsupportedSchema(schemaVersion, { min: 1, max: CURRENT_BACKUP_SCHEMA_VERSION }));
   if (value.kind !== "character" && value.kind !== "campaign") return fail("kind", "Tipo de backup inválido.");
   if (typeof value.rootId !== "string" || !isUuid(value.rootId)) return fail("rootId", "rootId inválido.");
-  if (!isRecord(value.records) || !Array.isArray(value.records.characters) || !Array.isArray(value.records.campaigns) || !Array.isArray(value.records.journalEntries) || !Array.isArray(value.records.maps) || !Array.isArray(value.records.rolls) || !Array.isArray(value.records.favorites) || !Array.isArray(value.assets)) return fail("records", "Coleções do backup estão inválidas.");
+  const rawRecords = value.records;
+  if (!isRecord(rawRecords) || !Array.isArray(rawRecords.characters) || !Array.isArray(rawRecords.campaigns) || !Array.isArray(rawRecords.journalEntries) || !Array.isArray(rawRecords.maps) || !Array.isArray(rawRecords.rolls) || !Array.isArray(rawRecords.favorites) || !Array.isArray(value.assets)) return fail("records", "Coleções do backup estão inválidas.");
   const optionalCollections = ["creatures", "sightings", "guesses", "proposals"] as const;
-  if (optionalCollections.some((key) => value.records[key] !== undefined && !Array.isArray(value.records[key]))) return fail("records", "Coleções de criaturas estão inválidas.");
+  if (optionalCollections.some((key) => rawRecords[key] !== undefined && !Array.isArray(rawRecords[key]))) return fail("records", "Coleções de criaturas estão inválidas.");
   const records = {
-    ...value.records,
-    creatures: (value.records.creatures ?? []) as unknown[],
-    sightings: (value.records.sightings ?? []) as unknown[],
-    guesses: (value.records.guesses ?? []) as unknown[],
-    proposals: (value.records.proposals ?? []) as unknown[],
+    characters: rawRecords.characters,
+    campaigns: rawRecords.campaigns,
+    journalEntries: rawRecords.journalEntries,
+    maps: rawRecords.maps,
+    rolls: rawRecords.rolls,
+    favorites: rawRecords.favorites,
+    creatures: Array.isArray(rawRecords.creatures) ? rawRecords.creatures : [],
+    sightings: Array.isArray(rawRecords.sightings) ? rawRecords.sightings : [],
+    guesses: Array.isArray(rawRecords.guesses) ? rawRecords.guesses : [],
+    proposals: Array.isArray(rawRecords.proposals) ? rawRecords.proposals : [],
   };
   const collections = [records.characters, records.campaigns, records.journalEntries, records.maps, records.rolls, records.favorites, records.creatures, records.sightings, records.guesses, records.proposals, value.assets] as readonly unknown[][];
   if (collections.some((collection) => collection.length > MAX_COLLECTION_ITEMS)) return fail("records", "Backup contém coleções excessivamente grandes.");

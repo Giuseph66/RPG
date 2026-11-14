@@ -1,5 +1,4 @@
 import type { CompendiumCategory, CompendiumCategoryId, CompendiumDetail, CompendiumFavoriteState, CompendiumFilters, CompendiumIndexEntry } from "@application/compendium";
-import type { ReactNode } from "react";
 
 export interface CompendiumProps {
   readonly entries: readonly CompendiumIndexEntry[];
@@ -17,8 +16,6 @@ export interface CompendiumProps {
   readonly onToggleFavorite?: (entry: CompendiumIndexEntry) => void;
   readonly onLoadCategory?: (category: CompendiumCategoryId) => void;
   readonly className?: string;
-  /** Integra o catálogo de criaturas na mesma rota sem criar um destino de navegação. */
-  readonly creaturePanel?: ReactNode;
 }
 
 export interface CompendiumDetailProps {

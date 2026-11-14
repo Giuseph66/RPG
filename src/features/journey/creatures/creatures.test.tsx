@@ -328,8 +328,141 @@ describe("CreatureProposalBoard", () => {
     await click(ndUnknown);
     expect((ndUnknown as HTMLInputElement).checked).toBe(false);
     expect(byText(container, "button", "Aprovar no catálogo").getAttribute("aria-disabled")).toBeNull();
+    const setNumber = async (labelText: string, value: string) => {
+      const input = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes(labelText))!.querySelector("input")!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      await fireEvent(input, new Event("input", { bubbles: true }));
+    };
+    await setNumber("ND — numerador", "2");
+    await setNumber("ND — denominador", "3");
+    await setNumber("XP", "100");
+    const note = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Nota de revisão (opcional)"))!.querySelector("textarea")!;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(note, "ND definido após conferência");
+    await fireEvent(note, new Event("input", { bubbles: true }));
+    expect(onReview).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Aguardando o mestre");
     await click(byText(container, "button", "Aprovar no catálogo"));
-    expect(onReview).toHaveBeenCalledWith(proposal.id, "approve", undefined, expect.objectContaining({ challengeRating: { numerator: 0, denominator: 1 } }));
+    expect(onReview).toHaveBeenCalledWith(proposal.id, "approve", "ND definido após conferência", expect.objectContaining({ challengeRating: { numerator: 2, denominator: 3 }, experiencePoints: 100 }));
+    await unmount();
+  });
+});
+
+describe("criatura do livro como base de um animal", () => {
+  const setValue = (element: Element, value: string, proto: object) => { Object.getOwnPropertyDescriptor(proto, "value")?.set?.call(element, value); return fireEvent(element, new Event(element.tagName === "SELECT" ? "change" : "input", { bubbles: true })); };
+  const source = [{ sourceId: asRulesetId("phb-ptbr-local-2017"), chapter: "Apêndice A" }];
+  const wolf: CreatureStatBlock = {
+    id: asEntityId("lobo-livro"), name: "Lobo", creatureType: "beast", size: "medium", armorClass: 13,
+    hitPoints: { average: 11, hitDice: "2d8+2" }, speeds: { walkCm: asCentimeters(1200) },
+    abilityScores: { str: 12, dex: 15, con: 12, int: 3, wis: 12, cha: 6 }, challengeRating: { numerator: 1, denominator: 4 },
+    traits: [{ id: "faro", name: "Faro apurado", description: "Vantagem em Percepção." }],
+    actions: [{ id: "mordida", name: "Mordida", description: "Ataque corpo a corpo." }], sourceRefs: source,
+  };
+  const bear: CreatureStatBlock = { ...wolf, id: asEntityId("urso-livro"), name: "Urso-pardo", size: "large", armorClass: 11, hitPoints: { average: 34, hitDice: "4d10+12" }, challengeRating: { numerator: 1, denominator: 1 } };
+  const dragon: CreatureStatBlock = { ...wolf, id: asEntityId("dragao-livro"), name: "Dragão-vermelho", creatureType: "dragon", size: "huge", challengeRating: { numerator: 10, denominator: 1 } };
+  const labelled = (root: ParentNode, text: string, selector = "input") => [...root.querySelectorAll("label")].find((label) => label.textContent?.includes(text))!.querySelector(selector) as HTMLInputElement;
+  const openForm = async (onCreate = vi.fn(async (content: { name: string }) => ok({ ...creature, name: content.name }))) => {
+    const mounted = await mount(<CreatureBoard creatures={[]} players={players} onCreate={onCreate} bookCreatures={[wolf, bear, dragon]} />);
+    await click(byText(mounted.container, "button", "Nova criatura"));
+    return { ...mounted, onCreate, dialog: document.body.querySelector("[role='dialog']")! };
+  };
+
+  it("oferece o botão de criatura do livro em qualquer categoria, e sem catálogo não oferece", async () => {
+    const { dialog, unmount } = await openForm();
+    expect(dialog.textContent).toContain("Criatura do livro");
+    await click(byText(dialog, "button[aria-pressed]", "NPC"));
+    expect(dialog.textContent).toContain("Criatura do livro");
+    await unmount();
+    const bare = await mount(<CreatureBoard creatures={[]} onCreate={vi.fn()} />);
+    await click(byText(bare.container, "button", "Nova criatura"));
+    expect(document.body.textContent).not.toContain("Criatura do livro");
+    await bare.unmount();
+  });
+
+  it("busca no catálogo, mostra o bloco completo e copia como base do animal", async () => {
+    const { dialog, onCreate, unmount } = await openForm();
+    await click(byText(dialog, "button[aria-pressed]", "Animal"));
+    await click(byText(dialog, "button", "Criatura do livro"));
+    const picker = [...document.body.querySelectorAll("[role='dialog']")].find((item) => item.textContent?.includes("Criaturas dos livros"))!;
+    // Abre filtrando bestas: o dragão fica de fora até o tipo mudar.
+    expect(picker.textContent).toContain("Lobo");
+    expect(picker.textContent).not.toContain("Dragão-vermelho");
+    expect(byText(picker, "button", "Usar como base").getAttribute("aria-disabled")).toBe("true");
+    await setValue(picker.querySelector("input[type='search']")!, "urs", HTMLInputElement.prototype);
+    expect(picker.textContent).toContain("Urso-pardo");
+    expect(picker.querySelector("ul")!.textContent).not.toContain("Lobo");
+    await setValue(picker.querySelector("input[type='search']")!, "", HTMLInputElement.prototype);
+    await click(byText(picker.querySelector("ul")!, "button", "Lobo"));
+    expect(picker.textContent).toContain("Faro apurado");
+    await click(byText(picker, "button", "Usar como base"));
+
+    expect(document.body.textContent).not.toContain("Criaturas dos livros");
+    expect(document.body.textContent).toContain("Copiado de Lobo.");
+    expect(dialog.querySelector<HTMLInputElement>("input[maxlength='80']")!.value).toBe("Lobo");
+    expect(labelled(dialog, "Pontos de vida").value).toBe("11 (2d8+2)");
+    expect(labelled(dialog, "Classe de armadura").value).toBe("13");
+    expect(labelled(dialog, "Habilidades e magias", "textarea").value).toContain("Mordida");
+    expect(labelled(dialog, "Nome no bloco").value).toBe("Lobo");
+    await click(byText(dialog, "button[type='submit']", "Adicionar ao elenco"));
+    await vi.waitFor(() => expect(onCreate).toHaveBeenCalled());
+    const saved = (onCreate.mock.calls[0]![0] as unknown as { statBlock: CreatureStatBlock }).statBlock;
+    expect(saved).toMatchObject({ name: "Lobo", armorClass: 13, hitPoints: { average: 11 } });
+    // Cópia independente: id novo, fonte original e nota de origem.
+    expect(String(saved.id)).not.toBe("lobo-livro");
+    expect(saved.sourceRefs).toEqual(source);
+    expect(saved.additionalInfo?.notes).toContain("Copiado de “Lobo”");
+    await unmount();
+  });
+
+  it("não sobrescreve o que o mestre já escreveu", async () => {
+    const { dialog, unmount } = await openForm();
+    await click(byText(dialog, "button[aria-pressed]", "Animal"));
+    await setValue(dialog.querySelector("input[maxlength='80']")!, "Fenrir", HTMLInputElement.prototype);
+    await setValue(labelled(dialog, "Pontos de vida"), "999", HTMLInputElement.prototype);
+    await click(byText(dialog, "button", "Criatura do livro"));
+    const picker = [...document.body.querySelectorAll("[role='dialog']")].find((item) => item.textContent?.includes("Criaturas dos livros"))!;
+    await click(byText(picker.querySelector("ul")!, "button", "Lobo"));
+    await click(byText(picker, "button", "Usar como base"));
+    expect(dialog.querySelector<HTMLInputElement>("input[maxlength='80']")!.value).toBe("Fenrir");
+    expect(labelled(dialog, "Pontos de vida").value).toBe("999");
+    expect(labelled(dialog, "Classe de armadura").value).toBe("13");
+    // O bloco ganha o nome que o mestre escolheu; só a espécie herda o nome do livro.
+    expect(labelled(dialog, "Nome no bloco").value).toBe("Fenrir");
+    expect(labelled(dialog, "Raça ou espécie").value).toBe("Lobo");
+    await unmount();
+  });
+
+  it("converte nomes do livro em caixa-alta para o estilo de frase ao copiar", async () => {
+    const shout: CreatureStatBlock = { ...wolf, id: asEntityId("lobo-atroz-livro"), name: "LOBO ATROZ" };
+    const { container, dialog, onCreate, unmount } = await (async () => {
+      const onCreate = vi.fn(async (content: { name: string }) => ok({ ...creature, name: content.name }));
+      const mounted = await mount(<CreatureBoard creatures={[]} onCreate={onCreate} bookCreatures={[shout]} />);
+      await click(byText(mounted.container, "button", "Nova criatura"));
+      return { ...mounted, onCreate, dialog: document.body.querySelector("[role='dialog']")! };
+    })();
+    await click(byText(dialog, "button[aria-pressed]", "Animal"));
+    await click(byText(dialog, "button", "Criatura do livro"));
+    const picker = [...document.body.querySelectorAll("[role='dialog']")].find((item) => item.textContent?.includes("Criaturas dos livros"))!;
+    await click(byText(picker.querySelector("ul")!, "button", "LOBO ATROZ"));
+    await click(byText(picker, "button", "Usar como base"));
+    expect(dialog.querySelector<HTMLInputElement>("input[maxlength='80']")!.value).toBe("Lobo atroz");
+    expect(labelled(dialog, "Nome no bloco").value).toBe("Lobo atroz");
+    expect(container).toBeTruthy();
+    expect(onCreate).not.toHaveBeenCalled();
+    await unmount();
+  });
+
+  it("avisa que a escolha substitui um bloco estatístico existente e cancela sem alterar nada", async () => {
+    const { dialog, unmount } = await openForm();
+    await click(byText(dialog, "button[aria-pressed]", "Animal"));
+    await click(byText(dialog, "button", "Adicionar bloco estatístico"));
+    const before = labelled(dialog, "Nome no bloco").value;
+    await click(byText(dialog, "button", "Criatura do livro"));
+    const picker = [...document.body.querySelectorAll("[role='dialog']")].find((item) => item.textContent?.includes("Criaturas dos livros"))!;
+    await click(byText(picker.querySelector("ul")!, "button", "Urso-pardo"));
+    expect(picker.textContent).toContain("substitui o bloco estatístico atual");
+    await click(byText(picker, "button", "Cancelar"));
+    expect(document.body.textContent).not.toContain("Criaturas dos livros");
+    expect(labelled(dialog, "Nome no bloco").value).toBe(before);
     await unmount();
   });
 });

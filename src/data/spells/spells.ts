@@ -34,7 +34,12 @@ function assistedFromBook(entry: ExtractedBookSpell): SpellDefinition {
     school: schoolByPtBr[entry.schoolPtBr] ?? "transmutation", castingTime: extractedCastingTime(entry.castingTime), range: { kind: "special" },
     components: extractedComponents(entry.components), duration: { kind: "special", endTriggers: [{ kind: "table-decision", description: "Duração publicada no catálogo textual; modelagem estruturada pendente." }] },
     concentration: entry.duration.includes("Concentração"), ritual: entry.ritual, classes: entry.classes.map((classId) => spellId(classId)),
-    targetType: { type: "mixed", restrictions: ["Alvo e efeito aguardam modelagem estruturada; a entrada permanece bloqueada."], visibilityRequired: false },
+    targetType: {
+      type: "mixed",
+      restrictions: ["Alvo e efeito aguardam modelagem estruturada; a entrada permanece bloqueada."],
+      visibilityRequired: false,
+      ...(entry.id === "druidismo" ? { manualResolution: true as const } : {}),
+    },
     attackType: "none", damage: [], healing: [], higherLevels: entry.higherLevels ? { kind: "custom", description: entry.higherLevels } : { kind: "none" },
     effects: [], automationStatus: "blocked", pendingDecisionIds: ["PEND-SPELL-STRUCTURE"],
   };

@@ -34,6 +34,17 @@ export interface CollaborationCharacter {
   readonly revision: Revision;
 }
 
+/** Projeção canônica devolvida após o mestre salvar PV, condições e ajustes. */
+export interface CollaborationCharacterState {
+  readonly revision: Revision;
+  readonly hitPoints: { readonly current: number; readonly temporary: number; readonly maximum?: number };
+  readonly armorClass: number | undefined;
+  readonly initiative: number | undefined;
+  readonly conditions: readonly string[];
+  readonly conditionIds: readonly string[];
+  readonly adjustments: readonly CampaignCharacterAdjustment[];
+}
+
 export type CampaignAdjustmentTarget = "armor-class" | "initiative" | "attack-roll" | "ability-check";
 
 export interface CampaignCharacterAdjustment {
@@ -64,6 +75,7 @@ export interface CollaborationPanelProps {
   readonly onOpenParticipants?: () => void;
   readonly onOpenAccount?: () => void;
   readonly onCreateCharacter?: () => void;
+  /** Abre o catálogo completo e a administração de criaturas da campanha para o mestre. */
   readonly onLinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
   /** Abre a ficha completa para editar (qualquer ficha que exista neste aparelho). */
   readonly onOpenCharacter?: (characterId: Uuid) => void;
@@ -71,7 +83,7 @@ export interface CollaborationPanelProps {
   readonly onDeleteCharacter?: (character: CollaborationCharacter) => Promise<Result<void, AppError>>;
   readonly onUnlinkCharacter?: (characterId: Uuid, campaignId: Uuid, expectedRevision: Revision) => Promise<Result<Revision, AppError>>;
   readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
-  readonly onUpdateCharacter?: (characterId: Uuid, expectedRevision: Revision, values: { readonly hp: number; readonly tempHp: number; readonly conditionIds: readonly string[]; readonly adjustments: readonly CampaignCharacterAdjustment[] }) => Promise<Result<Revision, AppError>>;
+  readonly onUpdateCharacter?: (characterId: Uuid, expectedRevision: Revision, values: { readonly hp: number; readonly tempHp: number; readonly conditionIds: readonly string[]; readonly adjustments: readonly CampaignCharacterAdjustment[] }) => Promise<Result<CollaborationCharacterState, AppError>>;
 }
 
 export interface CollaborationActor {

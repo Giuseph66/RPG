@@ -102,3 +102,6 @@
 .sectionTabs button:focus-visible { outline:2px solid var(--color-focus); outline-offset:2px; }
 .page::before { content:""; position:fixed; z-index:-1; inset:var(--app-bar-height,4.75rem) 0 calc(var(--size-nav-height) + env(safe-area-inset-bottom)) 0; pointer-events:none; background-image:linear-gradient(180deg,color-mix(in srgb,var(--color-background) 12%,transparent),color-mix(in srgb,var(--color-background) 54%,transparent)),url("../../assets/art/textures/header-stone.webp"); background-position:center; background-size:cover; }
 @media (min-width:901px) { .page::before { inset:var(--app-bar-height,4.75rem) 0 0 15rem; } }
+
+/* O bloco estatístico já traz o nome da criatura; o título fica só para leitores de tela. */
+.visuallyHiddenTitle { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

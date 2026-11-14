@@ -222,7 +222,7 @@ function newConditionId(): ConditionInstance["id"] {
   return asUuid(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`);
 }
 
-export function CharacterSheet({ character: storedCharacter, effectiveCharacter, wildShape, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, conditionOptions, portrait }: CharacterSheetProps) {
+export function CharacterSheet({ character: storedCharacter, effectiveCharacter, wildShape, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, onManageCreatures, conditionOptions, portrait }: CharacterSheetProps) {
   const character = effectiveCharacter ?? storedCharacter;
   const rule = useRuleHint();
   const [view, setView] = useState<CharacterSheetView>(initialView);
@@ -386,6 +386,7 @@ export function CharacterSheet({ character: storedCharacter, effectiveCharacter,
   const source = castingSources.find(isClassSource);
   const sourceClassId = source ? String(source.grantingRef.entityId) : undefined;
   const spellEntries = castingSources.flatMap((entry) => [...new Map([...entry.knownSpellRefs, ...entry.preparedSpellRefs, ...entry.spellbookRefs].map((ref) => [String(ref.entityId), ref])).values()].map((ref) => ({
+    castingSourceId: entry.id,
     ref,
     ability: entry.ability,
     option: spellById.get(String(ref.entityId)),
@@ -545,6 +546,9 @@ export function CharacterSheet({ character: storedCharacter, effectiveCharacter,
             })}</div>
           )}
         </Panel>
+        {onManageCreatures ? <Panel heading="Criaturas" headingLevel={2} action={<PanelLink label="Gerenciar" onClick={onManageCreatures} />}>
+          <p className={styles.muted}>Consulte as bestas disponíveis para sua Forma Selvagem.</p>
+        </Panel> : null}
         {character.progressionHistory.length > 0 ? (
           <Panel heading="Evolução" headingLevel={2} className={styles.evolutionPanel}>
             <ol className={styles.evolutionList}>
@@ -583,7 +587,7 @@ export function CharacterSheet({ character: storedCharacter, effectiveCharacter,
                     <ul className={styles.spellList}>{entries.map((entry) => {
                       const spellName = entry.option?.name ?? name("spell", entry.ref);
                       return (
-                        <li {...rule({ category: "spell", title: spellName, entityId: String(entry.ref.entityId) })} className={styles.spellRow} key={`${entry.ref.entityId}-${entry.ability}`}>
+                        <li {...rule({ category: "spell", title: spellName, entityId: String(entry.ref.entityId) })} className={styles.spellRow} key={`${entry.castingSourceId}-${entry.ref.entityId}`}>
                           <span className={[styles.spellIcon, styles[`school_${entry.option?.school ?? "none"}`] ?? ""].join(" ")} aria-hidden="true"><SpellIcon spellId={String(entry.ref.entityId)} fallback={<GiSparkles />} /></span>
                           <span className={styles.spellRowInfo}>
                             <span className={styles.spellRowName}>{spellName}</span>

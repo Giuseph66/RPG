@@ -24,7 +24,7 @@ describe("StatBlockEditor", () => {
     await setText(JSON.stringify(advanced));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining(advanced));
     expect(onValidityChange).toHaveBeenLastCalledWith(true);
-    const armorClass = [...container.querySelectorAll("label")].find((label) => label.textContent?.trim() === "CA")!.querySelector("input")!;
+    const armorClass = [...container.querySelectorAll("label")].find((label) => /^CA( |$)/.test(label.textContent?.trim() ?? ""))!.querySelector("input")!;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(armorClass, "14");
     await fireEvent(armorClass, new Event("input", { bubbles: true }));
     await setText(JSON.stringify({ isSwarm: true, sourceRefs: advanced.sourceRefs }));
@@ -78,6 +78,26 @@ describe("StatBlockEditor", () => {
     expect(container.textContent).toContain("requer revisão do mestre");
     expect((container.querySelector('input[aria-label="Tipo de criatura: besta"]') as HTMLInputElement)?.value).toBe("Besta");
     expect(container.textContent).toContain("Lobo");
+    await unmount();
+  });
+  it("mostra o modificador de cada atributo ao vivo e o ND como fração", async () => {
+    const onChange = vi.fn();
+    const { container, unmount } = await mount(<StatBlockEditor name="Urso" onChange={onChange} />);
+    await click([...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Adicionar bloco estatístico"))!);
+    const strength = container.querySelector<HTMLInputElement>("input[id$='-str']")!;
+    const modifierOf = (input: HTMLInputElement) => document.getElementById(input.getAttribute("aria-describedby")!)!.textContent;
+    expect(modifierOf(strength)).toContain("+0");
+    for (const [score, expected] of [["18", "+4"], ["9", "−1"], ["1", "−5"], ["20", "+5"]] as const) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(strength, score);
+      await fireEvent(strength, new Event("input", { bubbles: true }));
+      expect(modifierOf(container.querySelector<HTMLInputElement>("input[id$='-str']")!)).toContain(expected);
+    }
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ abilityScores: expect.objectContaining({ str: 20 }) }));
+    // A dica explica o que cada sigla significa sem entrar no nome acessível do campo.
+    expect(container.textContent).toContain("ND (nível de desafio)");
+    expect(container.textContent).toContain("CA (classe de armadura)");
+    expect(container.textContent).toContain("PV médios (pontos de vida)");
+    expect(container.textContent).toContain("ND 0");
     await unmount();
   });
 });

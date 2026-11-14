@@ -131,6 +131,16 @@ function nextRevision(value: Revision): Revision {
 export class MembershipService {
   constructor(private readonly options: MembershipServiceOptions) {}
 
+  /** Consulta perfil local sem criar ou alterar conta. */
+  async getAccount(accountId: AccountId): Promise<MembershipResult<Account | undefined>> {
+    const actor = validActor(accountId);
+    if (!actor.ok) return actor;
+    const result = await this.options.repository.getAccount(accountId);
+    if (result.ok) return ok(result.value);
+    if (result.error.code === "not-found") return ok(undefined);
+    return failure("membership-unavailable", result.error.message, undefined, accountId);
+  }
+
   /** Fallback de UI para colaboração offline; sessão Firebase tem precedência quando presente. */
   localActor(): LocalIdentity | undefined {
     return this.options.localIdentity;

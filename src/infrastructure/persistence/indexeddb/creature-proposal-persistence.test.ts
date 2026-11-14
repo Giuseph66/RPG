@@ -102,7 +102,7 @@ describe("IndexedDB de proposta de criatura", () => {
       request.onupgradeneeded = () => {
         for (const spec of previousStores) {
           const store = request.result.createObjectStore(spec.name, { keyPath: spec.keyPath });
-          if (spec.campaignIndex) store.createIndex("campaignId", "campaignId");
+          if ("campaignIndex" in spec && spec.campaignIndex) store.createIndex("campaignId", "campaignId");
           store.put(spec.record);
         }
       };

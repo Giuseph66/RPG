@@ -241,6 +241,43 @@ describe("AppRouter", () => {
     }
   });
 
+  it("guards the main creature catalog with the account role", async () => {
+    const runtime = await createApplicationRuntime({ database: { name: `router-account-creatures-${Date.now()}` } });
+    const membership = runtime.registry.membership!;
+    const actorId = membership.localActor()!.accountId;
+    const originalUrl = window.location.href;
+    try {
+      await membership.ensureAccount({ actorId, preferredCampaignRole: "player" });
+      const player = await mountRoute(<AppRouter initialPath="/creatures" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
+      try {
+        await vi.waitFor(() => expect(player.container.textContent).toContain("disponível apenas para contas do tipo mestre"));
+        expect([...player.container.querySelectorAll('[aria-label="Destinos principais"] button')].some((button) => button.textContent?.includes("Criaturas"))).toBe(false);
+        expect(player.container.querySelector('[aria-labelledby="creature-catalog-title"]')).toBeNull();
+      } finally {
+        await player.unmount();
+      }
+
+      await membership.ensureAccount({ actorId, preferredCampaignRole: "master" });
+      const master = await mountRoute(<AppRouter initialPath="/creatures" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
+      try {
+        await vi.waitFor(() => expect(master.container.querySelector('[aria-labelledby="creature-catalog-title"]')).toBeTruthy());
+        expect([...master.container.querySelectorAll('[aria-label="Destinos principais"] button')].some((button) => button.textContent?.includes("Criaturas"))).toBe(false);
+        expect(window.location.pathname).toBe("/journey/creatures");
+        expect([...master.container.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent === "Criaturas")).toBe(true);
+        expect(master.container.textContent).toContain("Criar e revisar criaturas da campanha");
+      } finally {
+        await master.unmount();
+      }
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
   it("conecta conta às rotas reais de colaboração e configurações", async () => {
     const runtime = await createApplicationRuntime({ authAvailability: { available: false, missingKeys: ["VITE_FIREBASE_API_KEY"] } });
     const originalUrl = window.location.href;
@@ -265,7 +302,7 @@ describe("AppRouter", () => {
     const runtime = await createApplicationRuntime();
     const mounted = await mountRoute(<AppRouter initialPath="/compendium" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
     try {
-      const input = mounted.container.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null;
+      const input = mounted.container.querySelector('#compendium-rules-panel input:not([type="checkbox"])') as HTMLInputElement | null;
       expect(input).toBeTruthy();
       if (!input) return;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -275,11 +312,11 @@ describe("AppRouter", () => {
       });
 
       expect(input.value).toBe("adaga");
-      const searchButton = mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement | null;
+      const searchButton = mounted.container.querySelector('#compendium-rules-panel button[aria-label="Buscar"], #compendium-rules-panel button[aria-label="Buscando"]') as HTMLButtonElement | null;
       expect(searchButton).not.toBeNull();
       await click(searchButton as HTMLButtonElement);
-      await vi.waitFor(() => expect([...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")].find((button) => button.textContent?.includes("Adaga"))).toBeDefined());
-      const result = [...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")]
+      await vi.waitFor(() => expect([...mounted.container.querySelectorAll("#compendium-rules-panel section[aria-labelledby=\"compendium-results-title\"] button")].find((button) => button.textContent?.includes("Adaga"))).toBeDefined());
+      const result = [...mounted.container.querySelectorAll("#compendium-rules-panel section[aria-labelledby=\"compendium-results-title\"] button")]
         .find((button) => button.textContent?.includes("Adaga")) as HTMLButtonElement | undefined;
       expect(result).toBeDefined();
       await act(async () => result?.click());
@@ -299,7 +336,7 @@ describe("AppRouter", () => {
     const runtime = await createApplicationRuntime();
     const mounted = await mountRoute(<AppRouter initialPath="/compendium" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
     try {
-      const input = mounted.container.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null;
+      const input = mounted.container.querySelector('#compendium-rules-panel input:not([type="checkbox"])') as HTMLInputElement | null;
       expect(input).toBeTruthy();
       if (!input) return;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -307,11 +344,11 @@ describe("AppRouter", () => {
         setter?.call(input, "força");
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      const searchButton = mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement | null;
+      const searchButton = mounted.container.querySelector('#compendium-rules-panel button[aria-label="Buscar"], #compendium-rules-panel button[aria-label="Buscando"]') as HTMLButtonElement | null;
       expect(searchButton).not.toBeNull();
       await click(searchButton as HTMLButtonElement);
-      await vi.waitFor(() => expect([...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")].find((button) => button.textContent?.includes("Força"))).toBeDefined());
-      const result = [...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-results-title\"] button")]
+      await vi.waitFor(() => expect([...mounted.container.querySelectorAll("#compendium-rules-panel section[aria-labelledby=\"compendium-results-title\"] button")].find((button) => button.textContent?.includes("Força"))).toBeDefined());
+      const result = [...mounted.container.querySelectorAll("#compendium-rules-panel section[aria-labelledby=\"compendium-results-title\"] button")]
         .find((button) => button.textContent?.includes("Força")) as HTMLButtonElement | undefined;
       expect(result).toBeDefined();
       await act(async () => result?.click());
@@ -340,7 +377,7 @@ describe("AppRouter", () => {
     const mounted = await mountRoute(<AppRouter initialPath="/compendium" navigate={() => undefined} registry={runtime.registry} diceOverlayController={runtime.diceOverlayController} />);
     try {
       await vi.waitFor(() => expect(mounted.container.textContent).toContain("catálogo lazy indisponível"));
-      const input = mounted.container.querySelector('input:not([type="checkbox"])') as HTMLInputElement | null;
+      const input = mounted.container.querySelector('#compendium-rules-panel input:not([type="checkbox"])') as HTMLInputElement | null;
       expect(input).toBeTruthy();
       if (!input) return;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -348,8 +385,8 @@ describe("AppRouter", () => {
         setter?.call(input, "força");
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      await click(mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement);
-      expect([...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força"))).toBeUndefined();
+      await click(mounted.container.querySelector('#compendium-rules-panel button[aria-label="Buscar"], #compendium-rules-panel button[aria-label="Buscando"]') as HTMLButtonElement);
+      expect([...mounted.container.querySelectorAll('#compendium-rules-panel section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força"))).toBeUndefined();
 
       const raceCategory = [...mounted.container.querySelectorAll("section[aria-labelledby=\"compendium-categories-title\"] button")].find((button) => button.textContent?.includes("Raças"));
       expect(raceCategory).toBeDefined();
@@ -361,13 +398,58 @@ describe("AppRouter", () => {
         setter?.call(input, "força");
         input.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      await click(mounted.container.querySelector('button[aria-label="Buscar"], button[aria-label="Buscando"]') as HTMLButtonElement);
-      await vi.waitFor(() => expect([...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força"))).toBeDefined());
-      const result = [...mounted.container.querySelectorAll('section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força")) as HTMLButtonElement;
+      await click(mounted.container.querySelector('#compendium-rules-panel button[aria-label="Buscar"], #compendium-rules-panel button[aria-label="Buscando"]') as HTMLButtonElement);
+      await vi.waitFor(() => expect([...mounted.container.querySelectorAll('#compendium-rules-panel section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força"))).toBeDefined());
+      const result = [...mounted.container.querySelectorAll('#compendium-rules-panel section[aria-labelledby="compendium-results-title"] button')].find((button) => button.textContent?.includes("Força")) as HTMLButtonElement;
       await click(result);
       expect(mounted.container.querySelector("#compendium-detail-title")?.textContent).toBe("Força");
     } finally {
       await mounted.unmount();
+      runtime.services.character.dispose();
+      runtime.services.campaign.dispose();
+      runtime.services.settings.dispose();
+      runtime.services.dice.dispose();
+      runtime.database.close();
+    }
+  });
+
+  it("abre o catálogo pessoal somente para druida nível 2 e retorna à ficha", async () => {
+    const runtime = await createApplicationRuntime({ database: { name: `router-creatures-${Date.now()}` } });
+    const characters = [
+      { ...minimalCharacter, id: asUuid("00000000-0000-4000-8000-000000000051"), name: "Druida dois", classes: [{ classId: asEntityId("druid"), level: 2, choices: [] }] },
+      { ...minimalCharacter, id: asUuid("00000000-0000-4000-8000-000000000052"), name: "Druida um", classes: [{ classId: asEntityId("druid"), level: 1, choices: [] }] },
+      { ...minimalCharacter, id: asUuid("00000000-0000-4000-8000-000000000053"), name: "Guerreiro", classes: [{ classId: asEntityId("fighter"), level: 10, choices: [] }] },
+    ];
+    for (const character of characters) expect(await runtime.services.character.saveCharacter(character, asRevision(0))).toMatchObject({ ok: true });
+    const originalUrl = window.location.href;
+    try {
+      const druidTwo = characters[0]!;
+      await runtime.services.character.select(druidTwo.id);
+      const selected = runtime.services.character.store.getSnapshot();
+      const sheet = await mountRoute(<AppRouter initialPath={`/character/${druidTwo.id}`} navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} character={{ value: selected.value, status: selected.status }} diceOverlayController={runtime.diceOverlayController} />);
+      await vi.waitFor(() => expect([...sheet.container.querySelectorAll("h2")].some((heading) => heading.textContent === "Criaturas")).toBe(true));
+      const creatureHeading = [...sheet.container.querySelectorAll("h2")].find((heading) => heading.textContent === "Criaturas")!;
+      await click(creatureHeading.parentElement?.querySelector("button") as HTMLElement);
+      await vi.waitFor(() => expect(window.location.pathname).toBe(`/character/${druidTwo.id}/creatures`));
+      await vi.waitFor(() => expect(sheet.container.querySelector("h1")?.textContent).toBe("Gerenciar bestas"));
+      expect(sheet.container.querySelector('[aria-labelledby="creature-catalog-title"]')).not.toBeNull();
+      await click([...sheet.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Voltar à ficha")) as HTMLElement);
+      await vi.waitFor(() => expect(window.location.pathname).toBe(`/character/${druidTwo.id}`));
+      await sheet.unmount();
+
+      for (const restricted of characters.slice(1)) {
+        await runtime.services.character.select(restricted.id);
+        const snapshot = runtime.services.character.store.getSnapshot();
+        const manager = await mountRoute(<AppRouter initialPath={`/character/${restricted.id}/creatures`} navigate={() => undefined} registry={runtime.registry} pack={runtime.pack} character={{ value: snapshot.value, status: snapshot.status }} diceOverlayController={runtime.diceOverlayController} />);
+        try {
+          expect(manager.container.textContent).toContain("O gerenciamento pessoal de bestas fica disponível para druidas a partir do nível 2.");
+          expect(manager.container.querySelector('[aria-labelledby="creature-catalog-title"]')).toBeNull();
+        } finally {
+          await manager.unmount();
+        }
+      }
+    } finally {
+      window.history.replaceState({}, "", originalUrl);
       runtime.services.character.dispose();
       runtime.services.campaign.dispose();
       runtime.services.settings.dispose();

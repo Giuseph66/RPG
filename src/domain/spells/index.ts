@@ -44,6 +44,8 @@ export interface SpellResolutionContext {
   readonly defense?: DamageDefense;
   /** Capacidades derivadas indexadas pelo estado do recurso. */
   readonly resourceCapacities?: ReadonlyMap<string, number>;
+  /** Referência autorizada pela capability derivada de uma concessão racial assistida. */
+  readonly manualRacialCantripRef?: DefinitionRef;
 }
 
 const SOURCE: SourceRef = {
@@ -101,8 +103,35 @@ function actionAvailable(request: CastRequest, context: SpellResolutionContext, 
   return undefined;
 }
 
-function validateTargets(request: CastRequest, spell: SpellDefinition): string | undefined {
+function validateTargets(
+  request: CastRequest,
+  spell: SpellDefinition,
+  source: CastingSourceState,
+  context: SpellResolutionContext,
+): string | undefined {
   const targets = request.targetContext.targetIds;
+  if (spell.targetType.manualResolution === true) {
+    const isSupportedManualRacialCantrip = request.targetContext.manualResolution === true
+      && targets.length === 0
+      && request.targetContext.pointCm === undefined
+      && source.sourceKind === "race"
+      && source.knownSpellRefs.some((entry) => sameRef(entry, request.spellRef))
+      && context.manualRacialCantripRef !== undefined
+      && sameRef(context.manualRacialCantripRef, request.spellRef)
+      && spell.level === 0
+      && spell.automationStatus === "blocked"
+      && spell.pendingDecisionIds.length > 0
+      && spell.pendingDecisionIds.every((decisionId) => decisionId === "PEND-SPELL-STRUCTURE")
+      && spell.damage.length === 0
+      && spell.healing.length === 0
+      && spell.effects.every((effect) => effect.kind === "narrative");
+    return isSupportedManualRacialCantrip
+      ? undefined
+      : "Esta resolução sem alvo de ficha exige uma concessão racial assistida válida e confirmação manual do efeito.";
+  }
+  if (request.targetContext.manualResolution === true) {
+    return "Esta magia não declara resolução manual sem alvo; informe um alvo ou ponto válido.";
+  }
   // Uma invocação cria o alvo da magia; ele ainda não existe como criatura/objeto
   // selecionável na ficha. Sua posição e resolução continuam assistidas pela mesa.
   const createsSummon = spell.effects.some((effect) => effect.kind === "summon");
@@ -354,7 +383,7 @@ export function castSpell(character: Character, spell: SpellDefinition, request:
     if (!spell.ritual) return reject(spell, "Esta magia não possui marca ritual.");
     if (!ritualAllowed) return reject(spell, "A fonte escolhida não concede capacidade de conjuração ritual.");
   }
-  const targetError = validateTargets(request, spell);
+  const targetError = validateTargets(request, spell, source, context);
   if (targetError) return reject(spell, targetError);
   const effectContextError = validateEffectContext(character, spell, request, context);
   if (effectContextError) return effectContextError;
@@ -427,13 +456,22 @@ export const resolveCast = castSpell;
 export function previewCast(character: Character, spell: SpellDefinition, request: CastRequest, context: SpellResolutionContext = {}): RuleResult {
   const result = castSpell(character, spell, request, context);
   if (result.status !== "success") return result;
+  // `castSpell` already validated the explicit manual decision for this narrow
+  // racial cantrip path; do not reintroduce the same pending rule as a second
+  // required intervention in the preview.
+  const manualRacialDecisionApplied = request.targetContext.manualResolution === true
+    && spell.targetType.manualResolution === true
+    && spell.pendingDecisionIds.length > 0
+    && spell.pendingDecisionIds.every((decisionId) => decisionId === "PEND-SPELL-STRUCTURE");
   const preview: CastPreview = {
     ...(request.mode === "normal" && spell.level > 0 && request.resourcePoolId && request.slotLevel !== undefined ? { slotCost: { poolId: request.resourcePoolId, slotLevel: request.slotLevel } } : {}),
     resourceCosts: [],
     actionCost: request.mode === "ritual" ? { kind: "minutes", amount: 10, unit: "minute" } : spell.castingTime,
     componentsConsumed: sourceFor(character, request)?.featureSpellOverrides?.some((entry) => sameRef(entry.spellRef, request.spellRef) && entry.ignoreMaterialComponents === true) ? [] : spell.components.material?.consumed && spell.components.material.requiredItemKind ? [spell.components.material.requiredItemKind] : [],
     ...(character.concentration && spell.concentration && !request.featureCastingOption ? { concentrationReplaced: { priorEffectSourceRef: character.concentration.sourceRef } } : {}),
-    interventionsRequired: spell.pendingDecisionIds.map((pendencyId) => ({ reason: `Pendência da magia: ${pendencyId}`, relatedRef: request.spellRef })),
+    interventionsRequired: spell.pendingDecisionIds
+      .filter((pendencyId) => !(manualRacialDecisionApplied && pendencyId === "PEND-SPELL-STRUCTURE"))
+      .map((pendencyId) => ({ reason: `Pendência da magia: ${pendencyId}`, relatedRef: request.spellRef })),
     sourceRefs: sourceRefs(spell),
   };
   return { status: "needsInput", requests: [], preview: { kind: "cast-spell", castPreview: preview }, sourceRefs: sourceRefs(spell) };

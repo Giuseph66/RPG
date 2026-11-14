@@ -25,8 +25,11 @@ import {
 const loaded = loadPhbPtBrLocal2017();
 if (!loaded.ok) throw new Error(`Pack PHB local inválido no teste de Forma Selvagem: ${loaded.error.message}`);
 const pack: RulePack = loaded.value;
-const creatures = pack.creatures;
-if (!creatures) throw new Error("O pack PHB local não publicou o catálogo de criaturas.");
+function publishedCreatures(rulePack: RulePack): ReadonlyMap<EntityId, CreatureStatBlock> {
+  if (!rulePack.creatures) throw new Error("O pack PHB local não publicou o catálogo de criaturas.");
+  return rulePack.creatures;
+}
+const creatures = publishedCreatures(pack);
 
 const druidId = asEntityId("druid");
 const wildShapeResourceId = asEntityId("druid.wild-shape");

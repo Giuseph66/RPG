@@ -1,5 +1,7 @@
+import { createElement } from "react";
 import { describe, expect, it, beforeEach } from "vitest";
-import { readTurnActionBudget, spendTurnActionAfterSuccess, spendTurnActionBudget } from "./TurnPanel";
+import { click, mount } from "@components/ui/testUtils";
+import { readTurnActionBudget, spendTurnActionAfterSuccess, spendTurnActionBudget, TurnPanel } from "./TurnPanel";
 
 const characterId = "00000000-0000-4000-8000-000000000037";
 const key = `rpg.turn.${characterId}`;
@@ -32,5 +34,16 @@ describe("TurnPanel action budget bridge", () => {
     sessionStorage.setItem(key, JSON.stringify({ round: 1, used: { action: true, bonus: false, reaction: false }, movedSquares: 0, dashed: false, effects: [] }));
     expect(spendTurnActionAfterSuccess(characterId, "bonus-action", "success")).toBe(true);
     expect(readTurnActionBudget(characterId)?.availableActions).toEqual(["reaction", "free"]);
+  });
+
+  it("preserves manual turn spending when no spell-review handler is connected", async () => {
+    sessionStorage.setItem(key, JSON.stringify({ round: 1, used: { action: false, bonus: false, reaction: false }, movedSquares: 0, dashed: false, effects: [] }));
+    const mounted = await mount(createElement(TurnPanel, { characterId }));
+    const cast = [...mounted.container.querySelectorAll("button")].find((candidate) => candidate.textContent?.includes("Conjurar magia"));
+    await click(cast as HTMLElement);
+    const use = [...mounted.container.querySelectorAll("button")].find((candidate) => candidate.textContent?.includes("Usar e escolher magia"));
+    await click(use as HTMLElement);
+    expect(readTurnActionBudget(characterId)?.availableActions).toEqual(["bonus-action", "reaction", "free"]);
+    await mounted.unmount();
   });
 });

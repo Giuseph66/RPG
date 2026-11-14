@@ -5,10 +5,34 @@
  */
 import { asEntityId, asRulesetId } from "@domain/contracts/ids";
 import { asCentimeters } from "@domain/contracts/primitives";
-import { type CreatureStatBlock } from "@domain/creatures";
+import { type CreatureAction, type CreatureLegendaryAction, type CreatureSense, type CreatureStatBlock } from "@domain/creatures";
 
 const sourceId = asRulesetId("manual-dos-monstros-apendice-a");
-const parsedCreatures = [
+type ParsedSpeeds = {
+  readonly walkCm?: number;
+  readonly climbCm?: number;
+  readonly swimCm?: number;
+  readonly flyCm?: number;
+  readonly burrowCm?: number;
+  readonly hover?: boolean;
+  readonly sourceText?: string;
+};
+
+type ParsedCreatureAction = Omit<CreatureAction, "reachCm" | "rangeCm"> & { readonly reachCm?: number; readonly rangeCm?: number };
+type ParsedCreatureSense = Omit<CreatureSense, "rangeCm"> & { readonly rangeCm?: number };
+type ParsedSourceRef = Omit<CreatureStatBlock["sourceRefs"][number], "sourceId"> & { readonly sourceId?: string };
+type ParsedCreature = Omit<CreatureStatBlock, "id" | "speeds" | "sourceRefs" | "senses" | "actions" | "bonusActions" | "reactions" | "legendaryActions"> & {
+  readonly id: string;
+  readonly speeds: ParsedSpeeds;
+  readonly sourceRefs: readonly ParsedSourceRef[];
+  readonly senses?: readonly ParsedCreatureSense[];
+  readonly actions?: readonly ParsedCreatureAction[];
+  readonly bonusActions?: readonly ParsedCreatureAction[];
+  readonly reactions?: readonly ParsedCreatureAction[];
+  readonly legendaryActions?: Omit<CreatureLegendaryAction, "actions"> & { readonly actions: readonly ParsedCreatureAction[] };
+};
+
+const parsedCreatures: readonly ParsedCreature[] = [
   {
     "id": "appendix-a-abutre",
     "name": "ABUTRE",
@@ -7938,17 +7962,7 @@ const parsedCreatures = [
       }
     ]
   }
-] as const;
-
-type ParsedSpeeds = {
-  readonly walkCm?: number;
-  readonly climbCm?: number;
-  readonly swimCm?: number;
-  readonly flyCm?: number;
-  readonly burrowCm?: number;
-  readonly hover?: boolean;
-  readonly sourceText?: string;
-};
+];
 
 const convertSpeeds = (speeds: ParsedSpeeds) => ({
   ...(speeds.walkCm === undefined ? {} : { walkCm: asCentimeters(speeds.walkCm) }),
@@ -7960,33 +7974,34 @@ const convertSpeeds = (speeds: ParsedSpeeds) => ({
   ...(speeds.sourceText === undefined ? {} : { sourceText: speeds.sourceText }),
 });
 
-type ParsedCreatureAction = { readonly reachCm?: number; readonly rangeCm?: number };
-
-function convertAction<T extends ParsedCreatureAction>(action: T) {
+function convertAction(action: ParsedCreatureAction): CreatureAction {
+  const { reachCm, rangeCm, ...rest } = action;
   return {
-    ...action,
-    ...(action.reachCm === undefined ? {} : { reachCm: asCentimeters(action.reachCm) }),
-    ...(action.rangeCm === undefined ? {} : { rangeCm: asCentimeters(action.rangeCm) }),
+    ...rest,
+    ...(reachCm === undefined ? {} : { reachCm: asCentimeters(reachCm) }),
+    ...(rangeCm === undefined ? {} : { rangeCm: asCentimeters(rangeCm) }),
   };
 }
 
-type ParsedCreatureSense = { readonly rangeCm?: number };
-
-function convertSense<T extends ParsedCreatureSense>(sense: T) {
-  return { ...sense, ...(sense.rangeCm === undefined ? {} : { rangeCm: asCentimeters(sense.rangeCm) }) };
+function convertSense(sense: ParsedCreatureSense): CreatureSense {
+  const { rangeCm, ...rest } = sense;
+  return { ...rest, ...(rangeCm === undefined ? {} : { rangeCm: asCentimeters(rangeCm) }) };
 }
 
-export const appendixACreatures: readonly CreatureStatBlock[] = parsedCreatures.map((creature) => ({
-  ...creature,
-  id: asEntityId(creature.id),
-  speeds: convertSpeeds(creature.speeds),
-  ...(creature.senses === undefined ? {} : { senses: creature.senses.map(convertSense) }),
-  ...(creature.actions === undefined ? {} : { actions: creature.actions.map(convertAction) }),
-  ...(creature.bonusActions === undefined ? {} : { bonusActions: creature.bonusActions.map(convertAction) }),
-  ...(creature.reactions === undefined ? {} : { reactions: creature.reactions.map(convertAction) }),
-  ...(creature.legendaryActions === undefined ? {} : { legendaryActions: {
-    ...creature.legendaryActions,
-    actions: creature.legendaryActions.actions.map(convertAction),
-  } }),
-  sourceRefs: creature.sourceRefs.map((sourceRef) => ({ ...sourceRef, sourceId })),
-}));
+export const appendixACreatures: readonly CreatureStatBlock[] = parsedCreatures.map((creature): CreatureStatBlock => {
+  const { speeds, senses, actions, bonusActions, reactions, legendaryActions, sourceRefs, ...base } = creature;
+  return {
+    ...base,
+    id: asEntityId(creature.id),
+    speeds: convertSpeeds(speeds),
+    ...(senses === undefined ? {} : { senses: senses.map(convertSense) }),
+    ...(actions === undefined ? {} : { actions: actions.map(convertAction) }),
+    ...(bonusActions === undefined ? {} : { bonusActions: bonusActions.map(convertAction) }),
+    ...(reactions === undefined ? {} : { reactions: reactions.map(convertAction) }),
+    ...(legendaryActions === undefined ? {} : { legendaryActions: {
+      ...legendaryActions,
+      actions: legendaryActions.actions.map(convertAction),
+    } }),
+    sourceRefs: sourceRefs.map((sourceRef) => ({ ...sourceRef, sourceId })),
+  };
+});

@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, mount } from "@components/ui/testUtils";
-import { asAccountId, asUuid } from "@domain/contracts/ids";
+import { asAccountId, asEntityId, asRulesetId, asUuid } from "@domain/contracts/ids";
 import { asRevision } from "@domain/contracts/versioning";
-import { ok } from "@domain/contracts/errors";
+import { err, ok } from "@domain/contracts/errors";
 import type { MembershipService } from "@application/membership";
 import { CollaborationPanel } from "./CollaborationPanel";
+import type { CollaborationCharacterState, CollaborationPanelProps } from "./types";
+
+type UpdateCharacterParameters = Parameters<NonNullable<CollaborationPanelProps["onUpdateCharacter"]>>;
 
 const campaign = { id: asUuid("00000000-0000-4000-8000-000000000001"), name: "Tumba Rubra" };
 const session = { uid: "master-1", email: "mestre@example.com" };
@@ -188,7 +191,7 @@ describe("CollaborationPanel", () => {
     const membership = fakeMembership();
     const character = { id: asUuid("00000000-0000-4000-8000-000000000021"), name: "Artemis", campaignId: campaign.id, revision: asRevision(2), hitPoints: { current: 8, temporary: 0, maximum: 12 } };
     const other = { id: asUuid("00000000-0000-4000-8000-000000000022"), name: "Outro grupo", campaignId: asUuid("00000000-0000-4000-8000-000000000023"), revision: asRevision(1) };
-    const onUpdateCharacter = vi.fn(async () => ok(asRevision(3)));
+    const onUpdateCharacter = vi.fn(async () => ok({ revision: asRevision(3), hitPoints: { current: 6, temporary: 0, maximum: 12 }, armorClass: undefined, initiative: undefined, conditionIds: [], conditions: [], adjustments: [] }));
     const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[character, other]} onUpdateCharacter={onUpdateCharacter} />);
     expect(mounted.container.textContent).toContain("Artemis");
     expect(mounted.container.textContent).not.toContain("Outro grupo");
@@ -207,7 +210,7 @@ describe("CollaborationPanel", () => {
   it("aplica uma penalidade numérica com motivo à ficha da campanha", async () => {
     const membership = fakeMembership();
     const character = { id: asUuid("00000000-0000-4000-8000-000000000031"), name: "Iris", campaignId: campaign.id, revision: asRevision(1), hitPoints: { current: 10, temporary: 0, maximum: 10 }, armorClass: 15 };
-    const onUpdateCharacter = vi.fn(async () => ok(asRevision(2)));
+    const onUpdateCharacter = vi.fn(async (_id: UpdateCharacterParameters[0], _revision: UpdateCharacterParameters[1], values: UpdateCharacterParameters[2]) => ok({ revision: asRevision(2), hitPoints: { current: 10, temporary: 0, maximum: 10 }, armorClass: 13, initiative: undefined, conditionIds: [], conditions: [], adjustments: values.adjustments }));
     const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[character]} onUpdateCharacter={onUpdateCharacter} />);
     await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Ajustar estado"))!, new MouseEvent("click", { bubbles: true }));
     const amount = mounted.container.querySelector('input[min="-20"]') as HTMLInputElement;
@@ -220,6 +223,54 @@ describe("CollaborationPanel", () => {
     await fireEvent([...mounted.container.querySelectorAll("button")].find((item) => item.textContent?.includes("Salvar estado"))!, new MouseEvent("click", { bubbles: true }));
     expect(onUpdateCharacter).toHaveBeenCalledWith(character.id, character.revision, expect.objectContaining({ adjustments: [expect.objectContaining({ target: "armor-class", amount: -2, reason: "Maldição" })] }));
     expect(mounted.container.textContent).toContain("CA 13");
+    await mounted.unmount();
+  });
+
+  it("usa a projeção persistida ao encerrar uma forma e preserva os outros cards", async () => {
+    const membership = fakeMembership();
+    const transformed = { id: asUuid("00000000-0000-4000-8000-000000000041"), name: "Druida", campaignId: campaign.id, revision: asRevision(4), hitPoints: { current: 8, temporary: 0, maximum: 8 } };
+    const other = { id: asUuid("00000000-0000-4000-8000-000000000042"), name: "Aliado", campaignId: campaign.id, revision: asRevision(2), hitPoints: { current: 9, temporary: 0, maximum: 10 } };
+    const unconsciousId = "unconscious";
+    const canonical: CollaborationCharacterState = {
+      revision: asRevision(5),
+      hitPoints: { current: 17, temporary: 0, maximum: 17 },
+      armorClass: 14,
+      initiative: 2,
+      conditionIds: [unconsciousId],
+      conditions: ["Inconsciente"],
+      adjustments: [],
+    };
+    const onUpdateCharacter = vi.fn(async () => ok(canonical));
+    const conditionOptions: CollaborationPanelProps["conditionOptions"] = [{ name: "Inconsciente", ref: { rulesetId: asRulesetId("phb-ptbr-local-2017"), entityId: asEntityId(unconsciousId) } }];
+    const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[transformed, other]} conditionOptions={conditionOptions} onUpdateCharacter={onUpdateCharacter} />);
+    const transformedCard = [...mounted.container.querySelectorAll("li")].find((item) => item.textContent?.includes("Druida"))!;
+    const edit = [...transformedCard.querySelectorAll("button")].find((item) => item.textContent?.includes("Ajustar estado"))!;
+    await fireEvent(edit, new MouseEvent("click", { bubbles: true }));
+    const checkbox = [...document.body.querySelectorAll('[role="dialog"] input[type="checkbox"]')].find((item) => item.parentElement?.textContent?.includes("Inconsciente")) as HTMLInputElement;
+    await fireEvent(checkbox, new MouseEvent("click", { bubbles: true }));
+    const save = [...document.body.querySelectorAll('[role="dialog"] button')].find((item) => item.textContent?.includes("Salvar estado"))!;
+    await fireEvent(save, new MouseEvent("click", { bubbles: true }));
+
+    expect(onUpdateCharacter).toHaveBeenCalledWith(transformed.id, transformed.revision, { hp: 8, tempHp: 0, conditionIds: [unconsciousId], adjustments: [] });
+    expect(transformedCard.textContent).toContain("17 / 17");
+    expect(transformedCard.textContent).toContain("Inconsciente");
+    expect([...mounted.container.querySelectorAll("li")].find((item) => item.textContent?.includes("Aliado"))?.textContent).toContain("9 / 10");
+    await mounted.unmount();
+  });
+
+  it("mantém os cards e o formulário se o salvamento do estado falhar", async () => {
+    const membership = fakeMembership();
+    const character = { id: asUuid("00000000-0000-4000-8000-000000000051"), name: "Artemis", campaignId: campaign.id, revision: asRevision(2), hitPoints: { current: 8, temporary: 0, maximum: 12 } };
+    const other = { id: asUuid("00000000-0000-4000-8000-000000000052"), name: "Outro", campaignId: campaign.id, revision: asRevision(1), hitPoints: { current: 9, temporary: 0, maximum: 10 } };
+    const onUpdateCharacter = vi.fn(async () => err({ code: "validation-error" as const, field: "hp", message: "Falha ao salvar estado." }));
+    const mounted = await mount(<CollaborationPanel view="characters" membership={membership} session={session} campaigns={[campaign]} activeCampaignId={campaign.id} characters={[character, other]} onUpdateCharacter={onUpdateCharacter} />);
+    const characterCard = [...mounted.container.querySelectorAll("li")].find((item) => item.textContent?.includes("Artemis"))!;
+    await fireEvent([...characterCard.querySelectorAll("button")].find((item) => item.textContent?.includes("Ajustar estado"))!, new MouseEvent("click", { bubbles: true }));
+    await fireEvent([...document.body.querySelectorAll('[role="dialog"] button')].find((item) => item.textContent?.includes("Salvar estado"))!, new MouseEvent("click", { bubbles: true }));
+
+    expect(mounted.container.textContent).toContain("8 / 12");
+    expect(mounted.container.textContent).toContain("9 / 10");
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("Falha ao salvar estado.");
     await mounted.unmount();
   });
 });

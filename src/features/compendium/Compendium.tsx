@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { AppModal, Badge, IconButton, InlineStatus, Input } from "@components/ui";
-import { BookOpen, BookmarkSimple, Books, Brain, CaretDown, CircleNotch, X, Crosshair, FirstAidKit, MagnifyingGlass, Shield, Sparkle, Sword, UsersThree } from "@phosphor-icons/react";
-import type { CompendiumCategory, CompendiumFilters, CompendiumBookRuleDefinition, CompendiumBookSpellDefinition, CompendiumDetail } from "@application/compendium";
+import { BookOpen, BookmarkSimple, Books, Brain, CaretDown, CircleNotch, X, Crosshair, FirstAidKit, MagnifyingGlass, PawPrint, Shield, Sparkle, Sword, UsersThree } from "@phosphor-icons/react";
+import type { CompendiumCategory, CompendiumFilters, CompendiumBookCreatureDefinition, CompendiumBookRuleDefinition, CompendiumBookSpellDefinition, CompendiumDetail } from "@application/compendium";
+import { StatBlock } from "@components/creatures/StatBlock";
+import type { EquipmentDefinition } from "@domain/contracts/definitions/equipment";
 import type { SpellDefinition } from "@domain/contracts/definitions/spell";
 
 import type { CompendiumDetailProps, CompendiumProps } from "./types";
@@ -19,6 +21,7 @@ function categoryIcon(id: string): ReactNode {
   if (id === "skills") return <Crosshair size={19} weight="duotone" aria-hidden="true" />;
   if (id === "race" || id === "races" || id === "class" || id === "classes") return <UsersThree size={19} weight="duotone" aria-hidden="true" />;
   if (id === "spell" || id === "spells" || id === "magia" || id === "magias") return <Sparkle size={19} weight="duotone" aria-hidden="true" />;
+  if (id === "creature") return <PawPrint size={19} weight="duotone" aria-hidden="true" />;
   if (id === "rest") return <FirstAidKit size={19} weight="duotone" aria-hidden="true" />;
   return <BookOpen size={19} weight="duotone" aria-hidden="true" />;
 }
@@ -28,7 +31,7 @@ function formatSource(source: CompendiumDetail["sourceRefs"][number]): string {
   return `${source.chapter}${page}`;
 }
 
-const CATEGORY_NAMES: Readonly<Record<string, string>> = { adventure: "Aventura", attributes: "Atributo", background: "Antecedente", class: "Classe", combat: "Combate", condition: "Condição", equipment: "Equipamento", feat: "Talento", feature: "Característica", movement: "Movimentação", progression: "Progressão", race: "Raça", resource: "Recurso", rest: "Descanso", rules: "Regras", skills: "Perícia", spell: "Magia", subclass: "Subclasse", subrace: "Sub-raça", "character-template": "Modelo de personagem" };
+const CATEGORY_NAMES: Readonly<Record<string, string>> = { adventure: "Aventura", attributes: "Atributo", background: "Antecedente", class: "Classe", combat: "Combate", condition: "Condição", creature: "Criatura", equipment: "Equipamento", feat: "Talento", feature: "Característica", movement: "Movimentação", progression: "Progressão", race: "Raça", resource: "Recurso", rest: "Descanso", rules: "Regras", skills: "Perícia", spell: "Magia", subclass: "Subclasse", subrace: "Sub-raça", "character-template": "Modelo de personagem" };
 
 function categoryName(category: string): string {
   return CATEGORY_NAMES[category] ?? category;
@@ -50,6 +53,10 @@ function isBookSpellDefinition(definition: CompendiumDetail["definition"]): defi
 
 function isBookRuleDefinition(definition: CompendiumDetail["definition"]): definition is CompendiumBookRuleDefinition {
   return Boolean(definition && typeof definition === "object" && "kind" in definition && definition.kind === "book-rule");
+}
+
+function isBookCreatureDefinition(definition: CompendiumDetail["definition"]): definition is CompendiumBookCreatureDefinition {
+  return Boolean(definition && typeof definition === "object" && "kind" in definition && definition.kind === "book-creature");
 }
 
 function definitionDescription(definition: CompendiumDetail["definition"]): string | undefined {
@@ -91,11 +98,42 @@ function BookSpellDetails({ spell }: { spell: CompendiumBookSpellDefinition }) {
 /** Subtítulo em caixa alta preservado pela normalização do texto do livro. */
 const BOOK_SUBHEADING = /^(?=.*[A-ZÀ-Ú]{3})[^a-zà-ú]{3,60}$/;
 
+function isEquipmentDefinition(definition: CompendiumDetail["definition"]): definition is EquipmentDefinition {
+  if (!definition || typeof definition !== "object") return false;
+  const candidate = definition as Partial<EquipmentDefinition>;
+  return typeof candidate.valueCp === "number" && typeof candidate.weightGrams === "number" && typeof candidate.category === "string";
+}
+
+/** Custo na maior moeda que o representa sem fração, como o livro imprime: 1.000 po, 5 pp, 2 pc. */
+function formatCost(copperPieces: number): string {
+  if (copperPieces <= 0) return "—";
+  if (copperPieces % 100 === 0) return `${(copperPieces / 100).toLocaleString("pt-BR")} po`;
+  if (copperPieces % 10 === 0) return `${copperPieces / 10} pp`;
+  return `${copperPieces} pc`;
+}
+
+/** Peso em kg; "–" quando o livro não informa peso. */
+function formatWeight(grams: number): string {
+  return grams <= 0 ? "–" : `${(grams / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`;
+}
+
+/** Linha crua da tabela "Equipamento" anexada como descrição; o bloco Custo e peso a substitui. */
+const EQUIPMENT_TABLE_ROW = /^EQUIPAMENTO\s+Item\s+Custo\s+Peso\b/;
+
+function EquipmentDetails({ item }: { item: EquipmentDefinition }) {
+  return <section className={styles.spellDetails} aria-labelledby="equipment-details-title"><h3 id="equipment-details-title">Custo e peso</h3><dl><div><dt>Custo</dt><dd>{formatCost(Number(item.valueCp))}</dd></div><div><dt>Peso</dt><dd>{formatWeight(Number(item.weightGrams))}</dd></div></dl></section>;
+}
+
 export function CompendiumDetailPanel({ detail }: CompendiumDetailProps) {
   const bookSpell = isBookSpellDefinition(detail.definition) ? detail.definition : undefined;
   const bookRule = isBookRuleDefinition(detail.definition) ? detail.definition : undefined;
+  const bookCreature = isBookCreatureDefinition(detail.definition) ? detail.definition : undefined;
+  if (bookCreature) return <article className={styles.detail} aria-labelledby="compendium-detail-title"><h2 id="compendium-detail-title" className={styles.visuallyHiddenTitle}>{detail.title}</h2><StatBlock creature={bookCreature.statBlock} headingLevel={3} /></article>;
+  const equipment = isEquipmentDefinition(detail.definition) ? detail.definition : undefined;
   const description = definitionDescription(detail.definition);
-  return <article className={styles.detail} aria-labelledby="compendium-detail-title"><div className={styles.detailHeading}><h2 id="compendium-detail-title">{detail.title}</h2><span className={styles.technicalId}>{formatHumanReference(detail)}</span></div>{bookSpell ? <p className={styles.summary}>{bookSpell.description}</p> : !bookRule && (description ?? detail.summary) ? <p className={styles.summary}>{description ?? detail.summary}</p> : null}{isSpellDefinition(detail.definition) ? <SpellDetails spell={detail.definition} /> : bookSpell ? <BookSpellDetails spell={bookSpell} /> : null}{bookRule ? <section className={styles.bookRuleText} aria-label="Texto da regra"><h3>{bookRule.sourceHeading}</h3>{bookRule.text.split(/\n{2,}/).map((block, index) => BOOK_SUBHEADING.test(block) ? <h4 key={index} className={styles.bookSubheading}>{block}</h4> : <p key={index} className={block.startsWith("•") ? styles.bookListItem : undefined}>{block}</p>)}</section> : null}{bookSpell?.higherLevels ? <section className={styles.higherLevels}><h3>Em níveis superiores</h3><p>{bookSpell.higherLevels}</p></section> : null}{detail.sourceRefs.length > 0 ? <div className={styles.detailMeta}><span>Fonte · {detail.sourceRefs.map(formatSource).join(" · ")}</span></div> : null}{detail.tags.length > 0 ? <div className={styles.tagList}>{detail.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}</div> : null}</article>;
+  const body = description !== undefined && EQUIPMENT_TABLE_ROW.test(description) ? undefined : description ?? detail.summary;
+  const showPrice = equipment !== undefined && (Number(equipment.valueCp) > 0 || Number(equipment.weightGrams) > 0);
+  return <article className={styles.detail} aria-labelledby="compendium-detail-title"><div className={styles.detailHeading}><h2 id="compendium-detail-title">{detail.title}</h2><span className={styles.technicalId}>{formatHumanReference(detail)}</span></div>{bookSpell ? <p className={styles.summary}>{bookSpell.description}</p> : !bookRule && body ? <p className={styles.summary}>{body}</p> : null}{equipment && showPrice ? <EquipmentDetails item={equipment} /> : null}{isSpellDefinition(detail.definition) ? <SpellDetails spell={detail.definition} /> : bookSpell ? <BookSpellDetails spell={bookSpell} /> : null}{bookRule ? <section className={styles.bookRuleText} aria-label="Texto da regra"><h3>{bookRule.sourceHeading}</h3>{bookRule.text.split(/\n{2,}/).map((block, index) => BOOK_SUBHEADING.test(block) ? <h4 key={index} className={styles.bookSubheading}>{block}</h4> : <p key={index} className={block.startsWith("•") ? styles.bookListItem : undefined}>{block}</p>)}</section> : null}{bookSpell?.higherLevels ? <section className={styles.higherLevels}><h3>Em níveis superiores</h3><p>{bookSpell.higherLevels}</p></section> : null}{detail.sourceRefs.length > 0 ? <div className={styles.detailMeta}><span>Fonte · {detail.sourceRefs.map(formatSource).join(" · ")}</span></div> : null}{detail.tags.length > 0 ? <div className={styles.tagList}>{detail.tags.map((tag) => <Badge key={tag}>{tag}</Badge>)}</div> : null}</article>;
 }
 
 /**
@@ -115,14 +153,12 @@ function ActiveFilters({ filters, categories, onClear }: { readonly filters: Com
   return <div className={styles.activeFilters} aria-label="Filtros ativos">{chips.map((chip) => <span className={styles.filterChip} key={chip.key}><small>{chip.label}</small><strong>{chip.value}</strong><button type="button" aria-label={`Limpar ${chip.label.toLocaleLowerCase("pt-BR")}`} onClick={chip.clear}><X size={13} weight="bold" aria-hidden="true" /></button></span>)}</div>;
 }
 
-export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], totalEntries, selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className, creaturePanel }: CompendiumProps) {
+export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = [], totalEntries, selected, favorites = [], status = "idle", error, offline = true, onFiltersChange, onSelect, onToggleFavorite, onLoadCategory, className }: CompendiumProps) {
   const [selectedEntry, setSelectedEntry] = useState<CompendiumDetail | undefined>(undefined);
   const [detailOpen, setDetailOpen] = useState(Boolean(selected));
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
   const [queryInput, setQueryInput] = useState(filters.query);
   const [isSearching, setIsSearching] = useState(false);
-  const [activeSection, setActiveSection] = useState<"rules" | "creatures">("rules");
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const favoriteKeys = new Set(favorites.filter((favorite) => favorite.exists).map((favorite) => favorite.key));
   const orphanFavorites = favorites.filter((favorite) => !favorite.exists);
   const activeDetail = selected ?? selectedEntry;
@@ -146,20 +182,8 @@ export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = []
     setIsSearching(true);
     updateFilter({ query: queryInput });
   };
-  const moveSectionFocus = (event: KeyboardEvent<HTMLButtonElement>, current: number) => {
-    const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : event.key === "ArrowRight" ? (current + 1) % 2 : event.key === "ArrowLeft" ? (current + 1) % 2 : undefined;
-    if (next === undefined) return;
-    event.preventDefault();
-    setActiveSection(next === 0 ? "rules" : "creatures");
-    tabRefs.current[next]?.focus();
-  };
   return <section className={[styles.page, className ?? ""].filter(Boolean).join(" ")} aria-label="Compêndio">
-    {creaturePanel ? <div className={styles.sectionTabs} role="tablist" aria-label="Seções do compêndio">
-      <button ref={(node) => { tabRefs.current[0] = node; }} id="compendium-rules-tab" type="button" role="tab" tabIndex={activeSection === "rules" ? 0 : -1} aria-selected={activeSection === "rules"} aria-controls="compendium-rules-panel" onKeyDown={(event) => moveSectionFocus(event, 0)} onClick={() => setActiveSection("rules")}>Regras</button>
-      <button ref={(node) => { tabRefs.current[1] = node; }} id="compendium-creatures-tab" type="button" role="tab" tabIndex={activeSection === "creatures" ? 0 : -1} aria-selected={activeSection === "creatures"} aria-controls="compendium-creatures-panel" onKeyDown={(event) => moveSectionFocus(event, 1)} onClick={() => setActiveSection("creatures")}>Criaturas</button>
-    </div> : null}
-    {creaturePanel ? <div id="compendium-creatures-panel" role="tabpanel" aria-labelledby="compendium-creatures-tab" hidden={activeSection !== "creatures"}>{creaturePanel}</div> : null}
-    <div id="compendium-rules-panel" role={creaturePanel ? "tabpanel" : undefined} aria-labelledby={creaturePanel ? "compendium-rules-tab" : undefined} hidden={Boolean(creaturePanel) && activeSection !== "rules"}>
+    <div id="compendium-rules-panel">
     <div className={styles.search}><div className={styles.searchField}><button type="button" className={styles.searchButton} aria-label={isSearching ? "Buscando" : "Buscar"} aria-busy={isSearching} onClick={handleSearch}>{isSearching ? <CircleNotch className={styles.searchSpinner} size={19} aria-hidden="true" /> : <MagnifyingGlass size={19} aria-hidden="true" />}</button><Input label="Buscar por nome, categoria ou tag" placeholder="Buscar por nome, categoria ou tag" value={queryInput} onChange={(event) => setQueryInput(event.currentTarget.value)} /></div><label className={styles.favoriteFilter}><input type="checkbox" checked={filters.favoriteOnly ?? false} onChange={(event) => updateFilter({ favoriteOnly: event.currentTarget.checked })} /> <BookmarkSimple size={17} aria-hidden="true" /><span>Somente favoritos</span></label></div>
     {status === "loading" ? <InlineStatus tone="info">Carregando índice local…</InlineStatus> : null}
     {status === "error" ? <InlineStatus tone="error" assertive>{error ?? "Não foi possível carregar o compêndio local."}</InlineStatus> : null}
@@ -168,7 +192,7 @@ export function Compendium({ entries, filters = DEFAULT_FILTERS, categories = []
     {!hasActiveFilter && categoriesExpanded ? <section className={styles.instruction} aria-label="Como consultar"><BookOpen size={22} weight="duotone" aria-hidden="true" /><span>Escolha uma categoria ou busque por nome, categoria ou tag.</span></section> : hasActiveFilter ? <section className={styles.results} aria-labelledby="compendium-results-title"><div className={styles.resultsHeading}><div><p className={styles.eyebrow}>Correspondências locais</p><h2 id="compendium-results-title">Resultados</h2></div><span aria-live="polite">{entries.length} encontrado(s)</span></div>
       <ActiveFilters filters={filters} categories={categories} onClear={updateFilter} />{entries.length === 0 ? <p className={styles.empty}><Books size={28} weight="duotone" aria-hidden="true" /><span>Nenhum resultado para estes filtros.</span></p> : <ul>{entries.map((entry) => <li key={entry.key}><button type="button" className={activeDetail?.key === entry.key ? styles.activeResult : undefined} aria-current={activeDetail?.key === entry.key ? "true" : undefined} aria-haspopup="dialog" onClick={() => { onSelect?.(entry); setSelectedEntry(entry as CompendiumDetail); setDetailOpen(true); }}><span><strong>{entry.title}</strong><small>{categoryName(entry.category)}{entry.summary ? ` · ${entry.summary}` : ""}</small></span>{favoriteKeys.has(entry.key) ? <BookmarkSimple size={17} weight="fill" aria-label="Favorito" /> : null}</button></li>)}</ul>}</section> : null}
     {orphanFavorites.length > 0 ? <section className={styles.orphansPanel} aria-labelledby="orphan-favorites-title"><h2 id="orphan-favorites-title">Favoritos órfãos</h2><p className={styles.muted}>Alguns favoritos não existem no pack atual.</p><ul className={styles.orphans}>{orphanFavorites.map((favorite) => <li key={favorite.key}>{favorite.ref.kind === "static" ? favorite.ref.category : favorite.ref.entityType} · {favorite.ref.entityId}</li>)}</ul></section> : null}
-    {activeDetail ? <AppModal open={detailOpen} title="Regra" titleClassName={styles.modalTitle} onClose={() => setDetailOpen(false)} dismissOnBackdrop closeClassName={styles.detailClose} headerActions={onToggleFavorite ? <IconButton className={styles.favoriteIcon} label={favoriteKeys.has(activeDetail.key) ? "Remover favorito" : "Favoritar"} icon={<BookmarkSimple size={19} weight={favoriteKeys.has(activeDetail.key) ? "fill" : "regular"} />} variant="ghost" aria-pressed={favoriteKeys.has(activeDetail.key)} onClick={() => onToggleFavorite(activeDetail)} /> : undefined} className={styles.detailModal}><CompendiumDetailPanel detail={activeDetail} /></AppModal> : null}
+    {activeDetail ? <AppModal open={detailOpen} title={activeDetail.category === "creature" ? "Criatura" : "Regra"} titleClassName={styles.modalTitle} onClose={() => setDetailOpen(false)} dismissOnBackdrop closeClassName={styles.detailClose} headerActions={onToggleFavorite ? <IconButton className={styles.favoriteIcon} label={favoriteKeys.has(activeDetail.key) ? "Remover favorito" : "Favoritar"} icon={<BookmarkSimple size={19} weight={favoriteKeys.has(activeDetail.key) ? "fill" : "regular"} />} variant="ghost" aria-pressed={favoriteKeys.has(activeDetail.key)} onClick={() => onToggleFavorite(activeDetail)} /> : undefined} className={styles.detailModal}><CompendiumDetailPanel detail={activeDetail} /></AppModal> : null}
     </div>
   </section>;
 }

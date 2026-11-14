@@ -88,6 +88,8 @@ export interface SpellTargeting {
   readonly count?: number;
   readonly restrictions: readonly string[];
   readonly visibilityRequired: boolean;
+  /** A fonte pede escolha/resolução manual; não há alvo de ficha que o motor possa selecionar. */
+  readonly manualResolution?: true;
 }
 
 export type SpellAreaShape = "cone" | "cube" | "cylinder" | "sphere" | "line";
@@ -169,6 +171,8 @@ export type CastMode = "normal" | "ritual" | "feature";
 export interface SpellTargetContext {
   readonly targetIds: readonly Uuid[];
   readonly pointCm?: { readonly x: Centimeters; readonly y: Centimeters };
+  /** Confirma que a mesa resolverá manualmente o alvo/efeito desta magia. */
+  readonly manualResolution?: true;
 }
 
 export interface SpellComponentContext {
