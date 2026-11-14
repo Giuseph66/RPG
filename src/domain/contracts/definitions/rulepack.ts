@@ -29,6 +29,8 @@ export interface OptionalClassFeatureReplacement {
   readonly replacesFeatureId: EntityId;
   /** Permite suprimir upgrades dependentes junto da característica-base; singular é legado. */
   readonly replacesFeatureIds?: readonly EntityId[];
+  /** Escolhas de classe concedidas pela característica substituída; somem junto com ela. */
+  readonly replacesChoiceIds?: readonly string[];
   readonly replacementFeatureIds: readonly EntityId[];
   readonly choiceLevel: number;
   readonly sourceRefs: readonly SourceRef[];

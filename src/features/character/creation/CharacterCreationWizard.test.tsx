@@ -6,7 +6,7 @@ import type { CharacterDraft } from "@domain/contracts/character";
 import { asRevision } from "@domain/contracts/versioning";
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { equipmentBundles } from "@data/equipment/bundles";
-import { createCharacterDraft, materializeCharacter, type CreationCatalog } from "@domain/character/creation";
+import { createCharacterDraft, materializeCharacter, validateCharacterCreation, type CreationCatalog } from "@domain/character/creation";
 import { err, ok } from "@domain/contracts/errors";
 import { mount, click, fireEvent } from "@components/ui/testUtils";
 
@@ -104,6 +104,77 @@ describe("CharacterCreationWizard", () => {
         grantedAtLevel: 1,
         grantingRef: ref("fairy"),
       }));
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("Tasha no Patrulheiro: Inimigo Eleito dentro de Inimigo Favorito e opções como pacotes completos", async () => {
+    const result = createCharacterDraft({
+      id: asUuid("13131313-1313-4313-8313-131313131313"), rulesetRef, createdAt: now,
+      partial: {
+        name: "Guardião", raceRef: ref("human"), classes: [{ classId: asEntityId("ranger"), level: 1, choices: [] }],
+        selectedSupplementIds: [asEntityId("tasha-ranger-options")], optionalRuleSelections: [],
+        choices: [{ choiceId: "ranger.favored-enemy-language.1", selectedIds: [ref("elvish")], grantedAtLevel: 1, grantingRef: ref("ranger") }],
+      },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const onDraftChange = vi.fn((next: CharacterDraft) => { void next; });
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={catalog()} onDraftChange={onDraftChange} />);
+    const latest = () => onDraftChange.mock.calls.map(([next]) => next).at(-1)!;
+    const selects = () => [...mounted.container.querySelectorAll("select")];
+    const toggle = (text: string) => [...mounted.container.querySelectorAll('input[type="checkbox"]')].find((input) => input.parentElement?.textContent?.includes(text)) as HTMLInputElement;
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "3. Classe") as HTMLElement);
+      // Sem campo separado: Inimigo Eleito é uma opção do próprio Inimigo Favorito.
+      expect(mounted.container.textContent).not.toContain("Manter a regra atual");
+      const favored = selects().find((select) => [...select.options].some((option) => option.textContent === "Inimigo Eleito (Tasha)")) as HTMLSelectElement;
+      expect(favored).toBeDefined();
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(favored, "optional:ranger.optional-favored-foe");
+      await fireEvent(favored, new Event("change", { bubbles: true }));
+      expect(latest().partial.optionalRuleSelections).toContainEqual(expect.objectContaining({ optionId: "ranger.optional-favored-foe", selectedFeatureRefs: [ref("ranger.favored-foe")] }));
+      expect(latest().partial.choices?.some((choice) => choice.choiceId.startsWith("ranger.favored-enemy"))).toBe(false);
+      expect(mounted.container.textContent).toContain("substitui Inimigo Favorito e Inimigo Favorito Maior");
+
+      // Hábil é um conjunto: Astuto (1º), Peregrino (6º) e Incansável (10º) chegam juntos.
+      expect(mounted.container.textContent).toContain("Astuto (1º) · Peregrino (6º) · Incansável (10º)");
+      await click(toggle("Usar Hábil"));
+      expect(latest().partial.optionalRuleSelections).toContainEqual(expect.objectContaining({
+        optionId: "ranger.optional-canny", selectedFeatureRefs: [ref("ranger.canny"), ref("ranger.roving"), ref("ranger.tireless")],
+      }));
+      expect(mounted.container.textContent).toContain("Astuto (Tasha) · perícia com bônus de proficiência dobrado");
+      expect(mounted.container.textContent).toContain("Astuto (Tasha) · idiomas adicionais");
+
+      // Consciência Primordial concede todas as magias por nível, sem escolher uma.
+      expect(mounted.container.textContent).toContain("Consciência Primordial (Falar com Animais) (3º) · Consciência Primordial (Sentido Feral) (5º)");
+      for (const label of ["Usar Consciência Primordial", "Usar Véu Natural", "Adicionar à lista de escolha (2º nível)", "Adicionar estas magias", "Usar Foco de Conjuração", "Usar Versatilidade Marcial"]) {
+        const input = toggle(label);
+        expect(input, label).toBeDefined();
+        await click(input);
+      }
+      const final = latest();
+      expect(final.partial.optionalRuleSelections?.map((selection) => String(selection.optionId)).sort()).toEqual([
+        "ranger.optional-additional-spells", "ranger.optional-canny", "ranger.optional-druidic-focus", "ranger.optional-favored-foe",
+        "ranger.optional-fighting-style", "ranger.optional-martial-versatility", "ranger.optional-natures-veil", "ranger.optional-primal-awareness",
+      ]);
+      const report = validateCharacterCreation(catalog(), final);
+      expect(report.issues.filter((issue) => /optionalRuleSelections|favored-enemy/.test(issue.field))).toEqual([]);
+
+      // Desligar Hábil descarta a perícia de Astuto já escolhida (sem escolha órfã travando a revisão).
+      const skill = selects().find((select) => select.labels?.[0]?.textContent?.includes("Astuto (Tasha) · perícia")) as HTMLSelectElement;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(skill, "survival");
+      await fireEvent(skill, new Event("change", { bubbles: true }));
+      expect(latest().partial.choices?.some((choice) => choice.choiceId === "ranger.canny.skill")).toBe(true);
+      await click(toggle("Usar Hábil"));
+      expect(latest().partial.choices?.some((choice) => choice.choiceId.startsWith("ranger.canny"))).toBe(false);
+      expect(validateCharacterCreation(catalog(), latest()).issues.filter((issue) => issue.field.startsWith("choices.ranger.canny"))).toEqual([]);
+
+      // Voltar a um tipo de Inimigo Favorito desfaz o Inimigo Eleito.
+      const favoredAgain = selects().find((select) => [...select.options].some((option) => option.textContent === "Inimigo Eleito (Tasha)")) as HTMLSelectElement;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(favoredAgain, "favored-enemy.beasts");
+      await fireEvent(favoredAgain, new Event("change", { bubbles: true }));
+      expect(latest().partial.optionalRuleSelections?.some((selection) => selection.optionId === "ranger.optional-favored-foe")).toBe(false);
+      expect(latest().partial.choices).toContainEqual(expect.objectContaining({ choiceId: "ranger.favored-enemy.1", selectedIds: [ref("favored-enemy.beasts")] }));
     } finally {
       await mounted.unmount();
     }

@@ -18,7 +18,7 @@ export type CreationDecision =
   | { readonly kind: "choices"; readonly selections: readonly ChoiceSelection[] }
   | { readonly kind: "equipment"; readonly selections: readonly ChoiceSelection[] }
   | { readonly kind: "spells"; readonly selections: readonly ChoiceSelection[] }
-  | { readonly kind: "supplements"; readonly selectedSupplementIds: readonly import("@domain/contracts/ids").EntityId[]; readonly selections: readonly import("@domain/contracts/character").OptionalRuleSelection[] }
+  | { readonly kind: "supplements"; readonly selectedSupplementIds: readonly import("@domain/contracts/ids").EntityId[]; readonly selections: readonly import("@domain/contracts/character").OptionalRuleSelection[]; /** Escolhas que deixam de existir com a opção (ex.: Inimigo Favorito ao usar Inimigo Eleito). */ readonly dropChoiceIds?: readonly string[] }
   | { readonly kind: "details"; readonly details: Pick<CharacterDraftPartial, "appearance" | "personalityTraits" | "ideals" | "bonds" | "flaws" | "history"> };
 
 export interface CreateCharacterDraftInput {

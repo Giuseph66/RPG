@@ -81,6 +81,7 @@ export function applyCreationDecision(draft: CharacterDraft, decision: CreationD
         ...partial,
         selectedSupplementIds: [...decision.selectedSupplementIds],
         optionalRuleSelections: [...decision.selections],
+        ...(decision.dropChoiceIds?.length ? { choices: (partial.choices ?? []).filter((selection) => !decision.dropChoiceIds!.includes(selection.choiceId)) } : {}),
       };
       break;
     }

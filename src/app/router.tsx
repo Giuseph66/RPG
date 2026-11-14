@@ -36,6 +36,7 @@ import type { FeatureRegistry } from "./feature-registry";
 import { matchRoute, type RouteMatch } from "./routes";
 import { createRuleLookup } from "./rule-lookup";
 import { generateNpcCharacter } from "@application/character/generate-npc-character";
+import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
 import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, subclassInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
@@ -360,11 +361,18 @@ function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { rea
     void import("@data/correto/descricoes/features").then((module) => { if (active) setBlocks(module.PHB_FEATURE_DESCRIPTIONS.featureBlocks); if (active) setSections(module.PHB_FEATURE_DESCRIPTIONS.classFeatureSections); });
     return () => { active = false; };
   }, []);
-  const featureInfo = useMemo(() => featureInfoFor(pack, blocks), [pack, blocks]);
-  const subclassInfo = useMemo(() => subclassInfoFor(pack, sections, blocks), [pack, sections, blocks]);
+  // Opções de suplemento escolhidas na ficha (ex.: Tasha) mudam classe, subclasses e listas de magia ao subir de nível.
+  const loaded = character?.value;
+  const characterPack = useMemo(() => {
+    if (!pack || !loaded || loaded.id !== validId) return pack;
+    const composed = composeCharacterRuleContent(pack, loaded);
+    return composed.ok ? composed.value : pack;
+  }, [pack, loaded, validId]);
+  const featureInfo = useMemo(() => featureInfoFor(characterPack, blocks), [characterPack, blocks]);
+  const subclassInfo = useMemo(() => subclassInfoFor(characterPack, sections, blocks), [characterPack, sections, blocks]);
   const Wizard = LazyLevelUp;
   if (!validId) return <PendingDestination title="Subir de nível" reasons={["O identificador da ficha é inválido."]} />;
-  if (!pack) return <PendingDestination title="Subir de nível" reasons={["O catálogo de regras ainda não foi carregado."]} />;
+  if (!pack || !characterPack) return <PendingDestination title="Subir de nível" reasons={["O catálogo de regras ainda não foi carregado."]} />;
   if (character?.value?.id !== validId) return <section aria-live="polite"><h1>Carregando personagem</h1><InlineStatus tone="info">Buscando a ficha salva neste dispositivo.</InlineStatus></section>;
   const current = character.value;
   const derived = registry.character.bindSheetProps({ character: current }).derived;
@@ -376,7 +384,7 @@ function EvolveCharacterRoute({ registry, character, pack, id, navigate }: { rea
     navigate(`/character/${current.id}`);
     return { ok: true };
   };
-  return <Wizard character={current} {...(derived ? { derived } : {})} pack={pack} spellInfo={spellInfoFor(pack)} featureInfo={featureInfo} subclassInfo={subclassInfo} racialTraits={racialTraitsFor(pack, current)} newId={() => asUuid(crypto.randomUUID())} onConfirm={confirm} onCancel={() => navigate(`/character/${current.id}`)} />;
+  return <Wizard character={current} {...(derived ? { derived } : {})} pack={characterPack} spellInfo={spellInfoFor(characterPack)} featureInfo={featureInfo} subclassInfo={subclassInfo} racialTraits={racialTraitsFor(characterPack, current)} newId={() => asUuid(crypto.randomUUID())} onConfirm={confirm} onCancel={() => navigate(`/character/${current.id}`)} />;
 }
 
 /**

@@ -21,8 +21,12 @@ const FACES_RAPIDAS: readonly DiceFaces[] = [4, 6, 8, 20, 100];
  * esfera do `colliderShape.ts` — ficam presos a 1 exemplar na mesa física.
  * Continuam válidos no domínio (fórmula manual, ex. "2d3" no campo de texto);
  * só saem do catálogo de toque rápido.
+ *
+ * d7 também sai: o prisma pentagonal tem o número em cada face lateral, e
+ * quando para deitado o resultado é a face apoiada na mesa — o jogador vê
+ * outros dois números em cima. D&D 5e não usa d7.
  */
-const FACES_OCULTAS: ReadonlySet<DiceFaces> = new Set([1, 3, 5]);
+const FACES_OCULTAS: ReadonlySet<DiceFaces> = new Set([1, 3, 5, 7]);
 
 const GLIFOS: Partial<Record<DiceFaces, ReactNode>> = {
   4: <GiD4 aria-hidden="true" />,

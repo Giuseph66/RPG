@@ -58,9 +58,11 @@ function updateClassForSelection(
   let progression: ClassDefinition["progression"] = classDefinition.progression.map((entry) => ({ ...entry, featureRefs: [...entry.featureRefs] }));
   if (replacement && !replacement.subclassId && selection.selectedFeatureRefs.length > 0) {
     const replacedIds = replacement.replacesFeatureIds ?? [replacement.replacesFeatureId];
+    const replacedChoiceIds = replacement.replacesChoiceIds ?? [];
     progression = progression.map((entry) => ({
       ...entry,
       featureRefs: entry.featureRefs.filter((ref) => !replacedIds.includes(ref.entityId)),
+      choicesGranted: entry.choicesGranted.filter((choice) => !replacedChoiceIds.includes(choice.id)),
     }));
   }
   const fallbackLevel = replacement?.choiceLevel ?? option?.choiceLevel ?? 1;

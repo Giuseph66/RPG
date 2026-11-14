@@ -87,13 +87,12 @@ const tashaSpells: readonly SpellDefinition[] = [
 ];
 
 const primalAwarenessSpellGrants = [
-  [3, "falar-com-animais"], [5, "sentido-bestial"], [9, "falar-com-plantas"],
-  [13, "localizar-criatura"], [17, "comunhao-com-a-natureza"],
+  [3, "falar-com-animais", "Falar com Animais"], [5, "sentido-bestial", "Sentido Feral"], [9, "falar-com-plantas", "Falar com Plantas"],
+  [13, "localizar-criatura", "Localizar Criatura"], [17, "comunhao-com-a-natureza", "Comunhão com a Natureza"],
 ] as const;
-const primalAwarenessFeatures: readonly FeatureDefinition[] = primalAwarenessSpellGrants.map(([level, spellId]) => {
+const primalAwarenessFeatures: readonly FeatureDefinition[] = primalAwarenessSpellGrants.map(([level, spellId, spellName]) => {
   const featureId = level === 3 ? "ranger.primal-awareness" : `ranger.primal-awareness-level-${level}`;
   const resourceId = `ranger.primal-awareness-level-${level}-use`;
-  const spellName = spellId.replaceAll("-", " ");
   return {
     ...feature(featureId, `Consciência Primordial (${spellName})`, 52, "Consciência Primordial", `A partir do ${level}º nível de Guardião, aprende ${spellName}; não conta entre as magias conhecidas. Pode conjurá-la uma vez sem espaço por descanso longo e também usando espaços de magia.`, { kind: "passive" }, [
       { kind: "grants-spell", spellRef: ref(spellId), alwaysPrepared: false, resourceRef: ref(resourceId) },
@@ -104,7 +103,7 @@ const primalAwarenessFeatures: readonly FeatureDefinition[] = primalAwarenessSpe
 });
 
 const rangerFeatures: readonly FeatureDefinition[] = [
-  feature("ranger.canny", "Hábil", 51, "Hábil", "Escolha uma perícia em que seja proficiente: seu bônus de proficiência é dobrado nela. Aprende dois idiomas à sua escolha.", { kind: "passive" }, [{ kind: "narrative", description: "Expertise em uma perícia proficiente e dois idiomas à escolha." }], minRanger(1), [skillChoice("ranger.canny.skill", 1, 51), languageChoice("ranger.canny.languages", 2, 51)]),
+  feature("ranger.canny", "Astuto", 51, "Hábil", "Benefício de 1º nível de Hábil. Escolha uma perícia em que seja proficiente: seu bônus de proficiência é dobrado nela. Aprende dois idiomas à sua escolha.", { kind: "passive" }, [{ kind: "narrative", description: "Expertise em uma perícia proficiente e dois idiomas à escolha." }], minRanger(1), [skillChoice("ranger.canny.skill", 1, 51), languageChoice("ranger.canny.languages", 2, 51)]),
   feature("ranger.roving", "Peregrino", 51, "Peregrino", "A partir do 6º nível, seu deslocamento de caminhada aumenta em 1,5 m; você recebe deslocamento de escalada e natação igual ao deslocamento total.", { kind: "passive" }, [
     { kind: "modifier", modifier: { id: "ranger.roving.walk", sourceRef: source(51, "Peregrino"), target: { kind: "speed", speedKind: "walk" }, operator: "add", value: { kind: "number", amount: 150 }, predicate: { kind: "always" } } },
     { kind: "modifier", modifier: { id: "ranger.roving.climb", sourceRef: source(51, "Peregrino"), target: { kind: "speed-copy", speedKind: "climb", from: "walk" }, operator: "annotate", value: { kind: "flag" }, predicate: { kind: "always" } } },
@@ -123,7 +122,7 @@ const rangerFeatures: readonly FeatureDefinition[] = [
     ...feature("ranger.druidic-warrior", "Guerreiro Druídico", 52, "Estilos de Luta", "Aprende dois truques da lista de Druida; eles contam como magias de Guardião e usam Sabedoria. Pode trocar um ao ganhar nível de Guardião.", { kind: "passive" }, [{ kind: "narrative", description: "Os dois truques da lista de Druida contam como magias de Guardião e usam Sabedoria; a escolha só existe após selecionar Guerreiro Druídico." }], [], [druidCantripChoice]),
     spellcastingSource: { ability: "wis", spellListClassId: asEntityId("druid") },
   },
-  feature("ranger.thrown-weapon-fighting", "Luta com Armas Arremessadas", 52, "Estilos de Luta", "Pode sacar arma com propriedade arremesso como parte do ataque; ataques à distância com arma arremessada causam +2 de dano."),
+  feature("ranger.thrown-weapon-fighting", "Arremesso de Armas", 52, "Estilos de Luta", "Pode sacar arma com propriedade arremesso como parte do ataque; ataques à distância com arma arremessada causam +2 de dano."),
   feature("ranger.druidic-focus", "Foco de Conjuração", 52, "Foco de Conjuração", "Pode utilizar um foco druídico como foco de conjuração para suas magias de Guardião.", { kind: "passive" }, [{ kind: "narrative", description: "Aceita foco druídico para conjurar magias de Guardião." }], minRanger(2)),
   feature("ranger.primal-companion", "Companheiro Primitivo", 55, "Companheiro Primitivo", "Substitui Fera Companheira do Senhor das Feras. Invoca uma Fera da Terra, do Mar ou do Céu que usa PB e nível de Guardião conforme o bloco local. Pode retornar de morte recente ao gastar espaço de magia; pode trocar a forma após descanso longo.", { kind: "passive" }, [{ kind: "narrative", description: "Use um dos três blocos locais do companheiro primitivo; ND não se aplica e não é elegível para Forma Selvagem." }], minRanger(3)),
 ];
@@ -173,7 +172,11 @@ const option = (id: string, kind: OptionalClassOption["kind"], features: readonl
 });
 const replacements: readonly OptionalClassFeatureReplacement[] = [
   replacement("ranger.optional-canny", ["ranger.natural-explorer"], ["ranger.canny", "ranger.roving", "ranger.tireless"], 1, 51, "Hábil"),
-  replacement("ranger.optional-favored-foe", ["ranger.favored-enemy"], ["ranger.favored-foe"], 1, 51, "Inimigo Eleito"),
+  // Inimigo Favorito Maior (6º) concede "os benefícios do inimigo favorito": sem Inimigo Favorito, o jogador não se qualifica a ele (Tasha p. 51).
+  {
+    ...replacement("ranger.optional-favored-foe", ["ranger.favored-enemy", "ranger.favored-enemy-greater"], ["ranger.favored-foe"], 1, 51, "Inimigo Eleito"),
+    replacesChoiceIds: ["ranger.favored-enemy.1", "ranger.favored-enemy-language.1", "ranger.greater-favored-enemy.6", "ranger.greater-favored-enemy-language.6"],
+  },
   replacement("ranger.optional-primal-awareness", ["ranger.primeval-awareness"], primalAwarenessFeatures.map((entry) => String(entry.id)), 3, 52, "Consciência Primordial"),
   replacement("ranger.optional-natures-veil", ["ranger.hide-in-plain-sight"], ["ranger.natures-veil"], 10, 52, "Véu Natural"),
   replacement("ranger.optional-primal-companion", ["beast-conclave-feature-level-3"], ["ranger.primal-companion"], 3, 55, "Companheiro Primitivo", "beast-conclave"),

@@ -10,7 +10,10 @@ describe("Opções de Guardião de Tasha", () => {
       "ranger.optional-canny", "ranger.optional-favored-foe", "ranger.optional-primal-awareness", "ranger.optional-natures-veil", "ranger.optional-primal-companion",
     ]);
     expect(pack.classFeatureReplacements?.find((entry) => entry.id === "ranger.optional-favored-foe")?.replacesFeatureIds).toEqual([
-      "ranger.favored-enemy",
+      "ranger.favored-enemy", "ranger.favored-enemy-greater",
+    ]);
+    expect(pack.classFeatureReplacements?.find((entry) => entry.id === "ranger.optional-favored-foe")?.replacesChoiceIds).toEqual([
+      "ranger.favored-enemy.1", "ranger.favored-enemy-language.1", "ranger.greater-favored-enemy.6", "ranger.greater-favored-enemy-language.6",
     ]);
     expect(pack.classFeatureReplacements?.find((entry) => entry.id === "ranger.optional-primal-companion")).toMatchObject({
       subclassId: "beast-conclave", replacesFeatureId: "beast-conclave-feature-level-3",

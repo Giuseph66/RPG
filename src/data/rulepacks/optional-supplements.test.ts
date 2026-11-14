@@ -33,7 +33,12 @@ describe("packs opcionais", () => {
     const ranger = composed.value.classes.get(asEntityId("ranger"))!;
     expect(ranger.progression[0]?.featureRefs.map((entry) => entry.entityId)).toContain(asEntityId("ranger.favored-foe"));
     expect(ranger.progression[0]?.featureRefs.map((entry) => entry.entityId)).not.toContain(asEntityId("ranger.favored-enemy"));
-    expect(ranger.progression[5]?.featureRefs.map((entry) => entry.entityId)).toContain(asEntityId("ranger.favored-enemy-greater"));
+    // Inimigo Favorito Maior depende de Inimigo Favorito: some junto com ele e com as escolhas de tipo/idioma.
+    expect(ranger.progression[5]?.featureRefs.map((entry) => entry.entityId)).not.toContain(asEntityId("ranger.favored-enemy-greater"));
+    expect(ranger.progression[0]?.choicesGranted.map((entry) => entry.id)).not.toContain("ranger.favored-enemy.1");
+    expect(ranger.progression[0]?.choicesGranted.map((entry) => entry.id)).not.toContain("ranger.favored-enemy-language.1");
+    expect(ranger.progression[5]?.choicesGranted.map((entry) => entry.id)).not.toContain("ranger.greater-favored-enemy.6");
+    expect(base.classes.get(asEntityId("ranger"))?.progression[0]?.choicesGranted.map((entry) => entry.id)).toContain("ranger.favored-enemy.1");
     const beastMaster = composed.value.subclasses.get(asEntityId("beast-conclave"))!;
     expect(beastMaster.featureGrants.some((entry) => entry.featureRef.entityId === asEntityId("beast-conclave-feature-level-3"))).toBe(false);
     expect(beastMaster.featureGrants.some((entry) => entry.featureRef.entityId === asEntityId("ranger.primal-companion") && entry.level === 3)).toBe(true);
@@ -160,6 +165,25 @@ describe("packs opcionais", () => {
       expect(applied.value.choices.find((selection) => selection.choiceId === "ranger.spells.2")?.selectedIds).toEqual([ref("destruicao-lancinante")]);
       expect(applied.value.choices.some((selection) => selection.selectedIds.some((spellRef) => spellRef.entityId === asEntityId("invocar-fera")))).toBe(false);
     }
+  });
+
+  it("ficha antiga com Inimigo Eleito e escolha de Inimigo Favorito ainda sobe de nível", () => {
+    const rangerId = asEntityId("ranger");
+    const character = {
+      ...minimalCharacter,
+      classes: [{ classId: rangerId, level: 1, choices: [] }],
+      choices: [
+        { choiceId: "ranger.favored-enemy.1", selectedIds: [ref("favored-enemy.beasts")], grantedAtLevel: 1, grantingRef: ref("ranger") },
+        { choiceId: "ranger.favored-enemy-language.1", selectedIds: [ref("elvish")], grantedAtLevel: 1, grantingRef: ref("ranger") },
+      ],
+      selectedSupplementIds: [tashaId],
+      optionalRuleSelections: [{ supplementId: tashaId, optionId: asEntityId("ranger.optional-favored-foe"), selectedFeatureRefs: [ref("ranger.favored-foe")] }],
+    };
+    const preview = buildLevelUpPreview(character, {
+      classId: rangerId, targetClassLevel: 2, mode: "milestone", hitPointGain: { kind: "fixed-average", amount: 6 }, choices: [],
+    }, base);
+    expect(preview.ok).toBe(true);
+    if (preview.ok) expect(preview.value.pending.filter((entry) => entry.blocking !== false)).toEqual([]);
   });
 
   it("rejeita substituição parcial e magias adicionais parciais", () => {
