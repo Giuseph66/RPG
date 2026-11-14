@@ -96,8 +96,8 @@ export function CreatureCatalog({ creatures, sightings = [], characterName, load
         <strong>{creature.name}</strong><span className={styles.cardStats}>{challengeLabel(creature)} · CA {creature.armorClass} · PV {creature.hitPoints.average}</span>
         {showSightings ? seen.has(String(creature.id)) ? <span className={styles.seen}>Vista por {characterName ?? "esta ficha"}</span> : <span className={styles.notSeen}>Ainda não registrada como vista</span> : null}
       </button></li>)}</ul>}
-    <AppModal open={selected !== undefined} title={selected?.name ?? "Criatura"} onClose={() => { if (!busy) setSelectedId(undefined); }} className={styles.dialog}>
-      {selected ? <div className={styles.detail}><StatBlock creature={selected} />
+    <AppModal open={selected !== undefined} title="Criatura" onClose={() => { if (!busy) setSelectedId(undefined); }} className={styles.dialog}>
+      {selected ? <div className={styles.detail}><StatBlock creature={selected} embedded />
         {showSightings ? <div className={styles.actions}>{selectedIsBeast ? <Button type="button" variant={selectedSeen ? "secondary" : "primary"} disabled={!onMarkSeen || selectedSeen || busy} busy={busy} onClick={() => void markSeen()}>{selectedSeen ? "Já marcada como vista" : "Marcar como vista"}</Button> : <p>Somente bestas podem ser registradas para Forma Selvagem.</p>}</div> : null}
       </div> : null}
     </AppModal>

@@ -11,6 +11,8 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .48);
   overflow-wrap: anywhere;
 }
+/* Modo embutido: sem cartão, borda nem sombra, para não criar um modal dentro do modal. */
+.block.embedded { padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: .65rem; padding-bottom: .55rem; border-bottom: 1px solid color-mix(in srgb, var(--color-secondary) 65%, transparent); }
 .name { margin: 0; color: #f2d9a7; font-family: var(--typography-display-font-family); font-size: clamp(1.15rem, 4vw, 1.55rem); line-height: 1.15; }
 .typeLine { margin: .2rem 0 0; color: var(--color-text-muted); font-size: .9rem; font-style: italic; }

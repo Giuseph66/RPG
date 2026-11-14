@@ -348,7 +348,52 @@ const ADVENTURE_OBJECTS = sourceRef("Capítulo 8", 185, 184, "Interação com Ob
 const ADVENTURE_SOCIAL = sourceRef("Capítulo 8", 186, 185, "Interação Social");
 const ADVENTURE_DOWNTIME = sourceRef("Capítulo 8", 189, 188, "Entre Aventuras");
 
+const LANGUAGE_SOURCE = sourceRef("Capítulo 4", 125, 124, "Idiomas");
+const LANGUAGE_RULE = "Os falantes indicados são típicos, não exclusivos. A raça e o antecedente determinam os idiomas iniciais; idiomas exóticos e secretos exigem permissão do Mestre quando escolhidos fora das concessões específicas.";
+type LanguageRow = readonly [id: string, name: string, group: string, speakers: string, alphabet: string, details: string, races: readonly string[]];
+const LANGUAGE_ROWS: readonly LanguageRow[] = [
+  ["dwarvish", "Anão", "Padrão", "Anões", "Anão", "Possui consoantes duras e sons guturais, que podem influenciar o sotaque em outros idiomas.", ["Anão"]],
+  ["common", "Comum", "Padrão", "Humanos", "Comum", "É conhecido pelas raças do Livro do Jogador listadas abaixo. Humanos e meio-elfos também recebem um idioma adicional à escolha, conforme seus traços raciais.", ["Humano", "Anão", "Elfo", "Halfling", "Draconato", "Gnomo", "Meio-Elfo", "Meio-Orc", "Tiefling"]],
+  ["elvish", "Élfico", "Padrão", "Elfos", "Élfico", "Idioma fluido, com entonações sutis e gramática complexa. Possui rica literatura, canções e poemas; bardos também podem aprendê-lo.", ["Elfo", "Meio-Elfo"]],
+  ["giant", "Gigante", "Padrão", "Ogros e gigantes", "Anão", "O alfabeto compartilhado não torna este idioma igual ao Anão.", []],
+  ["gnomish", "Gnômico", "Padrão", "Gnomos", "Anão", "Conhecido por técnicas de dissertação e catálogos de conhecimento sobre o mundo natural.", ["Gnomo"]],
+  ["goblin", "Goblin", "Padrão", "Goblinoides", "Anão", "O alfabeto compartilhado não concede compreensão dos outros idiomas escritos com ele.", []],
+  ["halfling", "Halfling", "Padrão", "Halflings", "Comum", "Não é secreto, mas seus falantes são relutantes em compartilhá-lo. A escrita é pouco usada e a tradição oral é forte.", ["Halfling"]],
+  ["orc", "Orc", "Padrão", "Orcs", "Anão", "Idioma ríspido, com consoantes duras. Não tem alfabeto próprio e utiliza a escrita anã.", ["Meio-Orc"]],
+  ["abyssal", "Abissal", "Exótico", "Demônios", "Infernal", "É distinto do Infernal, falado tipicamente por diabos, embora compartilhe sua escrita.", []],
+  ["celestial", "Celestial", "Exótico", "Celestiais", "Celestial", "A tabela de idiomas identifica os celestiais como seus falantes típicos.", []],
+  ["deep-speech", "Dialeto Subterrâneo", "Exótico", "Devoradores de mente e observadores", "Sem alfabeto indicado na tabela", "Não confundir com Subcomum, usado por comerciantes do Subterrâneo.", []],
+  ["draconic", "Dracônico", "Exótico", "Dragões e draconatos", "Dracônico", "Uma das línguas mais antigas, também usada no estudo de magia. Soa áspera, com consoantes e sílabas firmes.", ["Draconato"]],
+  ["infernal", "Infernal", "Exótico", "Diabos", "Infernal", "Também é conhecido pelos tieflings por seu traço racial. Não é o mesmo idioma que Abissal.", ["Tiefling"]],
+  ["primordial", "Primordial", "Exótico", "Elementais", "Anão", "Inclui os dialetos Auran, Aquan, Ignan e Terran, associados aos planos elementais. Falantes de dialetos diferentes dessa mesma língua conseguem comunicar-se entre si.", []],
+  ["sylvan", "Silvestre", "Exótico", "Criaturas feéricas", "Élfico", "Ser uma criatura feérica não concede automaticamente esse idioma: consulte o traço racial ou a concessão específica da ficha.", []],
+  ["undercommon", "Subcomum", "Exótico", "Comerciantes do Subterrâneo", "Élfico", "É distinto do Dialeto Subterrâneo dos devoradores de mente e observadores.", []],
+];
+const LANGUAGE_ITEMS: readonly CompendiumCatalogItem[] = [
+  bookBackedEntry("language", "languages-overview", "Linguagens e escolha de idiomas", "Idiomas padrão, exóticos e secretos; falantes, alfabetos e aprendizado.", ["linguagens", "línguas", "idiomas", "raças", "antecedentes"], [LANGUAGE_SOURCE], {
+    sourceHeading: "Idiomas",
+    text: `${LANGUAGE_RULE}\n\nConhecer um alfabeto não concede automaticamente os idiomas que o utilizam. Os detalhes de cada entrada distinguem falantes típicos de concessões raciais.\n\nPrimordial reúne Auran, Aquan, Ignan e Terran; seus dialetos permitem comunicação entre seus falantes. Druídico e Gíria de Ladrão são conhecimentos secretos ligados a características de classe.`,
+  }),
+  ...LANGUAGE_ROWS.map(([id, name, group, speakers, alphabet, details, races]): CompendiumCatalogItem => {
+    const entry = bookBackedEntry("language", `language-${id}`, name, `${group} · Falantes típicos: ${speakers} · Alfabeto: ${alphabet}`, ["linguagens", "idiomas", group, speakers, alphabet, ...races], [LANGUAGE_SOURCE], {
+      sourceHeading: name,
+      text: `Classificação: ${group}.\n\nFalantes típicos: ${speakers}.\n\nAlfabeto: ${alphabet}.\n\n${races.length ? `Raças do Livro do Jogador com esse idioma: ${races.join(", ")}.\n\n` : ""}${details}\n\n${LANGUAGE_RULE}`,
+    });
+    return { ...entry, definition: { ...entry.definition, sourceRefs: [...entry.definition.sourceRefs, ...races.map((race) => ({ sourceId: ruleset.id, chapter: "Capítulo 2 — Raças", section: `${race} · Idiomas` }))] } };
+  }),
+  ...["druida.druidico", "ladino.giria-de-ladrao"].flatMap((id): readonly CompendiumCatalogItem[] => {
+    const feature = PHB_CANONICAL_DESCRIPTION_REGISTRY.find((entry) => entry.id === id);
+    if (!feature) return [];
+    const druidic = id === "druida.druidico";
+    return [bookBackedEntry("language", `language-${id}`, druidic ? "Druídico" : "Gíria de Ladrão", `Conhecimento secreto · ${druidic ? "Druidas" : "Ladinos"}`, ["linguagens", "idiomas", "secreto", druidic ? "druida" : "ladino", "classe"], [sourceRef("Capítulo 3 — Classes", feature.printedPages[0], feature.pdfPages[0], feature.sourceHeading)], {
+      sourceHeading: feature.sourceHeading,
+      text: `${feature.text}\n\nConhecimento secreto de classe, não um idioma racial nem uma concessão automática desta consulta. ${LANGUAGE_RULE}`,
+    })];
+  }),
+];
+
 export const STATIC_COMPENDIUM_ITEMS: readonly CompendiumCatalogItem[] = [
+  ...LANGUAGE_ITEMS,
   ...BOOK_SPELL_ITEMS,
   ...BOOK_RULE_ITEMS,
   ...CANONICAL_BOOK_RULE_ITEMS,

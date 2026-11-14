@@ -4,8 +4,8 @@ import type { EntityType, PackVersion, RulesetId, RulesetRef } from "@domain/con
 import type { SourceRef } from "@domain/contracts/primitives";
 import type { CreatureStatBlock } from "@domain/creatures";
 
-export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras" | "creature";
-export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "creature" | "spell" | "condition" | "race" | "subrace" | "class" | "subclass" | "feature" | "resource" | "progression" | "background" | "equipment" | "feat";
+export type CompendiumCategoryId = EntityType | "rules" | "combat" | "attributes" | "skills" | "weapons" | "armor" | "rest" | "movement" | "adventure" | "conditions" | "races" | "classes" | "backgrounds" | "spells" | "magia" | "magias" | "truques" | "cantrips" | "regras" | "creature" | "language";
+export type StaticCompendiumCategory = "attributes" | "skills" | "rules" | "combat" | "rest" | "movement" | "adventure" | "creature" | "language" | "spell" | "condition" | "race" | "subrace" | "class" | "subclass" | "feature" | "resource" | "progression" | "background" | "equipment" | "feat";
 
 export type CompendiumCategoryStatus = "available" | "pending";
 
@@ -17,28 +17,29 @@ export interface CompendiumCategory {
 }
 
 export const COMPENDIUM_CATEGORIES: readonly CompendiumCategory[] = [
-  { id: "rules", label: "Regras", status: "pending" },
+  { id: "background", label: "Antecedentes", status: "available" },
+  { id: "armor", label: "Armaduras", status: "available", targetId: "equipment" },
+  { id: "weapons", label: "Armas", status: "available", targetId: "equipment" },
+  { id: "attributes", label: "Atributos", status: "pending" },
+  { id: "adventure", label: "Aventura", status: "pending" },
+  { id: "feature", label: "Características", status: "available" },
+  { id: "class", label: "Classes", status: "available" },
   { id: "combat", label: "Combate", status: "pending" },
   { id: "condition", label: "Condições", status: "available" },
-  { id: "attributes", label: "Atributos", status: "pending" },
-  { id: "skills", label: "Perícias", status: "pending" },
-  { id: "race", label: "Raças", status: "available" },
-  { id: "subrace", label: "Sub-raças", status: "available" },
-  { id: "class", label: "Classes", status: "available" },
-  { id: "subclass", label: "Subclasses", status: "available" },
-  { id: "background", label: "Antecedentes", status: "available" },
-  { id: "equipment", label: "Equipamentos", status: "available" },
-  { id: "weapons", label: "Armas", status: "available", targetId: "equipment" },
-  { id: "armor", label: "Armaduras", status: "available", targetId: "equipment" },
-  { id: "feat", label: "Talentos", status: "available" },
-  { id: "spell", label: "Magia", status: "available" },
   { id: "creature", label: "Criaturas", status: "available" },
-  { id: "resource", label: "Recursos", status: "available" },
-  { id: "feature", label: "Características", status: "available" },
-  { id: "progression", label: "Progressão", status: "available" },
   { id: "rest", label: "Descanso", status: "pending" },
+  { id: "equipment", label: "Equipamentos", status: "available" },
+  { id: "language", label: "Linguagens", status: "available" },
+  { id: "spell", label: "Magia", status: "available" },
   { id: "movement", label: "Movimentação", status: "pending" },
-  { id: "adventure", label: "Aventura", status: "pending" },
+  { id: "skills", label: "Perícias", status: "pending" },
+  { id: "progression", label: "Progressão", status: "available" },
+  { id: "race", label: "Raças", status: "available" },
+  { id: "resource", label: "Recursos", status: "available" },
+  { id: "rules", label: "Regras", status: "pending" },
+  { id: "subclass", label: "Subclasses", status: "available" },
+  { id: "subrace", label: "Sub-raças", status: "available" },
+  { id: "feat", label: "Talentos", status: "available" },
 ];
 
 /** Categories that reuse the equipment dataset but narrow it to a single equipment tag. */
@@ -71,6 +72,9 @@ export const COMPENDIUM_CATEGORY_ALIASES: Readonly<Record<string, CompendiumCate
   creatures: "creature",
   monstro: "creature",
   monstros: "creature",
+  linguagem: "language",
+  linguagens: "language",
+  languages: "language",
 };
 
 export interface CompendiumStaticDefinition {

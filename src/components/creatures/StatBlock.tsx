@@ -78,10 +78,12 @@ export interface StatBlockProps {
   /** A ficha da Forma Selvagem pode passar valores de PV sem alterar o bloco publicado. */
   readonly hitPointsOverride?: { readonly current: number; readonly maximum: number };
   readonly hiddenSpeeds?: readonly ("flyCm" | "swimCm")[];
+  /** Sem cartão próprio: usado dentro de um modal que já tem superfície, como os detalhes de Regras. */
+  readonly embedded?: boolean;
 }
 
 /** Apresenta o bloco publicado por inteiro; não recalcula nem descarta campos da fonte. */
-export function StatBlock({ creature, headingLevel = 2, className, hitPointsOverride, hiddenSpeeds = [] }: StatBlockProps) {
+export function StatBlock({ creature, headingLevel = 2, className, hitPointsOverride, hiddenSpeeds = [], embedded = false }: StatBlockProps) {
   const Heading = `h${headingLevel}` as "h2" | "h3";
   const shownSpeeds = speedText(creature, hiddenSpeeds).filter((line) =>
     !(hiddenSpeeds.includes("flyCm") && line.startsWith("Voo:")) &&
@@ -93,7 +95,7 @@ export function StatBlock({ creature, headingLevel = 2, className, hitPointsOver
   const tags = (creature.tags ?? []).filter((tag) => tag !== "monster-manual-appendix-a" && !creature.sourceRefs.some((source) => source.sourceId === tag));
   const typeLine = [creature.alignment, SIZE_LABELS[creature.size], TYPE_LABELS[creature.creatureType], ...tags].filter(Boolean).join(" · ");
 
-  return <article className={[styles.block, className ?? ""].filter(Boolean).join(" ")} aria-label={`Bloco estatístico: ${creature.name}`}>
+  return <article className={[styles.block, embedded ? styles.embedded : "", className ?? ""].filter(Boolean).join(" ")} aria-label={`Bloco estatístico: ${creature.name}`}>
     <header className={styles.header}><div><Heading className={styles.name}>{creature.name}</Heading><p className={styles.typeLine}>{typeLine}</p></div><div className={styles.badges}><span>ND {fraction(creature.challengeRating)}</span>{creature.proficiencyBonus !== undefined ? <span>PB {signed(creature.proficiencyBonus)}</span> : null}</div></header>
     <dl className={styles.summary}>
       <div><dt>CA</dt><dd>{creature.armorClass}{creature.armorClassNote ? ` (${creature.armorClassNote})` : ""}</dd></div>
