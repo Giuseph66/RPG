@@ -39,6 +39,24 @@ const classAndSubclassFeatures: readonly FeatureDefinition[] = featureIds.map((f
     eligibility: [],
     effects: featureId === "paladin.divine-sense"
       ? [{ kind: "modifier", modifier: { id: "paladin.divine-sense.extra-use", sourceRef: src, target: { kind: "resource-capacity", resourceRef: ref("paladin.divine-sense") }, operator: "add", value: { kind: "number", amount: 1 }, predicate: { kind: "always" } } }]
+      // LdJ p. 47 (Bárbaro: 10 + DES + CON, escudo permitido) e p. 103 (Monge: 10 + DES + SAB, sem armadura nem escudo).
+      : featureId === "barbarian.unarmored-defense"
+      ? [{ kind: "unarmored-defense", abilities: ["con"], allowsShield: true }]
+      : featureId === "monk.unarmored-defense"
+      ? [{ kind: "unarmored-defense", abilities: ["wis"], allowsShield: false }]
+      // LdJ p. 103: Movimento sem Armadura, +3 m no 2º nível sem armadura nem escudo.
+      // TODO nível 6+: o bônus cresce (4,5 m no 6º, 6 m no 10º, 7,5 m no 14º, 9 m no 18º).
+      // LdJ p. 103: Artes Marciais, dado d4 nos níveis 1–4. TODO nível 5+: d6 (5º), d8 (11º), d10 (17º).
+      : featureId === "monk.martial-arts"
+      ? [{ kind: "martial-arts", die: { quantity: 1, faces: 4 }, extraMonkWeaponIds: ["shortsword"] }]
+      : featureId === "monk.unarmored-movement"
+      ? [{ kind: "modifier", modifier: { id: "monk.unarmored-movement.walk", sourceRef: src, target: { kind: "speed", speedKind: "walk" }, operator: "add", value: { kind: "number", amount: 300 }, predicate: { kind: "while-not-wearing-armor-categories", armorCategories: ["light", "medium", "heavy", "shield"] } } }]
+      // LdJ p. 79: Resiliência Dracônica — +1 PV por nível de feiticeiro e CA 13 + DES sem armadura.
+      : featureId === "draconic-bloodline-feature-level-1"
+      ? [
+        { kind: "unarmored-defense", abilities: [], allowsShield: true, base: 13 },
+        { kind: "modifier", modifier: { id: "draconic-bloodline.resilience.hp", sourceRef: src, target: { kind: "hit-points-per-level", classRef: ref("sorcerer") }, operator: "add", value: { kind: "number", amount: 1 }, predicate: { kind: "always" } } },
+      ]
       : [{ kind: "narrative", description: "Regra detalhada na documentação da classe e resolvida conforme contexto." }],
     resourceCosts: [],
     choices: SUBCLASS_FEATURE_CHOICES[featureId] ?? [],

@@ -217,6 +217,41 @@ function deriveAbilityCheckBonuses(
   }));
 }
 
+/**
+ * Defesa sem Armadura (Bárbaro, Monge): sem armadura, a CA pode ser 10 + DES + outro modificador.
+ * Vale a maior entre a CA comum e cada fórmula elegível; o escudo só soma quando a fórmula o permite.
+ */
+function unarmoredDefense(
+  base: Explanation<number>,
+  worn: { readonly armor?: EquipmentDefinition; readonly shield?: EquipmentDefinition },
+  features: DerivedRules["features"],
+  scores: readonly AbilityScoreDerived[],
+  dexterity: Explanation<number>,
+  shieldContribution: readonly Contribution[],
+  pack: RulePack,
+): Explanation<number> {
+  if (worn.armor) return base;
+  let best = base;
+  for (const feature of features) {
+    for (const effect of feature.effects) {
+      if (effect.kind !== "unarmored-defense" || (worn.shield && !effect.allowsShield)) continue;
+      const featureRef = { rulesetId: pack.manifest.id, entityId: feature.id };
+      const extras = effect.abilities.map((ability) => ({ ability, modifier: modifierByAbility(scores, ability).value }));
+      const shield = worn.shield ? shieldContribution : [];
+      const baseValue = effect.base ?? 10;
+      const value = baseValue + dexterity.value + extras.reduce((sum, entry) => sum + entry.modifier, 0) + shield.reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
+      if (value <= best.value) continue;
+      best = explanation(value, [
+        contribution(featureRef, baseValue, `${feature.name}: CA base sem armadura`),
+        contribution(featureRef, dexterity.value, "modificador de Destreza"),
+        ...extras.map((entry) => contribution(featureRef, entry.modifier, `${feature.name}: modificador de ${entry.ability.toUpperCase()}`)),
+        ...shield,
+      ]);
+    }
+  }
+  return best;
+}
+
 type DerivedRules = ReturnType<typeof collectRules> extends Result<infer T, AppError> ? T & {
   readonly proficiencyBonus: number;
   readonly proficiencySource: SourceRef;
@@ -283,9 +318,13 @@ function deriveHp(
       expanded.push(entry);
       continue;
     }
+    const target = entry.modifier.target;
+    const levels = target.kind === "hit-points-per-level" && target.classRef
+      ? character.classes.find((classLevel) => classLevel.classId === target.classRef!.entityId)?.level ?? 0
+      : total;
     expanded.push({
       ...entry,
-      modifier: { ...entry.modifier, value: { kind: "number", amount: entry.modifier.value.amount * total } },
+      modifier: { ...entry.modifier, value: { kind: "number", amount: entry.modifier.value.amount * levels } },
     });
   }
   return numeric(base, [...expanded, ...matchingModifiers(modifiers, { kind: "hit-points-max" })], contributions);
@@ -340,15 +379,29 @@ function deriveAttacks(
   pack: RulePack,
   scores: readonly AbilityScoreDerived[],
   rules: DerivedRules,
+  worn: { readonly armor?: EquipmentDefinition; readonly shield?: EquipmentDefinition },
 ): Result<readonly AttackOption[], AppError> {
   const result: AttackOption[] = [];
+  // Artes Marciais só vale sem armadura e sem escudo (LdJ p. 103).
+  const martialArtsFeature = worn.armor || worn.shield ? undefined : rules.features.find((feature) => feature.effects.some((effect) => effect.kind === "martial-arts"));
+  const martialArts = martialArtsFeature?.effects.find((effect): effect is Extract<typeof effect, { kind: "martial-arts" }> => effect.kind === "martial-arts");
+  const bestOf = (first: Ability, second: Ability): Ability => modifierByAbility(scores, first).value >= modifierByAbility(scores, second).value ? first : second;
+  const isMonkWeapon = (definition: EquipmentDefinition): boolean => {
+    if (!martialArts || !definition.weapon) return false;
+    if (martialArts.extraMonkWeaponIds.includes(String(definition.id))) return true;
+    const melee = !definition.weapon.rangeCm || definition.weapon.properties.includes("thrown");
+    return definition.weapon.proficiencyCategory === "simple" && melee && !definition.weapon.properties.some((property) => property === "two-handed" || property === "heavy");
+  };
+  const average = (die: { quantity: number; faces: number }) => die.quantity * (die.faces + 1) / 2;
   for (const item of character.inventory) {
     if (item.equippedState !== "equipped") continue;
     const definition = pack.equipment.get(item.equipmentRef.entityId);
     if (!definition?.weapon) continue;
     const weapon = definition.weapon;
+    const monkWeapon = isMonkWeapon(definition);
     let ability: Ability;
-    if (weapon.abilityPolicy.kind === "fixed") ability = weapon.abilityPolicy.ability;
+    if (monkWeapon) ability = bestOf("str", "dex");
+    else if (weapon.abilityPolicy.kind === "fixed") ability = weapon.abilityPolicy.ability;
     else if (weapon.abilityPolicy.kind === "spellcasting-ability") return err(appError.unresolvedRule(`Arma "${definition.id}" requer uma fonte de conjuração explícita.`));
     else {
       const first = modifierByAbility(scores, weapon.abilityPolicy.abilities[0]);
@@ -371,11 +424,27 @@ function deriveAttacks(
     result.push({
       sourceRef: item.equipmentRef,
       attackModifier: attack.value,
-      damageParts: weapon.damageParts.map((part) => ({
-        expression: part.expression,
+      damageParts: weapon.damageParts.map((part, index) => ({
+        // Arma de monge: usa o dado marcial no lugar do dano normal quando ele for maior.
+        expression: monkWeapon && martialArts && index === 0 && average(martialArts.die) > average(part.expression) ? martialArts.die : part.expression,
         damageType: part.damageType,
         modifierBonus: explanation(abilityValue.value, abilityValue.contributions),
       })),
+    });
+  }
+  if (martialArts && martialArtsFeature) {
+    const ability = modifierByAbility(scores, bestOf("str", "dex"));
+    const attack = numeric(
+      ability.value + rules.proficiencyBonus,
+      matchingModifiers(rules.modifiers, { kind: "attack-roll" }),
+      [...ability.contributions, contribution(rules.proficiencySource, rules.proficiencyBonus, "proficiência com ataque desarmado")],
+    );
+    if (!attack.ok) return attack;
+    result.push({
+      sourceRef: { rulesetId: pack.manifest.id, entityId: martialArtsFeature.id },
+      label: "Ataque desarmado (Artes Marciais)",
+      attackModifier: attack.value,
+      damageParts: [{ expression: martialArts.die, damageType: "bludgeoning", modifierBonus: explanation(ability.value, ability.contributions) }],
     });
   }
   return ok(result);
@@ -598,11 +667,12 @@ export function deriveCharacter(
     ])
     : undefined;
   const useWornEquipmentArmorClass = formArmorClass !== undefined && character.transformation?.equipmentDisposition === "worn" && equipmentImpact.value.armorClass.value > formArmorClass.value;
+  const equipmentArmorClass = unarmoredDefense(equipmentImpact.value.armorClass, armorResult.value, effectiveRules.features, abilities, dexterity, shieldContribution, pack);
   const armorClassBase = formArmorClass
     ? useWornEquipmentArmorClass
-      ? equipmentImpact.value.armorClass
+      ? equipmentArmorClass
       : formArmorClass
-    : equipmentImpact.value.armorClass;
+    : equipmentArmorClass;
   const armorClass = numeric(armorClassBase.value, matchingModifiers(effectiveRules.modifiers, { kind: "armor-class" }), armorClassBase.contributions);
   if (!armorClass.ok) return armorClass;
   const hitPoints = deriveHp(character, abilities, pack, total, effectiveRules.modifiers);
@@ -615,7 +685,7 @@ export function deriveCharacter(
   if (!spellcasting.ok) return spellcasting;
   const resources = deriveResources(character, pack, abilities, total, effectiveRules.proficiencyBonus, effectiveRules.modifiers);
   if (!resources.ok) return resources;
-  const attacks = deriveAttacks(character, pack, abilities, effectiveRules);
+  const attacks = deriveAttacks(character, pack, abilities, effectiveRules, armorResult.value);
   if (!attacks.ok) return attacks;
   const perception = skillsResult.value.find((skill) => skill.skill === "perception");
   if (!perception) return err(appError.unresolvedRule("Perícia Percepção não foi derivada."));

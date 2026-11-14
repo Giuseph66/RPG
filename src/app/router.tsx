@@ -459,7 +459,8 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
     onLevelUp: () => navigate(`/character/${currentCharacter.id}/evolve`),
     ...(hasDruidLevelTwo(currentCharacter, pack) ? { onManageCreatures: () => navigate(`/character/${currentCharacter.id}/creatures`) } : {}),
     conditionOptions: conditionOptionsFor(pack),
-    ...(wildShape ? { wildShape: {
+    // Forma Selvagem é do Druida a partir do nível 2; para os outros personagens o painel nem é montado.
+    ...(wildShape && hasDruidLevelTwo(currentCharacter, pack) ? { wildShape: {
       eligibleBeasts,
       ...(catalogError ? { catalogError } : {}),
       ...(plannedCosts ? { actionBudget: plannedCosts } : {}),

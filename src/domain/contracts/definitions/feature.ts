@@ -5,7 +5,7 @@
  */
 
 import { type DefinitionRef, type EntityId } from "../ids";
-import { type Ability, type ChoiceDefinition, type DefinitionBase, type Prerequisite, type RuleModifier } from "../primitives";
+import { type Ability, type ChoiceDefinition, type DefinitionBase, type DiceFormula, type Prerequisite, type RuleModifier } from "../primitives";
 import { type RecoveryTrigger } from "./resource";
 
 export type FeatureActivation =
@@ -26,6 +26,10 @@ export type FeatureEffectDescriptor =
   | { readonly kind: "grants-spell"; readonly spellRef: DefinitionRef; readonly alwaysPrepared: boolean; readonly resourceRef?: DefinitionRef; readonly ignoreMaterialComponents?: boolean; readonly concentrationAlternativeMinutes?: number }
   | { readonly kind: "grants-choice"; readonly choice: ChoiceDefinition }
   | { readonly kind: "ability-check-bonus"; readonly ability: Ability; readonly modifierAbility: Ability; readonly minimum?: number }
+  /** CA alternativa sem armadura: base (padrão 10) + DES + modificadores listados; vale a maior CA disponível. */
+  | { readonly kind: "unarmored-defense"; readonly abilities: readonly Ability[]; readonly allowsShield: boolean; readonly base?: number }
+  /** Artes Marciais (Monge): sem armadura nem escudo, ataque desarmado e armas de monge (armas simples corpo a corpo sem pesada/duas mãos, mais `extraMonkWeaponIds`) usam FOR ou DES e o dado marcial. */
+  | { readonly kind: "martial-arts"; readonly die: DiceFormula; readonly extraMonkWeaponIds: readonly string[] }
   | { readonly kind: "narrative"; readonly description: string };
 
 export interface FeatureResourceCost {

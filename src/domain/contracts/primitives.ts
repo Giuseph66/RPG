@@ -233,7 +233,8 @@ export type RuleModifierTarget =
   /** Copia o valor já efetivo de outro deslocamento, antes dos modificadores próprios do destino. */
   | { readonly kind: "speed-copy"; readonly speedKind: "fly" | "swim" | "climb" | "burrow"; readonly from: "walk" }
   | { readonly kind: "hit-points-max" }
-  | { readonly kind: "hit-points-per-level" }
+  /** Sem `classRef`, multiplica pelo nível total; com `classRef`, só pelos níveis daquela classe. */
+  | { readonly kind: "hit-points-per-level"; readonly classRef?: DefinitionRef }
   | { readonly kind: "proficiency-bonus" }
   | { readonly kind: "resource-capacity"; readonly resourceRef: DefinitionRef }
   | { readonly kind: "spell-save-dc"; readonly castingSourceRef: DefinitionRef }

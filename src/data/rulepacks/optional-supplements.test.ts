@@ -15,7 +15,8 @@ const additionalSpellRefs = TASHA_ADDITIONAL_RANGER_SPELL_IDS.map((id) => ref(id
 
 describe("packs opcionais", () => {
   it("publica o catálogo disponível sem ativar Fada, Tasha ou as novas magias", () => {
-    expect([...base.optionalRulePacks?.keys() ?? []]).toEqual([asEntityId("fairy-supplement"), tashaId]);
+    expect([...base.optionalRulePacks?.keys() ?? []]).toEqual([asEntityId("fairy-supplement"), tashaId, asEntityId("variant-human-option")]);
+    expect(base.races.has(asEntityId("variant-human"))).toBe(false);
     expect(base.races.has(asEntityId("fairy"))).toBe(false);
     expect(base.classes.get(asEntityId("ranger"))?.subclassIds).not.toContain(asEntityId("fey-wanderer"));
     expect(base.spells.has(asEntityId("invocar-fera"))).toBe(false);

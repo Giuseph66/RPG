@@ -266,7 +266,9 @@ function OptionalSupplementPicker({ packs, selectedIds, selections, onChange }: 
         ? "Inclui a raça Fada para esta ficha. Ao selecionar, ela aparece logo abaixo."
         : String(supplement.id) === TASHA_SUPPLEMENT_ID
           ? "Libera opções de classe independentes; nenhuma substituição acontece sem sua escolha."
-          : "Conteúdo complementar deste material, disponível só quando escolhido para a ficha.";
+          : String(supplement.id) === "variant-human-option"
+            ? "Regra opcional do Livro do Jogador: +1 em dois atributos, uma perícia e um talento no 1º nível. Ao selecionar, aparece logo abaixo."
+            : "Conteúdo complementar deste material, disponível só quando escolhido para a ficha.";
       return <label key={supplement.id} className={styles.supplementCard}>
         <input type="checkbox" checked={selected} onChange={(event) => {
           const nextIds = event.currentTarget.checked ? [...selectedIds, supplement.id] : selectedIds.filter((id) => id !== supplement.id);

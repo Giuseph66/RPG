@@ -20,11 +20,17 @@ export const FEAT_PENDING_DECISIONS: Readonly<Record<string, readonly string[]>>
   "medium-armor-master": ["PEND-019"],
 };
 const abilityScore = (id: string, ability: FeatSpec["scoreAbility"], sourceRef: ReturnType<typeof source>): RuleModifier[] => ability ? [{ id: `${id}.ability-score`, sourceRef, target: { kind: "ability-score", ability }, operator: "add", value: { kind: "number", amount: 1 }, predicate: { kind: "always" } }] : [];
+/** Benefícios numéricos fixos do talento (LdJ cap. 6), além do aumento de atributo. */
+const FIXED_FEAT_MODIFIERS: Readonly<Record<string, (sourceRef: ReturnType<typeof source>) => RuleModifier[]>> = {
+  // Alerta: "Você recebe +5 de bônus em iniciativa."
+  alert: (sourceRef) => [{ id: "alert.initiative", sourceRef, target: { kind: "initiative" }, operator: "add", value: { kind: "number", amount: 5 }, predicate: { kind: "always" } }],
+};
 const feat = (spec: FeatSpec): FeatDefinition => {
   const sourceRef = source(spec.page, spec.pdfPage);
+  const fixedModifiers = FIXED_FEAT_MODIFIERS[spec.id]?.(sourceRef) ?? [];
   const allowedAbilities = FLEXIBLE_ABILITY_CHOICES[spec.id];
   const choices = allowedAbilities || spec.choice === "ability" ? [{ id: `${spec.id}.ability`, kind: "ability-score-increase" as const, count: { min: 1, max: 1 }, optionSet: { kind: "explicit" as const, options: (allowedAbilities ?? ["str", "dex", "con", "int", "wis", "cha"]).map(ref) }, prerequisites: [], unique: true, sourceRefs: [sourceRef] }] : spec.choice === "spell-list" ? [{ id: `${spec.id}.spell-list`, kind: "spell" as const, count: { min: 1, max: 1 }, optionSet: { kind: "selector" as const, selector: { kind: "any-entity-of-type" as const, entityType: "spell" as const } }, prerequisites: [], unique: true, sourceRefs: [sourceRef] }] : spec.choice === "skill-or-tool" ? [{ id: `${spec.id}.proficiency`, kind: "other" as const, count: { min: 3, max: 3 }, optionSet: { kind: "selector" as const, selector: { kind: "any-tool-proficiency" as const } }, prerequisites: [], unique: true, sourceRefs: [sourceRef] }] : spec.choice === "element" ? [{ id: `${spec.id}.damage-type`, kind: "other" as const, count: { min: 1, max: 1 }, optionSet: { kind: "selector" as const, selector: { kind: "any-entity-of-type" as const, entityType: "condition" as const, filterTag: "elemental-damage-type" } }, prerequisites: [], unique: true, sourceRefs: [sourceRef] }] : [];
-  return { id: asEntityId(spec.id), name: spec.name, tags: ["player-handbook", "optional-rule", "feat"], sourceRefs: [sourceRef], prerequisites: spec.prerequisite ? [spec.prerequisite] : [], grants: allowedAbilities || spec.choice === "ability" ? [] : abilityScore(spec.id, spec.scoreAbility, sourceRef), choices, repeatable: spec.repeatable ?? false, optionalRule: true };
+  return { id: asEntityId(spec.id), name: spec.name, tags: ["player-handbook", "optional-rule", "feat"], sourceRefs: [sourceRef], prerequisites: spec.prerequisite ? [spec.prerequisite] : [], grants: [...(allowedAbilities || spec.choice === "ability" ? [] : abilityScore(spec.id, spec.scoreAbility, sourceRef)), ...fixedModifiers], choices, repeatable: spec.repeatable ?? false, optionalRule: true };
 };
 
 export const feats: readonly FeatDefinition[] = ([
