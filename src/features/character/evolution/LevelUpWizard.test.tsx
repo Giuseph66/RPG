@@ -3,7 +3,7 @@ import { asEntityId, asIsoTimestamp, asPackVersion, asRulesetId, asUuid } from "
 import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { createCharacterDraft, materializeCharacter } from "@domain/character/creation";
-import { mount, click } from "@components/ui/testUtils";
+import { mount, click, fireEvent } from "@components/ui/testUtils";
 
 import { LevelUpWizard } from "./LevelUpWizard";
 
@@ -42,6 +42,23 @@ describe("LevelUpWizard", () => {
       const [next] = onConfirm.mock.calls[0] as unknown as [{ classes: { level: number }[]; spellSlots: { slotLevel: number }[] }];
       expect(next.classes[0].level).toBe(2);
       expect(next.spellSlots.filter((slot) => slot.slotLevel === 1)).toHaveLength(3);
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("deixa desfazer a escolha de multiclasse voltando para \"Nenhuma\"", async () => {
+    const mounted = await mount(<LevelUpWizard character={druid()} pack={pack} newId={newId} onConfirm={async () => ({ ok: true })} onCancel={() => undefined} />);
+    try {
+      const select = mounted.container.querySelector("select") as HTMLSelectElement;
+      const card = () => button(mounted.container, "DruidaNível 1 → 2");
+      const choose = async (value: string) => { select.value = value; await fireEvent(select, new Event("change", { bubbles: true })); };
+      await choose("monk");
+      expect(select.value).toBe("monk");
+      expect(card().getAttribute("aria-pressed")).toBe("false");
+      await choose("");
+      expect(select.value).toBe("");
+      expect(card().getAttribute("aria-pressed")).toBe("true");
     } finally {
       await mounted.unmount();
     }

@@ -35,9 +35,19 @@ export function carregarMeta(id: string, base = CAMINHO_PADRAO): Promise<DieMeta
   const chave = `${base}/${id}`;
   const existente = cacheMeta.get(chave);
   if (existente) return existente;
-  const p = buscarJson<DieMeta>(`${base}/${id}.json`);
+  const p = buscarJson<DieMeta>(`${base}/${id}.json`).then(normalizarMeta);
   cacheMeta.set(chave, p);
   return p;
+}
+
+/**
+ * O d10 físico grava "0" na face que vale 10. O asset segue o objeto real, mas
+ * o resultado da rolagem tem de ficar em 1..N: sem isto o 10 virava 0 e a
+ * validação recusava a rolagem inteira.
+ */
+export function normalizarMeta(meta: DieMeta): DieMeta {
+  if (!meta.values.includes(0) || meta.values.includes(meta.faces)) return meta;
+  return { ...meta, values: meta.values.map((v) => (v === 0 ? meta.faces : v)) };
 }
 
 /** Malha glTF de um dado. Memoizado por id. */

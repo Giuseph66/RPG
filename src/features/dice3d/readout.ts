@@ -88,12 +88,16 @@ export function lerDado(
     };
   }
 
-  if (normaisY[iTopo] >= limiar) {
+  // Dado de topo (d6, d10, d20…) que parou torto — encostado em outro dado,
+  // comum quando caem muitos de uma vez — continua sendo lido pela face mais
+  // alta, que é a que o jogador vê. Cair para a face de apoio aqui devolvia o
+  // número escondido embaixo do dado.
+  if (normaisY[iTopo] >= limiar || meta.readout === "top") {
     return {
       value: meta.values[iTopo],
       alignment: normaisY[iTopo],
       convention: "top",
-      settled: true,
+      settled: normaisY[iTopo] >= limiar,
     };
   }
 

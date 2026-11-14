@@ -170,7 +170,7 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
             return <button key={String(entry.classId)} type="button" aria-pressed={active} className={[styles.classCard, active ? styles.classCardOn : ""].filter(Boolean).join(" ")} onClick={() => chooseClass(String(entry.classId))}><strong>{def?.name ?? formatRef(String(entry.classId))}</strong><span>Nível {entry.level} → {entry.level + 1}</span></button>;
           })}
         </div>
-        <Select label="Ou aprender uma nova classe (multiclasse)" hint="A nova classe tem requisitos de atributo." value={existing ? "" : classId} onChange={(event) => event.currentTarget.value && chooseClass(event.currentTarget.value)}>
+        <Select label="Ou aprender uma nova classe (multiclasse)" hint="A nova classe tem requisitos de atributo." value={existing ? "" : classId} onChange={(event) => chooseClass(event.currentTarget.value || String(character.classes[0]?.classId ?? ""))}>
           <option value="">Nenhuma</option>
           {newClassOptions.map((entry) => <option key={String(entry.id)} value={String(entry.id)}>{entry.name}</option>)}
         </Select>

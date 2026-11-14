@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { normalizarMeta } from "./assets";
 import { ehHonesto, lerDado, rotacionar } from "./readout";
 import type { DieMeta, Quat, Vec3 } from "./types";
 
@@ -117,6 +118,20 @@ describe("lerDado — convenção de topo", () => {
     const r = lerDado(d6, eixoAngulo([1, 0, 0], Math.PI / 4));
     expect(r.settled).toBe(false);
     expect(r.alignment).toBeLessThan(0.9);
+  });
+
+  it("dado de topo encostado em outro lê a face mais alta, não a de apoio", () => {
+    // 30° em torno de X: a face +Y (1) ainda é a mais alta, mas abaixo do limiar.
+    const r = lerDado(d6, eixoAngulo([1, 0, 0], Math.PI / 6));
+    expect(r).toMatchObject({ value: 1, convention: "top", settled: false });
+  });
+});
+
+describe("normalizarMeta", () => {
+  it("d10: a face 0 vale 10", () => {
+    const d10 = { ...d6, id: "d10", faces: 10, values: [0, 1, 2, 8, 7, 3, 4, 5, 9, 6] };
+    expect(normalizarMeta(d10).values).toEqual([10, 1, 2, 8, 7, 3, 4, 5, 9, 6]);
+    expect(normalizarMeta(d6)).toBe(d6);
   });
 });
 
