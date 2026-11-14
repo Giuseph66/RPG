@@ -277,6 +277,10 @@ button.skillRow:focus-visible { outline: 2px solid var(--color-focus); outline-o
 .actionRow, .resourceRow, .detailLine, .sessionList p { display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); margin: 0; }
 .sessionList p { justify-content: space-between; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent); }
 .sessionList strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
+.traitList { display: grid; }
+.traitRow { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: baseline; gap: var(--spacing-md); min-height: var(--size-touch-target); margin: 0; padding: .6rem 0; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent); }
+.traitRow strong { color: var(--color-text); text-align: right; overflow-wrap: anywhere; }
+.traitHint { margin: .5rem 0 0; color: var(--color-text-muted); font-size: .76rem; }
 .actionName, .resourceRow strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: .55rem; height: .55rem; flex: 0 0 auto; border: 1px solid var(--color-border); border-radius: 50%; }
 .dotActive { background: var(--color-xp); border-color: var(--color-xp); }

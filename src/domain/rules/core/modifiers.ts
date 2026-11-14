@@ -138,7 +138,11 @@ export function predicateApplies(
         .reduce((total, instance) => total + (instance.severity ?? 0), 0) >= predicate.severity;
     case "while-wearing-armor-category": return equippedArmorCategories.has(predicate.armorCategory);
     case "while-not-wearing-armor": return !["light", "medium", "heavy"].some((kind) => equippedArmorCategories.has(kind));
-    case "while-not-wearing-armor-categories": return !predicate.armorCategories.some((kind) => equippedArmorCategories.has(kind));
+    case "while-not-wearing-armor-categories": {
+      const minimum = predicate.minClassLevel;
+      if (minimum && !character.classes.some((entry) => entry.classId === minimum.classRef.entityId && entry.level >= minimum.level)) return false;
+      return !predicate.armorCategories.some((kind) => equippedArmorCategories.has(kind));
+    }
     case "while-wielding-shield": return equippedArmorCategories.has("shield");
     case "while-concentrating": return character.concentration !== undefined;
     case "min-total-level": return totalLevel >= predicate.level;

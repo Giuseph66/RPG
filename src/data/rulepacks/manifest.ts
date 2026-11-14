@@ -116,7 +116,7 @@ export const PHB_PTBR_LOCAL_2017_MANIFEST: RulePackManifest = {
     subclass: "0a8e16ba",
     background: "80d1be8a",
     feat: "728c508b",
-    feature: "969a2693",
+    feature: "2f952371",
     resource: "e2329a05",
     condition: "f3d0e02c",
     equipment: "dc3203c4",

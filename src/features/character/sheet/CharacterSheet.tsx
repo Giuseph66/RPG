@@ -222,7 +222,7 @@ function newConditionId(): ConditionInstance["id"] {
   return asUuid(typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`);
 }
 
-export function CharacterSheet({ character: storedCharacter, effectiveCharacter, wildShape, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, onManageCreatures, conditionOptions, portrait }: CharacterSheetProps) {
+export function CharacterSheet({ character: storedCharacter, effectiveCharacter, wildShape, derived, service, status = "clean", error, initialView = "quick", onViewChange, onRoll, onDraftChange, resolveName, equipmentInfo, spellOptions, spellInfo, onLevelUp, onManageCreatures, conditionOptions, traitRows, portrait }: CharacterSheetProps) {
   const character = effectiveCharacter ?? storedCharacter;
   const rule = useRuleHint();
   const [view, setView] = useState<CharacterSheetView>(initialView);
@@ -645,6 +645,11 @@ export function CharacterSheet({ character: storedCharacter, effectiveCharacter,
         <div className={styles.sessionList}><p {...rule({ category: "rules", title: "Bônus de proficiência" })}><span>Proficiência</span><strong>{derived ? formatModifier(derived.proficiencyBonus.value) : "—"}</strong></p><p {...rule({ category: "rules", title: "Teste passivo" })}><span>Percepção passiva</span><strong>{derived?.passivePerception.value ?? "—"}</strong></p><p><span>Experiência</span><strong>{valueOr(draft, "xp", character.xp).toLocaleString("pt-BR")} XP</strong></p></div>
         <label {...rule({ category: "background", title: "Inspiração" })} className={styles.checkRow}><input type="checkbox" checked={valueOr(draft, "inspiration", character.inspiration)} onChange={(event) => updatePatch({ inspiration: event.target.checked })} /> <span>Inspiração disponível</span></label>
       </Panel>
+
+      {traitRows?.length ? <Panel heading="Raça e talentos" headingLevel={2}>
+        <div className={styles.traitList}>{traitRows.map((row, index) => <p {...rule(row.rule)} className={styles.traitRow} key={`${row.label}-${index}`}><span>{row.label}</span><strong>{row.value}</strong></p>)}</div>
+        {traitRows.some((row) => row.rule) ? <p className={styles.traitHint}>Segure sobre a raça ou o talento para ler a regra.</p> : null}
+      </Panel> : null}
 
       {character.resources.length === 0 ? null : <Panel heading="Recursos" headingLevel={2}>
         <div className={styles.resourceList}>{character.resources.map((resource) => { const capacity = derived?.resourceCapacities.find((item) => item.definitionRef.entityId === resource.definitionRef.entityId); const total = capacity?.capacity.value; return <div className={styles.resourceRow} key={resource.id}><div><strong>{name("resource", resource.definitionRef)}</strong><Provenance explanation={capacity?.capacity} label={name("resource", resource.definitionRef)} /></div><span>{total === undefined ? "—" : `${Math.max(0, total - resource.spent)} / ${total}`}</span></div>; })}</div>

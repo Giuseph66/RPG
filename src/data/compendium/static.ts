@@ -226,6 +226,23 @@ const BOOK_DESCRIPTION_SOURCES: readonly ExtractedBookRuleSource[] = [
   { category: "equipment", chapter: "Capítulo 5", tags: ["equipamento", "armor", "armadura", "regra"], entries: subsectionEntries(PHB_ARMOR_DESCRIPTIONS.section, PHB_ARMOR_DESCRIPTIONS.subsections) },
 ];
 
+/**
+ * "Humano variante" não tem verbete próprio no livro: é o quadro "Traços Raciais Alternativos" dentro de Humano.
+ * A ficha de quem escolheu a variante procura a regra por esse nome, então o quadro vira uma entrada separada,
+ * seguida dos traços de Humano que continuam valendo (a variante só troca o aumento de habilidade).
+ */
+function variantHumanEntries(): readonly ExtractedBookRule[] {
+  const human = PHB_RACES.find((entry) => entry.name === "Humano");
+  if (!human) return [];
+  const alternativeAt = human.text.indexOf("TRAÇOS RACIAIS ALTERNATIVOS");
+  if (alternativeAt < 0) return [];
+  const alternative = human.text.slice(alternativeAt).replace(/\n\s*\d+\s*$/, "").trim();
+  const keptAt = human.text.indexOf("Idade. Os humanos");
+  const kept = keptAt >= 0 && keptAt < alternativeAt ? human.text.slice(keptAt, alternativeAt).trim() : "";
+  const text = ["HUMANO VARIANTE", alternative, ...(kept ? ["TRAÇOS DE HUMANO QUE CONTINUAM VALENDO", kept] : [])].join("\n");
+  return [{ name: "Humano variante", sourceHeading: "HUMANO VARIANTE", pdfPages: [human.pdfPages[1], human.pdfPages[1]], printedPages: [human.printedPages[1], human.printedPages[1]], text }];
+}
+
 const BOOK_RULE_SOURCES: readonly ExtractedBookRuleSource[] = [
   { category: "rules", chapter: "Capítulo 7", tags: ["habilidade", "perícia", "regra"], entries: PHB_ABILITIES_AND_SKILLS },
   { category: "adventure", chapter: "Capítulo 8", tags: ["aventura", "viagem"], entries: PHB_ADVENTURING },
@@ -244,6 +261,8 @@ const BOOK_RULE_SOURCES: readonly ExtractedBookRuleSource[] = [
   { category: "race", chapter: "Capítulo 2", tags: ["raça"], entries: PHB_RACES },
   { category: "rules", chapter: "Capítulo 10", tags: ["magia", "conjuração", "regra"], entries: PHB_SPELLCASTING_RULES },
   ...BOOK_DESCRIPTION_SOURCES,
+  // No fim da lista: o id de cada entrada usa a posição da fonte, e as anteriores não podem mudar.
+  { category: "race", chapter: "Capítulo 2", tags: ["raça", "humano", "variante", "regra opcional", "talento"], entries: variantHumanEntries() },
 ];
 
 function bookRuleId(chapter: string, sourceIndex: number, name: string, index: number): string {

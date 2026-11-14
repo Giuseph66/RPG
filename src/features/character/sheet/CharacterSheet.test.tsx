@@ -54,6 +54,17 @@ describe("CharacterSheet", () => {
     await mounted.unmount();
   });
 
+  it("mostra o painel Raça e talentos só quando há linhas", async () => {
+    const without = await mount(<CharacterSheet character={minimalCharacter} />);
+    expect(without.container.textContent).not.toContain("Raça e talentos");
+    await without.unmount();
+    const mounted = await mount(<CharacterSheet character={minimalCharacter} traitRows={[{ label: "Raça", value: "Humano variante" }, { label: "Aumento de atributo", value: "Destreza +1, Sabedoria +1" }, { label: "Talento", value: "Alerta" }]} />);
+    expect(mounted.container.textContent).toContain("Raça e talentos");
+    expect(mounted.container.textContent).toContain("TalentoAlerta");
+    expect(mounted.container.textContent).toContain("Destreza +1, Sabedoria +1");
+    await mounted.unmount();
+  });
+
   it("mapeia PV temporários separadamente, marca 0 PV e expõe origem de bônus", async () => {
     const character = withCharacter({ hp: { current: 0, temp: 4 }, conditions: [{ id: asUuid("55555555-5555-4555-8555-555555555555"), definitionRef: { rulesetId: minimalCharacter.rulesetRef.id, entityId: asEntityId("poisoned") }, origin: { kind: "environment", description: "Névoa do pântano" } }] });
     const { container, unmount } = await mount(<CharacterSheet character={character} derived={derived} />);

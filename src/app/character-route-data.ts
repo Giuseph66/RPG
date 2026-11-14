@@ -10,7 +10,8 @@ import type { InventoryCarrying, InventoryCatalogOption } from "@features/invent
 import type { ActionAttackRoll, ActionRestInfo, ActionSpellRoll } from "@features/actions";
 import { DAMAGE_LABELS } from "@features/character/sheet/mapping";
 import { DICE_FACES, type Ability, type DiceFaces } from "@domain/contracts/primitives";
-import type { SheetEquipmentInfo, SheetSpellOption } from "@features/character/sheet";
+import type { SheetEquipmentInfo, SheetSpellOption, SheetTraitRow } from "@features/character/sheet";
+import { ABILITY_LABELS, LANGUAGE_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, formatRef } from "@features/character/creation/mapping";
 import type { SpellInfo, SpellInfoLookup } from "@features/character/spell-info";
 import { carryingCapacityGrams, encumbranceThresholdsGrams } from "@data/rules/encumbrance";
 import { EXTRACTED_PHB_SPELLS } from "@data/spells/spells-book-catalog";
@@ -309,6 +310,47 @@ export function featureInfoFor(pack: RulePack | undefined, blocks: readonly Feat
     const info: FeatureInfo = { name: feature.name, paragraphs: paragraphs.filter((paragraph) => !/^\d+$/.test(paragraph)), ...(page ? { source: `Livro do Jogador, p. ${page}` } : {}) };
     return info;
   };
+}
+
+const TRAIT_CHOICE_LABELS: Readonly<Record<string, string>> = {
+  "ability-score-increase": "Aumento de atributo", "skill-proficiency": "Perícia", "tool-proficiency": "Ferramenta", language: "Idioma", cantrip: "Truque", spell: "Magia",
+};
+
+/**
+ * Linhas do painel "Raça e talentos" da ficha: a raça, os traços fixos, o que o jogador escolheu nela
+ * (atributos, perícia, idioma…) e os talentos. Sem isto a ficha não mostrava em lugar nenhum o que o
+ * Humano variante escolheu.
+ */
+export function traitRowsFor(pack: RulePack | undefined, character: Character): readonly SheetTraitRow[] {
+  if (!pack) return [];
+  // Raças de suplemento (Humano variante, Fada) ficam fora do pack base.
+  const optional = [...(pack.optionalRulePacks?.values() ?? [])];
+  const race = pack.races.get(character.raceRef.entityId) ?? optional.flatMap((supplement) => supplement.races ?? []).find((entry) => entry.id === character.raceRef.entityId);
+  if (!race) return [];
+  const subraceId = character.subraceRef?.entityId;
+  const subrace = subraceId ? pack.subraces.get(subraceId) ?? optional.flatMap((supplement) => supplement.subraces ?? []).find((entry) => entry.id === subraceId) : undefined;
+  const labelOf = (id: string): string => (SKILL_LABELS as Record<string, string>)[id] ?? (ABILITY_LABELS as Record<string, string>)[id] ?? LANGUAGE_LABELS[id] ?? PROFICIENCY_LABELS[id]
+    ?? pack.spells.get(id as never)?.name ?? pack.features.get(id as never)?.name ?? formatRef(id);
+  const rows: SheetTraitRow[] = [{ label: "Raça", value: subrace ? `${race.name} · ${subrace.name}` : race.name, rule: { category: "race", title: race.name, entityId: String(race.id) } }];
+  const traits = [...race.traits, ...(subrace?.traits ?? [])].map((trait) => trait.name);
+  if (traits.length) rows.push({ label: "Traços", value: traits.join(" · ") });
+  const selections = [...character.choices, ...character.classes.flatMap((entry) => entry.choices)];
+  const selected = new Map(selections.map((selection) => [selection.choiceId, selection]));
+  for (const choice of [...race.choices, ...(subrace?.choices ?? [])]) {
+    const label = TRAIT_CHOICE_LABELS[choice.kind];
+    const ids = selected.get(choice.id)?.selectedIds ?? [];
+    if (!label || ids.length === 0) continue;
+    rows.push({ label, value: ids.map((ref) => choice.kind === "ability-score-increase" ? `${labelOf(String(ref.entityId))} +1` : labelOf(String(ref.entityId))).join(", ") });
+  }
+  // Talentos de qualquer origem (raça ou aumento de atributo trocado por talento), na mesma regra que a derivação usa.
+  const seen = new Set<string>();
+  for (const selection of selections) for (const ref of selection.selectedIds) {
+    const feat = pack.feats.get(ref.entityId);
+    if (!feat || seen.has(String(feat.id))) continue;
+    seen.add(String(feat.id));
+    rows.push({ label: "Talento", value: feat.name, rule: { category: "feat", title: feat.name, entityId: String(feat.id) } });
+  }
+  return rows;
 }
 
 /** Características raciais que dependem do nível total (magias do Drow e do Tiefling, sopro do Draconato). */

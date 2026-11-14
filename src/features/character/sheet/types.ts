@@ -77,6 +77,13 @@ export type CharacterSheetService = Pick<
   "update" | "save" | "retry" | "flush"
 >;
 
+/** Linha do painel "Raça e talentos"; `rule` liga o toque longo à regra do compêndio. */
+export interface SheetTraitRow {
+  readonly label: string;
+  readonly value: string;
+  readonly rule?: { readonly category: "race" | "subrace" | "feat"; readonly title: string; readonly entityId?: string };
+}
+
 export interface CharacterSheetProps {
   /** The selected aggregate. Omitting it renders the explicit empty state. */
   readonly character?: Character;
@@ -117,6 +124,8 @@ export interface CharacterSheetProps {
   readonly onLevelUp?: () => void;
   /** Abre o catálogo de bestas para Forma Selvagem; habilitado a partir do nível 2 de druida. */
   readonly onManageCreatures?: () => void;
+  /** Raça, escolhas raciais (atributos, perícia, idioma…) e talentos do personagem; vazio esconde o painel. */
+  readonly traitRows?: readonly SheetTraitRow[];
   /** Condições do pack para o seletor "Adicionar condição". */
   readonly conditionOptions?: readonly { readonly ref: DefinitionRef; readonly name: string }[];
   readonly portrait?: SheetPortrait;

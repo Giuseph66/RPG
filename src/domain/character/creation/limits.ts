@@ -20,11 +20,27 @@ export function creationAbilityScore(pack: RulePack, partial: CharacterDraftPart
     if (increase.ability === "any") { if (chosen[anyIndex++] === ability) score += increase.amount; }
     else if (increase.ability === ability) score += increase.amount;
   }
+  score += raceChoiceAbilityIncrease(pack, partial, ability);
   const subrace = partial.subraceRef ? pack.subraces.get(partial.subraceRef.entityId) : undefined;
   for (const modifier of subrace?.additionalModifiers ?? []) {
     if (modifier.target.kind === "ability-score" && modifier.target.ability === ability && modifier.operator === "add" && modifier.value.kind === "number") score += modifier.value.amount;
   }
   return score;
+}
+
+/**
+ * +1 por atributo marcado numa escolha racial de aumento de atributo (Humano variante: dois atributos).
+ * Diferente do aumento "any" (Meio-elfo), aqui o aumento só existe como escolha, sem entrada em `abilityIncreases`.
+ */
+export function raceChoiceAbilityIncrease(pack: RulePack, partial: CharacterDraftPartial, ability: Ability): number {
+  const race = partial.raceRef ? pack.races.get(partial.raceRef.entityId) : undefined;
+  let amount = 0;
+  for (const choice of race?.choices ?? []) {
+    if (choice.kind !== "ability-score-increase") continue;
+    const selection = (partial.choices ?? []).find((entry) => entry.choiceId === choice.id);
+    if (selection?.selectedIds.some((ref) => String(ref.entityId) === ability)) amount += 1;
+  }
+  return amount;
 }
 
 export interface CreationChoiceLimit {

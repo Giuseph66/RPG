@@ -90,6 +90,10 @@ const DETAIL_LABELS: Readonly<Record<string, string>> = { appearance: "Aparênci
 const CHOICE_ID_LABELS: Readonly<Record<string, string>> = {
   "ranger.canny.skill": "Astuto (Tasha) · perícia com bônus de proficiência dobrado",
   "ranger.canny.languages": "Astuto (Tasha) · idiomas adicionais",
+  "variant-human.ability-increases": "Humano variante · +1 em dois atributos diferentes",
+  "variant-human.skill": "Humano variante · proficiência em uma perícia",
+  "variant-human.feat": "Humano variante · talento",
+  "variant-human.language": "Humano variante · idioma adicional",
 };
 
 function choiceLabel(choiceId: string, pack?: ReturnType<typeof asCreationCatalog>["rulePack"]): string {
@@ -110,6 +114,8 @@ function optionLabel(value: string, pack: ReturnType<typeof asCreationCatalog>["
   if (spell) return spell.name;
   const feature = pack.features.get(value as DefinitionRef["entityId"]);
   if (feature) return feature.name;
+  const feat = pack.feats.get(value as DefinitionRef["entityId"]);
+  if (feat) return feat.name;
   return formatRef(value);
 }
 
@@ -201,6 +207,12 @@ function ChoiceEditor({
     }
     if (selector.kind === "any-entity-of-type" && selector.entityType === "equipment") {
       return scopedEquipmentOptions(pack, owner, catalog, current);
+    }
+    // Talento (Humano variante): sem este ramo a lista vinha vazia e a escolha ficava impossível.
+    if (selector.kind === "any-entity-of-type" && selector.entityType === "feat") {
+      return Array.from(pack.feats.values())
+        .map((feat) => ({ value: String(feat.id), label: feat.prerequisites.length ? `${feat.name} (tem pré-requisito)` : feat.name }))
+        .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
     }
     return [];
   }, [catalog, choice, owner, pack, value, draft.partial.classes]);
@@ -448,7 +460,9 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
     language: (id: string) => LANGUAGE_LABELS[id] ?? formatRef(id),
     proficiency: (id: string) => PROFICIENCY_LABELS[id] ?? PROFICIENCY_GROUP_LABELS[id],
   }), []);
-  const summary = useMemo(() => buildCreationSummary(catalog, draft, summaryLabels), [catalog, draft, summaryLabels]);
+  // Com o pack composto: raças de suplemento (Humano variante, Fada) só existem nele, e sem isso o resumo
+  // não mostrava nada da raça escolhida.
+  const summary = useMemo(() => buildCreationSummary({ ...asCreationCatalog(catalog), rulePack: composedPack }, draft, summaryLabels), [catalog, composedPack, draft, summaryLabels]);
   const backgroundOverviews = useMemo(() => (step === "background" ? [...pack.backgrounds.keys()].flatMap((id) => backgroundOverview(catalog, draft, String(id), summaryLabels) ?? []) : []), [step, pack, catalog, draft, summaryLabels]);
   const index = STEPS.indexOf(step);
   const stepIssues = report.issues.filter((issue) => issueForStep(issue, step));
@@ -625,7 +639,7 @@ export function CharacterCreationWizard({ draft: initialDraft, catalog, service,
       case "race": return <SectionCard heading="Escolha uma raça" headingLevel={2}><OptionalSupplementPicker packs={optionalPacks} selectedIds={selectedSupplementIds} selections={draft.partial.optionalRuleSelections ?? []} onChange={commitDraft} /><Select label="Raça" required value={String(draft.partial.raceRef?.entityId ?? "")} error={stepIssues.find((issue) => /raceRef/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "race", raceRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma raça</option>{raceOptions.map((entry) => { const sourcePack = selectedPacks.find((supplement) => supplement.races?.some((optionalRace) => optionalRace.id === entry.id)); return <option key={entry.id} value={entry.id}>{sourcePack ? `${supplementLabel(sourcePack)} · ${displayName(entry)}` : displayName(entry)}</option>; })}</Select>{race?.subraceIds.length ? <Select label="Sub-raça" value={String(draft.partial.subraceRef?.entityId ?? "")} onChange={(event) => commitDraft({ kind: "race", raceRef: draft.partial.raceRef!, subraceRef: event.currentTarget.value ? refFor(draft, event.currentTarget.value) : undefined })}><option value="">Nenhuma</option>{race.subraceIds.map((id) => { const entry = subraceById(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{raceChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.raceRef!} catalog={catalog} value={selectedChoices.get(choice.id)} spellInfo={spellInfo} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
       case "class": return <SectionCard heading="Escolha uma classe" headingLevel={2}><Select label="Classe" required value={String(draft.partial.classes?.[0]?.classId ?? "")} error={stepIssues.find((issue) => /class|classes/.test(issue.field))?.message} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, event.currentTarget.value) })}><option value="">Selecione uma classe</option>{Array.from(pack.classes.values()).map((entry) => <option key={entry.id} value={entry.id}>{displayName(entry)}</option>)}</Select><div className={styles.classGrid} aria-label="Artes das classes">{Array.from(pack.classes.values()).map((entry) => { const artwork = classArtwork(String(entry.id)); const selectedClass = String(draft.partial.classes?.[0]?.classId ?? "") === String(entry.id); return <button type="button" className={[styles.classTile, selectedClass ? styles.classTileSelected : ""].filter(Boolean).join(" ")} aria-pressed={selectedClass} key={entry.id} onClick={() => commitDraft({ kind: "class", classRef: refFor(draft, String(entry.id)) })}><img src={artwork.src} alt="" /><span>{displayName(entry)}</span></button>; })}</div>{classDefinition && classDefinition.subclassSelectionLevel <= 1 ? <Select label="Subclasse" hint={`${displayName(classDefinition)} escolhe a subclasse no 1º nível. Opcional: dá para escolher depois, ao subir de nível.`} value={String(draft.partial.classes?.[0]?.subclassId ?? "")} onChange={(event) => commitDraft({ kind: "class", classRef: refFor(draft, String(classDefinition.id)), ...(event.currentTarget.value ? { subclassRef: refFor(draft, event.currentTarget.value) } : {}) })}><option value="">Escolher depois</option>{classDefinition.subclassIds.map((id) => { const entry = pack.subclasses.get(id); return entry ? <option key={entry.id} value={entry.id}>{displayName(entry)}</option> : null; })}</Select> : null}{classDefinition?.skillChoices ? <ChoiceEditor draft={draft} choice={classDefinition.skillChoices} owner={refFor(draft, classDefinition.id)} catalog={catalog} value={selectedChoices.get(classDefinition.skillChoices.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} /> : null}{classOptionChoices.map((choice) => { const merged = choiceReplacements.get(choice.id); return merged ? <ReplacedChoiceSelect key={choice.id} draft={draft} choice={choice} pack={pack} supplement={merged.supplement} replacement={merged.replacement} value={selectedChoices.get(choice.id)} onCommit={commitDraft} /> : <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={refFor(draft, String(classDefinition?.id ?? ""))} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />; })}<SupplementalClassChoices draft={draft} basePack={pack} packs={selectedPacks} hiddenOptionIds={hiddenSupplementOptionIds} onChange={commitDraft} /></SectionCard>;
       case "background": return <SectionCard heading="Escolha um antecedente" headingLevel={2}><BackgroundPicker overviews={backgroundOverviews} value={draft.partial.backgroundRef ? String(draft.partial.backgroundRef.entityId) : undefined} onChange={(id) => commitDraft({ kind: "background", ...(id ? { backgroundRef: refFor(draft, id) } : {}) })} />{backgroundChoices.map((choice) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={draft.partial.backgroundRef!} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "choices", selections: [selection] })} />)}</SectionCard>;
-      case "ability-scores": return <AbilityScoresStep draft={draft} pack={pack} classDefinition={classDefinition} issues={stepIssues} onChange={(method) => commitDraft({ kind: "ability-scores", method })} />;
+      case "ability-scores": return <AbilityScoresStep draft={draft} pack={composedPack} classDefinition={classDefinition} issues={stepIssues} onChange={(method) => commitDraft({ kind: "ability-scores", method })} />;
       case "equipment": return <SectionCard heading="Escolha o equipamento" headingLevel={2}>{equipmentChoices.length ? equipmentChoices.map(({ choice, owner }) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={owner} catalog={catalog} value={selectedChoices.get(choice.id)} onChange={(selection) => commitDraft({ kind: "equipment", selections: [selection] })} />) : <p className={styles.muted}>O catálogo atual não publicou escolhas de equipamento para esta combinação.</p>}</SectionCard>;
       case "spells": return <SectionCard heading="Escolha as magias iniciais" headingLevel={2}>{spellChoices.length ? spellChoices.map(({ choice, owner }) => <ChoiceEditor key={choice.id} draft={draft} choice={choice} owner={owner} catalog={catalog} value={selectedChoices.get(choice.id)} spellInfo={spellInfo} onChange={(selection) => commitDraft({ kind: "spells", selections: [selection] })} />) : <p className={styles.muted}>Esta combinação não possui escolhas de magia publicadas no catálogo atual.</p>}</SectionCard>;
       case "details": return <SectionCard heading="Conte a história" headingLevel={2}><div className={styles.formGrid}>{(["appearance", "personalityTraits", "ideals", "bonds", "flaws", "history"] as const).map((field) => <label className={styles.textareaField} key={field}><span>{DETAIL_LABELS[field]}</span><textarea value={field === "appearance" || field === "history" ? draft.partial[field] ?? "" : (draft.partial[field] ?? []).join("\n")} onChange={(event) => { const value = field === "appearance" || field === "history" ? event.currentTarget.value : event.currentTarget.value.split("\n").filter(Boolean); commitDraft({ kind: "details", details: { [field]: value } as never }); }} /></label>)}</div></SectionCard>;

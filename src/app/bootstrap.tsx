@@ -51,7 +51,7 @@ import { appError, err, ok, type AppError, type Result } from "@domain/contracts
 import type { BackupEnvelope, ImportMode } from "@domain/contracts/backup";
 import type { Asset } from "@domain/contracts/campaign";
 import type { Character, CharacterDraft } from "@domain/contracts/character";
-import type { RulePack } from "@domain/contracts/definitions/rulepack";
+import type { OptionalRuleContentPack, RulePack } from "@domain/contracts/definitions/rulepack";
 import type { AvailableAction, RuleContext } from "@domain/contracts/rules";
 import type { ActionCapability } from "@features/actions";
 import { createCharacterDraft } from "@domain/character/creation";
@@ -743,8 +743,16 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       });
     }
 
+    // Conteúdo opcional (Humano variante, Fada, Tasha) fica fora do pack base, mas a ficha precisa do nome dele:
+    // sem isto a raça aparecia como o id cru ("Variant Human").
+    const optionalNames = (pick: (supplement: OptionalRuleContentPack) => readonly { readonly id: EntityId; readonly name: string }[] | undefined, base: ReadonlyMap<EntityId, { readonly name: string }>): ReadonlyMap<EntityId, { readonly name: string }> => {
+      const merged = new Map<EntityId, { readonly name: string }>();
+      for (const supplement of activePack.optionalRulePacks?.values() ?? []) for (const entry of pick(supplement) ?? []) merged.set(entry.id, entry);
+      for (const [id, entry] of base) merged.set(id, entry);
+      return merged;
+    };
     const definitionMaps: Readonly<Partial<Record<EntityType, ReadonlyMap<EntityId, { readonly name: string }>>>> = {
-      race: activePack.races, subrace: activePack.subraces, class: activePack.classes, subclass: activePack.subclasses, background: activePack.backgrounds, feat: activePack.feats, feature: activePack.features, resource: activePack.resources, condition: activePack.conditions, equipment: activePack.equipment, spell: activePack.spells,
+      race: optionalNames((supplement) => supplement.races, activePack.races), subrace: optionalNames((supplement) => supplement.subraces, activePack.subraces), class: activePack.classes, subclass: optionalNames((supplement) => supplement.subclasses, activePack.subclasses), background: activePack.backgrounds, feat: activePack.feats, feature: optionalNames((supplement) => supplement.features, activePack.features), resource: optionalNames((supplement) => supplement.resources, activePack.resources), condition: activePack.conditions, equipment: activePack.equipment, spell: optionalNames((supplement) => supplement.spells, activePack.spells),
     };
     const registry = createFeatureRegistry({
       services,

@@ -109,6 +109,42 @@ describe("CharacterCreationWizard", () => {
     }
   });
 
+  it("Humano variante: mostra as quatro escolhas em português, com a lista de talentos, e grava o talento", async () => {
+    const result = createCharacterDraft({ id: asUuid("13131313-1313-4313-8313-131313131313"), rulesetRef, createdAt: now, partial: { name: "Monge de teste" } });
+    if (!result.ok) throw new Error(result.error.message);
+    const onDraftChange = vi.fn((next: CharacterDraft) => { void next; });
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={catalog()} onDraftChange={onDraftChange} />);
+    const setValue = async (select: HTMLSelectElement, value: string) => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, value);
+      await fireEvent(select, new Event("change", { bubbles: true }));
+    };
+    const selectWith = (value: string) => [...mounted.container.querySelectorAll("select")].find((select) => [...select.options].some((option) => option.value === value)) as HTMLSelectElement;
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "2. Raça") as HTMLElement);
+      await click([...mounted.container.querySelectorAll('input[type="checkbox"]')].find((input) => input.parentElement?.textContent?.includes("Humano variante")) as HTMLInputElement);
+      await setValue(selectWith("variant-human"), "variant-human");
+
+      const text = mounted.container.textContent ?? "";
+      expect(text).toContain("Humano variante · +1 em dois atributos diferentes");
+      expect(text).toContain("Humano variante · proficiência em uma perícia");
+      expect(text).toContain("Humano variante · talento");
+      expect(text).toContain("Humano variante · idioma adicional");
+      expect(text).not.toMatch(/Ability Increases|Feat ·|Skill ·/);
+
+      const feat = selectWith("alert");
+      expect(feat).toBeDefined();
+      expect(feat.options.length).toBeGreaterThan(30);
+      expect([...feat.options].find((option) => option.value === "alert")?.textContent).toBe("Alerta");
+      await setValue(feat, "alert");
+      const captured = onDraftChange.mock.calls.map(([next]) => next).at(-1);
+      expect(captured?.partial.choices).toContainEqual(expect.objectContaining({ choiceId: "variant-human.feat", selectedIds: [ref("alert")], grantingRef: ref("variant-human") }));
+      // O resumo lateral reconhece a raça de suplemento e mostra o talento escolhido.
+      expect(mounted.container.textContent).toContain("Talento: Alerta");
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
   it("Tasha no Patrulheiro: Inimigo Eleito dentro de Inimigo Favorito e opções como pacotes completos", async () => {
     const result = createCharacterDraft({
       id: asUuid("13131313-1313-4313-8313-131313131313"), rulesetRef, createdAt: now,

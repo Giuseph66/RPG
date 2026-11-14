@@ -2,7 +2,7 @@ import type { CharacterDraft } from "@domain/contracts/character";
 import type { Ability } from "@domain/contracts/primitives";
 import type { EntityId } from "@domain/contracts/ids";
 import { asCreationCatalog, ABILITIES, type CreationCatalogInput } from "./model";
-import { creationAbilityScore, defaultBaseScore } from "./limits";
+import { creationAbilityScore, defaultBaseScore, raceChoiceAbilityIncrease } from "./limits";
 
 /**
  * Resumo da ficha em criação: tudo o que já está definido e DE ONDE vem (raça, classe,
@@ -171,6 +171,14 @@ export function buildCreationSummary(input: CreationCatalogInput, draft: Charact
 
   // Características.
   for (const trait of [...(race?.traits ?? []), ...(subrace?.traits ?? [])]) if (raceSource) features.add(String(trait.id), trait.name, subrace?.traits.includes(trait) && subraceSource ? subraceSource : raceSource);
+  // Talento escolhido na raça (Humano variante).
+  for (const choice of race?.choices ?? []) {
+    if (choice.kind !== "feat" || !raceSource) continue;
+    for (const ref of (partial.choices ?? []).find((entry) => entry.choiceId === choice.id)?.selectedIds ?? []) {
+      const feat = pack.feats.get(ref.entityId);
+      if (feat) features.add(`feat.${feat.id}`, `Talento: ${feat.name}`, raceSource);
+    }
+  }
   for (const ref of classDefinition?.progression[0]?.featureRefs ?? []) {
     const feature = pack.features.get(ref.entityId);
     if (feature && classSource) features.add(String(ref.entityId), feature.name, classSource);
@@ -187,6 +195,8 @@ export function buildCreationSummary(input: CreationCatalogInput, draft: Charact
       if (increase.ability === "any") { if (chosenAbilities[anyIndex++] === ability) parts.push({ label: `Raça ${race?.name ?? ""} (escolha)`, amount: increase.amount }); }
       else if (increase.ability === ability) parts.push({ label: `Raça ${race?.name ?? ""}`, amount: increase.amount });
     }
+    const chosenIncrease = raceChoiceAbilityIncrease(pack, partial, ability);
+    if (chosenIncrease) parts.push({ label: `Raça ${race?.name ?? ""} (escolha)`, amount: chosenIncrease });
     for (const modifier of subrace?.additionalModifiers ?? []) {
       if (modifier.target.kind === "ability-score" && modifier.target.ability === ability && modifier.operator === "add" && modifier.value.kind === "number") parts.push({ label: `Sub-raça ${subrace?.name ?? ""}`, amount: modifier.value.amount });
     }

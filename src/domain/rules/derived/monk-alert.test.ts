@@ -64,6 +64,16 @@ describe("Monge humano variante com Alerta", () => {
     expect(walk(levelTwo(monk, "monk"))).toBe(1200);
   });
 
+  it("Movimento sem Armadura cresce com o nível de Monge (4,5 m no 6º, 9 m no 18º)", () => {
+    const monk = create("monk", "human");
+    const first = monk.progressionHistory[0];
+    const atLevel = (level: number): Character => ({ ...monk, classes: [{ ...monk.classes[0], level }], progressionHistory: Array.from({ length: level }, (_, index) => ({ ...first, level: index + 1 })) });
+    expect(walk(atLevel(5))).toBe(1200);
+    expect(walk(atLevel(6))).toBe(1350);
+    expect(walk(atLevel(10))).toBe(1500);
+    expect(walk(atLevel(18))).toBe(1800);
+  });
+
   it("Resiliência Dracônica: CA 13 + DES sem armadura e +1 PV por nível de feiticeiro", () => {
     const sorcerer = create("sorcerer", "human", [], "draconic-bloodline");
     const level1 = derive(sorcerer);
@@ -95,5 +105,9 @@ describe("Monge humano variante com Alerta", () => {
     expect(derived.initiative.value).toBe(8);
     // DES 17 (+3), SAB 15 (+2).
     expect(derived.armorClass.value).toBe(15);
+    // As escolhas da variante valem na ficha: +1 em DES e SAB (e só neles) e a perícia escolhida.
+    const score = (ability: string) => derived.abilityScores.find((entry) => entry.ability === ability)?.score.value;
+    expect([score("str"), score("dex"), score("con"), score("wis")]).toEqual([10, 17, 14, 15]);
+    expect(derived.skills.find((entry) => entry.skill === "perception")?.proficient).toBe(true);
   });
 });

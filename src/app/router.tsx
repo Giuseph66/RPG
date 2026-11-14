@@ -39,7 +39,7 @@ import { generateNpcCharacter } from "@application/character/generate-npc-charac
 import { composeCharacterRuleContent } from "@domain/character/creation/optional-rules";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
-import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, subclassInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
+import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, traitRowsFor, subclassInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
 
 const LazyCampaignLog = lazy(() => import("@features/campaign-log").then((module) => ({ default: module.CampaignLog })));
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
@@ -461,6 +461,7 @@ function CharacterDetailRoute({ registry, character, pack, id, navigate }: { rea
     ...(derived ? { derived } : {}),
     status: character.status,
     error: character.errorMessage,
+    traitRows: traitRowsFor(pack, currentCharacter),
     equipmentInfo: (entityId) => equipmentInfo(pack, entityId),
     spellOptions: spellOptionsFor(currentCharacter, pack),
     spellInfo: spellInfoFor(pack),

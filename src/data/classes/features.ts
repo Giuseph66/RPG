@@ -45,12 +45,12 @@ const classAndSubclassFeatures: readonly FeatureDefinition[] = featureIds.map((f
       : featureId === "monk.unarmored-defense"
       ? [{ kind: "unarmored-defense", abilities: ["wis"], allowsShield: false }]
       // LdJ p. 103: Movimento sem Armadura, +3 m no 2º nível sem armadura nem escudo.
-      // TODO nível 6+: o bônus cresce (4,5 m no 6º, 6 m no 10º, 7,5 m no 14º, 9 m no 18º).
+      // O bônus cresce com o nível de Monge: 4,5 m no 6º, 6 m no 10º, 7,5 m no 14º e 9 m no 18º.
       // LdJ p. 103: Artes Marciais, dado d4 nos níveis 1–4. TODO nível 5+: d6 (5º), d8 (11º), d10 (17º).
       : featureId === "monk.martial-arts"
       ? [{ kind: "martial-arts", die: { quantity: 1, faces: 4 }, extraMonkWeaponIds: ["shortsword"] }]
       : featureId === "monk.unarmored-movement"
-      ? [{ kind: "modifier", modifier: { id: "monk.unarmored-movement.walk", sourceRef: src, target: { kind: "speed", speedKind: "walk" }, operator: "add", value: { kind: "number", amount: 300 }, predicate: { kind: "while-not-wearing-armor-categories", armorCategories: ["light", "medium", "heavy", "shield"] } } }]
+      ? ([[2, 300], [6, 150], [10, 150], [14, 150], [18, 150]] as const).map(([level, amount]) => ({ kind: "modifier" as const, modifier: { id: level === 2 ? "monk.unarmored-movement.walk" : `monk.unarmored-movement.walk.level-${level}`, sourceRef: src, target: { kind: "speed" as const, speedKind: "walk" as const }, operator: "add" as const, value: { kind: "number" as const, amount }, predicate: { kind: "while-not-wearing-armor-categories" as const, armorCategories: ["light", "medium", "heavy", "shield"] as const, ...(level > 2 ? { minClassLevel: { classRef: ref("monk"), level } } : {}) } } }))
       // LdJ p. 79: Resiliência Dracônica — +1 PV por nível de feiticeiro e CA 13 + DES sem armadura.
       : featureId === "draconic-bloodline-feature-level-1"
       ? [

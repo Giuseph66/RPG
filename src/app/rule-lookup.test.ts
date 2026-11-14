@@ -21,6 +21,13 @@ describe("createRuleLookup", () => {
     expect(lookup({ category: "combat", title: "Teste contra a morte" })).toBeDefined();
   });
 
+  it("abre a regra do Humano variante e do talento escolhido nele", () => {
+    const variant = lookup({ category: "race", title: "Humano variante" });
+    expect(variant?.title).toBe("Humano variante");
+    expect(JSON.stringify(variant)).toContain("Você adquire um talento de sua escolha");
+    expect(lookup({ category: "feat", title: "Alerta" })).toBeDefined();
+  });
+
   it("usa o id quando o título difere e devolve undefined sem correspondência", () => {
     expect(lookup({ category: "equipment", title: "Nome customizado", entityId: "flail" })?.title).toBe("Mangual");
     expect(lookup({ category: "spell", title: "Magia inexistente" })).toBeUndefined();

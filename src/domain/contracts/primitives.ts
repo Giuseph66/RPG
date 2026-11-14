@@ -279,7 +279,8 @@ export type RuleModifierPredicate =
   | { readonly kind: "min-condition-severity"; readonly conditionRef: DefinitionRef; readonly severity: number }
   | { readonly kind: "while-wearing-armor-category"; readonly armorCategory: ArmorCategory }
   | { readonly kind: "while-not-wearing-armor" }
-  | { readonly kind: "while-not-wearing-armor-categories"; readonly armorCategories: readonly ArmorCategory[] }
+  /** `minClassLevel` restringe também ao nível de classe (ex.: Movimento sem Armadura que cresce com o nível de Monge). */
+  | { readonly kind: "while-not-wearing-armor-categories"; readonly armorCategories: readonly ArmorCategory[]; readonly minClassLevel?: { readonly classRef: DefinitionRef; readonly level: number } }
   | { readonly kind: "while-wielding-shield" }
   | { readonly kind: "while-concentrating" }
   | { readonly kind: "min-class-level"; readonly classRef: DefinitionRef; readonly level: number }

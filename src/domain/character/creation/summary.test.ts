@@ -4,6 +4,7 @@ import { loadPhbPtBrLocal2017 } from "@data/rulepacks/phb-ptbr-local-2017";
 import { equipmentBundles } from "@data/equipment/bundles";
 import { createCharacterDraft } from "./creation";
 import { backgroundOverview, buildCreationSummary } from "./summary";
+import { composeOptionalRuleContent } from "./optional-rules";
 
 const rulesetRef = { id: asRulesetId("phb-ptbr-local-2017"), version: asPackVersion("1.0.0") };
 const ref = (id: string) => ({ rulesetId: rulesetRef.id, entityId: asEntityId(id) });
@@ -23,6 +24,22 @@ describe("resumo da criação", () => {
     expect(summary.skills).toEqual([]);
     expect(summary.conflicts).toEqual([]);
     expect(summary.abilities).toHaveLength(6);
+  });
+
+  it("Humano variante: soma +1 nos dois atributos escolhidos e lista o talento", () => {
+    // O assistente entrega ao resumo o pack já composto com os suplementos marcados.
+    const composed = composeOptionalRuleContent(catalog.rulePack, [asEntityId("variant-human-option")], []);
+    if (!composed.ok) throw new Error(composed.error.message);
+    const summary = buildCreationSummary({ ...catalog, rulePack: composed.value }, draft({
+      raceRef: ref("variant-human"), selectedSupplementIds: [asEntityId("variant-human-option")], classes: [{ classId: asEntityId("monk"), level: 1, choices: [] }],
+      abilityGeneration: { method: "manual", baseScores: { str: 10, dex: 15, con: 14, int: 10, wis: 15, cha: 8 } },
+      choices: [pick("variant-human.ability-increases", ["dex", "wis"], "variant-human"), pick("variant-human.skill", ["perception"], "variant-human"), pick("variant-human.feat", ["alert"], "variant-human")],
+    }));
+    const final = Object.fromEntries(summary.abilities.map((entry) => [entry.ability, entry.final]));
+    expect(final).toMatchObject({ str: 10, dex: 16, con: 14, wis: 16 });
+    expect(summary.abilities.find((entry) => entry.ability === "dex")?.parts).toEqual([{ label: "Raça Humano variante (escolha)", amount: 1 }]);
+    expect(summary.features.map((line) => line.name)).toContain("Talento: Alerta");
+    expect(summary.skills.map((line) => line.id)).toContain("perception");
   });
 
   it("mostra a origem de perícias, proficiências, idiomas, equipamento e atributos", () => {
