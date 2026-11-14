@@ -7,7 +7,7 @@ const creatureTexts = STATIC_COMPENDIUM_ITEMS.flatMap((item) => item.category ==
 describe("criaturas do Livro do Jogador só com texto", () => {
   it("existem 31, todas na categoria Criaturas e nenhuma em Aventura", () => {
     expect(creatureTexts).toHaveLength(31);
-    expect(STATIC_COMPENDIUM_ITEMS.some((item) => item.category === "adventure" && item.definition.tags.includes("criatura"))).toBe(false);
+    expect(STATIC_COMPENDIUM_ITEMS.some((item) => item.category === "adventure" && "tags" in item.definition && item.definition.tags.includes("criatura"))).toBe(false);
   });
 
   it("separa as linhas de estatística e junta os atributos em uma só", () => {
