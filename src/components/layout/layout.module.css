@@ -82,6 +82,9 @@
   .navDice:hover .navDiceImage { transform: scale(1.05); }
   .navDice .navLabel, .navDice .navShortLabel { display: none; }
   .nav-journey { padding-top: 1.15rem; }
+  /* Chat docks its composer on the nav; the floating d20 would cover it. */
+  .navigation[data-dice-hidden] .navDice { display: none; }
+  .navigation[data-dice-hidden] .nav-journey { padding-top: .35rem; }
   .main { padding: var(--spacing-xl) var(--spacing-md); }
 }
 @media (max-width: 420px) {
