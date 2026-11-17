@@ -1,15 +1,15 @@
-export interface ChatPreferences {
-  readonly baseUrl: string;
-  readonly model: string;
-}
-
-export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = { baseUrl: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-20b" };
+/** Fixed provider and model: the Oráculo always answers with this model; users never pick one. */
+export const CHAT_PROVIDER = { baseUrl: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-20b" } as const;
+import type { ChatAction, ChatAttachment, ChatCompletion, ChatMemory, ChatModelMessage, ChatScope, ChatToolDefinition, ChatTrace } from "./chat-agent";
 
 export interface ChatMessage {
   readonly id: string;
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly createdAt: number;
+  readonly trace?: ChatTrace;
+  readonly turnId?: string;
+  readonly attachments?: readonly ChatAttachment[];
 }
 
 export interface ChatConversation {
@@ -17,6 +17,9 @@ export interface ChatConversation {
   readonly title: string;
   readonly preview: string;
   readonly updatedAt: number;
+  readonly scope?: ChatScope;
+  readonly archived?: boolean;
+  readonly deleted?: boolean;
 }
 
 export interface ChatCredentialSummary {
@@ -34,19 +37,26 @@ export interface ChatCredential extends ChatCredentialSummary {
 export type ChatWatch<T> = (onValue: (value: T) => void, onError: (error: Error) => void) => () => void;
 
 export interface ChatRepository {
-  watchPreferences(uid: string): ChatWatch<ChatPreferences>;
   watchCredential(uid: string): ChatWatch<ChatCredentialSummary | undefined>;
   watchConversations(uid: string): ChatWatch<readonly ChatConversation[]>;
   watchMessages(uid: string, conversationId: string): ChatWatch<readonly ChatMessage[]>;
-  savePreferences(uid: string, preferences: ChatPreferences): Promise<void>;
   saveCredential(uid: string, label: string, apiKey: string): Promise<void>;
   removeCredential(uid: string): Promise<void>;
   listCredentials(): Promise<readonly ChatCredential[]>;
   setCredentialState(credential: ChatCredential, status: "cooldown" | "invalid", cooldownUntil: number): Promise<void>;
-  createConversation(uid: string, title: string): Promise<string>;
-  appendMessage(uid: string, conversationId: string, role: ChatMessage["role"], content: string): Promise<void>;
+  createConversation(uid: string, title: string, scope?: ChatScope): Promise<string>;
+  appendMessage(uid: string, conversationId: string, role: ChatMessage["role"], content: string, metadata?: { readonly id?: string; readonly turnId?: string; readonly trace?: ChatTrace; readonly attachments?: readonly ChatAttachment[]; readonly actions?: readonly ChatAction[] }): Promise<string>;
   recentMessages(uid: string, conversationId: string): Promise<readonly ChatMessage[]>;
-  readPreferences(uid: string): Promise<ChatPreferences>;
+  allMessages(uid: string, conversationId: string): Promise<readonly ChatMessage[]>;
+  getConversation(uid: string, conversationId: string): Promise<ChatConversation>;
+  updateConversation(uid: string, conversationId: string, patch: { readonly title?: string; readonly archived?: boolean; readonly deleted?: boolean }): Promise<void>;
+  watchActions(uid: string, conversationId: string): ChatWatch<readonly ChatAction[]>;
+  claimAction(uid: string, conversationId: string, actionId: string, undo?: boolean): Promise<ChatAction>;
+  finishAction(uid: string, conversationId: string, actionId: string, status: ChatAction["status"], result: string, undo?: Record<string, unknown>): Promise<void>;
+  campaignRole(uid: string, campaignId: string): Promise<"master" | "player" | undefined>;
+  listMemories(uid: string, scope: ChatScope): Promise<readonly ChatMemory[]>;
+  saveMemory(uid: string, memory: ChatMemory): Promise<void>;
+  deleteMemory(uid: string, memory: ChatMemory): Promise<void>;
 }
 
 export class ChatRequestError extends Error {
@@ -57,6 +67,5 @@ export class ChatRequestError extends Error {
 }
 
 export interface ChatClient {
-  listModels(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<readonly string[]>;
-  complete(baseUrl: string, apiKey: string, model: string, messages: readonly Pick<ChatMessage, "role" | "content">[], context: string, signal?: AbortSignal): Promise<string>;
+  turn(apiKey: string, messages: readonly ChatModelMessage[], tools: readonly ChatToolDefinition[], signal?: AbortSignal, onText?: (text: string) => void): Promise<ChatCompletion>;
 }

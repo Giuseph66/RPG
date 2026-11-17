@@ -1,12 +1,4 @@
-import { ChatRequestError, DEFAULT_CHAT_PREFERENCES, type ChatCredential, type ChatPreferences, type ChatRepository, type ChatClient } from "@application/ports/chat";
-
-export function normalizeChatPreferences(input: ChatPreferences): ChatPreferences {
-  const baseUrl = input.baseUrl.trim().replace(/\/+$/, "");
-  if (baseUrl !== DEFAULT_CHAT_PREFERENCES.baseUrl) throw new Error("Use o endereço oficial do GroqCloud nas configurações do chat.");
-  const model = input.model.trim();
-  if (!model || model.length > 128 || !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model)) throw new Error("Informe o identificador do modelo GroqCloud.");
-  return { baseUrl, model };
-}
+import { CHAT_PROVIDER, ChatRequestError, type ChatCredential, type ChatRepository, type ChatClient } from "@application/ports/chat";
 
 export function credentialAvailable(key: ChatCredential, now = Date.now()): boolean {
   return key.status === "active" || (key.status === "cooldown" && key.cooldownUntil <= now);
@@ -39,10 +31,6 @@ export function createChatService(repository: ChatRepository, client: ChatClient
 
   return {
     repository,
-    async savePreferences(uid: string, preferences: ChatPreferences) {
-      assertSession(uid);
-      await repository.savePreferences(uid, normalizeChatPreferences(preferences));
-    },
     async saveCredential(uid: string, label: string, apiKey: string) {
       assertSession(uid);
       const value = apiKey.trim();
@@ -52,21 +40,15 @@ export function createChatService(repository: ChatRepository, client: ChatClient
       await repository.saveCredential(uid, name, value);
     },
     async removeCredential(uid: string) { assertSession(uid); await repository.removeCredential(uid); },
-    async listModels(uid: string, baseUrl: string, signal?: AbortSignal) {
-      const url = normalizeChatPreferences({ baseUrl, model: "modelo" }).baseUrl;
-      return withAvailableKey(uid, (key) => client.listModels(url, key.apiKey, signal), signal);
-    },
     async send(uid: string, conversationId: string, content: string, context = "", signal?: AbortSignal, onPersisted?: () => void) {
       assertSession(uid, signal);
       const text = content.trim();
       if (!text || text.length > 12_000) throw new Error("Escreva uma mensagem com até 12.000 caracteres.");
-      const preferences = normalizeChatPreferences(await repository.readPreferences(uid));
-      assertSession(uid, signal);
       await repository.appendMessage(uid, conversationId, "user", text);
       onPersisted?.();
       assertSession(uid, signal);
       const messages = await repository.recentMessages(uid, conversationId);
-      const answer = await withAvailableKey(uid, (key) => client.complete(preferences.baseUrl, key.apiKey, preferences.model, messages, context, signal), signal);
+      const answer = await withAvailableKey(uid, (key) => client.complete(CHAT_PROVIDER.baseUrl, key.apiKey, CHAT_PROVIDER.model, messages, context, signal), signal);
       assertSession(uid, signal);
       await repository.appendMessage(uid, conversationId, "assistant", answer);
     },

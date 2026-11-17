@@ -9,41 +9,16 @@
 .muted { color: var(--color-text-muted); font-size: .92rem; }
 .warn { color: var(--color-warning); font-size: .9rem; }
 
-/* Overall status: the one thing to read first. */
-.status { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md) var(--spacing-lg); color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 9%, var(--color-surface)); border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent); border-radius: var(--radius-surface); }
-.status[data-ok] { color: var(--color-xp); background: color-mix(in srgb, var(--color-xp) 9%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-xp) 40%, transparent); }
-.status > svg { flex: 0 0 auto; }
-.status p { display: grid; gap: .1rem; min-width: 0; }
-.status strong { color: var(--color-text); font-size: 1rem; }
-.status span { overflow: hidden; color: var(--color-text-muted); font-size: .88rem; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Numbered steps */
-.step { display: grid; gap: var(--spacing-md); }
-.step h3 { display: flex; align-items: center; gap: var(--spacing-sm); margin: 0; color: var(--color-secondary); font-family: var(--typography-heading-font-family); font-size: 1.05rem; font-weight: 600; }
-.stepNumber { display: grid; flex: 0 0 auto; width: 1.6rem; height: 1.6rem; place-items: center; color: var(--color-on-secondary); background: var(--color-secondary); border-radius: 50%; font-family: var(--typography-body-font-family); font-size: .85rem; font-weight: 800; }
-.step + .step { padding-top: var(--spacing-xl); border-top: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent); }
 
-.inlineRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-xs) var(--spacing-md); margin-top: calc(-1 * var(--spacing-xs)); }
-.linkButton, .dangerLink { display: inline-flex; align-items: center; gap: .35rem; min-height: var(--size-touch-target); padding: 0 var(--spacing-xs); background: none; border: 0; font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer; }
-.linkButton { color: var(--color-secondary); }
-.dangerLink { color: var(--color-danger); }
-.linkButton:hover:not(:disabled), .dangerLink:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
-.linkButton:disabled, .dangerLink:disabled { color: var(--color-control-disabled); cursor: default; }
-.linkButton:focus-visible, .dangerLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
 
-.advanced { display: grid; }
-.advanced summary { display: inline-flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); width: fit-content; color: var(--color-gold-muted); font-size: .9rem; list-style: none; cursor: pointer; }
-.advanced summary::-webkit-details-marker { display: none; }
-.advanced summary:hover, .advanced[open] summary { color: var(--color-secondary); }
-.advanced summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
-.advanced summary svg { transition: rotate var(--motion-transition) var(--motion-easing); }
-.advanced[open] summary svg { rotate: 180deg; }
-.advanced[open] > :not(summary) { margin-top: var(--spacing-xs); }
 
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+.actions .removeButton { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-xs); color: var(--color-danger); }
+.actions .removeButton:hover:not(:disabled) { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
 
 /* Key */
-.keyForm { display: grid; gap: var(--spacing-md); }
+.keyForm, .keyBlock { display: grid; gap: var(--spacing-md); }
 .keyCard { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-surface-elevated) 70%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); border-radius: var(--radius-surface); }
 .keyCard > svg { flex: 0 0 auto; color: var(--color-secondary); }
 .keyCard p { display: grid; flex: 1; gap: .05rem; min-width: 0; }
@@ -61,5 +36,20 @@
 @media (max-width: 767px) {
   .panel { gap: var(--spacing-lg); }
   .actions > * { flex: 1 1 auto; }
-  .actions > .dangerLink { flex: 0 0 auto; }
 }
+
+/* Mini tutorial: how to get a GroqCloud key */
+.tutorial { display: grid; padding: 0 var(--spacing-md); background: color-mix(in srgb, var(--color-surface-elevated) 60%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 28%, transparent); border-radius: var(--radius-surface); }
+.tutorial summary { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--size-touch-target); color: var(--color-secondary); font-weight: 700; list-style: none; cursor: pointer; }
+.tutorial summary::-webkit-details-marker { display: none; }
+.tutorial summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+.tutorial summary svg { transition: rotate var(--motion-transition) var(--motion-easing); }
+.tutorial[open] summary svg { rotate: 180deg; }
+.tutorial ol { display: grid; gap: var(--spacing-sm); margin: 0; padding: 0 0 var(--spacing-sm); list-style: none; counter-reset: step; }
+.tutorial li { display: flex; gap: var(--spacing-sm); color: var(--color-text-muted); font-size: .92rem; line-height: 1.45; counter-increment: step; }
+.tutorial li::before { display: grid; flex: 0 0 auto; width: 1.4rem; height: 1.4rem; place-items: center; color: var(--color-on-secondary); background: var(--color-secondary); border-radius: 50%; font-size: .75rem; font-weight: 800; content: counter(step); }
+.tutorial li strong { color: var(--color-text); }
+.tutorial code { padding: 0 .3rem; color: var(--color-secondary); background: color-mix(in srgb, var(--color-background) 65%, transparent); border-radius: .25rem; font-family: inherit; }
+.tutorialLink { display: inline-flex; align-items: center; gap: var(--spacing-xs); justify-self: start; min-height: var(--size-touch-target); margin-bottom: var(--spacing-sm); color: var(--color-secondary); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.tutorialLink:hover { color: var(--color-text); }
+.tutorialLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }

@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatService } from "@application/chat/service";
-import { DEFAULT_CHAT_PREFERENCES, type ChatConversation, type ChatMessage } from "@application/ports/chat";
+import type { ChatConversation, ChatMessage } from "@application/ports/chat";
 
 export function useChat(service: ChatService | undefined, uid: string | undefined, context: string) {
   const [conversations, setConversations] = useState<readonly ChatConversation[]>([]);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [activeId, setActiveId] = useState<string>();
   const [draft, setDraft] = useState("");
-  const [preferences, setPreferences] = useState(DEFAULT_CHAT_PREFERENCES);
   const [error, setError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(Boolean(uid && service));
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -20,8 +19,7 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     if (!service || !uid) return;
     const fail = (cause: Error) => { setError(`Não foi possível ler o Firestore: ${cause.message}`); setHistoryLoading(false); };
     const stopConversations = service.repository.watchConversations(uid)((value) => { setConversations(value); setHistoryLoading(false); }, fail);
-    const stopPreferences = service.repository.watchPreferences(uid)(setPreferences, fail);
-    return () => { stopConversations(); stopPreferences(); };
+    return stopConversations;
   }, [service, uid]);
 
   useEffect(() => {
@@ -39,7 +37,6 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
 
   const send = async () => {
     if (!service || !uid || inFlight.current || !draft.trim()) return;
-    if (!preferences.model) { setError("Escolha o modelo GroqCloud em Configurações antes de enviar."); return; }
     if (!navigator.onLine) { setError("Conecte-se à internet para salvar e enviar mensagens."); return; }
     const controller = new AbortController();
     inFlight.current = controller;
@@ -57,5 +54,5 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     }
   };
 
-  return { conversations, messages, activeId, draft, setDraft, select, send, loading: historyLoading || messagesLoading, sending, preferences, error };
+  return { conversations, messages, activeId, draft, setDraft, select, send, loading: historyLoading || messagesLoading, sending, error };
 }

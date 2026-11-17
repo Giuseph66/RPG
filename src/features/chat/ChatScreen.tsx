@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { ArrowUp, CaretDown, ChatsCircle, Eye, NotePencil, X } from "@phosphor-icons/react";
+import { ArrowUp, ChatsCircle, Eye, NotePencil, X } from "@phosphor-icons/react";
 import { Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
 import { useChat } from "./use-chat";
@@ -17,7 +17,7 @@ const suggestions: readonly string[] = [
 ];
 
 export function ChatScreen({ service, uid, context = "", onOpenSettings = () => {}, onOpenAccount = () => {} }: { readonly service?: ChatService; readonly uid?: string; readonly context?: string; readonly onOpenSettings?: () => void; readonly onOpenAccount?: () => void }) {
-  const { conversations, messages, activeId, draft, setDraft, select, send, loading, sending, preferences, error } = useChat(service, uid, context);
+  const { conversations, messages, activeId, draft, setDraft, select, send, loading, sending, error } = useChat(service, uid, context);
   const canChat = Boolean(service && uid);
   const [historyOpen, setHistoryOpen] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -28,9 +28,7 @@ export function ChatScreen({ service, uid, context = "", onOpenSettings = () => 
     ? { title: "Entre para consultar o Oráculo", text: "Suas conversas ficam guardadas na sua conta.", action: "Entrar na conta", onAction: onOpenAccount }
     : !service
       ? { title: "Oráculo indisponível", text: "A sincronização na nuvem não está ativa neste aparelho." }
-      : !preferences.model
-        ? { title: "O Oráculo ainda não despertou", text: "Escolha qual IA vai responder nas configurações do chat.", action: "Configurar Oráculo", onAction: onOpenSettings }
-        : undefined;
+      : undefined;
 
   useEffect(() => {
     const transcript = transcriptRef.current;
@@ -126,10 +124,6 @@ export function ChatScreen({ service, uid, context = "", onOpenSettings = () => 
             <h1 id="chat-title">Oráculo</h1>
             <p>{activeTitle}</p>
           </div>
-          <button type="button" className={styles.previewBadge} onClick={onOpenSettings} aria-label={preferences.model ? `Modelo ${preferences.model}. Configurar Oráculo` : "Escolher modelo do Oráculo"}>
-            <span>{preferences.model || "Escolher modelo"}</span>
-            <CaretDown size={11} weight="bold" aria-hidden="true" />
-          </button>
           <button
             type="button"
             className={styles.iconButton}
@@ -150,7 +144,12 @@ export function ChatScreen({ service, uid, context = "", onOpenSettings = () => 
               {setup.action ? <button type="button" onClick={setup.onAction}>{setup.action}</button> : null}
             </p>
           ) : null}
-          {error ? <InlineStatus tone="error" assertive>{error}</InlineStatus> : null}
+          {error ? (
+            <div className={styles.errorRow}>
+              <InlineStatus tone="error" assertive>{error}</InlineStatus>
+              {/chave/i.test(error) ? <button type="button" onClick={onOpenSettings}>Configurar chave</button> : null}
+            </div>
+          ) : null}
           {loading ? <p role="status">Carregando conversas…</p> : null}
           {!loading && messages.length === 0 ? (
             <div className={styles.emptyState}>
@@ -198,7 +197,7 @@ export function ChatScreen({ service, uid, context = "", onOpenSettings = () => 
               maxLength={12000}
               disabled={!canChat || sending}
             />
-            <button type="submit" className={styles.sendButton} disabled={!canChat || sending || loading || !preferences.model || !draft.trim()} aria-label="Enviar mensagem">
+            <button type="submit" className={styles.sendButton} disabled={!canChat || sending || loading || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
             </button>
           </div>

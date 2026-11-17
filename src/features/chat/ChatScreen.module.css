@@ -76,6 +76,9 @@
 .setupBanner { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem var(--spacing-sm); margin: 0; color: var(--color-text-muted); font-size: .88rem; text-align: center; }
 .setupBanner button { min-height: var(--size-touch-target); padding: 0 var(--spacing-xs); color: var(--color-secondary); background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .setupBanner button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+.errorRow { display: grid; justify-items: start; gap: var(--spacing-xs); }
+.errorRow > button { min-height: var(--size-touch-target); padding: 0 var(--spacing-xs); color: var(--color-secondary); background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.errorRow > button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
 .setupAction { min-height: var(--size-touch-target); margin-top: var(--spacing-sm); }
 .newConversation:disabled, .conversationItem:disabled { opacity: .55; cursor: default; }
 .composerField textarea:disabled { opacity: .65; }
@@ -96,13 +99,6 @@
 .oracleIdentity { flex: 1; min-width: 0; }
 .oracleIdentity h1 { margin: 0; color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1.15rem; font-weight: 600; line-height: 1.2; }
 .oracleIdentity p { overflow: hidden; margin: .1rem 0 0; color: var(--color-text-muted); font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
-.previewBadge { position: relative; display: inline-flex; flex: 0 1 auto; align-items: center; gap: .3rem; min-width: 0; max-width: 12rem; padding: .2rem .55rem .2rem .65rem; color: var(--color-gold-muted); background: none; border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent); border-radius: var(--radius-pill); font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), border-color var(--motion-feedback) var(--motion-easing); }
-.previewBadge > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.previewBadge > svg { flex: 0 0 auto; }
-/* Pill stays compact; the invisible area keeps a 44px touch target. */
-.previewBadge::after { position: absolute; inset: -.6rem -.2rem; content: ""; }
-.previewBadge:hover { color: var(--color-secondary); border-color: color-mix(in srgb, var(--color-border) 65%, transparent); }
-.previewBadge:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .iconButton {
   display: grid;
   flex: 0 0 auto;
@@ -206,7 +202,6 @@
   .oracleSeal { width: 2.1rem; height: 2.1rem; box-shadow: none; }
   .oracleIdentity h1 { font-size: 1rem; }
   .oracleIdentity p { font-size: .85rem; }
-  .previewBadge { padding: .15rem .45rem; font-size: .7rem; }
   .transcript { gap: var(--spacing-lg); padding: var(--spacing-lg) var(--spacing-md); }
   .userMessage { max-width: 88%; }
   /* Docked composer sits right on the bottom nav (the d20 medallion is hidden on this route). */
