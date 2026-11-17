@@ -25,9 +25,10 @@ const seconds = (ms: number) => `${(ms / 1000).toLocaleString("pt-BR", { maximum
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /** Answer first; reasoning, tools and sources stay folded behind one quiet line. */
-export function OracleAnswer({ content, time, trace, actions = [], busy = false, onAction, streaming = false }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace; readonly actions?: readonly ChatAction[]; readonly busy?: boolean; readonly onAction?: (id: string, decision: "confirm" | "reject" | "undo") => void; readonly streaming?: boolean }) {
+export function OracleAnswer({ content, time, trace, actions = [], busy = false, onAction, streaming = false, spokenRange }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace; readonly actions?: readonly ChatAction[]; readonly busy?: boolean; readonly onAction?: (id: string, decision: "confirm" | "reject" | "undo") => void; readonly streaming?: boolean; readonly spokenRange?: { readonly start: number; readonly end: number } }) {
   const prefix = useId();
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [highlighted, setHighlighted] = useState<number>();
   const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
   const [sourceDetail, setSourceDetail] = useState<OracleSource>();
@@ -43,6 +44,16 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
     const timer = window.setTimeout(() => setHighlighted(undefined), 1800);
     return () => window.clearTimeout(timer);
   }, [highlighted]);
+
+  useEffect(() => {
+    if (!spokenRange) return;
+    const mark = bodyRef.current?.querySelector("mark[data-speaking]");
+    const transcript = bodyRef.current?.closest<HTMLElement>('[role="log"]');
+    const current = mark?.getClientRects()[0];
+    if (!transcript || !current) return;
+    const bounds = transcript.getBoundingClientRect();
+    if (current.top < bounds.top || current.bottom > bounds.bottom) transcript.scrollTop += current.top - bounds.top - transcript.clientHeight * .35;
+  }, [spokenRange]);
 
   const showSource = (id: number) => {
     if (detailsRef.current) detailsRef.current.open = true;
@@ -60,17 +71,34 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
     setSourceDetail(source);
   };
 
-  const renderInline = (text: string): ReactNode[] => text.split(/(\[\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={index}>{part.slice(1, -1)}</code>;
-    const match = /^\[(\d+)\]$/.exec(part);
-    const id = match ? Number(match[1]) : undefined;
-    if (id === undefined || !sourceIds.has(id)) return part;
-    const source = sources.find((item) => item.id === id)!;
-    return <button key={index} type="button" className={styles.cite} onClick={() => showSource(id)} aria-label={`Fonte ${id}: ${source.title}`}>{id}</button>;
-  });
+  const highlightSpeech = (text: string, offset: number, key: number): ReactNode => {
+    if (!spokenRange) return text;
+    const start = Math.max(0, spokenRange.start - offset), end = Math.min(text.length, spokenRange.end - offset);
+    if (start >= end) return text;
+    return <span key={key}>{text.slice(0, start)}<mark data-speaking className={styles.spoken}>{text.slice(start, end)}</mark>{text.slice(end)}</span>;
+  };
 
-  const paragraphs = content.split(/\n{2,}/).filter((paragraph) => paragraph.trim());
+  const renderInline = (text: string, offset: number): ReactNode[] => {
+    let cursor = offset;
+    return text.split(/(\[\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
+      const start = cursor;
+      cursor += part.length;
+      if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{highlightSpeech(part.slice(2, -2), start + 2, index)}</strong>;
+      if (part.startsWith("`") && part.endsWith("`")) return <code key={index}>{highlightSpeech(part.slice(1, -1), start + 1, index)}</code>;
+      const match = /^\[(\d+)\]$/.exec(part);
+      const id = match ? Number(match[1]) : undefined;
+      if (id === undefined || !sourceIds.has(id)) return highlightSpeech(part, start, index);
+      const source = sources.find((item) => item.id === id)!;
+      return <button key={index} type="button" className={styles.cite} onClick={() => showSource(id)} aria-label={`Fonte ${id}: ${source.title}`}>{id}</button>;
+    });
+  };
+
+  let cursor = 0;
+  const paragraphs = content.split(/\n{2,}/).map((text) => {
+    const start = content.indexOf(text, cursor);
+    cursor = start + text.length;
+    return { text, start };
+  }).filter((paragraph) => paragraph.text.trim());
 
   return (
     <article className={styles.answer}>
@@ -82,15 +110,24 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
       </header>
 
       <div className={styles.thread}>
-        <div className={styles.body}>
-          {paragraphs.map((paragraph) => {
-            if (/^#{1,4}\s/.test(paragraph)) return <h3 key={paragraph}>{renderInline(paragraph.replace(/^#{1,4}\s+/, ""))}</h3>;
+        <div ref={bodyRef} className={styles.body} aria-live={spokenRange ? "off" : undefined}>
+          {paragraphs.map(({ text: paragraph, start }) => {
+            const heading = /^#{1,4}\s+/.exec(paragraph);
+            if (heading) return <h3 key={start}>{renderInline(paragraph.slice(heading[0].length), start + heading[0].length)}</h3>;
             const lines = paragraph.split("\n");
-            if (lines.every((line) => /^\s*[-*]\s+/.test(line))) return <ul key={paragraph}>{lines.map((line, i) => <li key={i}>{renderInline(line.replace(/^\s*[-*]\s+/, ""))}</li>)}</ul>;
+            if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+              let lineStart = start;
+              return <ul key={start}>{lines.map((line, i) => {
+                const prefix = /^\s*[-*]\s+/.exec(line)![0].length;
+                const offset = lineStart + prefix;
+                lineStart += line.length + 1;
+                return <li key={i}>{renderInline(line.slice(prefix), offset)}</li>;
+              })}</ul>;
+            }
             const suggestion = /^sugest[aã]o:\s*/i.exec(paragraph);
             return suggestion
-              ? <p key={paragraph} className={styles.suggestion}>{renderInline(paragraph.slice(suggestion[0].length))}</p>
-              : <p key={paragraph}>{renderInline(paragraph)}</p>;
+              ? <p key={start} className={styles.suggestion}>{renderInline(paragraph.slice(suggestion[0].length), start + suggestion[0].length)}</p>
+              : <p key={start}>{renderInline(paragraph, start)}</p>;
           })}
         </div>
 

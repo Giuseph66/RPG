@@ -183,7 +183,8 @@
     width: auto;
     max-width: none;
     margin: calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-md)) calc(-2 * var(--spacing-xl));
-    height: calc(100dvh - var(--app-bar-height, 4.5rem) - var(--size-nav-height) - env(safe-area-inset-bottom));
+    /* app bar (+border) and bottom nav, which fold away on this route (--chrome-collapse goes 0 -> 1 and animates). */
+    height: calc(100dvh - (var(--app-bar-height, 4.5rem) + 1px + var(--size-nav-height) + env(safe-area-inset-bottom)) * (1 - var(--chrome-collapse, 0)));
     min-height: 0;
     background: transparent;
     border: 0;
@@ -205,15 +206,15 @@
   .screen[data-history-open] .history { transform: none; visibility: visible; transition: transform var(--motion-transition) var(--motion-easing); }
   .screen[data-history-open] .scrim { position: absolute; z-index: 1; inset: 0; display: block; padding: 0; background: var(--color-backdrop); border: 0; }
   .history { inset: 0 auto 0 0; border-top: 0; }
-  .conversationHeader { gap: var(--spacing-sm); padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-md); background: color-mix(in srgb, var(--color-surface) 70%, transparent); }
+  .conversationHeader { gap: var(--spacing-sm); padding: calc(var(--spacing-xs) + env(safe-area-inset-top) * var(--chrome-collapse, 0)) var(--spacing-xs) var(--spacing-xs) var(--spacing-md); background: color-mix(in srgb, var(--color-surface) 70%, transparent); }
   .oracleSeal { width: 2.1rem; height: 2.1rem; box-shadow: none; }
   .oracleIdentity h1 { font-size: 1rem; }
   .oracleIdentity p { font-size: .85rem; }
   .transcript { gap: var(--spacing-lg); padding: var(--spacing-lg) var(--spacing-md); }
   .userMessage { max-width: 88%; }
-  /* Docked composer sits right on the bottom nav (the d20 medallion is hidden on this route). */
+  /* Docked composer: sits on the bottom nav, or on the screen edge once the nav is folded away. */
   .composer {
-    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md) calc(var(--spacing-md) + env(safe-area-inset-bottom) * var(--chrome-collapse, 0));
     background: linear-gradient(180deg, color-mix(in srgb, var(--color-surface-elevated) 92%, transparent), var(--color-surface));
     border-top: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
     box-shadow: 0 -10px 24px rgba(0, 0, 0, .35);
@@ -298,3 +299,11 @@
   .usageCompact { gap: var(--spacing-sm); }
   .voiceHint { display: none; }
 }
+
+/* Chat info modal: context and conversation tools live here, off the chat screen. */
+.infoSurface { max-width: 36rem; }
+.infoBody { display: grid; gap: var(--spacing-xl); padding-bottom: var(--spacing-md); }
+.infoSection { display: grid; gap: var(--spacing-md); min-width: 0; }
+.infoSection + .infoSection { padding-top: var(--spacing-lg); border-top: 1px solid var(--chat-line, color-mix(in srgb, var(--color-border) 26%, transparent)); }
+.infoHeading { margin: 0; color: var(--color-secondary); font-family: var(--typography-heading-font-family); font-size: 1rem; font-weight: 600; }
+.infoTools form label { flex: 1 1 12rem; }

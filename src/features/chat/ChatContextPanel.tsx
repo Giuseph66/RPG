@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { BookOpenTextIcon, BrainIcon, CaretDownIcon, IdentificationCardIcon, LockSimpleIcon, MagnifyingGlassIcon, PlusIcon, ScrollIcon } from "@phosphor-icons/react";
+import { BookOpenTextIcon, BrainIcon, CaretDownIcon, CheckIcon, IdentificationCardIcon, LockSimpleIcon, MagnifyingGlassIcon, PlusIcon, ScrollIcon } from "@phosphor-icons/react";
 import type { ChatService } from "@application/chat/service";
 import type { ChatMemory, ChatScope } from "@application/ports/chat-agent";
 import styles from "./ChatContextPanel.module.css";
@@ -63,8 +63,11 @@ export function ChatContextPanel({ service, uid, scope, options, locked, onScope
       <div className={styles.toggles}>
         {SOURCES.map((source) => (
           <label key={source.key} className={styles.toggle}>
-            <input type="checkbox" checked={scope[source.key]} onChange={(event) => onScope({ ...scope, [source.key]: event.currentTarget.checked })} />
-            <span aria-hidden="true">{source.icon}</span>{source.label}
+            <input type="checkbox" role="switch" checked={scope[source.key]} onChange={(event) => onScope({ ...scope, [source.key]: event.currentTarget.checked })} />
+            <span className={styles.toggleIcon} aria-hidden="true">{source.icon}</span>
+            <span className={styles.toggleLabel}>{source.label}</span>
+            <span className={styles.toggleState} aria-hidden="true">{scope[source.key] ? "Ligado" : "Desligado"}</span>
+            <span className={styles.switch} aria-hidden="true"><span><CheckIcon size={12} weight="bold" /></span></span>
           </label>
         ))}
       </div>

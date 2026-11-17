@@ -1,3 +1,5 @@
+/* 0 = bars shown, 1 = folded away. A registered number so one transition drives every dependent size in sync. */
+@property --chrome-collapse { syntax: "<number>"; inherits: true; initial-value: 0; }
 .appShell { --app-bar-height: 4.75rem; min-height: 100vh; background-color: var(--color-background); background-image: radial-gradient(ellipse at 78% 12%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 58%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 84%, transparent), color-mix(in srgb, var(--color-background) 92%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat, repeat-y, repeat; background-position: center top; background-size: 100% 42rem, 100% 100vh, 34rem auto; background-attachment: scroll, scroll, scroll; }
 .header { position: sticky; isolation: isolate; top: 0; z-index: var(--z-sticky); background-color: var(--color-background); background-image: radial-gradient(120% 180% at 3% 0, color-mix(in srgb, var(--color-hp) 15%, transparent), transparent 46%), linear-gradient(180deg, color-mix(in srgb, var(--color-background) 34%, transparent), color-mix(in srgb, var(--color-background) 74%, transparent)), url("../../assets/art/textures/header-stone.webp"); background-repeat: no-repeat; background-position: center; background-size: cover; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent); box-shadow: 0 1px 0 color-mix(in srgb, var(--color-primary) 12%, transparent), 0 10px 24px rgba(0, 0, 0, .45); }
 .headerInner { position: relative; z-index: 1; box-sizing: border-box; min-height: var(--app-bar-height); width: 100%; margin: 0; padding: max(var(--spacing-sm), env(safe-area-inset-top)) clamp(var(--spacing-lg), 2.4vw, 2.75rem) var(--spacing-sm); display: flex; align-items: center; gap: var(--spacing-lg); }
@@ -101,6 +103,14 @@
   .navigation[data-dice-hidden] .navDice .navDiceMark { rotate: 180deg; scale: .55; transition: rotate var(--dice-motion) var(--dice-sink), scale var(--dice-motion) var(--dice-sink); }
   .nav-journey { transition: padding-top var(--motion-transition) var(--motion-easing); }
   .navigation[data-dice-hidden] .nav-journey { padding-top: .35rem; transition-delay: calc(var(--motion-transition) * 1.5); }
+  /* Immersive routes (chat): the app bar slides up and the bottom nav slides down, and the content grows into the space. */
+  .appShell { transition: --chrome-collapse calc(var(--motion-transition) * 1.6) var(--motion-easing); }
+  .appShell[data-immersive] { --chrome-collapse: 1; }
+  .header { transform: translateY(calc(-100% * var(--chrome-collapse))); }
+  .navigation { transform: translateY(calc(100% * var(--chrome-collapse))); }
+  .shellBody { margin-top: calc(-1 * (var(--app-bar-height) + 1px) * var(--chrome-collapse)); padding-bottom: calc((var(--size-nav-height) + env(safe-area-inset-bottom)) * (1 - var(--chrome-collapse)) + var(--spacing-xl)); }
+  /* Once folded, take the bars out of sight and out of the tab order. */
+  .appShell[data-immersive] .header, .appShell[data-immersive] .navigation { visibility: hidden; transition: visibility 0s linear calc(var(--motion-transition) * 1.6); }
   .main { padding: var(--spacing-xl) var(--spacing-md); }
 }
 @media (max-width: 420px) {

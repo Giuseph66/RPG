@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { InlineStatus } from "@components/ui";
 import { primaryRouteFor } from "@app/routes";
 import { DiceOverlay } from "@features/dice";
+import { ShellChromeContext } from "./chrome-context";
 import { Header } from "./Header";
 import { OverlayHost } from "./OverlayHost";
 import { PrimaryNavigation } from "./PrimaryNavigation";
@@ -38,6 +39,12 @@ export function AppShell({
   const mainRef = useRef<HTMLElement>(null);
   const hasMountedRef = useRef(false);
   const routeKey = `${route.path}:${route.kind}`;
+  /** The chat is immersive: on small screens the app bar and bottom nav fold away until the user asks for them. */
+  const immersiveRoute = route.kind === "chat";
+  const [barsShown, setBarsShown] = useState(false);
+  useEffect(() => { setBarsShown(false); }, [routeKey]);
+  const collapsed = immersiveRoute && !barsShown;
+  const chrome = useMemo(() => ({ supported: immersiveRoute, collapsed, setCollapsed: (value: boolean) => setBarsShown(!value) }), [immersiveRoute, collapsed]);
 
   useEffect(() => {
     if (!hasMountedRef.current) {
@@ -63,7 +70,8 @@ export function AppShell({
   };
 
   return (
-    <div className={styles.appShell}>
+    <ShellChromeContext.Provider value={chrome}>
+    <div className={styles.appShell} data-immersive={collapsed || undefined}>
       <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
       <Header session={character} campaign={campaign} campaignRole={campaignRole} connection={connection} route={route} navigate={navigate} onSelectCharacter={onSelectCharacter} />
       <div className={styles.shellBody}>
@@ -82,5 +90,6 @@ export function AppShell({
       </div>
       <OverlayHost>{diceOverlayController ? <DiceOverlay controller={diceOverlayController} settingsStore={settingsStore} /> : null}</OverlayHost>
     </div>
+    </ShellChromeContext.Provider>
   );
 }

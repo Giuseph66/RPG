@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { ArrowUp, ChatsCircle, Eye, Microphone, NotePencil, SpeakerHigh, Stop, X } from "@phosphor-icons/react";
-import { Button, InlineStatus } from "@components/ui";
+import { ArrowUp, CaretUp, ChatsCircle, Eye, Info, List, Microphone, NotePencil, SpeakerHigh, Stop, X } from "@phosphor-icons/react";
+import { AppModal, BottomSheet, Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
+import { useShellChrome } from "@components/layout/chrome-context";
 import { useChat } from "./use-chat";
 import { useChatVoice } from "./use-chat-voice";
 import { ChatContextPanel } from "./ChatContextPanel";
@@ -25,6 +26,9 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
   const voice = useChatVoice((text) => setDraft((previous) => (previous + " " + text).trim().slice(0, 12000)), setError);
   const canChat = Boolean(service && uid);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const chrome = useShellChrome();
+  const [compact, setCompact] = useState(() => typeof window !== "undefined" && Boolean(window.matchMedia?.("(max-width: 767px)").matches));
   const [search, setSearch] = useState("");
   const [historyFilter, setHistoryFilter] = useState("active");
   const [renameTitle, setRenameTitle] = useState("");
@@ -36,6 +40,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
   const readOnly = Boolean(activeConversation?.archived || activeConversation?.deleted);
   const filteredConversations = conversations.filter((item) => historyFilter === "trash" ? item.deleted : historyFilter === "archived" ? item.archived && !item.deleted : !item.archived && !item.deleted).filter((item) => `${item.title} ${item.preview}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")));
   const lastMessage = messages.at(-1);
+  const lastAnswer = [...messages].reverse().find((message) => message.role === "assistant");
   const setup: { readonly title: string; readonly text: string; readonly action?: string; readonly onAction?: () => void } | undefined = !uid
     ? { title: "Entre para consultar o Oráculo", text: "Suas conversas ficam guardadas na sua conta.", action: "Entrar na conta", onAction: onOpenAccount }
     : !service
@@ -43,11 +48,20 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
       : undefined;
 
   useEffect(() => {
+    const query = window.matchMedia?.("(max-width: 767px)");
+    if (!query) return;
+    const update = () => setCompact(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
     const transcript = transcriptRef.current;
     if (transcript) transcript.scrollTop = transcript.scrollHeight;
   }, [messages, partial, trace]);
 
   useEffect(() => { setRenameTitle(activeTitle); setDeleteReview(false); }, [activeId, activeTitle]);
+  useEffect(() => { voice.stopReading(); }, [activeId, voice.stopReading]);
 
   useEffect(() => {
     const textarea = composerRef.current;
@@ -79,6 +93,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
   const sendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     voice.stop();
+    voice.stopReading();
     void send();
   };
 
@@ -93,6 +108,20 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
     setDraft(suggestion);
     composerRef.current?.focus();
   };
+
+  const chatInfo = canChat ? <div className={styles.infoBody}>
+          <section className={styles.infoSection} aria-labelledby="chat-info-context">
+            <h3 id="chat-info-context" className={styles.infoHeading}>Contexto do Oráculo</h3>
+            <ChatContextPanel service={service} uid={uid} scope={scope} options={options} locked={Boolean(activeId) || sending || Boolean(busyAction)} onScope={setScope} onPrompt={(text) => { setInfoOpen(false); applySuggestion(text); }} onError={setError} />
+          </section>
+          {activeId ? <section className={[styles.conversationTools, styles.infoSection].join(" ")} aria-labelledby="chat-info-conversation"><h3 id="chat-info-conversation" className={styles.infoHeading}>Esta conversa</h3><div className={styles.infoTools}>
+            <form onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}><label>Título<input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label><button type="submit" disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Renomear</button></form>
+            <button type="button" onClick={() => void exportConversation()}>Exportar conversa</button>
+            <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}>{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
+            {activeConversation?.deleted ? <button type="button" onClick={() => void manageConversation({ deleted: false })}>Restaurar da lixeira</button> : <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => setDeleteReview(true)}>Mover para lixeira</button>}
+            {deleteReview ? <div><p>Mover esta conversa para a lixeira? Você poderá restaurá-la.</p><button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ deleted: true })}>Confirmar</button><button type="button" onClick={() => setDeleteReview(false)}>Cancelar</button></div> : null}
+          </div></section> : null}
+        </div> : null;
 
   return (
     <section className={styles.screen} aria-labelledby="chat-title" data-history-open={historyOpen || undefined}>
@@ -140,6 +169,16 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
             <h1 id="chat-title">Oráculo</h1>
             <p>{activeTitle}</p>
           </div>
+          {chrome.supported ? (
+            <button type="button" className={styles.iconButton} onClick={() => chrome.setCollapsed(!chrome.collapsed)} aria-label={chrome.collapsed ? "Mostrar menu do app" : "Esconder menu do app"} aria-pressed={!chrome.collapsed} title={chrome.collapsed ? "Mostrar menu" : "Esconder menu"} data-mobile-only>
+              {chrome.collapsed ? <List size={22} weight="bold" aria-hidden="true" /> : <CaretUp size={22} weight="bold" aria-hidden="true" />}
+            </button>
+          ) : null}
+          {canChat ? (
+            <button type="button" className={styles.iconButton} onClick={() => setInfoOpen(true)} aria-label="Informações da conversa" aria-haspopup="dialog" title="Informações da conversa">
+              <Info size={22} weight="duotone" aria-hidden="true" />
+            </button>
+          ) : null}
           <button
             type="button"
             className={styles.iconButton}
@@ -153,16 +192,6 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
           </button>
         </header>
 
-        {canChat ? <div className={styles.controls}>
-          <ChatContextPanel service={service} uid={uid} scope={scope} options={options} locked={Boolean(activeId) || sending || Boolean(busyAction)} onScope={setScope} onPrompt={applySuggestion} onError={setError} />
-          {activeId ? <details className={styles.conversationTools}><summary><span className={styles.desktopLabel}>Gerenciar conversa</span><span className={styles.mobileLabel}>Conversa</span></summary><div>
-            <form onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}><label>Título<input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label><button type="submit" disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Renomear</button></form>
-            <button type="button" onClick={() => void exportConversation()}>Exportar conversa</button>
-            <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}>{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
-            {activeConversation?.deleted ? <button type="button" onClick={() => void manageConversation({ deleted: false })}>Restaurar da lixeira</button> : <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => setDeleteReview(true)}>Mover para lixeira</button>}
-            {deleteReview ? <div><p>Mover esta conversa para a lixeira? Você poderá restaurá-la.</p><button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ deleted: true })}>Confirmar</button><button type="button" onClick={() => setDeleteReview(false)}>Cancelar</button></div> : null}
-          </div></details> : null}
-        </div> : null}
 
         <div ref={transcriptRef} className={styles.transcript} role="log" aria-label={`Conversa: ${activeTitle}`} aria-live="polite">
           {setup && messages.length > 0 ? (
@@ -202,7 +231,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               )}
             </div>
           ) : messages.map((message) => message.role === "assistant" ? (
-            <OracleAnswer key={message.id} content={message.content} time={formatTime(message.createdAt)} trace={message.trace} actions={actions.filter((action) => action.messageId === message.id)} busy={sending || Boolean(busyAction) || readOnly} onAction={(id, decision) => void resolveAction(id, decision)} />
+            <OracleAnswer key={message.id} content={message.content} time={formatTime(message.createdAt)} trace={message.trace} actions={actions.filter((action) => action.messageId === message.id)} busy={sending || Boolean(busyAction) || readOnly} onAction={(id, decision) => void resolveAction(id, decision)} spokenRange={voice.reading?.messageId === message.id ? voice.reading : undefined} />
           ) : (
             <article key={message.id} className={styles.userMessage} aria-label={`Você, ${formatTime(message.createdAt)}`}>
               <p>{message.content}</p>
@@ -231,7 +260,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               disabled={!canChat || sending || readOnly || Boolean(busyAction)}
             />
             {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || sending || readOnly} aria-pressed={voice.listening} onClick={voice.toggleListening} aria-label={voice.listening ? "Parar ditado" : "Ditar mensagem"} title={voice.listening ? "Parar ditado" : "Ditar mensagem"}>{voice.listening ? <Stop size={19} weight="fill" aria-hidden="true" /> : <Microphone size={19} aria-hidden="true" />}</button> : null}
-            {typeof window !== "undefined" && window.speechSynthesis && messages.some((item) => item.role === "assistant") ? <button type="button" className={styles.composerTool} aria-pressed={voice.speaking} onClick={() => voice.readAloud([...messages].reverse().find((item) => item.role === "assistant")!.content)} aria-label={voice.speaking ? "Parar leitura" : "Ouvir resposta"} title={voice.speaking ? "Parar leitura" : "Ouvir resposta"}>{voice.speaking ? <Stop size={19} weight="fill" aria-hidden="true" /> : <SpeakerHigh size={19} aria-hidden="true" />}</button> : null}
+            {typeof window !== "undefined" && window.speechSynthesis && lastAnswer ? <button type="button" className={styles.composerTool} aria-pressed={voice.speaking} onClick={() => voice.readAloud(lastAnswer.content, lastAnswer.id)} aria-label={voice.speaking ? "Parar leitura" : "Ouvir resposta"} title={voice.speaking ? "Parar leitura" : "Ouvir resposta"}>{voice.speaking ? <Stop size={19} weight="fill" aria-hidden="true" /> : <SpeakerHigh size={19} aria-hidden="true" />}</button> : null}
             {sending ? <button type="button" className={styles.sendButton} onClick={cancel} aria-label="Cancelar resposta" title="Cancelar resposta"><Stop size={19} weight="fill" aria-hidden="true" /></button> : <button type="submit" className={styles.sendButton} disabled={!canChat || !options || sending || loading || readOnly || Boolean(busyAction) || voice.listening || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
             </button>}
@@ -239,6 +268,9 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
           <p className={styles.composerHint}>Fontes consultáveis · alterações com confirmação · Enter envia</p>
         </form>
       </div>
+      {compact
+        ? <BottomSheet open={infoOpen} title="Informações da conversa" onClose={() => setInfoOpen(false)} className={styles.infoSurface}>{chatInfo}</BottomSheet>
+        : <AppModal open={infoOpen} title="Informações da conversa" onClose={() => setInfoOpen(false)} className={styles.infoSurface}>{chatInfo}</AppModal>}
     </section>
   );
 }

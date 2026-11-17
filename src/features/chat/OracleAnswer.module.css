@@ -11,6 +11,7 @@
 .body { display: grid; gap: var(--spacing-md); }
 .body > p { margin: 0; color: var(--color-text); font-size: 1.02rem; line-height: 1.65; white-space: pre-line; }
 .body > .suggestion { color: var(--color-text-muted); font-style: italic; }
+.spoken { padding: 0; border-radius: .15rem; background: color-mix(in srgb, var(--color-secondary) 28%, var(--color-surface)); color: var(--color-text); box-shadow: 0 2px 0 var(--color-secondary); }
 
 /* Citation: small superscript number, with a larger invisible hit area. */
 .cite { position: relative; margin: 0 .05rem; padding: 0 .1rem; vertical-align: super; color: var(--color-secondary); background: none; border: 0; font: inherit; font-size: .7rem; font-weight: 700; line-height: 1; cursor: pointer; }
