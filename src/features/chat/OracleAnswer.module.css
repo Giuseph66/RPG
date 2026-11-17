@@ -54,3 +54,23 @@
   .thread { padding-left: 1rem; }
   .body > p { font-size: 1rem; line-height: 1.6; }
 }
+
+.body h3 { margin: .5rem 0; color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1.05rem; }
+.body ul { margin: 0; padding-left: 1.25rem; }
+.body code { overflow-wrap: anywhere; color: var(--color-secondary); }
+.notice { color: var(--color-gold-muted); font-size: .85rem; }
+.actions { display: grid; gap: var(--spacing-md); margin-top: var(--spacing-md); }
+.action { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); }
+.action > span { color: var(--color-text-muted); font-size: .85rem; }
+.action p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.action details { max-width: 100%; }
+.action summary { color: var(--color-secondary); cursor: pointer; }
+.action dl { display: grid; gap: .5rem; max-height: 20rem; overflow: auto; }
+.action dt { color: var(--color-text-muted); font-size: .8rem; }
+.action dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.actionButtons { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); }
+.action button { min-height: var(--size-touch-target); padding: .45rem .8rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-elevated); color: var(--color-text); font: inherit; cursor: pointer; }
+.action button:hover:not(:disabled) { border-color: var(--color-secondary); }
+.action button:disabled { opacity: .5; cursor: default; }
+.action button:focus-visible, .source a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.source a { display: block; width: fit-content; color: var(--color-secondary); }

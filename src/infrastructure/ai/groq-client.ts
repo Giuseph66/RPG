@@ -10,7 +10,7 @@ export function createGroqClient(): ChatClient {
         response = await fetch(CHAT_PROVIDER.baseUrl + "/chat/completions", {
           method: "POST", credentials: "omit", redirect: "error",
           headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: CHAT_PROVIDER.model, messages, stream: true, max_completion_tokens: 4096,
+          body: JSON.stringify({ model: CHAT_PROVIDER.model, messages, stream: true, max_completion_tokens: 2048,
             ...(tools.length ? { tools, tool_choice: "auto", parallel_tool_calls: false } : {}) }),
           signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
         });

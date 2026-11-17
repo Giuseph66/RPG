@@ -28,6 +28,7 @@ export interface ChatAction {
   readonly input: Record<string, unknown>;
   readonly scope: ChatScope;
   readonly expectedRevision?: number;
+  readonly review?: string;
   readonly status: "pending" | "executing" | "done" | "rejected" | "failed";
   readonly result?: string;
   readonly undo?: Record<string, unknown>;
@@ -39,7 +40,7 @@ export interface ChatToolResult {
   readonly proposal?: Omit<ChatAction, "id" | "messageId" | "status" | "createdAt">;
 }
 export interface ChatAgent {
-  options(uid: string): Promise<{ readonly characters: readonly { id: string; name: string }[]; readonly campaigns: readonly { id: string; name: string }[]; readonly defaults: ChatScope }>;
+  options(uid: string): Promise<{ readonly characters: readonly { id: string; name: string; campaignId?: string }[]; readonly campaigns: readonly { id: string; name: string }[]; readonly defaults: ChatScope }>;
   context(uid: string, scope: ChatScope): Promise<{ readonly scope: ChatScope; readonly text: string }>;
   tools(scope: ChatScope): readonly ChatToolDefinition[];
   invoke(uid: string, scope: ChatScope, name: string, input: Record<string, unknown>): Promise<ChatToolResult>;

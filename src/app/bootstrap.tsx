@@ -76,6 +76,7 @@ import { createCampaignLogRecorder, type CampaignLogRecorder } from "@applicatio
 import type { CampaignLogPort } from "@application/ports/campaign-log";
 import { AppRouter } from "./router";
 import { createChatService } from "@application/chat/service";
+import { createGameChatAgent } from "@application/chat/game-agent";
 import { createFirestoreChatRepository } from "@infrastructure/cloud/firebase/chat-repository";
 import { createGroqClient } from "@infrastructure/ai/groq-client";
 
@@ -396,13 +397,14 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
   );
   // Criado depois que o pack carrega; até lá as gravações não entram no histórico da mesa.
   let campaignLogRecorder: CampaignLogRecorder | undefined;
+  const diceHistoryRepository = new IndexedDbDiceHistoryRepository(database, clock);
   const services = createApplicationServices({
     onCharacterCommitted: (previous, next) => { void campaignLogRecorder?.recordCharacterChange(previous, next); },
     ownerUid: () => { const uid = auth?.currentSession()?.uid; return uid ? asAccountId(uid) : undefined; },
     characterRepository,
     campaignRepository,
     settingsRepository: new LocalStorageSettingsRepository(options.settingsStorage),
-    diceHistoryRepository: new IndexedDbDiceHistoryRepository(database, clock),
+    diceHistoryRepository,
     unitOfWork: new IndexedDbUnitOfWork(database),
     clock,
     idGenerator,
@@ -757,8 +759,15 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
     const definitionMaps: Readonly<Partial<Record<EntityType, ReadonlyMap<EntityId, { readonly name: string }>>>> = {
       race: optionalNames((supplement) => supplement.races, activePack.races), subrace: optionalNames((supplement) => supplement.subraces, activePack.subraces), class: activePack.classes, subclass: optionalNames((supplement) => supplement.subclasses, activePack.subclasses), background: activePack.backgrounds, feat: activePack.feats, feature: optionalNames((supplement) => supplement.features, activePack.features), resource: optionalNames((supplement) => supplement.resources, activePack.resources), condition: activePack.conditions, equipment: activePack.equipment, spell: optionalNames((supplement) => supplement.spells, activePack.spells),
     };
+    const chatRepository = firebaseApp && cloud ? createFirestoreChatRepository(() => cloud.getFirestoreClient(firebaseApp).firestore) : undefined;
+    const chat = chatRepository ? createChatService(chatRepository, createGroqClient(), () => auth?.currentSession()?.uid, createGameChatAgent({
+      services, repository: chatRepository, characters: characterRepository, campaigns: campaignRepository,
+      dice: diceHistoryRepository, compendium: compendiumService, loadCatalog: loadCompendiumCatalog,
+      session, creatures: creatureService, pack: activePack, ruleContext: STATIC_RULE_CONTEXT,
+      ids: idGenerator, clock, currentUid: () => auth?.currentSession()?.uid,
+    })) : undefined;
     const registry = createFeatureRegistry({
-      chat: firebaseApp && cloud ? createChatService(createFirestoreChatRepository(() => cloud.getFirestoreClient(firebaseApp).firestore), createGroqClient(), () => auth?.currentSession()?.uid) : undefined,
+      chat,
       services,
       compendiumService,
       loadCompendiumCatalog,

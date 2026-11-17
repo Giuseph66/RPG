@@ -16,7 +16,7 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
   const memoryRef = (uid: string, memory: ChatMemory) => memory.visibility === "private"
     ? doc(getFirestore(), "users", uid, "chatMemories", memory.id)
     : doc(getFirestore(), "campaigns", memory.campaignId!, "oracleMemories", memory.id);
-  const toConversation = (id: string, data: Record<string, unknown>): ChatConversation => ({ id, title: String(data.title), preview: String(data.preview ?? ""), updatedAt: millis(data.updatedAt), ...(data.scope ? { scope: data.scope as ChatScope } : {}), archived: data.archived === true, deleted: data.deleted === true });
+  const toConversation = (id: string, data: Record<string, unknown>): ChatConversation => ({ id, title: String(data.title), preview: String(data.preview ?? ""), updatedAt: millis(data.updatedAt), ...(data.scope ? { scope: data.scope as ChatScope } : {}), archived: data.archived === true, deleted: data.deleted === true, summary: typeof data.summary === "string" ? data.summary : "", summarizedThrough: Number(data.summarizedThrough ?? 0) });
   const toMessage = (item: { id: string; data(): Record<string, unknown> }) => {
     const data = item.data();
     return { id: item.id, role: data.role === "assistant" ? "assistant" as const : "user" as const, content: String(data.content ?? ""), createdAt: millis(data.createdAt),
@@ -58,7 +58,7 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
     },
     async createConversation(uid, title, scope) {
       const reference = doc(conversationsRef(uid));
-      await setDoc(reference, clean({ ownerUid: uid, title: title.slice(0, 80), preview: "", ...(scope ? { scope } : {}), createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+      await setDoc(reference, { ownerUid: uid, title: title.slice(0, 80), preview: "", ...(scope ? { scope: clean(scope) } : {}), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       return reference.id;
     },
     async getConversation(uid, id) {
@@ -73,6 +73,9 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
         if (patch.title !== undefined && (!patch.title.trim() || patch.title.length > 80)) throw new Error("Use um título de até 80 caracteres.");
         tx.update(ref, { ...patch, updatedAt: serverTimestamp() });
       });
+    },
+    async saveSummary(uid, id, summary, through) {
+      await setDoc(conversationRef(uid, id), { summary: summary.slice(0, 8000), summarizedThrough: through, updatedAt: serverTimestamp() }, { merge: true });
     },
     async appendMessage(uid, id, role, content, metadata = {}) {
       const reference = metadata.id ? doc(messagesRef(uid, id), metadata.id) : doc(messagesRef(uid, id));

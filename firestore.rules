@@ -6,6 +6,21 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function validChatScope(scope) {
+      return scope is map && scope.keys().hasOnly(['characterId', 'campaignId', 'rules', 'sheet', 'campaign', 'memory', 'master']) &&
+        scope.rules is bool && scope.sheet is bool && scope.campaign is bool && scope.memory is bool &&
+        (!('characterId' in scope) || (scope.characterId is string && scope.characterId.size() <= 160)) &&
+        (!('campaignId' in scope) || (scope.campaignId is string && scope.campaignId.size() <= 160)) &&
+        (!('master' in scope) || scope.master is bool);
+    }
+    function validChatMemory(data) {
+      return data.keys().hasOnly(['id', 'title', 'body', 'campaignId', 'characterId', 'visibility', 'updatedAt', 'ownerUid']) &&
+        data.id is string && data.ownerUid == request.auth.uid &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 120 &&
+        data.body is string && data.body.size() > 0 && data.body.size() <= 8000 && data.updatedAt is string &&
+        (!('campaignId' in data) || data.campaignId is string) &&
+        (!('characterId' in data) || data.characterId is string);
+    }
     function campaignExists(id) {
       return exists(/databases/$(database)/documents/campaigns/$(id));
     }
@@ -82,14 +97,19 @@ service cloud.firestore {
 
       match /chatConversations/{conversationId} {
         function validConversation(data) {
-          return data.keys().hasOnly(['ownerUid', 'title', 'preview', 'createdAt', 'updatedAt']) &&
+          return data.keys().hasOnly(['ownerUid', 'title', 'preview', 'createdAt', 'updatedAt', 'scope', 'archived', 'deleted', 'summary', 'summarizedThrough']) &&
             data.ownerUid == uid && data.title is string && data.title.size() > 0 && data.title.size() <= 80 &&
             data.preview is string && data.preview.size() <= 160 && data.createdAt is timestamp &&
+            (!('scope' in data) || validChatScope(data.scope)) &&
+            (!('archived' in data) || data.archived is bool) && (!('deleted' in data) || data.deleted is bool) &&
+            (!('summary' in data) || (data.summary is string && data.summary.size() <= 8000)) &&
+            (!('summarizedThrough' in data) || data.summarizedThrough is number) &&
             data.updatedAt == request.time;
         }
         allow read: if self(uid);
         allow create: if self(uid) && validConversation(request.resource.data) && request.resource.data.createdAt == request.time;
         allow update: if self(uid) && validConversation(request.resource.data) &&
+          (!('scope' in resource.data) || request.resource.data.scope == resource.data.scope) &&
           request.resource.data.createdAt == resource.data.createdAt && request.resource.data.ownerUid == resource.data.ownerUid;
         allow delete: if false;
 
@@ -97,12 +117,46 @@ service cloud.firestore {
           allow read: if self(uid);
           allow create: if self(uid) &&
             exists(/databases/$(database)/documents/users/$(uid)/chatConversations/$(conversationId)) &&
-            request.resource.data.keys().hasOnly(['role', 'content', 'createdAt']) &&
+            request.resource.data.keys().hasOnly(['role', 'content', 'createdAt', 'trace', 'turnId', 'attachments']) &&
+            (!('trace' in request.resource.data) || (request.resource.data.role == 'assistant' && request.resource.data.trace is map)) &&
+            (!('turnId' in request.resource.data) || request.resource.data.turnId is string) &&
+            (!('attachments' in request.resource.data) || (request.resource.data.role == 'user' && request.resource.data.attachments is list && request.resource.data.attachments.size() <= 3)) &&
             request.resource.data.role in ['user', 'assistant'] &&
             request.resource.data.content is string && request.resource.data.content.size() > 0 &&
             request.resource.data.content.size() <= 100000 && request.resource.data.createdAt == request.time;
           allow update, delete: if false;
         }
+
+        match /actions/{actionId} {
+          function validAction(data) {
+            return data.keys().hasOnly(['id', 'messageId', 'name', 'label', 'input', 'scope', 'expectedRevision', 'review', 'status', 'result', 'undo', 'createdAt', 'updatedAt']) &&
+              data.id == actionId && data.messageId is string && data.name is string && data.label is string &&
+              data.input is map && validChatScope(data.scope) &&
+              data.status in ['pending', 'executing', 'done', 'rejected', 'failed'] &&
+              data.createdAt is timestamp && data.updatedAt == request.time &&
+              (!('expectedRevision' in data) || data.expectedRevision is number) &&
+              (!('review' in data) || (data.review is string && data.review.size() <= 4000)) &&
+              (!('result' in data) || (data.result is string && data.result.size() <= 8000)) &&
+              (!('undo' in data) || data.undo is map);
+          }
+          allow read: if self(uid);
+          allow create: if self(uid) && validAction(request.resource.data) &&
+            request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time &&
+            existsAfter(/databases/$(database)/documents/users/$(uid)/chatConversations/$(conversationId)/messages/$(request.resource.data.messageId));
+          allow update: if self(uid) && validAction(request.resource.data) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'result', 'undo', 'updatedAt']) &&
+            ((resource.data.status == 'pending' && request.resource.data.status == 'executing') ||
+             (resource.data.status == 'done' && 'undo' in resource.data && request.resource.data.status == 'executing') ||
+             (resource.data.status == 'executing' && request.resource.data.status in ['done', 'failed', 'rejected']));
+          allow delete: if false;
+        }
+      }
+
+      match /chatMemories/{memoryId} {
+        allow read: if self(uid);
+        allow create, update: if self(uid) && validChatMemory(request.resource.data) &&
+          request.resource.data.id == memoryId && request.resource.data.visibility == 'private';
+        allow delete: if self(uid);
       }
 
       match /characters/{characterId} {
@@ -208,6 +262,15 @@ service cloud.firestore {
           existsAfter(/databases/$(database)/documents/campaigns/$(campaignId)/members/$(request.auth.uid)) &&
           getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/members/$(request.auth.uid)).data.inviteLinkId == tokenHash);
         allow delete: if false;
+      }
+
+      match /oracleMemories/{memoryId} {
+        allow get, list: if campaignOwner(campaignId) ||
+          (campaignMember(campaignId) && resource.data.visibility == 'party');
+        allow create, update: if campaignOwner(campaignId) && validChatMemory(request.resource.data) &&
+          request.resource.data.id == memoryId && request.resource.data.campaignId == campaignId &&
+          request.resource.data.visibility in ['party', 'master'];
+        allow delete: if campaignOwner(campaignId);
       }
 
       match /members/{memberUid} {

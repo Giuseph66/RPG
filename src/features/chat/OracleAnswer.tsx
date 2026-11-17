@@ -1,61 +1,37 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import type { ChatAction, ChatSource as OracleSource, ChatSourceKind as OracleSourceKind, ChatToolKind as OracleToolKind, ChatToolTrace as OracleToolCall, ChatTrace as OracleTrace } from "@application/ports/chat-agent";
 import { BookOpenText, CaretDown, DiceFive, Eye, IdentificationCard, Scroll, WarningCircle } from "@phosphor-icons/react";
 import styles from "./OracleAnswer.module.css";
 
-/** Optional answer trace (reasoning, tools, sources). The chat backend does not produce it yet. */
-export type OracleSourceKind = "rule" | "sheet" | "journal" | "suggestion";
-export type OracleToolKind = "rules" | "sheet" | "journal" | "dice";
+export type { OracleSource, OracleSourceKind, OracleToolKind, OracleToolCall, OracleTrace };
 
-export interface OracleToolCall {
-  readonly id: string;
-  readonly kind: OracleToolKind;
-  readonly label: string;
-  readonly input: string;
-  readonly output: string;
-  readonly status: "ok" | "empty" | "error";
-  readonly durationMs?: number;
-}
-
-export interface OracleSource {
-  readonly id: number;
-  readonly kind: OracleSourceKind;
-  readonly title: string;
-  readonly locator: string;
-  readonly excerpt: string;
-}
-
-export interface OracleTrace {
-  readonly model?: string;
-  readonly durationMs?: number;
-  readonly tokens?: number;
-  readonly reasoning?: { readonly durationMs: number; readonly steps: readonly string[] };
-  readonly tools?: readonly OracleToolCall[];
-  readonly sources?: readonly OracleSource[];
-}
-
-const SOURCE_LABEL: Record<OracleSourceKind, string> = { rule: "Regra", sheet: "Ficha", journal: "Diário", suggestion: "Sugestão" };
+const SOURCE_LABEL: Record<OracleSourceKind, string> = { rule: "Regra", sheet: "Ficha", journal: "Diário", campaign: "Campanha", session: "Sessão", memory: "Memória", attachment: "Arquivo", suggestion: "Sugestão" };
 const TOOL_ICON: Record<OracleToolKind, ReactNode> = {
   rules: <BookOpenText size={15} weight="duotone" />,
   sheet: <IdentificationCard size={15} weight="duotone" />,
   journal: <Scroll size={15} weight="duotone" />,
   dice: <DiceFive size={15} weight="duotone" />,
+  campaign: <Scroll size={15} weight="duotone" />,
+  session: <Scroll size={15} weight="duotone" />,
+  memory: <BookOpenText size={15} weight="duotone" />,
+  action: <IdentificationCard size={15} weight="duotone" />,
 };
 
 const seconds = (ms: number) => `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /** Answer first; reasoning, tools and sources stay folded behind one quiet line. */
-export function OracleAnswer({ content, time, trace }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace }) {
+export function OracleAnswer({ content, time, trace, actions = [], busy = false, onAction, streaming = false }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace; readonly actions?: readonly ChatAction[]; readonly busy?: boolean; readonly onAction?: (id: string, decision: "confirm" | "reject" | "undo") => void; readonly streaming?: boolean }) {
   const prefix = useId();
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [highlighted, setHighlighted] = useState<number>();
+  const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
   const sources = trace?.sources ?? [];
   const tools = trace?.tools ?? [];
-  const steps = trace?.reasoning?.steps ?? [];
   const sourceIds = new Set(sources.map((source) => source.id));
   const summary = [tools.length ? plural(tools.length, "ferramenta", "ferramentas") : "", sources.length ? plural(sources.length, "fonte", "fontes") : ""].filter(Boolean).join(" · ");
-  const hasTrace = Boolean(steps.length || tools.length || sources.length);
+  const hasTrace = Boolean(tools.length || sources.length || trace?.model);
 
   useEffect(() => {
     if (highlighted === undefined) return;
@@ -69,7 +45,9 @@ export function OracleAnswer({ content, time, trace }: { readonly content: strin
     window.requestAnimationFrame(() => document.getElementById(`${prefix}-src-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
   };
 
-  const renderInline = (text: string) => text.split(/(\[\d+\])/g).map((part, index) => {
+  const renderInline = (text: string): ReactNode[] => text.split(/(\[\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`")) return <code key={index}>{part.slice(1, -1)}</code>;
     const match = /^\[(\d+)\]$/.exec(part);
     const id = match ? Number(match[1]) : undefined;
     if (id === undefined || !sourceIds.has(id)) return part;
@@ -85,17 +63,34 @@ export function OracleAnswer({ content, time, trace }: { readonly content: strin
         <span className={styles.seal} aria-hidden="true"><Eye size={15} weight="duotone" /></span>
         <strong>Oráculo</strong>
         <time>{time}</time>
+        {streaming ? <span role="status">Respondendo…</span> : null}
       </header>
 
       <div className={styles.thread}>
         <div className={styles.body}>
           {paragraphs.map((paragraph) => {
+            if (/^#{1,4}\s/.test(paragraph)) return <h3 key={paragraph}>{renderInline(paragraph.replace(/^#{1,4}\s+/, ""))}</h3>;
+            const lines = paragraph.split("\n");
+            if (lines.every((line) => /^\s*[-*]\s+/.test(line))) return <ul key={paragraph}>{lines.map((line, i) => <li key={i}>{renderInline(line.replace(/^\s*[-*]\s+/, ""))}</li>)}</ul>;
             const suggestion = /^sugest[aã]o:\s*/i.exec(paragraph);
             return suggestion
               ? <p key={paragraph} className={styles.suggestion}>{renderInline(paragraph.slice(suggestion[0].length))}</p>
               : <p key={paragraph}>{renderInline(paragraph)}</p>;
           })}
         </div>
+
+        {trace?.notices?.map((notice) => <p key={notice} className={styles.notice}>{notice}</p>)}
+        {actions.length ? <section className={styles.actions} aria-label="Ações propostas">
+          {actions.map((action) => <div key={action.id} className={styles.action}>
+            <strong>{action.label}</strong>
+            <span>{({ pending: "Aguardando sua confirmação", executing: "Em execução — confira o estado antes de repetir", done: "Concluída", rejected: "Recusada ou desfeita", failed: "Falhou — confira o estado no app" } as const)[action.status]}</span>
+            {action.review ? <p>{action.review}</p> : null}
+            <details><summary>Revisar proposta</summary><dl>{Object.entries(action.input).filter(([key]) => !/Id$/.test(key) && !key.startsWith("_") && key !== "kind").map(([key, value]) => <div key={key}><dt>{({ operation: "Operação", title: "Título", body: "Conteúdo", quantity: "Quantidade", amount: "Quantidade", value: "Valor", targetArmorClass: "CA do alvo", formula: "Dados", check: "Teste", mode: "Modo", key: "Atributo ou perícia", reason: "Origem", visibility: "Visibilidade", hitDice: "Dados de Vida", ateAndDrank: "Comeu e bebeu", severity: "Severidade", sessionNumber: "Sessão", encounter: "Iniciativa", spellTargetContext: "Alvos", spellComponentContext: "Componentes", spellIds: "Magias", preparationTimeConfirmed: "Tempo de preparação confirmado", attendance: "Presença" } as Record<string, string>)[key] ?? key}</dt><dd>{typeof value === "string" ? value : JSON.stringify(value, null, 2)}</dd></div>)}</dl></details>
+            {action.result ? <p>{action.result}</p> : null}
+            {action.status === "pending" && onAction ? <><label><input type="checkbox" checked={reviewed.has(action.id)} disabled={busy} onChange={(event) => { const checked = event.currentTarget.checked; setReviewed((previous) => { const next = new Set(previous); if (checked) next.add(action.id); else next.delete(action.id); return next; }); }} /> Revisei a proposta e autorizo esta ação.</label><div className={styles.actionButtons}><button type="button" disabled={busy || !reviewed.has(action.id)} onClick={() => onAction(action.id, "confirm")}>Confirmar ação</button><button type="button" disabled={busy} onClick={() => onAction(action.id, "reject")}>Recusar</button></div></> : null}
+            {action.status === "done" && action.undo && onAction ? <button type="button" disabled={busy} onClick={() => onAction(action.id, "undo")}>Desfazer alteração</button> : null}
+          </div>)}
+        </section> : null}
 
         {hasTrace ? (
           <details ref={detailsRef} className={styles.trace}>
@@ -106,13 +101,6 @@ export function OracleAnswer({ content, time, trace }: { readonly content: strin
             </summary>
 
             <div className={styles.traceBody}>
-              {steps.length ? (
-                <section>
-                  <h3>Raciocínio{trace?.reasoning ? <span> · {seconds(trace.reasoning.durationMs)}</span> : null}</h3>
-                  <ol className={styles.steps}>{steps.map((step) => <li key={step}>{step}</li>)}</ol>
-                </section>
-              ) : null}
-
               {tools.length ? (
                 <section>
                   <h3>Ferramentas</h3>
@@ -137,6 +125,8 @@ export function OracleAnswer({ content, time, trace }: { readonly content: strin
                         <span className={styles.rowText}>
                           <strong>{source.title}</strong> <span>{SOURCE_LABEL[source.kind]} · {source.locator}</span>
                           <q>{source.excerpt}</q>
+                          {source.updatedAt ? <span>Atualizado: {new Date(source.updatedAt).toLocaleString("pt-BR")}</span> : null}
+                          {source.href?.startsWith("/") && !source.href.startsWith("//") ? <a href={source.href}>Abrir fonte no aplicativo</a> : null}
                         </span>
                       </li>
                     ))}

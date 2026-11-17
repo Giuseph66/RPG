@@ -20,6 +20,8 @@ export interface ChatConversation {
   readonly scope?: ChatScope;
   readonly archived?: boolean;
   readonly deleted?: boolean;
+  readonly summary?: string;
+  readonly summarizedThrough?: number;
 }
 
 export interface ChatCredentialSummary {
@@ -50,6 +52,7 @@ export interface ChatRepository {
   allMessages(uid: string, conversationId: string): Promise<readonly ChatMessage[]>;
   getConversation(uid: string, conversationId: string): Promise<ChatConversation>;
   updateConversation(uid: string, conversationId: string, patch: { readonly title?: string; readonly archived?: boolean; readonly deleted?: boolean }): Promise<void>;
+  saveSummary(uid: string, conversationId: string, summary: string, through: number): Promise<void>;
   watchActions(uid: string, conversationId: string): ChatWatch<readonly ChatAction[]>;
   claimAction(uid: string, conversationId: string, actionId: string, undo?: boolean): Promise<ChatAction>;
   finishAction(uid: string, conversationId: string, actionId: string, status: ChatAction["status"], result: string, undo?: Record<string, unknown>): Promise<void>;

@@ -84,7 +84,9 @@
 .composerField textarea:disabled { opacity: .65; }
 
 /* ---------- Conversation ---------- */
-.conversation { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.conversation { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.conversationHeader, .composer { flex-shrink: 0; }
+.transcript { flex: 1; min-height: 0; }
 .conversationHeader { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md) var(--spacing-xl); border-bottom: 1px solid var(--chat-line); }
 .oracleSeal, .emptySeal {
   display: grid;
@@ -212,4 +214,45 @@
     box-shadow: 0 -10px 24px rgba(0, 0, 0, .35);
   }
   .composerField { padding-left: .85rem; background: var(--color-background); }
+}
+
+.controls { max-height: 38%; overflow: auto; padding: .3rem var(--spacing-md); border-bottom: 1px solid var(--chat-line); }
+.contextPanel, .conversationTools { color: var(--color-text-muted); font-size: .85rem; }
+.contextPanel > summary, .conversationTools > summary { padding: .45rem 0; color: var(--color-secondary); cursor: pointer; }
+.contextBody { display: grid; gap: var(--spacing-sm); padding-bottom: var(--spacing-md); }
+.contextBody p { margin: .3rem 0; }
+.contextSelectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-sm); }
+.contextSelectors label, .historyFilters label, .conversationTools label { display: grid; gap: .2rem; min-width: 0; }
+.contextSelectors select, .historyFilters input, .historyFilters select, .conversationTools input { width: 100%; min-width: 0; min-height: var(--size-touch-target); padding: .4rem .5rem; color: var(--color-text); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; }
+.contextBody fieldset { margin: 0; padding: .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.shareOptions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.shareOptions label { display: inline-flex; align-items: center; gap: .3rem; min-height: 2rem; }
+.shareOptions input { accent-color: var(--color-primary); }
+.contextBody button, .conversationTools button, .composerTools button, .retryButton, .fileButton { min-height: 2.5rem; padding: .4rem .7rem; color: var(--color-text); background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; font-size: .85rem; cursor: pointer; }
+.contextBody button:hover:not(:disabled), .conversationTools button:hover:not(:disabled), .composerTools button:hover:not(:disabled), .retryButton:hover:not(:disabled), .fileButton:hover { border-color: var(--color-secondary); }
+.contextBody button:disabled, .conversationTools button:disabled, .composerTools button:disabled, .retryButton:disabled { opacity: .5; cursor: default; }
+.controls :focus-visible, .historyFilters :focus-visible, .composerTools :focus-visible, .retryButton:focus-visible, .attachments button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.memory { padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--chat-line); }
+.memory strong, .memory small { display: block; }
+.memory p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.historyFilters { display: grid; gap: .4rem; padding: 0 var(--spacing-md) var(--spacing-md); color: var(--color-text-muted); font-size: .8rem; }
+.conversationTools > div { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-sm); padding-bottom: var(--spacing-sm); }
+.conversationTools form { display: flex; align-items: end; gap: var(--spacing-sm); }
+.composerTools { display: flex; flex-wrap: wrap; gap: .4rem; }
+.fileButton { display: inline-flex; align-items: center; }
+.fileButton:has(input:disabled) { opacity: .5; cursor: default; }
+.fileButton input { max-width: 10rem; font-size: .75rem; margin-left: .4rem; }
+.voiceHint { color: var(--color-text-muted); font-size: .7rem; }
+.attachments { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; padding: 0; list-style: none; }
+.attachments li { display: inline-flex; align-items: center; gap: .4rem; padding-left: .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); font-size: .8rem; overflow-wrap: anywhere; }
+.attachments button { min-width: 2rem; min-height: 2rem; background: transparent; border: 0; color: var(--color-text); cursor: pointer; }
+.userMessage pre { max-width: 100%; max-height: 15rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.retryButton { align-self: flex-start; }
+@media (max-width: 767px) {
+  .controls { max-height: 35%; flex-shrink: 0; }
+  .contextSelectors { grid-template-columns: minmax(0, 1fr); }
+  .composerTools { gap: .25rem; }
+  .composerTools button, .fileButton { font-size: .75rem; padding: .3rem .5rem; }
+  .fileButton input { max-width: 6rem; }
+  .voiceHint { display: none; }
 }
