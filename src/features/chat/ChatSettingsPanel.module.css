@@ -1,0 +1,9 @@
+.panel { display: grid; gap: var(--spacing-lg); margin-bottom: var(--spacing-section); padding-bottom: var(--spacing-xl); border-bottom: 1px solid var(--color-border-soft); }
+.panel header p, .panel p { margin: 0; color: var(--color-text-muted); }
+.panel h2 { margin: 0 0 var(--spacing-sm); color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1.35rem; }
+.panel .eyebrow { margin-bottom: var(--spacing-xs); color: var(--color-secondary); font-size: .7rem; font-weight: 700; letter-spacing: .14em; }
+.form { display: grid; gap: var(--spacing-md); }
+.form h3 { margin: 0; color: var(--color-secondary); font-size: 1.05rem; }
+.form + .form { padding-top: var(--spacing-lg); border-top: 1px solid var(--color-border-soft); }
+.sharedNotice { padding: var(--spacing-md); background: var(--color-surface-warm); border-left: 2px solid var(--color-secondary); font-size: .88rem; }
+.actions { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }

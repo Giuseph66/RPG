@@ -82,9 +82,25 @@
   .navDice:hover .navDiceImage { transform: scale(1.05); }
   .navDice .navLabel, .navDice .navShortLabel { display: none; }
   .nav-journey { padding-top: 1.15rem; }
-  /* Chat docks its composer on the nav; the floating d20 would cover it. */
-  .navigation[data-dice-hidden] .navDice { display: none; }
-  .navigation[data-dice-hidden] .nav-journey { padding-top: .35rem; }
+  /* Chat docks its composer on the nav; the floating d20 sinks into the bar there and rises back elsewhere. */
+  /* Button only moves vertically: rotating/scaling it would also rotate its translateX(-50%) centering and swing it sideways. */
+  .navDice {
+    --dice-motion: calc(var(--motion-transition) * 2);
+    --dice-rise: cubic-bezier(.34, 1.56, .64, 1);
+    --dice-sink: cubic-bezier(.55, 0, .8, .4);
+    transition: translate var(--dice-motion) var(--dice-rise), opacity var(--motion-transition) var(--motion-easing), visibility 0s;
+  }
+  .navDice .navDiceMark { transition: rotate var(--dice-motion) var(--dice-rise), scale var(--dice-motion) var(--dice-rise); }
+  .navigation[data-dice-hidden] .navDice {
+    translate: 0 120%;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: translate var(--dice-motion) var(--dice-sink), opacity calc(var(--motion-transition) * .8) linear calc(var(--motion-transition) * 1.2), visibility 0s linear var(--dice-motion);
+  }
+  .navigation[data-dice-hidden] .navDice .navDiceMark { rotate: 180deg; scale: .55; transition: rotate var(--dice-motion) var(--dice-sink), scale var(--dice-motion) var(--dice-sink); }
+  .nav-journey { transition: padding-top var(--motion-transition) var(--motion-easing); }
+  .navigation[data-dice-hidden] .nav-journey { padding-top: .35rem; transition-delay: calc(var(--motion-transition) * 1.5); }
   .main { padding: var(--spacing-xl) var(--spacing-md); }
 }
 @media (max-width: 420px) {

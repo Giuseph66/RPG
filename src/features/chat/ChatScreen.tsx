@@ -1,58 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { ArrowUp, ChatsCircle, Eye, NotePencil, X } from "@phosphor-icons/react";
+import { ArrowUp, CaretDown, ChatsCircle, Eye, NotePencil, X } from "@phosphor-icons/react";
+import { Button, InlineStatus } from "@components/ui";
+import type { ChatService } from "@application/chat/service";
+import { useChat } from "./use-chat";
 
+import { EXAMPLE_ANSWER, EXAMPLE_QUESTION, EXAMPLE_TRACE, OracleAnswer } from "./OracleAnswer";
 import styles from "./ChatScreen.module.css";
 
-interface ChatMessage {
-  readonly id: string;
-  readonly role: "assistant" | "user";
-  readonly content: string;
-  readonly time: string;
-}
-
-interface ChatConversation {
-  readonly id: string;
-  readonly title: string;
-  readonly preview: string;
-  readonly time: string;
-  readonly messages: readonly ChatMessage[];
-}
-
-const conversations: readonly ChatConversation[] = [
-  {
-    id: "ponte",
-    title: "A ponte de Vau de Sal",
-    preview: "Como passar pelos cultistas?",
-    time: "20:43",
-    messages: [
-      { id: "ponte-1", role: "user", content: "A ponte está vigiada por dois cultistas. Como atravesso sem chamar atenção?", time: "20:42" },
-      { id: "ponte-2", role: "assistant", content: "A chuva cobre parte dos ruídos, mas a ponte range. Vocês podem esperar uma rajada de vento, criar uma distração na margem ou procurar uma passagem pelo leito do rio.\n\nSe escolherem a travessia furtiva, um teste de Destreza (Furtividade) combina bem com a cena.", time: "20:43" },
-    ],
-  },
-  {
-    id: "pocao",
-    title: "Preparativos da jornada",
-    preview: "Poções e descanso antes da saída",
-    time: "Ontem",
-    messages: [
-      { id: "pocao-1", role: "user", content: "O que vale conferir antes de deixar o acampamento?", time: "Ontem" },
-      { id: "pocao-2", role: "assistant", content: "Confiram os pontos de vida, espaços de magia e equipamentos do grupo. Se a jornada permitir, um descanso longo recupera recursos importantes antes da próxima cena.", time: "Ontem" },
-    ],
-  },
-  {
-    id: "concentracao",
-    title: "Concentração em magia",
-    preview: "Dúvida sobre dano recebido",
-    time: "12 nov",
-    messages: [
-      { id: "concentracao-1", role: "user", content: "Se eu sofrer dano enquanto mantenho uma magia, o que acontece?", time: "12 nov" },
-      { id: "concentracao-2", role: "assistant", content: "Você faz um teste de resistência de Constituição para manter a concentração. A dificuldade é 10 ou metade do dano recebido, usando o maior valor.", time: "12 nov" },
-    ],
-  },
-];
-
-const NEW_CONVERSATION_ID = "nova";
+const formatTime = (value: number) => value ? new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "agora";
 
 const suggestions: readonly string[] = [
   "Como funciona a vantagem em testes?",
@@ -60,15 +16,21 @@ const suggestions: readonly string[] = [
   "Sugira uma complicação para a próxima cena",
 ];
 
-export function ChatScreen() {
-  const [activeId, setActiveId] = useState(conversations[0].id);
-  const [messages, setMessages] = useState<readonly ChatMessage[]>(conversations[0].messages);
-  const [draft, setDraft] = useState("");
+export function ChatScreen({ service, uid, context = "", onOpenSettings = () => {}, onOpenAccount = () => {} }: { readonly service?: ChatService; readonly uid?: string; readonly context?: string; readonly onOpenSettings?: () => void; readonly onOpenAccount?: () => void }) {
+  const { conversations, messages, activeId, draft, setDraft, select, send, loading, sending, preferences, error } = useChat(service, uid, context);
+  const canChat = Boolean(service && uid);
   const [historyOpen, setHistoryOpen] = useState(false);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const activeConversation = conversations.find((conversation) => conversation.id === activeId);
   const activeTitle = activeConversation?.title ?? "Nova conversa";
+  const setup: { readonly title: string; readonly text: string; readonly action?: string; readonly onAction?: () => void } | undefined = !uid
+    ? { title: "Entre para consultar o Oráculo", text: "Suas conversas ficam guardadas na sua conta.", action: "Entrar na conta", onAction: onOpenAccount }
+    : !service
+      ? { title: "Oráculo indisponível", text: "A sincronização na nuvem não está ativa neste aparelho." }
+      : !preferences.model
+        ? { title: "O Oráculo ainda não despertou", text: "Escolha qual IA vai responder nas configurações do chat.", action: "Configurar Oráculo", onAction: onOpenSettings }
+        : undefined;
 
   useEffect(() => {
     const transcript = transcriptRef.current;
@@ -91,31 +53,24 @@ export function ChatScreen() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [historyOpen]);
 
-  const selectConversation = (conversation: ChatConversation) => {
-    setActiveId(conversation.id);
-    setMessages(conversation.messages);
-    setDraft("");
+  const selectConversation = (id: string) => {
+    select(id);
     setHistoryOpen(false);
   };
 
   const startConversation = () => {
-    setActiveId(NEW_CONVERSATION_ID);
-    setMessages([]);
-    setDraft("");
+    select();
     setHistoryOpen(false);
     composerRef.current?.focus();
   };
 
   const sendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const content = draft.trim();
-    if (!content) return;
-    setMessages((current) => [...current, { id: `local-${Date.now()}`, role: "user", content, time: "agora" }]);
-    setDraft("");
+    void send();
   };
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
     }
@@ -135,7 +90,7 @@ export function ChatScreen() {
             <X size={20} weight="bold" aria-hidden="true" />
           </button>
         </div>
-        <button type="button" className={styles.newConversation} onClick={startConversation}>
+        <button type="button" className={styles.newConversation} disabled={!canChat || sending} onClick={startConversation}>
           <NotePencil size={18} weight="duotone" aria-hidden="true" />
           Nova conversa
         </button>
@@ -148,11 +103,12 @@ export function ChatScreen() {
                 type="button"
                 className={[styles.conversationItem, active ? styles.conversationItemActive : ""].filter(Boolean).join(" ")}
                 aria-current={active ? "page" : undefined}
-                onClick={() => selectConversation(conversation)}
+                disabled={sending}
+                onClick={() => selectConversation(conversation.id)}
               >
                 <span className={styles.conversationRow}>
                   <span className={styles.conversationTitle}>{conversation.title}</span>
-                  <span className={styles.conversationTime}>{conversation.time}</span>
+                  <span className={styles.conversationTime}>{conversation.updatedAt ? new Date(conversation.updatedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "agora"}</span>
                 </span>
                 <span className={styles.conversationPreview}>{conversation.preview}</span>
               </button>
@@ -167,10 +123,13 @@ export function ChatScreen() {
         <header className={styles.conversationHeader}>
           <span className={styles.oracleSeal} aria-hidden="true"><Eye size={22} weight="duotone" /></span>
           <div className={styles.oracleIdentity}>
-            <h1 id="chat-title">Oráculo da Mesa</h1>
+            <h1 id="chat-title">Oráculo</h1>
             <p>{activeTitle}</p>
           </div>
-          <span className={styles.previewBadge} title="Prévia visual: as respostas ainda são exemplos fixos.">Prévia</span>
+          <button type="button" className={styles.previewBadge} onClick={onOpenSettings} aria-label={preferences.model ? `Modelo ${preferences.model}. Configurar Oráculo` : "Escolher modelo do Oráculo"}>
+            <span>{preferences.model || "Escolher modelo"}</span>
+            <CaretDown size={11} weight="bold" aria-hidden="true" />
+          </button>
           <button
             type="button"
             className={styles.iconButton}
@@ -185,32 +144,51 @@ export function ChatScreen() {
         </header>
 
         <div ref={transcriptRef} className={styles.transcript} role="log" aria-label={`Conversa: ${activeTitle}`} aria-live="polite">
-          {messages.length === 0 ? (
+          {setup && messages.length > 0 ? (
+            <p className={styles.setupBanner}>
+              <span>{setup.title}</span>
+              {setup.action ? <button type="button" onClick={setup.onAction}>{setup.action}</button> : null}
+            </p>
+          ) : null}
+          {error ? <InlineStatus tone="error" assertive>{error}</InlineStatus> : null}
+          {loading ? <p role="status">Carregando conversas…</p> : null}
+          {!loading && messages.length === 0 ? (
+            <>
+            <p className={styles.exampleDivider}><span>Exemplo de resposta</span></p>
+            <article className={styles.userMessage} aria-label="Pergunta de exemplo">
+              <p>{EXAMPLE_QUESTION}</p>
+            </article>
+            <OracleAnswer content={EXAMPLE_ANSWER} time="exemplo" trace={EXAMPLE_TRACE} example />
             <div className={styles.emptyState}>
               <span className={styles.emptySeal} aria-hidden="true"><Eye size={30} weight="duotone" /></span>
-              <h2>O que deseja consultar?</h2>
-              <p>Pergunte sobre regras, relembre fatos da campanha ou peça ideias para a próxima cena.</p>
-              <div className={styles.suggestions}>
-                {suggestions.map((suggestion) => (
-                  <button key={suggestion} type="button" className={styles.suggestion} onClick={() => applySuggestion(suggestion)}>{suggestion}</button>
-                ))}
-              </div>
+              {setup ? (
+                <>
+                  <h2>{setup.title}</h2>
+                  <p>{setup.text}</p>
+                  {setup.action ? <Button onClick={setup.onAction} className={styles.setupAction}>{setup.action}</Button> : null}
+                </>
+              ) : (
+                <>
+                  <h2>O que deseja consultar?</h2>
+                  <p>Pergunte sobre regras, relembre fatos da campanha ou peça ideias para a próxima cena.</p>
+                  <div className={styles.suggestions}>
+                    {suggestions.map((suggestion) => (
+                      <button key={suggestion} type="button" className={styles.suggestion} onClick={() => applySuggestion(suggestion)}>{suggestion}</button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
+            </>
           ) : messages.map((message) => message.role === "assistant" ? (
-            <article key={message.id} className={styles.oracleMessage}>
-              <header className={styles.oracleMeta}>
-                <span className={styles.messageSeal} aria-hidden="true"><Eye size={15} weight="duotone" /></span>
-                <strong>Oráculo</strong>
-                <time>{message.time}</time>
-              </header>
-              <p>{message.content}</p>
-            </article>
+            <OracleAnswer key={message.id} content={message.content} time={formatTime(message.createdAt)} />
           ) : (
-            <article key={message.id} className={styles.userMessage} aria-label={`Você, ${message.time}`}>
+            <article key={message.id} className={styles.userMessage} aria-label={`Você, ${formatTime(message.createdAt)}`}>
               <p>{message.content}</p>
-              <time>{message.time}</time>
+              <time>{formatTime(message.createdAt)}</time>
             </article>
           ))}
+          {sending ? <p role="status">O Oráculo está consultando…</p> : null}
         </div>
 
         <form className={styles.composer} onSubmit={sendMessage}>
@@ -224,12 +202,14 @@ export function ChatScreen() {
               onKeyDown={handleComposerKeyDown}
               placeholder="Pergunte ao oráculo…"
               rows={1}
+              maxLength={12000}
+              disabled={!canChat || sending}
             />
-            <button type="submit" className={styles.sendButton} disabled={!draft.trim()} aria-label="Enviar mensagem">
+            <button type="submit" className={styles.sendButton} disabled={!canChat || sending || loading || !preferences.model || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
             </button>
           </div>
-          <p className={styles.composerHint}>Enter envia · Shift + Enter quebra linha</p>
+          <p className={styles.composerHint}>Histórico no Firestore · até 30 mensagens de contexto · Enter envia</p>
         </form>
       </div>
     </section>
