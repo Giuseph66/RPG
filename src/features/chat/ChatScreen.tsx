@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { ArrowUp, ChatsCircle, Eye, NotePencil, X } from "@phosphor-icons/react";
+import { ArrowUp, ChatsCircle, Eye, Microphone, NotePencil, SpeakerHigh, Stop, X } from "@phosphor-icons/react";
 import { Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
 import { useChat } from "./use-chat";
@@ -8,6 +8,7 @@ import { useChatVoice } from "./use-chat-voice";
 import { ChatContextPanel } from "./ChatContextPanel";
 
 import { OracleAnswer } from "./OracleAnswer";
+import { ChatUsagePanel } from "./ChatUsagePanel";
 import styles from "./ChatScreen.module.css";
 
 const formatTime = (value: number) => value ? new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "agora";
@@ -20,7 +21,7 @@ const suggestions: readonly string[] = [
 ];
 
 export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAccount = () => {} }: { readonly service?: ChatService; readonly uid?: string; readonly context?: string; readonly onOpenSettings?: () => void; readonly onOpenAccount?: () => void }) {
-  const { conversations, messages, actions, activeId, draft, setDraft, select, send, loading, sending, error, setError, notice, partial, trace, options, scope, setScope, attachments, setAttachments, resolveAction, busyAction, manageConversation, exportConversation, cancel } = useChat(service, uid);
+  const { conversations, messages, actions, activeId, draft, setDraft, select, send, loading, sending, error, setError, notice, partial, trace, usage, options, scope, setScope, resolveAction, busyAction, manageConversation, exportConversation, cancel } = useChat(service, uid);
   const voice = useChatVoice((text) => setDraft((previous) => (previous + " " + text).trim().slice(0, 12000)), setError);
   const canChat = Boolean(service && uid);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -79,23 +80,6 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
     event.preventDefault();
     voice.stop();
     void send();
-  };
-
-  const attachFiles = async (files: FileList | null) => {
-    if (!files) return;
-    try {
-      if (files.length + attachments.length > 3) throw new Error("Anexe até três arquivos de texto.");
-      const added = [];
-      for (const file of Array.from(files)) {
-        if (!/\.(txt|md|json|csv)$/i.test(file.name) || file.size > 64000) throw new Error("Use arquivos TXT, MD, JSON ou CSV de até 64 KB.");
-        const text = await file.text();
-        if (text.length > 16000 || text.includes("\u0000")) throw new Error("Cada arquivo deve conter texto legível e até 16.000 caracteres.");
-        added.push({ name: file.name, text });
-      }
-      const all = [...attachments, ...added];
-      if (all.reduce((total, item) => total + item.text.length, 0) > 24000) throw new Error("Os anexos podem somar até 24.000 caracteres.");
-      setAttachments(all);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao ler arquivo."); }
   };
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -171,7 +155,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
         {canChat ? <div className={styles.controls}>
           <ChatContextPanel service={service} uid={uid} scope={scope} options={options} locked={Boolean(activeId) || sending || Boolean(busyAction)} onScope={setScope} onPrompt={applySuggestion} onError={setError} />
-          {activeId ? <details className={styles.conversationTools}><summary>Gerenciar conversa</summary><div>
+          {activeId ? <details className={styles.conversationTools}><summary><span className={styles.desktopLabel}>Gerenciar conversa</span><span className={styles.mobileLabel}>Conversa</span></summary><div>
             <form onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}><label>Título<input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label><button type="submit" disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Renomear</button></form>
             <button type="button" onClick={() => void exportConversation()}>Exportar conversa</button>
             <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}>{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
@@ -231,14 +215,8 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
         </div>
 
         <form className={styles.composer} onSubmit={sendMessage}>
-          <div className={styles.composerTools}>
-            <label className={styles.fileButton}>Anexar texto<input type="file" accept=".txt,.md,.json,.csv" multiple disabled={!canChat || sending || readOnly} onChange={(event) => { void attachFiles(event.currentTarget.files); event.currentTarget.value = ""; }} /></label>
-            {voice.available ? <button type="button" disabled={!canChat || sending || readOnly} aria-pressed={voice.listening} onClick={voice.toggleListening}>{voice.listening ? "Parar ditado" : "Ditar mensagem"}</button> : null}
-            {typeof window !== "undefined" && window.speechSynthesis && messages.some((item) => item.role === "assistant") ? <button type="button" aria-pressed={voice.speaking} onClick={() => voice.readAloud([...messages].reverse().find((item) => item.role === "assistant")!.content)}>{voice.speaking ? "Parar leitura" : "Ouvir resposta"}</button> : null}
-            {sending ? <button type="button" onClick={cancel}>Cancelar resposta</button> : null}
-          </div>
+          {canChat && usage.length ? <ChatUsagePanel usages={usage} /> : null}
           {voice.available ? <small className={styles.voiceHint}>O ditado usa o serviço de voz do navegador. Revise o texto antes de enviar.</small> : null}
-          {attachments.length ? <ul className={styles.attachments}>{attachments.map((file, index) => <li key={`${file.name}-${index}`}>{file.name}<button type="button" disabled={sending} onClick={() => setAttachments((files) => files.filter((_, i) => i !== index))} aria-label={`Remover ${file.name}`}>×</button></li>)}</ul> : null}
           <label className={styles.visuallyHidden} htmlFor="chat-message">Escreva uma mensagem</label>
           <div className={styles.composerField}>
             <textarea
@@ -252,9 +230,11 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               maxLength={12000}
               disabled={!canChat || sending || readOnly || Boolean(busyAction)}
             />
-            <button type="submit" className={styles.sendButton} disabled={!canChat || !options || sending || loading || readOnly || Boolean(busyAction) || voice.listening || !draft.trim()} aria-label="Enviar mensagem">
+            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || sending || readOnly} aria-pressed={voice.listening} onClick={voice.toggleListening} aria-label={voice.listening ? "Parar ditado" : "Ditar mensagem"} title={voice.listening ? "Parar ditado" : "Ditar mensagem"}>{voice.listening ? <Stop size={19} weight="fill" aria-hidden="true" /> : <Microphone size={19} aria-hidden="true" />}</button> : null}
+            {typeof window !== "undefined" && window.speechSynthesis && messages.some((item) => item.role === "assistant") ? <button type="button" className={styles.composerTool} aria-pressed={voice.speaking} onClick={() => voice.readAloud([...messages].reverse().find((item) => item.role === "assistant")!.content)} aria-label={voice.speaking ? "Parar leitura" : "Ouvir resposta"} title={voice.speaking ? "Parar leitura" : "Ouvir resposta"}>{voice.speaking ? <Stop size={19} weight="fill" aria-hidden="true" /> : <SpeakerHigh size={19} aria-hidden="true" />}</button> : null}
+            {sending ? <button type="button" className={styles.sendButton} onClick={cancel} aria-label="Cancelar resposta" title="Cancelar resposta"><Stop size={19} weight="fill" aria-hidden="true" /></button> : <button type="submit" className={styles.sendButton} disabled={!canChat || !options || sending || loading || readOnly || Boolean(busyAction) || voice.listening || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
-            </button>
+            </button>}
           </div>
           <p className={styles.composerHint}>Fontes consultáveis · alterações com confirmação · Enter envia</p>
         </form>

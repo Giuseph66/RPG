@@ -72,5 +72,8 @@
 .action button { min-height: var(--size-touch-target); padding: .45rem .8rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface-elevated); color: var(--color-text); font: inherit; cursor: pointer; }
 .action button:hover:not(:disabled) { border-color: var(--color-secondary); }
 .action button:disabled { opacity: .5; cursor: default; }
-.action button:focus-visible, .source a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.source a { display: block; width: fit-content; color: var(--color-secondary); }
+.action button:focus-visible, .sourceDetails:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.sourceDetails { display: block; width: fit-content; min-height: var(--size-touch-target); padding: 0; border: 0; background: none; color: var(--color-secondary); font: inherit; text-decoration: underline; cursor: pointer; }
+.sourceDetails:hover { color: var(--color-text); }
+.sourceContent { overflow-wrap: anywhere; }
+.sourceContent p { white-space: pre-wrap; }

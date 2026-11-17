@@ -41,7 +41,7 @@ export interface ChatToolResult {
 }
 export interface ChatAgent {
   options(uid: string): Promise<{ readonly characters: readonly { id: string; name: string; campaignId?: string }[]; readonly campaigns: readonly { id: string; name: string }[]; readonly defaults: ChatScope }>;
-  context(uid: string, scope: ChatScope): Promise<{ readonly scope: ChatScope; readonly text: string }>;
+  context(uid: string, scope: ChatScope): Promise<{ readonly scope: ChatScope; readonly text: string; readonly alerts?: readonly string[] }>;
   tools(scope: ChatScope): readonly ChatToolDefinition[];
   invoke(uid: string, scope: ChatScope, name: string, input: Record<string, unknown>): Promise<ChatToolResult>;
   execute(uid: string, action: ChatAction): Promise<{ readonly content: string; readonly undo?: Record<string, unknown> }>;

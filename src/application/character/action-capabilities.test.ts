@@ -405,7 +405,7 @@ describe("deriveActionCapabilities", () => {
     }
   });
 
-  it("aceita foco druídico em truque de Guerreiro Druídico somente com a opção Tasha ativa", () => {
+  it("aceita foco druídico em truque de Guerreiro Druídico com o Tasha ligado, com ou sem seleção antiga gravada", () => {
     const loaded = loadPhbPtBrLocal2017();
     if (!loaded.ok) throw new Error(loaded.error.message);
     const basePack = loaded.value;
@@ -443,11 +443,12 @@ describe("deriveActionCapabilities", () => {
       return { char, capability };
     };
 
+    // Foco de Conjuração é automático com o Tasha ligado; fichas antigas com a seleção gravada continuam iguais.
     const withoutOption = scenario(false);
     const withOption = scenario(true);
     expect(basePack.spells.get(spellRef.entityId)?.components.material).toBeDefined();
     expect(withoutOption.char.castingSources[0]).toMatchObject({ sourceKind: "feature", ability: "wis", spellListClassId: "druid" });
-    expect(withoutOption.capability).toMatchObject({ spellAllowsFocus: false, spellRequiresMaterial: true });
+    expect(withoutOption.capability).toMatchObject({ spellAllowsFocus: true, spellRequiresMaterial: true });
     expect(withOption.capability).toMatchObject({ spellAllowsFocus: true, spellRequiresMaterial: true });
   });
 

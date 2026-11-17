@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { BookOpenTextIcon, BrainIcon, CaretDownIcon, IdentificationCardIcon, LockSimpleIcon, MagnifyingGlassIcon, PlusIcon, ScrollIcon } from "@phosphor-icons/react";
 import type { ChatService } from "@application/chat/service";
 import type { ChatMemory, ChatScope } from "@application/ports/chat-agent";
-import styles from "./ChatScreen.module.css";
+import styles from "./ChatContextPanel.module.css";
+
+type SourceKey = "rules" | "sheet" | "campaign" | "memory";
+const SOURCES: readonly { readonly key: SourceKey; readonly label: string; readonly icon: ReactNode }[] = [
+  { key: "rules", label: "Livro e regras", icon: <BookOpenTextIcon size={16} weight="duotone" /> },
+  { key: "sheet", label: "Ficha e recursos", icon: <IdentificationCardIcon size={16} weight="duotone" /> },
+  { key: "campaign", label: "Campanha e sessões", icon: <ScrollIcon size={16} weight="duotone" /> },
+  { key: "memory", label: "Memórias", icon: <BrainIcon size={16} weight="duotone" /> },
+];
+const VISIBILITY_LABEL: Record<ChatMemory["visibility"], string> = { private: "Pessoal", party: "Grupo", master: "Somente mestre" };
 
 export function ChatContextPanel({ service, uid, scope, options, locked, onScope, onPrompt, onError }: {
   readonly service?: ChatService; readonly uid?: string; readonly scope: ChatScope;
@@ -10,8 +21,9 @@ export function ChatContextPanel({ service, uid, scope, options, locked, onScope
   readonly onPrompt: (text: string) => void; readonly onError: (error: string) => void;
 }) {
   const [memories, setMemories] = useState<readonly ChatMemory[]>([]);
-  const [open, setOpen] = useState(false), [loading, setLoading] = useState(false), [removeId, setRemoveId] = useState<string>();
+  const [loading, setLoading] = useState(false), [removeId, setRemoveId] = useState<string>();
   useEffect(() => { setMemories([]); setRemoveId(undefined); }, [uid, scope.campaignId, scope.characterId]);
+
   const load = async () => {
     if (!service || !uid) return;
     setLoading(true);
@@ -19,26 +31,73 @@ export function ChatContextPanel({ service, uid, scope, options, locked, onScope
     catch (error) { onError(error instanceof Error ? error.message : "Falha ao ler memórias."); }
     finally { setLoading(false); }
   };
-  return <details className={styles.contextPanel} onToggle={(event) => setOpen(event.currentTarget.open)}>
-    <summary>Contexto e fontes compartilhadas{scope.characterId ? ` · ${options?.characters.find((item) => item.id === scope.characterId)?.name ?? "Personagem"}` : ""}{scope.campaignId ? ` · ${options?.campaigns.find((item) => item.id === scope.campaignId)?.name ?? "Campanha"}` : ""}</summary>
-    {open ? <div className={styles.contextBody}>
-      {locked ? <p>O contexto pertence a esta conversa. Para mudar personagem, campanha ou fontes, abra uma nova conversa.</p> : null}
-      <div className={styles.contextSelectors}>
-        <label>Personagem<select disabled={locked || !options} value={scope.characterId ?? ""} onChange={(event) => {
+
+  const removeMemory = (memory: ChatMemory) => {
+    if (!service || !uid) return;
+    setLoading(true);
+    void service.repository.deleteMemory(uid, memory)
+      .then(() => { setMemories((items) => items.filter((item) => item.id !== memory.id)); setRemoveId(undefined); })
+      .catch((error) => onError(error instanceof Error ? error.message : "Falha ao remover."))
+      .finally(() => setLoading(false));
+  };
+
+  /** Rendered inside the chat info modal; nothing of this shows on the chat screen itself. */
+  return <div className={styles.body}>
+    {scope.master ? <p className={styles.note} data-tone="master">Contexto do mestre: esta conversa pode conter registros privados da campanha.</p> : null}
+    {locked ? <p className={styles.note}>O contexto pertence a esta conversa. Para mudar personagem, campanha ou fontes, abra uma nova conversa.</p> : null}
+
+    <section className={styles.section}>
+      <h3>Conversando como</h3>
+      <div className={styles.selectors}>
+        <label><span>Personagem</span><select disabled={locked || !options} value={scope.characterId ?? ""} onChange={(event) => {
           const character = options?.characters.find((item) => item.id === event.currentTarget.value);
           const { characterId: _old, campaignId: _campaign, master: _master, ...rest } = scope;
           onScope({ ...rest, ...(character ? { characterId: character.id } : {}), ...(character?.campaignId ? { campaignId: character.campaignId } : scope.campaignId ? { campaignId: scope.campaignId } : {}) });
         }}><option value="">Sem ficha</option>{options?.characters.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label>Campanha<select disabled={locked || !options} value={scope.campaignId ?? ""} onChange={(event) => { const { campaignId: _id, master: _master, ...rest } = scope; onScope({ ...rest, ...(event.currentTarget.value ? { campaignId: event.currentTarget.value } : {}) }); }}><option value="">Sem campanha</option>{options?.campaigns.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label><span>Campanha</span><select disabled={locked || !options} value={scope.campaignId ?? ""} onChange={(event) => { const { campaignId: _id, master: _master, ...rest } = scope; onScope({ ...rest, ...(event.currentTarget.value ? { campaignId: event.currentTarget.value } : {}) }); }}><option value="">Sem campanha</option>{options?.campaigns.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       </div>
-      <fieldset disabled={locked}><legend>Permitir consultar</legend><div className={styles.shareOptions}>{([['rules', 'Livro e regras'], ['sheet', 'Ficha e recursos'], ['campaign', 'Campanha e sessões'], ['memory', 'Memórias']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={scope[key]} onChange={(event) => onScope({ ...scope, [key]: event.currentTarget.checked })} />{label}</label>)}</div></fieldset>
-      <p>Os dados autorizados são enviados ao Groq para responder. Registros privados e conteúdo do mestre seguem as permissões da campanha.</p>
-      <details><summary>Memórias pessoais e da campanha</summary>
-        <button type="button" disabled={loading || !uid} onClick={() => void load()}>{loading ? "Consultando…" : "Consultar memórias"}</button>
-        <button type="button" onClick={() => onPrompt("Quero registrar uma memória. Pergunte qual fato e qual visibilidade devo usar antes de preparar a proposta.")}>Nova memória</button>
-        {!loading && !memories.length ? <p>Nenhuma memória carregada. Use Consultar memórias para atualizar.</p> : null}
-        {memories.map((memory) => <article className={styles.memory} key={memory.visibility + memory.id}><strong>{memory.title}</strong><small>{memory.visibility === "private" ? "Pessoal" : memory.visibility === "party" ? "Grupo" : "Somente mestre"}</small><p>{memory.body}</p><button type="button" onClick={() => onPrompt(`Quero corrigir a memória ${memory.id}, visibilidade ${memory.visibility}, intitulada ${memory.title}. Pergunte a correção e prepare uma proposta.`)}>Corrigir</button><button type="button" onClick={() => setRemoveId(memory.id)}>Remover</button>{removeId === memory.id ? <div><p>Remover esta memória? A remoção não apaga os registros originais da campanha.</p><button type="button" disabled={loading} onClick={() => { if (!service || !uid) return; setLoading(true); void service.repository.deleteMemory(uid, memory).then(() => { setMemories((items) => items.filter((item) => item.id !== memory.id)); setRemoveId(undefined); }).catch((error) => onError(error instanceof Error ? error.message : "Falha ao remover.")).finally(() => setLoading(false)); }}>Confirmar remoção</button><button type="button" onClick={() => setRemoveId(undefined)}>Cancelar</button></div> : null}</article>)}
-      </details>
-    </div> : null}
-  </details>;
+    </section>
+
+    <fieldset className={styles.section} disabled={locked}>
+      <legend>O Oráculo pode consultar</legend>
+      <div className={styles.toggles}>
+        {SOURCES.map((source) => (
+          <label key={source.key} className={styles.toggle}>
+            <input type="checkbox" checked={scope[source.key]} onChange={(event) => onScope({ ...scope, [source.key]: event.currentTarget.checked })} />
+            <span aria-hidden="true">{source.icon}</span>{source.label}
+          </label>
+        ))}
+      </div>
+      <p className={styles.privacy}><LockSimpleIcon size={14} weight="duotone" aria-hidden="true" />Só o que estiver marcado é enviado ao Groq. Registros privados e conteúdo do mestre seguem as permissões da campanha.</p>
+    </fieldset>
+
+    <details className={styles.memories}>
+      <summary>Memórias pessoais e da campanha<CaretDownIcon className={styles.caret} size={12} weight="bold" aria-hidden="true" /></summary>
+      <div className={styles.memoryActions}>
+        <button type="button" className={styles.smallButton} disabled={loading || !uid} onClick={() => void load()}><MagnifyingGlassIcon size={15} aria-hidden="true" />{loading ? "Consultando…" : "Consultar memórias"}</button>
+        <button type="button" className={styles.smallButton} onClick={() => onPrompt("Quero registrar uma memória. Pergunte qual fato e qual visibilidade devo usar antes de preparar a proposta.")}><PlusIcon size={15} aria-hidden="true" />Nova memória</button>
+      </div>
+      {!loading && !memories.length ? <p className={styles.muted}>Nenhuma memória carregada ainda.</p> : null}
+      {memories.map((memory) => (
+        <article className={styles.memory} key={memory.visibility + memory.id}>
+          <header><strong>{memory.title}</strong><small data-visibility={memory.visibility}>{VISIBILITY_LABEL[memory.visibility]}</small></header>
+          <p>{memory.body}</p>
+          {removeId === memory.id ? (
+            <div className={styles.confirm}>
+              <p>Remover esta memória? A remoção não apaga os registros originais da campanha.</p>
+              <div className={styles.memoryActions}>
+                <button type="button" className={styles.smallButton} data-tone="danger" disabled={loading} onClick={() => removeMemory(memory)}>Confirmar remoção</button>
+                <button type="button" className={styles.smallButton} onClick={() => setRemoveId(undefined)}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.memoryActions}>
+              <button type="button" className={styles.linkButton} onClick={() => onPrompt(`Quero corrigir a memória ${memory.id}, visibilidade ${memory.visibility}, intitulada ${memory.title}. Pergunte a correção e prepare uma proposta.`)}>Corrigir</button>
+              <button type="button" className={styles.linkButton} data-tone="danger" onClick={() => setRemoveId(memory.id)}>Remover</button>
+            </div>
+          )}
+        </article>
+      ))}
+    </details>
+  </div>;
 }

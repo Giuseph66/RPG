@@ -166,6 +166,9 @@ describe("CharacterCreationWizard", () => {
       expect(mounted.container.textContent).not.toContain("Manter a regra atual");
       const favored = selects().find((select) => [...select.options].some((option) => option.textContent === "Inimigo Eleito (Tasha)")) as HTMLSelectElement;
       expect(favored).toBeDefined();
+      // O aviso de perda (tipo, idioma, Inimigo Favorito Maior) aparece antes de escolher, com a saída por Hábil.
+      expect(mounted.container.textContent).toContain("não aprende o idioma do Inimigo Favorito");
+      expect(mounted.container.textContent).toContain("Astuto concede dois idiomas");
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(favored, "optional:ranger.optional-favored-foe");
       await fireEvent(favored, new Event("change", { bubbles: true }));
       expect(latest().partial.optionalRuleSelections).toContainEqual(expect.objectContaining({ optionId: "ranger.optional-favored-foe", selectedFeatureRefs: [ref("ranger.favored-foe")] }));
@@ -181,18 +184,14 @@ describe("CharacterCreationWizard", () => {
       expect(mounted.container.textContent).toContain("Astuto (Tasha) · perícia com bônus de proficiência dobrado");
       expect(mounted.container.textContent).toContain("Astuto (Tasha) · idiomas adicionais");
 
-      // Consciência Primordial concede todas as magias por nível, sem escolher uma.
-      expect(mounted.container.textContent).toContain("Consciência Primordial (Falar com Animais) (3º) · Consciência Primordial (Sentido Feral) (5º)");
-      for (const label of ["Usar Consciência Primordial", "Usar Véu Natural", "Adicionar à lista de escolha (2º nível)", "Adicionar estas magias", "Usar Foco de Conjuração", "Usar Versatilidade Marcial"]) {
-        const input = toggle(label);
-        expect(input, label).toBeDefined();
-        await click(input);
+      // Tasha p. 51: no 1º nível só aparecem opções de 1º nível (Hábil; Inimigo Eleito fica no Inimigo Favorito).
+      // As demais chegam na subida de nível (coberto em LevelUpWizard.test.tsx).
+      for (const label of ["Usar Consciência Primordial", "Usar Véu Natural", "Adicionar à lista de escolha (2º nível)", "Usar Versatilidade Marcial", "Usar Companheiro Primitivo", "Adicionar estas magias", "Usar Foco de Conjuração"]) {
+        expect(toggle(label), label).toBeUndefined();
       }
+      expect(mounted.container.textContent).toContain("As outras opções do suplemento aparecem ao subir de nível");
       const final = latest();
-      expect(final.partial.optionalRuleSelections?.map((selection) => String(selection.optionId)).sort()).toEqual([
-        "ranger.optional-additional-spells", "ranger.optional-canny", "ranger.optional-druidic-focus", "ranger.optional-favored-foe",
-        "ranger.optional-fighting-style", "ranger.optional-martial-versatility", "ranger.optional-natures-veil", "ranger.optional-primal-awareness",
-      ]);
+      expect(final.partial.optionalRuleSelections?.map((selection) => String(selection.optionId)).sort()).toEqual(["ranger.optional-canny", "ranger.optional-favored-foe"]);
       const report = validateCharacterCreation(catalog(), final);
       expect(report.issues.filter((issue) => /optionalRuleSelections|favored-enemy/.test(issue.field))).toEqual([]);
 
@@ -211,6 +210,35 @@ describe("CharacterCreationWizard", () => {
       await fireEvent(favoredAgain, new Event("change", { bubbles: true }));
       expect(latest().partial.optionalRuleSelections?.some((selection) => selection.optionId === "ranger.optional-favored-foe")).toBe(false);
       expect(latest().partial.choices).toContainEqual(expect.objectContaining({ choiceId: "ranger.favored-enemy.1", selectedIds: [ref("favored-enemy.beasts")] }));
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it("rascunho antigo com opção Tasha incompleta não traz de volta o idioma do Inimigo Favorito", async () => {
+    // Rascunho salvo pela UI antiga: Hábil gravado só com Astuto (pacote incompleto) + Inimigo Eleito.
+    const result = createCharacterDraft({
+      id: asUuid("14141414-1414-4414-8414-141414141414"), rulesetRef, createdAt: now,
+      partial: {
+        name: "Guardião antigo", raceRef: ref("human"), classes: [{ classId: asEntityId("ranger"), level: 1, choices: [] }],
+        selectedSupplementIds: [asEntityId("tasha-ranger-options")],
+        optionalRuleSelections: [
+          { supplementId: asEntityId("tasha-ranger-options"), optionId: asEntityId("ranger.optional-canny"), selectedFeatureRefs: [ref("ranger.canny")] },
+          { supplementId: asEntityId("tasha-ranger-options"), optionId: asEntityId("ranger.optional-favored-foe"), selectedFeatureRefs: [ref("ranger.favored-foe")] },
+        ],
+        choices: [],
+      },
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    const onDraftChange = vi.fn((next: CharacterDraft) => { void next; });
+    const mounted = await mount(<CharacterCreationWizard draft={result.value} catalog={catalog()} onDraftChange={onDraftChange} />);
+    try {
+      await click([...mounted.container.querySelectorAll("button")].find((button) => button.textContent === "3. Classe") as HTMLElement);
+      const labels = [...mounted.container.querySelectorAll("select")].map((select) => select.labels?.[0]?.textContent ?? "");
+      expect(labels).toContain("Inimigo Favorito · Patrulheiro");
+      expect(labels).not.toContain("Idioma do Inimigo Favorito · Patrulheiro");
+      // A opção incompleta é avisada, não derruba o resto do Tasha em silêncio.
+      expect(mounted.container.textContent).toContain("Hábil estava salvo de um jeito antigo");
     } finally {
       await mounted.unmount();
     }

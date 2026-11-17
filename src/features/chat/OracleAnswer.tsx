@@ -1,5 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { AppModal } from "@components/ui";
+import { useRuleDetails } from "@features/compendium";
+import type { RuleQuery } from "@features/compendium";
 import type { ChatAction, ChatSource as OracleSource, ChatSourceKind as OracleSourceKind, ChatToolKind as OracleToolKind, ChatToolTrace as OracleToolCall, ChatTrace as OracleTrace } from "@application/ports/chat-agent";
 import { BookOpenText, CaretDown, DiceFive, Eye, IdentificationCard, Scroll, WarningCircle } from "@phosphor-icons/react";
 import styles from "./OracleAnswer.module.css";
@@ -27,6 +30,8 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [highlighted, setHighlighted] = useState<number>();
   const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
+  const [sourceDetail, setSourceDetail] = useState<OracleSource>();
+  const openRuleDetails = useRuleDetails();
   const sources = trace?.sources ?? [];
   const tools = trace?.tools ?? [];
   const sourceIds = new Set(sources.map((source) => source.id));
@@ -43,6 +48,16 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
     if (detailsRef.current) detailsRef.current.open = true;
     setHighlighted(id);
     window.requestAnimationFrame(() => document.getElementById(`${prefix}-src-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+  };
+
+  const openSource = (source: OracleSource) => {
+    const match = source.kind === "rule" ? /^\/compendium\/([^/]+)\/([^/?#]+)$/.exec(source.href ?? "") : null;
+    if (match) {
+      try {
+        if (openRuleDetails({ category: match[1] as RuleQuery["category"], title: source.title, entityId: decodeURIComponent(match[2]) })) return;
+      } catch { /* Fontes antigas podem ter um endereço inválido; o trecho continua disponível. */ }
+    }
+    setSourceDetail(source);
   };
 
   const renderInline = (text: string): ReactNode[] => text.split(/(\[\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
@@ -126,7 +141,7 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
                           <strong>{source.title}</strong> <span>{SOURCE_LABEL[source.kind]} · {source.locator}</span>
                           <q>{source.excerpt}</q>
                           {source.updatedAt ? <span>Atualizado: {new Date(source.updatedAt).toLocaleString("pt-BR")}</span> : null}
-                          {source.href?.startsWith("/") && !source.href.startsWith("//") ? <a href={source.href}>Abrir fonte no aplicativo</a> : null}
+                          <button type="button" className={styles.sourceDetails} onClick={() => openSource(source)}>Ver detalhes da fonte</button>
                         </span>
                       </li>
                     ))}
@@ -141,6 +156,14 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
           </details>
         ) : null}
       </div>
+      {sourceDetail ? <AppModal open title={sourceDetail.title} onClose={() => setSourceDetail(undefined)}>
+        <div className={styles.sourceContent}>
+          <p>{SOURCE_LABEL[sourceDetail.kind]} · {sourceDetail.locator}</p>
+          <h3>Trecho consultado</h3>
+          <p>{sourceDetail.excerpt}</p>
+          {sourceDetail.updatedAt ? <p>Atualizado: {new Date(sourceDetail.updatedAt).toLocaleString("pt-BR")}</p> : null}
+        </div>
+      </AppModal> : null}
     </article>
   );
 }

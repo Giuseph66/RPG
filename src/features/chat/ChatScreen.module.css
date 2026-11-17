@@ -157,6 +157,10 @@
 .composerField:focus-within { border-color: var(--color-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 14%, transparent); }
 .composerField textarea { flex: 1; min-width: 0; max-height: 9rem; min-height: var(--size-touch-target); resize: none; padding: .65rem 0; color: var(--color-text); background: transparent; border: 0; outline: 0; font: inherit; font-size: 1rem; line-height: 1.45; }
 .composerField textarea::placeholder { color: var(--color-control-disabled); }
+.composerTool { display: grid; place-items: center; flex: 0 0 auto; width: var(--size-touch-target); height: var(--size-touch-target); padding: 0; border: 0; border-radius: 50%; color: var(--color-text-muted); background: transparent; cursor: pointer; }
+.composerTool:hover:not(:disabled), .composerTool[aria-pressed="true"] { color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+.composerTool:disabled { opacity: .45; cursor: default; }
+.composerTool:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .sendButton { display: grid; flex: 0 0 auto; width: var(--size-touch-target); height: var(--size-touch-target); place-items: center; padding: 0; color: var(--color-on-primary); background: var(--color-secondary); border: 0; border-radius: 50%; cursor: pointer; transition: background-color var(--motion-feedback) var(--motion-easing), transform var(--motion-feedback) var(--motion-easing); }
 .sendButton:hover:not(:disabled) { background: var(--color-text); }
 .sendButton:active:not(:disabled) { transform: scale(.95); }
@@ -165,6 +169,7 @@
 
 .newConversation:focus-visible, .conversationItem:focus-visible, .iconButton:focus-visible, .suggestion:focus-visible, .sendButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.mobileLabel { display: none; }
 
 @media (hover: none), (pointer: coarse) {
   .composerHint { display: none; }
@@ -179,7 +184,7 @@
     max-width: none;
     margin: calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-md)) calc(-2 * var(--spacing-xl));
     height: calc(100dvh - var(--app-bar-height, 4.5rem) - var(--size-nav-height) - env(safe-area-inset-bottom));
-    min-height: 22rem;
+    min-height: 0;
     background: transparent;
     border: 0;
     border-radius: 0;
@@ -228,31 +233,68 @@
 .shareOptions { display: flex; flex-wrap: wrap; gap: .6rem; }
 .shareOptions label { display: inline-flex; align-items: center; gap: .3rem; min-height: 2rem; }
 .shareOptions input { accent-color: var(--color-primary); }
-.contextBody button, .conversationTools button, .composerTools button, .retryButton, .fileButton { min-height: 2.5rem; padding: .4rem .7rem; color: var(--color-text); background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; font-size: .85rem; cursor: pointer; }
-.contextBody button:hover:not(:disabled), .conversationTools button:hover:not(:disabled), .composerTools button:hover:not(:disabled), .retryButton:hover:not(:disabled), .fileButton:hover { border-color: var(--color-secondary); }
-.contextBody button:disabled, .conversationTools button:disabled, .composerTools button:disabled, .retryButton:disabled { opacity: .5; cursor: default; }
-.controls :focus-visible, .historyFilters :focus-visible, .composerTools :focus-visible, .retryButton:focus-visible, .attachments button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.contextBody button, .conversationTools button, .retryButton { min-height: 2.5rem; padding: .4rem .7rem; color: var(--color-text); background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-control); font: inherit; font-size: .85rem; cursor: pointer; }
+.contextBody button:hover:not(:disabled), .conversationTools button:hover:not(:disabled), .retryButton:hover:not(:disabled) { border-color: var(--color-secondary); }
+.contextBody button:disabled, .conversationTools button:disabled, .retryButton:disabled { opacity: .5; cursor: default; }
+.controls :focus-visible, .historyFilters :focus-visible, .retryButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .memory { padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--chat-line); }
 .memory strong, .memory small { display: block; }
 .memory p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .historyFilters { display: grid; gap: .4rem; padding: 0 var(--spacing-md) var(--spacing-md); color: var(--color-text-muted); font-size: .8rem; }
 .conversationTools > div { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-sm); padding-bottom: var(--spacing-sm); }
 .conversationTools form { display: flex; align-items: end; gap: var(--spacing-sm); }
-.composerTools { display: flex; flex-wrap: wrap; gap: .4rem; }
-.fileButton { display: inline-flex; align-items: center; }
-.fileButton:has(input:disabled) { opacity: .5; cursor: default; }
-.fileButton input { max-width: 10rem; font-size: .75rem; margin-left: .4rem; }
+.usageCompact { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); min-width: 0; }
+.usageToggle { display: grid; flex: 1; min-width: 0; max-width: 18rem; min-height: var(--size-touch-target); gap: .15rem; align-content: center; padding: .2rem 0; color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-control); font: inherit; font-size: .75rem; text-align: left; cursor: pointer; }
+.usageToggleHeading { display: flex; align-items: center; gap: .35rem; color: var(--color-secondary); }
+.usageToggle small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.usageToggle small[data-limited] { color: var(--color-danger); }
+.usageToggle:hover .usageToggleHeading { color: var(--color-text); }
+.usageToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.usageMiniMeters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
+.usageMiniMeters .usageTrack { height: .2rem; }
+.usageMiniMeters .usageTrack > span { display: block; height: 100%; background: var(--color-secondary); }
+.usageMiniMeters .usageTrack > span[data-warning] { background: var(--color-danger); }
+.usagePanel { display: grid; gap: var(--spacing-md); color: var(--color-text-muted); font-size: .875rem; }
+.usageKeySelector { display: grid; gap: .35rem; }
+.usageKeySelector select { width: 100%; min-width: 0; min-height: var(--size-touch-target); padding: .4rem .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); background: var(--color-background); font: inherit; }
+.usageKeySelector select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.usageHeading, .usageLabel { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .6rem; }
+.usageHeading strong { color: var(--color-secondary); font-weight: 600; }
+.usageLink { display: inline-flex; align-items: center; flex-shrink: 0; width: fit-content; min-height: var(--size-touch-target); padding: .35rem .2rem; border-radius: var(--radius-control); color: var(--color-secondary); font-size: .75rem; text-decoration: none; }
+.usageLink:hover { color: var(--color-text); text-decoration: underline; }
+.usageLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.usageMeters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1rem; }
+.usageMeter { display: grid; align-content: start; gap: .25rem; min-width: 0; }
+.usageMeter small { overflow-wrap: anywhere; }
+.usageMeter progress, .usageTrack { display: block; width: 100%; height: .4rem; overflow: hidden; border: 0; border-radius: var(--radius-control); background: var(--color-surface-elevated); }
+.usageMeter progress { appearance: none; accent-color: var(--color-secondary); }
+.usageMeter progress::-webkit-progress-bar { background: var(--color-surface-elevated); }
+.usageMeter progress::-webkit-progress-value { background: var(--color-secondary); border-radius: var(--radius-control); }
+.usageMeter progress::-moz-progress-bar { background: var(--color-secondary); border-radius: var(--radius-control); }
+.usageMeter progress[data-warning] { accent-color: var(--color-danger); }
+.usageMeter progress[data-warning]::-webkit-progress-value { background: var(--color-danger); }
+.usageMeter progress[data-warning]::-moz-progress-bar { background: var(--color-danger); }
+.usageWarning { margin: 0; color: var(--color-danger); }
+.usageInfo summary { width: fit-content; cursor: pointer; color: var(--color-gold-muted); }
+.usageInfo p { margin: .3rem 0 0; }
+.usageInfo summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+@media (max-width: 480px) { .usageMeters { grid-template-columns: minmax(0, 1fr); } }
 .voiceHint { color: var(--color-text-muted); font-size: .7rem; }
-.attachments { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; padding: 0; list-style: none; }
-.attachments li { display: inline-flex; align-items: center; gap: .4rem; padding-left: .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); font-size: .8rem; overflow-wrap: anywhere; }
-.attachments button { min-width: 2rem; min-height: 2rem; background: transparent; border: 0; color: var(--color-text); cursor: pointer; }
 .userMessage pre { max-width: 100%; max-height: 15rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .retryButton { align-self: flex-start; }
 @media (max-width: 767px) {
-  .controls { max-height: 35%; flex-shrink: 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 0 var(--spacing-md); max-height: 30%; flex-shrink: 0; padding-block: 0; }
+  .controls > .contextPanel { flex: 1; min-width: 0; }
+  .controls > .conversationTools { flex: 0 0 auto; }
+  .controls > details[open] { flex-basis: 100%; }
+  .controls > details > summary { min-height: var(--size-touch-target); align-content: center; list-style-position: inside; }
+  .controls > details:not([open]) > summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .desktopLabel { display: none; }
+  .mobileLabel { display: inline; }
   .contextSelectors { grid-template-columns: minmax(0, 1fr); }
-  .composerTools { gap: .25rem; }
-  .composerTools button, .fileButton { font-size: .75rem; padding: .3rem .5rem; }
-  .fileButton input { max-width: 6rem; }
+  .composer { gap: .25rem; padding: .35rem var(--spacing-sm) var(--spacing-sm); }
+  .composerField { gap: .15rem; }
+  .composerField textarea { max-height: 6rem; font-size: 16px; }
+  .usageCompact { gap: var(--spacing-sm); }
   .voiceHint { display: none; }
 }

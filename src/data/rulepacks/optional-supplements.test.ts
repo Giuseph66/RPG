@@ -42,7 +42,8 @@ describe("packs opcionais", () => {
     const beastMaster = composed.value.subclasses.get(asEntityId("beast-conclave"))!;
     expect(beastMaster.featureGrants.some((entry) => entry.featureRef.entityId === asEntityId("beast-conclave-feature-level-3"))).toBe(false);
     expect(beastMaster.featureGrants.some((entry) => entry.featureRef.entityId === asEntityId("ranger.primal-companion") && entry.level === 3)).toBe(true);
-    expect(composed.value.spells.get(asEntityId("invocar-fera"))?.classes).not.toContain(asEntityId("ranger"));
+    // Magias Adicionais de Guardião são automáticas com o Tasha ligado: entram na lista mesmo sem seleção gravada.
+    expect(composed.value.spells.get(asEntityId("invocar-fera"))?.classes).toContain(asEntityId("ranger"));
     expect(base.classes.get(asEntityId("ranger"))?.progression[0]?.featureRefs.map((entry) => entry.entityId)).toContain(asEntityId("ranger.favored-enemy"));
   });
 

@@ -1,18 +1,22 @@
 import { collection, deleteDoc, doc, getDocFromServer, getDocsFromServer, limit, limitToLast, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter, where, writeBatch, type Firestore, type QueryDocumentSnapshot } from "firebase/firestore";
-import type { ChatConversation, ChatCredential, ChatCredentialSummary, ChatRepository } from "@application/ports/chat";
+import { MAX_CREDENTIALS_PER_USER, type ChatConversation, type ChatCredential, type ChatCredentialSummary, type ChatRepository } from "@application/ports/chat";
 import type { ChatAction, ChatMemory, ChatScope } from "@application/ports/chat-agent";
 
 const millis = (value: unknown): number => value && typeof value === "object" && "toMillis" in value ? (value as { toMillis(): number }).toMillis() : 0;
 const clean = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-function credential(uid: string, data: Record<string, unknown>): ChatCredentialSummary {
-  return { ownerUid: uid, label: String(data.label ?? "Chave GroqCloud"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
+function credential(id: string, data: Record<string, unknown>): ChatCredentialSummary {
+  // The first slot reuses the owner uid as document id (the old single-key layout); ownerUid is stored in every key.
+  return { id, ownerUid: String(data.ownerUid ?? id), label: String(data.label ?? "Chave GroqCloud"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
 }
 export function createFirestoreChatRepository(getFirestore: () => Firestore): ChatRepository {
   const conversationsRef = (uid: string) => collection(getFirestore(), "users", uid, "chatConversations");
   const conversationRef = (uid: string, id: string) => doc(conversationsRef(uid), id);
   const messagesRef = (uid: string, id: string) => collection(conversationRef(uid, id), "messages");
   const actionsRef = (uid: string, id: string) => collection(conversationRef(uid, id), "actions");
-  const keyRef = (uid: string) => doc(getFirestore(), "groqKeys", uid);
+  const keysRef = () => collection(getFirestore(), "groqKeys");
+  const keyRef = (id: string) => doc(keysRef(), id);
+  /** Fixed slots per account (`uid`, `uid_2` … `uid_N`); the Firestore rules accept only these ids, which caps keys per account. */
+  const keySlots = (uid: string) => Array.from({ length: MAX_CREDENTIALS_PER_USER }, (_, index) => index === 0 ? uid : `${uid}_${index + 1}`);
   const memoryRef = (uid: string, memory: ChatMemory) => memory.visibility === "private"
     ? doc(getFirestore(), "users", uid, "chatMemories", memory.id)
     : doc(getFirestore(), "campaigns", memory.campaignId!, "oracleMemories", memory.id);
@@ -33,25 +37,34 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
   }
   return {
     campaignRole,
-    watchCredential: (uid) => (next, fail) => onSnapshot(keyRef(uid), (snapshot) => next(snapshot.exists() ? credential(uid, snapshot.data()) : undefined), fail),
+    watchCredentials: (uid) => (next, fail) => onSnapshot(query(keysRef(), where("ownerUid", "==", uid)), (snapshot) => next(snapshot.docs.map((item) => credential(item.id, item.data())).sort((a, b) => a.createdAt - b.createdAt)), fail),
     watchConversations: (uid) => (next, fail) => onSnapshot(query(conversationsRef(uid), orderBy("updatedAt", "desc"), limit(200)), (snapshot) => next(snapshot.docs.map((item) => toConversation(item.id, item.data()))), fail),
     watchMessages: (uid, id) => (next, fail) => onSnapshot(query(messagesRef(uid, id), orderBy("createdAt", "asc"), limitToLast(200)), (snapshot) => next(snapshot.docs.map(toMessage)), fail),
     watchActions: (uid, id) => (next, fail) => onSnapshot(query(actionsRef(uid, id), limit(200)), (snapshot) => next(snapshot.docs.map((item) => ({ ...item.data(), id: item.id, createdAt: millis(item.data().createdAt) }) as ChatAction)), fail),
-    async saveCredential(uid, label, apiKey) {
+    async saveCredential(uid, label, apiKey, credentialId) {
       await runTransaction(getFirestore(), async (transaction) => {
-        const reference = keyRef(uid);
-        const existing = await transaction.get(reference);
-        transaction.set(reference, { ownerUid: uid, label, apiKey, status: "active", cooldownUntil: 0, createdAt: existing.exists() ? existing.data().createdAt : serverTimestamp(), updatedAt: serverTimestamp() });
+        let reference = credentialId ? keyRef(credentialId) : undefined;
+        let existing = reference ? await transaction.get(reference) : undefined;
+        if (reference && (!existing?.exists() || existing.data().ownerUid !== uid)) throw new Error("Esta chave não existe mais ou não é sua.");
+        if (!reference) {
+          for (const slot of keySlots(uid)) {
+            const candidate = keyRef(slot);
+            const snapshot = await transaction.get(candidate);
+            if (!snapshot.exists()) { reference = candidate; existing = snapshot; break; }
+          }
+        }
+        if (!reference) throw new Error(`Você já cadastrou ${MAX_CREDENTIALS_PER_USER} chaves. Remova uma para adicionar outra.`);
+        transaction.set(reference, { ownerUid: uid, label, apiKey, status: "active", cooldownUntil: 0, createdAt: existing?.exists() ? existing.data().createdAt : serverTimestamp(), updatedAt: serverTimestamp() });
       });
     },
-    async removeCredential(uid) { await deleteDoc(keyRef(uid)); },
+    async removeCredential(_uid, credentialId) { await deleteDoc(keyRef(credentialId)); },
     async listCredentials() {
-      const snapshot = await getDocsFromServer(query(collection(getFirestore(), "groqKeys"), orderBy("createdAt", "asc")));
+      const snapshot = await getDocsFromServer(query(keysRef(), orderBy("createdAt", "asc")));
       return snapshot.docs.flatMap((item) => typeof item.data().apiKey === "string" ? [{ ...credential(item.id, item.data()), apiKey: item.data().apiKey } as ChatCredential] : []);
     },
     async setCredentialState(key, status, cooldownUntil) {
       await runTransaction(getFirestore(), async (transaction) => {
-        const reference = keyRef(key.ownerUid);
+        const reference = keyRef(key.id);
         const current = await transaction.get(reference);
         if (current.exists() && current.data().apiKey === key.apiKey) transaction.update(reference, { status, cooldownUntil, updatedAt: serverTimestamp() });
       });
@@ -65,6 +78,15 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
       const value = await getDocFromServer(conversationRef(uid, id));
       if (!value.exists()) throw new Error("Conversa não encontrada.");
       return toConversation(value.id, value.data());
+    },
+    async pinScope(uid, id, scope) {
+      return runTransaction(getFirestore(), async (tx) => {
+        const ref = conversationRef(uid, id), current = await tx.get(ref);
+        if (!current.exists()) throw new Error("Conversa não encontrada.");
+        if (current.data().scope) return current.data().scope as ChatScope;
+        tx.update(ref, { scope: clean(scope), updatedAt: serverTimestamp() });
+        return scope;
+      });
     },
     async updateConversation(uid, id, patch) {
       await runTransaction(getFirestore(), async (tx) => {
@@ -112,7 +134,14 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
       });
     },
     async finishAction(uid, id, actionId, status, result, undo) {
-      await setDoc(doc(actionsRef(uid, id), actionId), { status, result: result.slice(0, 8000), ...(undo ? { undo: clean(undo) } : {}), updatedAt: serverTimestamp() }, { merge: true });
+      await runTransaction(getFirestore(), async (tx) => {
+        const ref = doc(actionsRef(uid, id), actionId), current = await tx.get(ref);
+        if (!current.exists()) throw new Error("Ação não encontrada.");
+        const content = `${status === "done" ? "Recibo de ação" : status === "rejected" ? "Decisão registrada" : "Falha de execução"}: ${String(current.data().label)}\n${result.slice(0, 8000)}`;
+        tx.update(ref, { status, result: result.slice(0, 8000), ...(undo ? { undo: clean(undo) } : {}), updatedAt: serverTimestamp() });
+        tx.set(doc(messagesRef(uid, id), `${actionId}-${status}`), { role: "assistant", content, createdAt: serverTimestamp() });
+        tx.update(conversationRef(uid, id), { preview: content.slice(0, 160), updatedAt: serverTimestamp() });
+      });
     },
     async listMemories(uid, scope) {
       const own = await getDocsFromServer(query(collection(getFirestore(), "users", uid, "chatMemories"), limit(100)));
@@ -126,13 +155,22 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
       }
       return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     },
-    async saveMemory(uid, memory) {
+    async saveMemory(uid, memory, expectedUpdatedAt) {
       if (memory.visibility !== "private" && (!memory.campaignId || await campaignRole(uid, memory.campaignId) !== "master")) throw new Error("Somente o mestre pode publicar memórias compartilhadas.");
-      await setDoc(memoryRef(uid, memory), { ...clean(memory), ownerUid: uid, updatedAt: new Date().toISOString() });
+      await runTransaction(getFirestore(), async (tx) => {
+        const ref = memoryRef(uid, memory), current = await tx.get(ref);
+        if (expectedUpdatedAt ? !current.exists() || current.data().updatedAt !== expectedUpdatedAt : current.exists()) throw new Error("A memória já foi alterada ou registrada. Atualize antes de continuar.");
+        tx.set(ref, { ...clean(memory), ownerUid: uid, updatedAt: new Date().toISOString() });
+      });
     },
     async deleteMemory(uid, memory) {
       if (memory.visibility !== "private" && (!memory.campaignId || await campaignRole(uid, memory.campaignId) !== "master")) throw new Error("Somente o mestre pode remover memórias compartilhadas.");
-      await deleteDoc(memoryRef(uid, memory));
+      await runTransaction(getFirestore(), async (tx) => {
+        const ref = memoryRef(uid, memory), current = await tx.get(ref);
+        if (!current.exists()) return;
+        if (current.data().updatedAt !== memory.updatedAt) throw new Error("A memória mudou desde a consulta. Atualize antes de remover.");
+        tx.delete(ref);
+      });
     },
   };
 }

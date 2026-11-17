@@ -32,6 +32,7 @@ type BindRule = (query: RuleQuery | undefined) => RuleHintProps;
 
 const NO_RULE: BindRule = () => ({});
 const RuleHintContext = createContext<BindRule>(NO_RULE);
+const RuleDetailsContext = createContext<(query: RuleQuery) => boolean>(() => false);
 
 const LONG_PRESS_MS = 450;
 const MOVE_TOLERANCE_PX = 10;
@@ -48,6 +49,13 @@ export function RuleLookupProvider({ lookup, children }: { readonly lookup?: Rul
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const origin = useRef<{ x: number; y: number }>(undefined);
   const fired = useRef(false);
+
+  const openDetails = useCallback((query: RuleQuery) => {
+    const found = lookup?.(query);
+    if (!found) return false;
+    setDetail(found);
+    return true;
+  }, [lookup]);
 
   const cancel = useCallback(() => {
     if (timer.current !== undefined) clearTimeout(timer.current);
@@ -100,12 +108,14 @@ export function RuleLookupProvider({ lookup, children }: { readonly lookup?: Rul
 
   return (
     <RuleHintContext.Provider value={value}>
-      {children}
-      {detail ? (
-        <AppModal open title="Regra" titleClassName={styles.modalTitle} closeClassName={styles.detailClose} className={styles.detailModal} onClose={() => setDetail(undefined)}>
-          <CompendiumDetailPanel detail={detail} />
-        </AppModal>
-      ) : null}
+      <RuleDetailsContext.Provider value={openDetails}>
+        {children}
+        {detail ? (
+          <AppModal open title="Regra" titleClassName={styles.modalTitle} closeClassName={styles.detailClose} className={styles.detailModal} onClose={() => setDetail(undefined)}>
+            <CompendiumDetailPanel detail={detail} />
+          </AppModal>
+        ) : null}
+      </RuleDetailsContext.Provider>
     </RuleHintContext.Provider>
   );
 }
@@ -113,4 +123,9 @@ export function RuleLookupProvider({ lookup, children }: { readonly lookup?: Rul
 /** Retorna `rule(query)` → props para espalhar no elemento; sem provider, não faz nada. */
 export function useRuleHint(): BindRule {
   return useContext(RuleHintContext);
+}
+
+/** Abre os detalhes da regra por clique; retorna false quando ela não está no catálogo. */
+export function useRuleDetails() {
+  return useContext(RuleDetailsContext);
 }

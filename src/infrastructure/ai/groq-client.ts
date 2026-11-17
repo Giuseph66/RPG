@@ -1,32 +1,52 @@
-import { CHAT_PROVIDER, ChatRequestError, type ChatClient } from "@application/ports/chat";
+import { CHAT_PROVIDER, ChatRequestError, type ChatClient, type ChatUsageWindow } from "@application/ports/chat";
 import type { ChatCompletion, ChatToolRequest } from "@application/ports/chat-agent";
+
+function resetDelay(value: string | null): number | undefined {
+  if (!value || !/^(?:\d+(?:\.\d+)?(?:ms|[smhd]))+$/.test(value)) return undefined;
+  const units: Record<string, number> = { ms: 1, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+  return [...value.matchAll(/(\d+(?:\.\d+)?)(ms|[smhd])/g)].reduce((sum, match) => sum + Number(match[1]) * units[match[2]], 0);
+}
+
+function usageWindow(headers: Headers, kind: "requests" | "tokens", now: number): ChatUsageWindow | undefined {
+  const total = headers.get(`x-ratelimit-limit-${kind}`);
+  const balance = headers.get(`x-ratelimit-remaining-${kind}`);
+  if (!total?.trim() || !balance?.trim()) return undefined;
+  const limit = Number(total), remaining = Number(balance);
+  if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(remaining)) return undefined;
+  const delay = resetDelay(headers.get(`x-ratelimit-reset-${kind}`));
+  return { limit, remaining: Math.max(0, Math.min(limit, remaining)), ...(delay !== undefined && Number.isFinite(delay) ? { resetsAt: now + delay } : {}) };
+}
 
 /** Transport only: permissions and tool execution belong to the application. */
 export function createGroqClient(): ChatClient {
   return {
-    async turn(apiKey, messages, tools, signal, onText): Promise<ChatCompletion> {
+    async turn(apiKey, messages, tools, signal, onText, forceText = false, onUsage): Promise<ChatCompletion> {
       let response: Response;
       try {
         response = await fetch(CHAT_PROVIDER.baseUrl + "/chat/completions", {
           method: "POST", credentials: "omit", redirect: "error",
           headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
           body: JSON.stringify({ model: CHAT_PROVIDER.model, messages, stream: true, max_completion_tokens: 2048,
-            ...(tools.length ? { tools, tool_choice: "auto", parallel_tool_calls: false } : {}) }),
+            ...(tools.length ? { tools, tool_choice: forceText ? "none" : "auto", parallel_tool_calls: false } : {}) }),
           signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
         });
       } catch {
         signal?.throwIfAborted();
         throw new Error("Não foi possível acessar o GroqCloud. Verifique a conexão e tente novamente.");
       }
+      const now = Date.now();
+      const retry = response.headers.get("Retry-After");
+      const delay = retry ? (/^\d+(\.\d+)?$/.test(retry) ? Number(retry) * 1000 : Date.parse(retry) - now) : undefined;
+      // Capture headers before reading the stream, including failed / limited requests.
+      onUsage?.({ observedAt: now, requests: usageWindow(response.headers, "requests", now), tokens: usageWindow(response.headers, "tokens", now), limited: response.status === 429,
+        ...(response.status === 429 && delay !== undefined && Number.isFinite(delay) ? { retryAt: now + Math.max(0, delay) } : {}) });
       if (!response.ok) {
-        const retry = response.headers.get("Retry-After");
-        const delay = retry ? (/^\d+(\.\d+)?$/.test(retry) ? Number(retry) * 1000 : Date.parse(retry) - Date.now()) : 300_000;
         const message = response.status === 429 ? "O limite de uso do GroqCloud foi atingido. Aguarde a liberação da conta."
           : response.status === 401 ? "A chave GroqCloud não é válida."
           : response.status === 403 ? "A conta GroqCloud não permite este modelo ou recurso."
           : response.status === 402 ? "O GroqCloud solicita créditos. Confira o saldo da conta."
           : "O GroqCloud rejeitou a solicitação (" + response.status + "). Tente reduzir o contexto da conversa.";
-        throw new ChatRequestError(message, response.status, Number.isFinite(delay) ? delay : 300_000);
+        throw new ChatRequestError(message, response.status, delay !== undefined && Number.isFinite(delay) ? delay : 300_000);
       }
       if (!response.body) throw new Error("O GroqCloud não enviou uma resposta.");
       const reader = response.body.getReader();
@@ -59,7 +79,7 @@ export function createGroqClient(): ChatClient {
       try {
         while (true) {
           const { done, value } = await reader.read();
-          pending += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+          pending = (pending + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
           let boundary: number;
           while ((boundary = pending.indexOf("\n\n")) >= 0) { event(pending.slice(0, boundary)); pending = pending.slice(boundary + 2); }
           if (pending.length > 200_000) throw new Error("Evento do provedor excedeu o limite.");

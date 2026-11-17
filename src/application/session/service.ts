@@ -40,11 +40,11 @@ export interface CreateSessionInput {
 
 export interface SessionService {
   create(input: CreateSessionInput): Promise<Result<CampaignSession, AppError>>;
-  start(id: Uuid, accountId: AccountId): Promise<Result<CampaignSession, AppError>>;
-  end(id: Uuid, accountId: AccountId, summary?: string): Promise<Result<CampaignSession, AppError>>;
-  updateNotes(id: Uuid, accountId: AccountId, notes: string): Promise<Result<CampaignSession, AppError>>;
-  setAttendance(id: Uuid, accountId: AccountId, attendance: readonly SessionAttendance[]): Promise<Result<CampaignSession, AppError>>;
-  setEncounter(id: Uuid, accountId: AccountId, encounter: EncounterState | undefined): Promise<Result<CampaignSession, AppError>>;
+  start(id: Uuid, accountId: AccountId, expectedRevision?: Revision): Promise<Result<CampaignSession, AppError>>;
+  end(id: Uuid, accountId: AccountId, summary?: string, expectedRevision?: Revision): Promise<Result<CampaignSession, AppError>>;
+  updateNotes(id: Uuid, accountId: AccountId, notes: string, expectedRevision?: Revision): Promise<Result<CampaignSession, AppError>>;
+  setAttendance(id: Uuid, accountId: AccountId, attendance: readonly SessionAttendance[], expectedRevision?: Revision): Promise<Result<CampaignSession, AppError>>;
+  setEncounter(id: Uuid, accountId: AccountId, encounter: EncounterState | undefined, expectedRevision?: Revision): Promise<Result<CampaignSession, AppError>>;
   get(id: Uuid): Promise<Result<CampaignSession, AppError>>;
   list(campaignId: Uuid): Promise<Result<readonly CampaignSession[], AppError>>;
   delete(id: Uuid, accountId: AccountId): Promise<Result<void, AppError>>;
@@ -160,9 +160,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     id: Uuid,
     accountId: AccountId,
     patch: (current: CampaignSession) => Result<CampaignSession, AppError>,
+    expectedRevision?: Revision,
   ): Promise<Result<CampaignSession, AppError>> {
     const current = await repository.get(id);
     if (!current.ok) return current;
+    if (expectedRevision !== undefined && current.value.revision !== expectedRevision) return err(appError.conflict(expectedRevision, current.value.revision));
     const allowed = await requireMaster(current.value.campaignId, accountId);
     if (!allowed.ok) return allowed;
     const next = patch(current.value);
@@ -190,24 +192,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       };
       return run((context) => persist(session, asRevision(0), context));
     },
-    start: (id, accountId) => mutate(id, accountId, (current) => {
+    start: (id, accountId, expectedRevision) => mutate(id, accountId, (current) => {
       if (current.status === "ended") return err(appError.validation("status", "Sessão encerrada não pode ser iniciada novamente."));
       if (current.status === "active") return ok(current);
       return ok(withUpdatedAt(current, { status: "active", startedAt: clock.now() }, clock));
-    }),
-    end: (id, accountId, summary = "") => mutate(id, accountId, (current) => {
+    }, expectedRevision),
+    end: (id, accountId, summary = "", expectedRevision) => mutate(id, accountId, (current) => {
       if (current.status !== "active") return err(appError.validation("status", "Somente sessão ativa pode ser encerrada."));
       return ok(withUpdatedAt(current, { status: "ended", endedAt: clock.now(), summary }, clock));
-    }),
-    updateNotes: (id, accountId, notes) => mutate(id, accountId, (current) => ok(withUpdatedAt(current, { notes }, clock))),
-    setAttendance: (id, accountId, attendance) => mutate(id, accountId, (current) => {
+    }, expectedRevision),
+    updateNotes: (id, accountId, notes, expectedRevision) => mutate(id, accountId, (current) => ok(withUpdatedAt(current, { notes }, clock)), expectedRevision),
+    setAttendance: (id, accountId, attendance, expectedRevision) => mutate(id, accountId, (current) => {
       const valid = validateAttendance(attendance);
       return valid.ok ? ok(withUpdatedAt(current, { attendance: valid.value }, clock)) : valid;
-    }),
-    setEncounter: (id, accountId, encounter) => mutate(id, accountId, (current) => {
+    }, expectedRevision),
+    setEncounter: (id, accountId, encounter, expectedRevision) => mutate(id, accountId, (current) => {
       const valid = validateEncounter(encounter);
       return valid.ok ? ok(withUpdatedAt(current, { encounter: valid.value }, clock)) : valid;
-    }),
+    }, expectedRevision),
     get: (id) => repository.get(id),
     list: (campaignId) => repository.list(campaignId),
     async delete(id, accountId) {

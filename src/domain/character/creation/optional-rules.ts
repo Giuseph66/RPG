@@ -212,7 +212,16 @@ export function composeOptionalRuleContent(
     }
   }
 
-  for (const selection of selections) {
+  // Opções automáticas valem sempre que o suplemento está ligado, mesmo sem seleção gravada.
+  const automaticSelections: OptionalRuleSelection[] = packs.flatMap((pack) => (pack.classOptions ?? [])
+    .filter((option) => option.automatic && !selections.some((selection) => selection.supplementId === pack.id && selection.optionId === option.id))
+    .map((option) => ({
+      supplementId: pack.id,
+      optionId: option.id,
+      selectedFeatureRefs: option.featureRefs.map((entityId) => ({ rulesetId: baseRulePack.manifest.id, entityId })),
+      ...(option.spellRefs?.length ? { selectedSpellRefs: option.spellRefs.map((entityId) => ({ rulesetId: baseRulePack.manifest.id, entityId })) } : {}),
+    })));
+  for (const selection of [...selections, ...automaticSelections]) {
     const pack = available.get(selection.supplementId)!;
     const option = pack.classFeatureReplacements?.find((item) => item.id === selection.optionId)
       ?? pack.classOptions?.find((item) => item.id === selection.optionId);
@@ -258,4 +267,73 @@ export function composeOptionalRuleContent(
 /** Recompõe o catálogo do personagem após reload usando apenas estado persistido. */
 export function composeCharacterRuleContent(baseRulePack: RulePack, character: Pick<Character, "selectedSupplementIds" | "optionalRuleSelections">): Result<RulePack, AppError> {
   return composeOptionalRuleContent(baseRulePack, character.selectedSupplementIds ?? [], character.optionalRuleSelections ?? []);
+}
+
+/** Opção de suplemento que pode ser ligada ao subir de nível (Tasha p. 51: ao atender o requisito de nível). */
+export interface LevelUpOptionalRuleOption {
+  readonly supplementId: EntityId;
+  readonly optionId: EntityId;
+  /** Nome da seção do livro (ex.: "Consciência Primordial"). */
+  readonly title: string;
+  readonly choiceLevel: number;
+  /** Características do livro base que deixam de valer. */
+  readonly replacesFeatureIds: readonly EntityId[];
+  /** Características que a opção concede (vazio quando só amplia uma escolha ou lista). */
+  readonly featureIds: readonly EntityId[];
+  /** Escolha da classe ampliada pela opção (ex.: estilos de luta do 2º nível). */
+  readonly extendsChoiceId?: string;
+  readonly extendsChoiceFeatureIds: readonly EntityId[];
+  readonly subclassId?: EntityId;
+  /** Seleção a gravar na ficha quando o jogador liga a opção. */
+  readonly selection: OptionalRuleSelection;
+}
+
+/**
+ * Opções dos suplementos ligados na ficha que o jogador pode ligar ao chegar a `targetLevel` em `classId`.
+ * - Regra da mesa (2026-11-16): cada opção só é oferecida no nível exato dela; quem não pegou, não pega depois.
+ * - Opções automáticas ficam de fora (valem sozinhas); as já escolhidas não se trocam.
+ * - Opções de 1º nível só entram quando a classe começa agora (multiclasse); na criação elas ficam na própria criação.
+ * - Opções de subclasse dependem da subclasse projetada (pode estar sendo escolhida neste mesmo nível).
+ */
+export function optionalRuleOptionsForLevel(
+  pack: RulePack,
+  character: Pick<Character, "selectedSupplementIds" | "optionalRuleSelections">,
+  classId: EntityId,
+  targetLevel: number,
+  subclassId?: EntityId,
+): readonly LevelUpOptionalRuleOption[] {
+  const available = pack.optionalRulePacks ?? new Map<EntityId, OptionalRuleContentPack>();
+  const taken = character.optionalRuleSelections ?? [];
+  const rulesetId = pack.manifest.id;
+  const reached = (level: number) => level === targetLevel;
+  const result: LevelUpOptionalRuleOption[] = [];
+  for (const supplementId of character.selectedSupplementIds ?? []) {
+    const supplement = available.get(supplementId);
+    if (!supplement) continue;
+    const isTaken = (optionId: EntityId) => taken.some((selection) => selection.supplementId === supplementId && selection.optionId === optionId);
+    for (const replacement of supplement.classFeatureReplacements ?? []) {
+      if (replacement.classId !== classId || !reached(replacement.choiceLevel) || isTaken(replacement.id)) continue;
+      if (replacement.subclassId && replacement.subclassId !== subclassId) continue;
+      result.push({
+        supplementId, optionId: replacement.id, title: replacement.sourceRefs[0]?.section ?? "Característica opcional", choiceLevel: replacement.choiceLevel,
+        replacesFeatureIds: replacement.replacesFeatureIds ?? [replacement.replacesFeatureId], featureIds: replacement.replacementFeatureIds, extendsChoiceFeatureIds: [],
+        ...(replacement.subclassId ? { subclassId: replacement.subclassId } : {}),
+        selection: { supplementId, optionId: replacement.id, selectedFeatureRefs: replacement.replacementFeatureIds.map((entityId) => ({ rulesetId, entityId })) },
+      });
+    }
+    for (const option of supplement.classOptions ?? []) {
+      if (option.classId !== classId || option.automatic || !reached(option.choiceLevel) || isTaken(option.id)) continue;
+      if (!option.choiceId && option.kind === "choice") continue;
+      result.push({
+        supplementId, optionId: option.id, title: option.sourceRefs[0]?.section ?? "Opção de classe", choiceLevel: option.choiceLevel,
+        replacesFeatureIds: [], featureIds: option.choiceId ? [] : option.featureRefs,
+        extendsChoiceFeatureIds: option.choiceId ? option.featureRefs : [], ...(option.choiceId ? { extendsChoiceId: option.choiceId } : {}),
+        selection: {
+          supplementId, optionId: option.id, selectedFeatureRefs: option.choiceId ? [] : option.featureRefs.map((entityId) => ({ rulesetId, entityId })),
+          ...(option.spellRefs?.length ? { selectedSpellRefs: option.spellRefs.map((entityId) => ({ rulesetId, entityId })) } : {}),
+        },
+      });
+    }
+  }
+  return result.sort((left, right) => left.choiceLevel - right.choiceLevel);
 }

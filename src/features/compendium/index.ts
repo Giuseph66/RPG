@@ -2,5 +2,5 @@ export { Compendium, CompendiumBrowser, CompendiumDetailPanel, CompendiumPage } 
 export { CreatureCatalog } from "./CreatureCatalog";
 export type { CreatureCatalogProps } from "./CreatureCatalog";
 export type { CompendiumDetailProps, CompendiumProps } from "./types";
-export { RuleLookupProvider, useRuleHint } from "./RuleLookup";
+export { RuleLookupProvider, useRuleHint, useRuleDetails } from "./RuleLookup";
 export type { RuleHintProps, RuleLookup, RuleQuery } from "./RuleLookup";

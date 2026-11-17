@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatService } from "@application/chat/service";
-import type { ChatConversation, ChatMessage } from "@application/ports/chat";
-import { DEFAULT_CHAT_SCOPE, type ChatAction, type ChatAttachment, type ChatScope, type ChatTrace } from "@application/ports/chat-agent";
+import type { ChatConversation, ChatMessage, ChatCredentialUsage } from "@application/ports/chat";
+import { DEFAULT_CHAT_SCOPE, type ChatAction, type ChatScope, type ChatTrace } from "@application/ports/chat-agent";
 
 export function useChat(service: ChatService | undefined, uid: string | undefined) {
   const [conversations, setConversations] = useState<readonly ChatConversation[]>([]);
@@ -11,7 +11,6 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
   const [draft, setDraft] = useState("");
   const [scope, setScope] = useState<ChatScope>(DEFAULT_CHAT_SCOPE);
   const [options, setOptions] = useState<Awaited<ReturnType<ChatService["agent"]["options"]>>>();
-  const [attachments, setAttachments] = useState<readonly ChatAttachment[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [historyLoading, setHistoryLoading] = useState(Boolean(uid && service));
@@ -20,9 +19,12 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
   const [busyAction, setBusyAction] = useState<string>();
   const [partial, setPartial] = useState("");
   const [trace, setTrace] = useState<ChatTrace>();
+  const [usageByKey, setUsageByKey] = useState<Readonly<Record<string, ChatCredentialUsage>>>({});
   const inFlight = useRef<AbortController | null>(null);
+  const actionLock = useRef(false);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; inFlight.current?.abort(); }; }, [uid, service]);
+  useEffect(() => { setUsageByKey({}); }, [uid, service]);
   useEffect(() => {
     if (!service || !uid) return;
     let current = true;
@@ -42,7 +44,7 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
   const activeScope = selected?.scope ?? scope;
   const select = (id?: string) => {
     if (inFlight.current || busyAction) return;
-    setActiveId(id); setDraft(""); setAttachments([]); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
+    setActiveId(id); setDraft(""); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
     if (!id && options) setScope(options.defaults);
   };
   const send = async (retry?: ChatMessage) => {
@@ -57,10 +59,18 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
       controller.signal.throwIfAborted();
       if (!alive.current) return;
       setActiveId(id);
-      await service.send(uid, id, content, { scope: activeScope, signal: controller.signal, attachments,
+      await service.send(uid, id, content, { scope: activeScope, signal: controller.signal,
         ...(retry ? { retry: true, turnId: retry.id } : {}),
-        onPersisted: () => { if (!controller.signal.aborted && alive.current) { setDraft(""); setAttachments([]); } },
+        onPersisted: () => { if (!controller.signal.aborted && alive.current) { setDraft(""); } },
         onProgress: (text, details) => { if (!controller.signal.aborted && alive.current) { setPartial(text); setTrace(details); } },
+        onUsage: (value) => {
+          if (!controller.signal.aborted && alive.current) setUsageByKey((previous) => {
+            const next = { ...previous };
+            if (value.limited) next[value.credentialId] = { ...previous[value.credentialId], ...value };
+            else delete next[value.credentialId];
+            return next;
+          });
+        },
       });
     } catch (cause) {
       if (alive.current) setError(controller.signal.aborted ? "Geração cancelada. A mensagem foi preservada; você pode tentar novamente." : cause instanceof Error ? cause.message : "Não foi possível enviar a mensagem.");
@@ -70,11 +80,12 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     }
   };
   const resolveAction = async (id: string, decision: "confirm" | "reject" | "undo") => {
-    if (!service || !uid || !activeId || busyAction || sending) return;
+    if (!service || !uid || !activeId || actionLock.current || sending) return;
+    actionLock.current = true;
     setBusyAction(id); setError(""); setNotice("");
     try { await service.resolveAction(uid, activeId, id, decision); if (alive.current) setNotice(decision === "reject" ? "Proposta recusada." : "Operação concluída."); }
     catch (cause) { if (alive.current) setError(cause instanceof Error ? cause.message : "Falha na operação. Confira o estado no app."); }
-    finally { if (alive.current) setBusyAction(undefined); }
+    finally { actionLock.current = false; if (alive.current) setBusyAction(undefined); }
   };
   const manageConversation = async (patch: { title?: string; archived?: boolean; deleted?: boolean }) => {
     if (!service || !uid || !activeId || sending || busyAction) return;
@@ -91,6 +102,6 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao exportar."); }
   };
   return { conversations, messages, actions, activeId, draft, setDraft, select, send, loading: historyLoading || messagesLoading,
-    sending, error, setError, notice, partial, trace, options, scope: activeScope, setScope, attachments, setAttachments,
+    sending, error, setError, notice, partial, trace, usage: Object.values(usageByKey), options, scope: activeScope, setScope,
     resolveAction, busyAction, manageConversation, exportConversation, cancel: () => inFlight.current?.abort() };
 }

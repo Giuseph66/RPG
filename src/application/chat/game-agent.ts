@@ -51,6 +51,13 @@ const number = (input: Record<string, unknown>, key: string, min = 0, max = 1000
 };
 const value = <T,>(result: Result<T, { readonly message: string }>): T => { if (!result.ok) throw new Error(result.error.message); return result.value; };
 const json = (data: unknown, max = 18000): string => { const result = JSON.stringify(data); return result.length > max ? result.slice(0, max) + "\n[Conteúdo parcial: refine a consulta.]" : result; };
+function passage(content: string, query: string): string {
+  const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  const normalized = normalize(content), terms = normalize(query).split(/\s+/).filter((term) => term.length > 2);
+  const locations = terms.map((term) => normalized.indexOf(term)).filter((index) => index >= 0);
+  const start = Math.max(0, (locations.length ? Math.min(...locations) : 0) - 400);
+  return `${start ? "…" : ""}${content.slice(start, start + 3500)}${start + 3500 < content.length ? "…" : ""}`;
+}
 const prop = (description: string) => ({ type: "string", description });
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ChatToolDefinition => ({ type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } } });
 const READ_TOOLS = [
@@ -58,11 +65,12 @@ const READ_TOOLS = [
   tool("read_sheet", "Consulta a ficha selecionada, cálculos do motor, recursos, equipamentos e magias. section limita o contexto.", { section: { type: "string", enum: ["all", "identity", "abilities", "combat", "inventory", "spells", "resources"] } }),
   tool("read_campaign", "Consulta campanha, objetivos, regras da casa, NPCs e mapas respeitando visibilidade."),
   tool("read_journal", "Busca registros visíveis do diário e linha do tempo; jogador só acessa seu diário.", { query: prop("Termos opcionais") }),
-  tool("read_sessions", "Consulta sessões, recapitulações, participantes e iniciativa. Notas completas só para mestre."),
+  tool("read_sessions", "Consulta sessões, recapitulações, participantes e iniciativa. Filtre por número ou termos para localizar sessões antigas. Notas completas só para mestre.", { number: { type: "integer", minimum: 1 }, query: prop("Termos do título ou resumo") }),
   tool("read_creatures", "Mestre consulta elenco; jogador recebe apenas avistamentos publicados para ele."),
+  tool("read_party", "Consulta o grupo para planejar encontros e comparar recursos. Mestre lê fichas da campanha; jogador só recebe sua própria ficha."),
   tool("read_rolls", "Consulta os últimos resultados reais de dados da ficha selecionada."),
   tool("read_memories", "Consulta memórias pessoais e da campanha; nunca trate sugestões como fatos ocorridos.", { query: prop("Termos opcionais") }),
-  tool("read_actions", "Lista ações executáveis e bloqueadas calculadas pelo motor, incluindo ataques, magias, recursos e descansos."),
+  tool("read_actions", "Lista ações executáveis e bloqueadas calculadas pelo motor. Filtre por kind ou nome para listas extensas.", { kind: { type: "string", enum: ["attack", "damage", "spell", "resource", "item", "rest", "concentration"] }, query: prop("Parte do nome da ação") }),
 ];
 const WRITE_TOOLS = [
   tool("propose_action", "Prepara ação do motor para confirmação. Use capabilityId e kind de read_actions. Não executa até o usuário confirmar.", { capabilityId: prop("ID real de read_actions"), kind: prop("Tipo da capacidade"), value: { type: "integer" }, targetArmorClass: { type: "integer" }, hitDice: { type: "object", additionalProperties: { type: "integer", minimum: 0 } }, ateAndDrank: { type: "boolean" }, spellTargetContext: { type: "object" }, spellComponentContext: { type: "object" } }, ["capabilityId", "kind"]),
@@ -84,7 +92,8 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
     session(uid);
     if (scope.campaignId && !result) throw new Error("Você não tem acesso a esta campanha.");
     if (scope.master && result !== "master") throw new Error("Esta conversa contém contexto do mestre. Abra uma nova conversa com suas permissões atuais.");
-    return result;
+    // A player conversation never gains master-only data after a later promotion.
+    return result === "master" && scope.master === false ? "player" : result;
   }
   async function character(uid: string, scope: ChatScope, write = false) {
     if (!scope.sheet || !scope.characterId) throw new Error("Selecione e compartilhe uma ficha para esta consulta.");
@@ -94,7 +103,7 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
     const snapshot = d.services.character.store.getSnapshot();
     if (write && snapshot.value?.id !== current.id) throw new Error("Selecione esta ficha no aplicativo antes de confirmar a alteração.");
     if (write && (snapshot.hasPendingChanges || snapshot.value?.revision !== current.revision)) throw new Error("Aguarde a gravação das alterações pendentes da ficha antes de confirmar.");
-    if (current.campaignId && current.campaignId !== scope.campaignId) throw new Error("A ficha pertence a outra campanha. Abra uma conversa com a campanha correta.");
+    if (current.campaignId && scope.campaignId && current.campaignId !== scope.campaignId) throw new Error("A ficha pertence a outra campanha. Abra uma conversa com a campanha correta.");
     return current;
   }
   function calculated(current: Character) {
@@ -108,13 +117,17 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
     if (master && r !== "master") throw new Error("Esta operação é exclusiva do mestre.");
     return value(await d.campaigns.get(asUuid(scope.campaignId)));
   }
-  const source = (kind: ChatSource["kind"], title: string, locator: string, data: unknown, href: string, updatedAt?: string): Omit<ChatSource, "id"> => ({ kind, title, locator, excerpt: typeof data === "string" ? data.slice(0, 500) : json(data, 500), href, ...(updatedAt ? { updatedAt } : {}) });
+  const source = (kind: ChatSource["kind"], title: string, locator: string, data: unknown, href: string, updatedAt?: string): Omit<ChatSource, "id"> => ({ kind, title, locator, excerpt: typeof data === "string" ? data.slice(0, 500) : json(data, 500), ...(href !== "/chat" ? { href } : {}), ...(updatedAt ? { updatedAt } : {}) });
   const ref = (type: "equipment" | "condition", id: string) => ({ rulesetId: d.pack.manifest.id, entityType: type, entityId: asEntityId(id) });
   async function proposal(uid: string, scope: ChatScope, name: string, input: Record<string, unknown>): Promise<ChatToolResult> {
     let revision: number | undefined;
     let label = name;
     let review = "";
-    if (["propose_action", "propose_roll", "propose_inventory", "propose_condition", "propose_preparation"].includes(name)) {
+    if (name === "propose_roll" && input.check === "free" && (!scope.characterId || !scope.sheet)) {
+      value(parseDiceFormula(text(input, "formula", 80)));
+      label = "Rolar dados livres";
+      review = `Fórmula: ${String(input.formula)}\nModo: ${String(input.mode ?? "normal")}`;
+    } else if (["propose_action", "propose_roll", "propose_inventory", "propose_condition", "propose_preparation"].includes(name)) {
       const current = await character(uid, scope);
       const { pack: currentPack } = calculated(current);
       revision = current.revision;
@@ -181,14 +194,14 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
         const locator = entry.sourceRefs.map((item) => [item.sourceId, item.chapter, item.section, item.printedPage ? `p. ${item.printedPage}` : ""].filter(Boolean).join(" · ")).join("; ");
         const definition = detail.ok ? detail.value.definition : undefined;
         const content = definition && "text" in definition ? String(definition.text) : definition && "description" in definition ? String(definition.description) : json(definition ?? entry.summary);
-        return { ...source("rule", entry.title, locator || `${entry.ruleset.id} · ${entry.ruleset.version}`, content, `/compendium/${entry.category}/${encodeURIComponent(entry.ref.entityId)}`), excerpt: content.slice(0, 3500) };
+        return { ...source("rule", entry.title, locator || `${entry.ruleset.id} · ${entry.ruleset.version}`, content, `/compendium/${entry.category}/${encodeURIComponent(entry.ref.entityId)}`), excerpt: passage(content, query) };
       });
       return { content: entries.length ? "Trechos do catálogo carregado; páginas apenas quando constam da fonte. Referencie as fontes retornadas." : "Nenhuma regra encontrada. Refine os termos; não invente referência ou página.", sources };
     }
     if (name === "read_sheet" || name === "read_actions" || name === "read_rolls") {
       const current = await character(uid, scope), { pack, derived } = calculated(current);
       if (name === "read_rolls") return { content: json(value(await d.dice.list({ characterId: current.id, limit: 20 })).entries.map((item) => item.roll)) };
-      if (name === "read_actions") return { content: json(deriveActionCapabilities(current, derived, pack, d.ids).capabilities.map(({ id, kind, label, status, blockedReason, pendingReasons, inputKind, costs, effectSummary }) => ({ id, kind, label, status, blockedReason, pendingReasons, inputKind, costs, effectSummary }))) };
+      if (name === "read_actions") return { content: json(deriveActionCapabilities(current, derived, pack, d.ids).capabilities.filter((item) => (!input.kind || item.kind === input.kind) && (!input.query || item.label.toLocaleLowerCase("pt-BR").includes(String(input.query).toLocaleLowerCase("pt-BR")))).slice(0, 40).map(({ id, kind, label, status, blockedReason, pendingReasons, inputKind, costs, effectSummary }) => ({ id, kind, label, status, blockedReason, pendingReasons, inputKind, costs, effectSummary }))) };
       const section = input.section ?? "all";
       const named = (items: readonly import("@domain/contracts/ids").DefinitionRef[]) => items.map((item) => ({ ...item, name: pack.spells.get(item.entityId)?.name }));
       const identity = { id: current.id, name: current.name, race: pack.races.get(current.raceRef.entityId)?.name, classes: current.classes.map((item) => ({ ...item, name: pack.classes.get(item.classId)?.name })), background: current.backgroundRef ? pack.backgrounds.get(current.backgroundRef.entityId)?.name : undefined, history: current.history, appearance: current.appearance, personalityTraits: current.personalityTraits, ideals: current.ideals, bonds: current.bonds, flaws: current.flaws, ruleset: current.rulesetRef, supplements: current.selectedSupplementIds };
@@ -211,6 +224,18 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       return { content: json(found), sources: found.map((item) => source("memory", item.title, `Memória ${item.visibility} · ${item.id}`, item.body, "/chat", item.updatedAt)) };
     }
     const current = await campaign(uid, scope), r = await role(uid, scope);
+    if (name === "read_party") {
+      if (!scope.sheet) throw new Error("Compartilhe as fichas para consultar os dados do grupo.");
+      const listed = value(await d.characters.list()).filter((item) => item.campaignId === current.id && !item.castSheet && (r === "master" || item.ownerUid === uid)).slice(0, 20);
+      const group = [];
+      for (const item of listed) {
+        const member = value(await d.services.character.get(item.id));
+        const { derived, pack } = calculated(member);
+        group.push({ id: member.id, name: member.name, classes: member.classes.map((cls) => ({ name: pack.classes.get(cls.classId)?.name, level: cls.level })), hp: member.hp, maximumHp: derived.hitPointsMax.value, armorClass: derived.armorClass.value, conditions: member.conditions, resources: member.resources, slots: member.spellSlots, revision: member.revision, updatedAt: member.updatedAt });
+      }
+      session(uid);
+      return { content: json(group), sources: group.map((item) => source("sheet", item.name, `Grupo · revisão ${item.revision}`, item, `/character/${item.id}`, item.updatedAt)) };
+    }
     if (name === "read_campaign") {
       const maps = value(await d.services.campaign.listMaps(current.id)).filter((item) => r === "master" || item.visibleTo?.some((id) => id === "*" || id === uid));
       const data = { id: current.id, name: current.name, description: current.description, ruleset: current.rulesetRef, settings: current.settings, objectives: current.objectives, quests: current.quests, sessionCounter: current.sessionCounter, ...(r === "master" ? { npcs: current.npcs } : {}), maps: maps.map(({ id, name, pins }) => ({ id, name, pins })) };
@@ -222,19 +247,27 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       return { content: json(entries), sources: entries.map((item) => source("journal", item.title, `Diário · sessão ${item.sessionNumber ?? "não informada"}`, item.body, "/journey/journal", item.updatedAt)) };
     }
     if (name === "read_sessions") {
-      const sessions = [...value(await d.session.list(current.id))].sort((a, b) => b.number - a.number).slice(0, 10).map(({ notes, ...item }) => ({ ...item, ...(r === "master" ? { notes } : {}) }));
+      const sessions = [...value(await d.session.list(current.id))].filter((item) => (!input.number || item.number === input.number) && (!input.query || `${item.title} ${item.summary}`.toLocaleLowerCase("pt-BR").includes(String(input.query).toLocaleLowerCase("pt-BR")))).sort((a, b) => b.number - a.number).slice(0, 10).map(({ notes, ...item }) => ({ ...item, ...(r === "master" ? { notes } : {}) }));
       return { content: json(sessions), sources: sessions.map((item) => source("session", item.title, `Sessão ${item.number} · ${item.status}`, item.summary, `/session/${current.id}`, item.updatedAt)) };
     }
     if (name === "read_creatures") return { content: json(r === "master" ? value(await d.creatures.listCreatures(current.id)) : value(await d.creatures.listSightings(current.id, asAccountId(uid)))) };
     throw new Error("Ferramenta desconhecida.");
   }
   function tools(scope: ChatScope) {
-    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "search_rules" ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_roll", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
+    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : f.name === "search_rules" ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
   }
   async function execute(uid: string, action: ChatAction) {
     const { scope, input, name } = action;
     await role(uid, scope);
     if (!tools(scope).some((item) => item.function.name === name)) throw new Error("Ação não autorizada para esta conversa.");
+    if (name === "propose_roll" && input.check === "free" && (!scope.characterId || !scope.sheet)) {
+      const expression = value(parseDiceFormula(text(input, "formula", 80)));
+      const mode = input.mode ?? "normal";
+      if (!["normal", "advantage", "disadvantage"].includes(String(mode))) throw new Error("Modo de rolagem inválido.");
+      const roll = value(rollExpression({ ...expression, mode: mode as typeof expression.mode }, createPlatformRandomSource(), { id: asUuid(action.id), timestamp: d.clock.now(), purpose: "free", label: String(input.label ?? "Rolagem livre").slice(0, 120) }));
+      session(uid); value(await d.services.dice.append({ roll }));
+      return { content: `Rolagem real: ${input.formula}; dados ${roll.rawDice.join(", ")}; total ${roll.total}.` };
+    }
     if (["propose_action", "propose_roll", "propose_inventory", "propose_condition", "propose_preparation"].includes(name)) {
       const current = await character(uid, scope, true);
       if (current.revision !== action.expectedRevision) throw new Error("A ficha mudou desde a proposta. Peça ao Oráculo uma nova proposta.");
@@ -340,7 +373,7 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       if (!["private", "party", "master"].includes(String(visibility))) throw new Error("Visibilidade inválida.");
       if (previous && previous.visibility !== visibility) throw new Error("Para mudar a visibilidade, crie uma nova memória e revise o compartilhamento.");
       const memory: ChatMemory = { id: previous?.id ?? action.id, title: text(input, "title", 120), body: text(input, "body"), visibility: visibility as ChatMemory["visibility"], ...(scope.campaignId ? { campaignId: scope.campaignId } : {}), ...(visibility === "private" && scope.characterId ? { characterId: scope.characterId } : {}), updatedAt: new Date().toISOString() };
-      session(uid); await d.repository.saveMemory(uid, memory);
+      session(uid); await d.repository.saveMemory(uid, memory, previous?.updatedAt);
       return { content: "Memória salva com a visibilidade revisada." };
     }
     const current = await campaign(uid, scope, name === "propose_session" || input.kind !== "journal");
@@ -379,11 +412,28 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       const existing = value(await d.session.get(asUuid(text(input, "sessionId", 160))));
       if (existing.campaignId !== current.id) throw new Error("A sessão pertence a outra campanha.");
       if (existing.revision !== input._sessionRevision) throw new Error("A sessão mudou desde a proposta. Solicite uma nova proposta.");
-      if (operation === "start") value(await d.session.start(existing.id, actor));
-      else if (operation === "end") value(await d.session.end(existing.id, actor, text(input, "body")));
-      else if (operation === "notes") value(await d.session.updateNotes(existing.id, actor, text(input, "body")));
-      else if (operation === "encounter") value(await d.session.setEncounter(existing.id, actor, input.encounter as Parameters<SessionService["setEncounter"]>[2]));
-      else if (operation === "attendance") value(await d.session.setAttendance(existing.id, actor, input.attendance as Parameters<SessionService["setAttendance"]>[2]));
+      if (operation === "encounter") {
+        const encounter = input.encounter as { combatants?: readonly { entityType?: string; entityId?: string }[] } | undefined;
+        if (!encounter || !Array.isArray(encounter.combatants) || encounter.combatants.length > 100) throw new Error("Informe um encontro com até 100 participantes cadastrados.");
+        const creatures = value(await d.creatures.listCreatures(current.id));
+        for (const combatant of encounter.combatants) {
+          const registered = combatant.entityType === "character" ? current.characterIds.some((id) => id === combatant.entityId) : combatant.entityType === "npc" && (current.npcs.some((npc) => npc.id === combatant.entityId) || creatures.some((creature) => creature.id === combatant.entityId));
+          if (!registered) throw new Error("O encontro contém um participante que não está cadastrado nesta campanha.");
+        }
+      }
+      if (operation === "attendance") {
+        if (!Array.isArray(input.attendance) || input.attendance.length > 100) throw new Error("Lista de presença inválida.");
+        for (const attendance of input.attendance) {
+          if (!attendance || typeof attendance !== "object" || !current.characterIds.some((id) => id === attendance.characterId)) throw new Error("Personagem da presença não pertence à campanha.");
+          const member = value(await d.services.character.get(asUuid(String(attendance.characterId))));
+          if (member.campaignId !== current.id || member.ownerUid !== attendance.playerId) throw new Error("O jogador informado não é o dono desta ficha.");
+        }
+      }
+      if (operation === "start") value(await d.session.start(existing.id, actor, existing.revision));
+      else if (operation === "end") value(await d.session.end(existing.id, actor, text(input, "body"), existing.revision));
+      else if (operation === "notes") value(await d.session.updateNotes(existing.id, actor, text(input, "body"), existing.revision));
+      else if (operation === "encounter") value(await d.session.setEncounter(existing.id, actor, input.encounter as Parameters<SessionService["setEncounter"]>[2], existing.revision));
+      else if (operation === "attendance") value(await d.session.setAttendance(existing.id, actor, input.attendance as Parameters<SessionService["setAttendance"]>[2], existing.revision));
       else throw new Error("Operação de sessão inválida.");
       return { content: "Sessão atualizada pelo serviço da campanha." };
     }
@@ -409,8 +459,12 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       const r = await role(uid, scope);
       const c = scope.sheet && scope.characterId ? await character(uid, scope) : undefined;
       const p = scope.campaign && scope.campaignId ? await campaign(uid, scope) : undefined;
-      if (scope.rules && ((c && c.rulesetRef.id !== d.pack.manifest.id) || (p && p.rulesetRef.id !== d.pack.manifest.id))) throw new Error("O sistema desta ficha ou campanha difere do catálogo carregado. Desative a consulta ao livro para continuar sem atribuir regras de outra edição.");
-      return { scope: { ...scope, master: r === "master" }, text: json({ character: c ? { id: c.id, name: c.name, revision: c.revision, updatedAt: c.updatedAt } : undefined, campaign: p ? { id: p.id, name: p.name, ruleset: p.rulesetRef, revision: p.revision } : undefined, role: r ?? "personal", shared: { rules: scope.rules, sheet: scope.sheet, campaign: scope.campaign, memory: scope.memory }, consultedAt: new Date().toISOString(), note: "Dados locais sincronizados; consulte ferramentas antes de responder sobre fatos ou números. Não há conhecimento automático de sessões não registradas." }) };
+      if (scope.rules && ((c && (c.rulesetRef.id !== d.pack.manifest.id || c.rulesetRef.version !== d.pack.manifest.version)) || (p && (p.rulesetRef.id !== d.pack.manifest.id || p.rulesetRef.version !== d.pack.manifest.version)))) throw new Error("O sistema desta ficha ou campanha difere do catálogo carregado. Desative a consulta ao livro para continuar sem atribuir regras de outra edição.");
+      const alerts = c ? [
+        ...(c.concentration?.pendingSaveIds.length ? [`Concentração: ${c.concentration.pendingSaveIds.length} salvaguarda(s) pendente(s) na ficha.`] : []),
+        ...c.pendingResolutions.map((pending) => pending.kind === "input-request" ? pending.reason : pending.kind === "unresolved-rule" ? pending.description : "Existe uma conjuração pendente de resolução na ficha."),
+      ].slice(0, 6) : [];
+      return { scope: { ...scope, master: r === "master" }, alerts, text: json({ character: c ? { id: c.id, name: c.name, revision: c.revision, updatedAt: c.updatedAt } : undefined, campaign: p ? { id: p.id, name: p.name, ruleset: p.rulesetRef, revision: p.revision } : undefined, role: r ?? "personal", shared: { rules: scope.rules, sheet: scope.sheet, campaign: scope.campaign, memory: scope.memory }, alerts, consultedAt: new Date().toISOString(), note: "Dados locais sincronizados; consulte ferramentas antes de responder sobre fatos ou números. Não há conhecimento automático de sessões não registradas." }) };
     },
     async undo(uid, action) {
       const saved = action.undo;

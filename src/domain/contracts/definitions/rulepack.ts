@@ -31,6 +31,8 @@ export interface OptionalClassFeatureReplacement {
   readonly replacesFeatureIds?: readonly EntityId[];
   /** Escolhas de classe concedidas pela característica substituída; somem junto com ela. */
   readonly replacesChoiceIds?: readonly string[];
+  /** Aviso ao jogador sobre o que deixa de receber ao escolher a substituição (mostrado antes da escolha). */
+  readonly tradeOffNote?: string;
   readonly replacementFeatureIds: readonly EntityId[];
   readonly choiceLevel: number;
   readonly sourceRefs: readonly SourceRef[];
@@ -46,6 +48,8 @@ export interface OptionalClassOption {
   readonly choiceId?: string;
   readonly featureRefs: readonly EntityId[];
   readonly spellRefs?: readonly EntityId[];
+  /** Vale sempre que o suplemento está ligado, sem caixa de seleção (ex.: magias extras só ampliam a lista de escolha). */
+  readonly automatic?: boolean;
   readonly sourceRefs: readonly SourceRef[];
 }
 

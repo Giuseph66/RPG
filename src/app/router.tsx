@@ -1603,7 +1603,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
       route={navigation.match}
       navigate={navigation.navigate}
     >
-      <Suspense fallback={<RouteLoadingFallback />}>{outlet}</Suspense>
+      <Suspense fallback={<RouteLoadingFallback />}>{navigation.match.kind === "chat" && registry ? <RuleLookupBoundary registry={registry}>{outlet}</RuleLookupBoundary> : outlet}</Suspense>
     </AppShell>
   );
 }
