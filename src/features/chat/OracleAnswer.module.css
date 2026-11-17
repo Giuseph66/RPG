@@ -4,6 +4,10 @@
 .seal { display: grid; flex: 0 0 auto; width: 1.75rem; height: 1.75rem; place-items: center; color: var(--color-secondary); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--color-primary) 28%, var(--color-surface-warm)), var(--color-surface-warm)); border: 1px solid color-mix(in srgb, var(--color-primary) 70%, transparent); border-radius: 50%; }
 .meta strong { color: var(--color-secondary); font-family: var(--typography-heading-font-family); font-size: .85rem; font-weight: 600; letter-spacing: .04em; }
 .meta time { color: var(--color-gold-muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.readingRate { flex: 0 0 auto; width: 4.5rem; min-height: var(--size-touch-target); margin-inline-start: auto; padding: .2rem; border: 1px solid transparent; border-radius: var(--radius-control); color: var(--color-gold-muted); background: transparent; font: inherit; font-size: .8rem; font-variant-numeric: tabular-nums; cursor: pointer; }
+.readingRate:hover { color: var(--color-secondary); border-color: var(--color-border); }
+.readingRate:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.readingRate option { color: var(--color-text); background: var(--color-surface); }
 
 .thread { display: grid; gap: var(--spacing-sm); margin-left: .85rem; padding: .1rem 0 .1rem 1.4rem; border-left: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent); }
 

@@ -11,18 +11,33 @@ export function useChatVoice(onText: (text: string) => void, onError: (text: str
   const recognition = useRef<Recognition | undefined>(undefined);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [rate, setRate] = useState(1);
+  const rateRef = useRef(1);
+  const restartSpeech = useRef<(() => void) | undefined>(undefined);
   const [reading, setReading] = useState<{ messageId: string; start: number; end: number }>();
   const speech = useRef<SpeechSynthesisUtterance | undefined>(undefined);
   const textHandler = useRef(onText), errorHandler = useRef(onError);
   textHandler.current = onText; errorHandler.current = onError;
   const available = typeof window !== "undefined" && Boolean((window as VoiceWindow).SpeechRecognition || (window as VoiceWindow).webkitSpeechRecognition);
-  useEffect(() => () => { if (recognition.current) { recognition.current.onend = null; recognition.current.onresult = null; recognition.current.onerror = null; recognition.current.abort(); } speech.current = undefined; if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
+  useEffect(() => () => { if (recognition.current) { recognition.current.onend = null; recognition.current.onresult = null; recognition.current.onerror = null; recognition.current.abort(); } speech.current = undefined; restartSpeech.current = undefined; if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
   const stopReading = useCallback(() => {
     speech.current = undefined;
+    restartSpeech.current = undefined;
     window.speechSynthesis?.cancel();
     setSpeaking(false);
     setReading(undefined);
   }, []);
+  function changeRate(value: number) {
+    if (![.75, 1, 1.25, 1.5, 2].includes(value)) return;
+    rateRef.current = value;
+    setRate(value);
+    const resume = restartSpeech.current;
+    if (speech.current && resume) {
+      speech.current = undefined;
+      window.speechSynthesis.cancel();
+      resume();
+    }
+  }
   function toggleListening() {
     if (listening) { recognition.current?.stop(); return; }
     const Constructor = (window as VoiceWindow).SpeechRecognition ?? (window as VoiceWindow).webkitSpeechRecognition;
@@ -49,21 +64,24 @@ export function useChatVoice(onText: (text: string) => void, onError: (text: str
       : Array.from(spoken.matchAll(/[^\n]+/g), (item) => ({ text: item[0], start: item.index! }));
     const parts = chunks.filter((item) => item.text.trim());
     if (!parts.length) return;
-    const speak = (index: number) => {
+    const speak = (index: number, offset = 0) => {
       const part = parts[index];
-      const utterance = new SpeechSynthesisUtterance(part.text);
+      let position = offset;
+      const utterance = new SpeechSynthesisUtterance(part.text.slice(offset));
       utterance.lang = "pt-BR";
-      utterance.rate = 1.25;
+      utterance.rate = rateRef.current;
       speech.current = utterance;
+      restartSpeech.current = () => speak(index, position);
       utterance.onstart = () => {
-        if (speech.current === utterance) setReading({ messageId, start: part.start, end: part.start + part.text.length });
+        if (speech.current === utterance) setReading({ messageId, start: part.start + offset, end: part.start + part.text.length });
       };
       utterance.onboundary = (event) => {
         if (speech.current !== utterance || !Number.isFinite(event.charIndex)) return;
-        const tail = part.text.slice(event.charIndex);
+        const tail = part.text.slice(offset + event.charIndex);
         const word = /\S+/.exec(tail);
         if (!word) return;
-        const start = part.start + event.charIndex + word.index;
+        position = offset + event.charIndex + word.index;
+        const start = part.start + position;
         const length = event.charLength > 0 ? event.charLength : word[0].length;
         setReading({ messageId, start, end: Math.min(part.start + part.text.length, start + length) });
       };
@@ -79,5 +97,5 @@ export function useChatVoice(onText: (text: string) => void, onError: (text: str
     setSpeaking(true);
     speak(0);
   }
-  return { available, listening, speaking, reading, toggleListening, readAloud, stopReading, stop: () => recognition.current?.stop() };
+  return { available, listening, speaking, reading, rate, changeRate, toggleListening, readAloud, stopReading, stop: () => recognition.current?.stop() };
 }

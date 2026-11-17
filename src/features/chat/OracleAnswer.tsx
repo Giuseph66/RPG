@@ -25,7 +25,7 @@ const seconds = (ms: number) => `${(ms / 1000).toLocaleString("pt-BR", { maximum
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /** Answer first; reasoning, tools and sources stay folded behind one quiet line. */
-export function OracleAnswer({ content, time, trace, actions = [], busy = false, onAction, streaming = false, spokenRange }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace; readonly actions?: readonly ChatAction[]; readonly busy?: boolean; readonly onAction?: (id: string, decision: "confirm" | "reject" | "undo") => void; readonly streaming?: boolean; readonly spokenRange?: { readonly start: number; readonly end: number } }) {
+export function OracleAnswer({ content, time, trace, actions = [], busy = false, onAction, streaming = false, spokenRange, readingRate = 1, onReadingRateChange }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace; readonly actions?: readonly ChatAction[]; readonly busy?: boolean; readonly onAction?: (id: string, decision: "confirm" | "reject" | "undo") => void; readonly streaming?: boolean; readonly spokenRange?: { readonly start: number; readonly end: number }; readonly readingRate?: number; readonly onReadingRateChange?: (rate: number) => void }) {
   const prefix = useId();
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -107,6 +107,13 @@ export function OracleAnswer({ content, time, trace, actions = [], busy = false,
         <strong>Oráculo</strong>
         <time>{time}</time>
         {streaming ? <span role="status">Respondendo…</span> : null}
+        {onReadingRateChange ? <select className={styles.readingRate} value={readingRate} onChange={(event) => onReadingRateChange(Number(event.currentTarget.value))} aria-label="Velocidade da leitura em voz alta" title="Velocidade da leitura">
+          <option value={.75}>0,75×</option>
+          <option value={1}>1×</option>
+          <option value={1.25}>1,25×</option>
+          <option value={1.5}>1,5×</option>
+          <option value={2}>2×</option>
+        </select> : null}
       </header>
 
       <div className={styles.thread}>

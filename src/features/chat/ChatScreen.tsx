@@ -231,7 +231,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               )}
             </div>
           ) : messages.map((message) => message.role === "assistant" ? (
-            <OracleAnswer key={message.id} content={message.content} time={formatTime(message.createdAt)} trace={message.trace} actions={actions.filter((action) => action.messageId === message.id)} busy={sending || Boolean(busyAction) || readOnly} onAction={(id, decision) => void resolveAction(id, decision)} spokenRange={voice.reading?.messageId === message.id ? voice.reading : undefined} />
+            <OracleAnswer key={message.id} content={message.content} time={formatTime(message.createdAt)} trace={message.trace} actions={actions.filter((action) => action.messageId === message.id)} busy={sending || Boolean(busyAction) || readOnly} onAction={(id, decision) => void resolveAction(id, decision)} spokenRange={voice.reading?.messageId === message.id ? voice.reading : undefined} readingRate={voice.rate} onReadingRateChange={message.id === lastAnswer?.id && typeof window !== "undefined" && window.speechSynthesis ? voice.changeRate : undefined} />
           ) : (
             <article key={message.id} className={styles.userMessage} aria-label={`Você, ${formatTime(message.createdAt)}`}>
               <p>{message.content}</p>
