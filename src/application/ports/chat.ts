@@ -3,7 +3,7 @@ export interface ChatPreferences {
   readonly model: string;
 }
 
-export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = { baseUrl: "https://ollama.com", model: "" };
+export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = { baseUrl: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-20b" };
 
 export interface ChatMessage {
   readonly id: string;
@@ -49,14 +49,14 @@ export interface ChatRepository {
   readPreferences(uid: string): Promise<ChatPreferences>;
 }
 
-export class OllamaRequestError extends Error {
+export class ChatRequestError extends Error {
   constructor(message: string, readonly status: number, readonly retryAfterMs = 300_000) {
     super(message);
-    this.name = "OllamaRequestError";
+    this.name = "ChatRequestError";
   }
 }
 
-export interface OllamaClient {
+export interface ChatClient {
   listModels(baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<readonly string[]>;
   complete(baseUrl: string, apiKey: string, model: string, messages: readonly Pick<ChatMessage, "role" | "content">[], context: string, signal?: AbortSignal): Promise<string>;
 }

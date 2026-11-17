@@ -1,5 +1,5 @@
 // Firestore Security Rules — CLOUD-001 / ADR-0007.
-// Dados privados por conta/campanha; ollamaKeys é um pool explicitamente compartilhado.
+// Dados privados por conta/campanha; os pools de chaves de IA são explicitamente compartilhados.
 rules_version = '2';
 
 service cloud.firestore {
@@ -70,10 +70,11 @@ service cloud.firestore {
 
       match /chatSettings/{settingId} {
         allow read: if self(uid);
-        allow create, update: if self(uid) && settingId == 'ollama' &&
+        allow create, update: if self(uid) && settingId in ['ollama', 'groq'] &&
           request.resource.data.keys().hasOnly(['baseUrl', 'model', 'updatedAt']) &&
           request.resource.data.baseUrl is string && request.resource.data.baseUrl.size() <= 2048 &&
           request.resource.data.baseUrl.matches('^https?://.*') &&
+          (settingId != 'groq' || request.resource.data.baseUrl == 'https://api.groq.com/openai/v1') &&
           request.resource.data.model is string && request.resource.data.model.size() > 0 &&
           request.resource.data.model.size() <= 128 && request.resource.data.updatedAt == request.time;
         allow delete: if self(uid);
@@ -701,9 +702,10 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
 
-    // Uma chave por conta. O navegador precisa ler o pool para chamar Ollama
+    // Uma chave por conta e provedor. O navegador precisa ler o pool para chamar a IA
     // diretamente: as chaves são acessíveis a TODAS as contas autenticadas.
-    match /ollamaKeys/{uid} {
+    // O pool Ollama permanece para compatibilidade; credenciais não são copiadas entre provedores.
+    match /{keyPool}/{uid} {
       function validKey(data) {
         return data.keys().hasOnly(['ownerUid', 'label', 'apiKey', 'status', 'cooldownUntil', 'createdAt', 'updatedAt']) &&
           data.ownerUid == uid && data.label is string && data.label.size() > 0 && data.label.size() <= 60 &&
@@ -711,11 +713,11 @@ service cloud.firestore {
           data.status in ['active', 'cooldown', 'invalid'] && data.cooldownUntil is number &&
           data.cooldownUntil >= 0 && data.createdAt is timestamp && data.updatedAt == request.time;
       }
-      allow read: if signedIn();
-      allow create: if self(uid) && validKey(request.resource.data) &&
+      allow read: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn();
+      allow create: if keyPool in ['ollamaKeys', 'groqKeys'] && self(uid) && validKey(request.resource.data) &&
         request.resource.data.createdAt == request.time && request.resource.data.status == 'active' &&
         request.resource.data.cooldownUntil == 0;
-      allow update: if signedIn() && validKey(request.resource.data) &&
+      allow update: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn() && validKey(request.resource.data) &&
         request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.createdAt == resource.data.createdAt &&
         (self(uid) ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cooldownUntil', 'updatedAt']) &&
@@ -723,7 +725,7 @@ service cloud.firestore {
              (request.resource.data.status == 'cooldown' &&
                request.resource.data.cooldownUntil > request.time.toMillis() &&
                request.resource.data.cooldownUntil <= request.time.toMillis() + 3600000))));
-      allow delete: if self(uid);
+      allow delete: if keyPool in ['ollamaKeys', 'groqKeys'] && self(uid);
     }
 
     match /{document=**} { allow read, write: if false; }

@@ -77,7 +77,7 @@ import type { CampaignLogPort } from "@application/ports/campaign-log";
 import { AppRouter } from "./router";
 import { createChatService } from "@application/chat/service";
 import { createFirestoreChatRepository } from "@infrastructure/cloud/firebase/chat-repository";
-import { createOllamaClient } from "@infrastructure/ai/ollama-client";
+import { createGroqClient } from "@infrastructure/ai/groq-client";
 
 type FirebaseCloudModule = typeof import("@infrastructure/cloud/firebase");
 
@@ -758,7 +758,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       race: optionalNames((supplement) => supplement.races, activePack.races), subrace: optionalNames((supplement) => supplement.subraces, activePack.subraces), class: activePack.classes, subclass: optionalNames((supplement) => supplement.subclasses, activePack.subclasses), background: activePack.backgrounds, feat: activePack.feats, feature: optionalNames((supplement) => supplement.features, activePack.features), resource: optionalNames((supplement) => supplement.resources, activePack.resources), condition: activePack.conditions, equipment: activePack.equipment, spell: optionalNames((supplement) => supplement.spells, activePack.spells),
     };
     const registry = createFeatureRegistry({
-      chat: firebaseApp && cloud ? createChatService(createFirestoreChatRepository(() => cloud.getFirestoreClient(firebaseApp).firestore), createOllamaClient(), () => auth?.currentSession()?.uid) : undefined,
+      chat: firebaseApp && cloud ? createChatService(createFirestoreChatRepository(() => cloud.getFirestoreClient(firebaseApp).firestore), createGroqClient(), () => auth?.currentSession()?.uid) : undefined,
       services,
       compendiumService,
       loadCompendiumCatalog,

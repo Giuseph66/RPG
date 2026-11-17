@@ -4,18 +4,18 @@ import { DEFAULT_CHAT_PREFERENCES, type ChatCredential, type ChatCredentialSumma
 const millis = (value: unknown): number => value && typeof value === "object" && "toMillis" in value ? (value as { toMillis(): number }).toMillis() : 0;
 const preferences = (data?: Record<string, unknown>): ChatPreferences => ({
   baseUrl: typeof data?.baseUrl === "string" ? data.baseUrl : DEFAULT_CHAT_PREFERENCES.baseUrl,
-  model: typeof data?.model === "string" ? data.model : "",
+  model: typeof data?.model === "string" ? data.model : DEFAULT_CHAT_PREFERENCES.model,
 });
 function credential(uid: string, data: Record<string, unknown>): ChatCredentialSummary {
-  return { ownerUid: uid, label: String(data.label ?? "Chave Ollama"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
+  return { ownerUid: uid, label: String(data.label ?? "Chave GroqCloud"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
 }
 
-/** Pool compartilhado: todo usuário autenticado pode ler as credenciais para chamar Ollama pelo navegador. */
+/** Pool compartilhado: todo usuário autenticado pode ler as credenciais para chamar GroqCloud pelo navegador. */
 export function createFirestoreChatRepository(getFirestore: () => Firestore): ChatRepository {
-  const settingsRef = (uid: string) => doc(getFirestore(), "users", uid, "chatSettings", "ollama");
+  const settingsRef = (uid: string) => doc(getFirestore(), "users", uid, "chatSettings", "groq");
   const conversationsRef = (uid: string) => collection(getFirestore(), "users", uid, "chatConversations");
   const messagesRef = (uid: string, id: string) => collection(conversationsRef(uid), id, "messages");
-  const keyRef = (uid: string) => doc(getFirestore(), "ollamaKeys", uid);
+  const keyRef = (uid: string) => doc(getFirestore(), "groqKeys", uid);
   const toMessage = (item: { id: string; data(): Record<string, unknown> }) => {
     const data = item.data();
     return { id: item.id, role: data.role === "assistant" ? "assistant" as const : "user" as const, content: String(data.content ?? ""), createdAt: millis(data.createdAt) };
@@ -37,7 +37,7 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
     },
     async removeCredential(uid) { await deleteDoc(keyRef(uid)); },
     async listCredentials() {
-      const snapshot = await getDocsFromServer(query(collection(getFirestore(), "ollamaKeys"), orderBy("createdAt", "asc")));
+      const snapshot = await getDocsFromServer(query(collection(getFirestore(), "groqKeys"), orderBy("createdAt", "asc")));
       return snapshot.docs.flatMap((item) => typeof item.data().apiKey === "string" ? [{ ...credential(item.id, item.data()), apiKey: item.data().apiKey } as ChatCredential] : []);
     },
     async setCredentialState(key, status, cooldownUntil) {

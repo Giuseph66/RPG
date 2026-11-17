@@ -1,21 +1,18 @@
-import { OllamaRequestError, type ChatCredential, type ChatPreferences, type ChatRepository, type OllamaClient } from "@application/ports/chat";
+import { ChatRequestError, DEFAULT_CHAT_PREFERENCES, type ChatCredential, type ChatPreferences, type ChatRepository, type ChatClient } from "@application/ports/chat";
 
 export function normalizeChatPreferences(input: ChatPreferences): ChatPreferences {
-  let url: URL;
-  try { url = new URL(input.baseUrl.trim()); } catch { throw new Error("Informe uma URL válida para o servidor Ollama."); }
-  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
-    throw new Error("Use uma URL HTTP ou HTTPS sem credenciais, parâmetros ou fragmentos.");
-  }
+  const baseUrl = input.baseUrl.trim().replace(/\/+$/, "");
+  if (baseUrl !== DEFAULT_CHAT_PREFERENCES.baseUrl) throw new Error("Use o endereço oficial do GroqCloud nas configurações do chat.");
   const model = input.model.trim();
-  if (!model || model.length > 128 || !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model)) throw new Error("Informe o nome do modelo Ollama.");
-  return { baseUrl: url.toString().replace(/\/+$/, "").replace(/\/api$/, ""), model };
+  if (!model || model.length > 128 || !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/.test(model)) throw new Error("Informe o identificador do modelo GroqCloud.");
+  return { baseUrl, model };
 }
 
 export function credentialAvailable(key: ChatCredential, now = Date.now()): boolean {
   return key.status === "active" || (key.status === "cooldown" && key.cooldownUntil <= now);
 }
 
-export function createChatService(repository: ChatRepository, ollama: OllamaClient, currentUid: () => string | undefined) {
+export function createChatService(repository: ChatRepository, client: ChatClient, currentUid: () => string | undefined) {
   const assertSession = (uid: string, signal?: AbortSignal) => {
     signal?.throwIfAborted();
     if (currentUid() !== uid) throw new Error("Entre na sua conta para usar o chat.");
@@ -29,10 +26,10 @@ export function createChatService(repository: ChatRepository, ollama: OllamaClie
       if (!credentialAvailable(key)) continue;
       try { return await call(key); } catch (error) {
         assertSession(uid, signal);
-        if (!(error instanceof OllamaRequestError)) throw error;
+        if (!(error instanceof ChatRequestError)) throw error;
         if (error.status === 429) {
           await repository.setCredentialState(key, "cooldown", Date.now() + Math.min(Math.max(error.retryAfterMs, 1_000), 3_600_000));
-        } else if (error.status === 401 || error.status === 403) {
+        } else if (error.status === 401) {
           await repository.setCredentialState(key, "invalid", 0);
         } else throw error;
       }
@@ -50,14 +47,14 @@ export function createChatService(repository: ChatRepository, ollama: OllamaClie
       assertSession(uid);
       const value = apiKey.trim();
       const name = label.trim();
-      if (value.length < 12 || value.length > 512 || /\s/.test(value)) throw new Error("Informe uma chave Ollama válida, sem espaços.");
+      if (!value.startsWith("gsk_") || value.length < 12 || value.length > 512 || /\s/.test(value)) throw new Error("Informe uma chave GroqCloud válida, iniciada por gsk_ e sem espaços.");
       if (!name || name.length > 60) throw new Error("Use uma identificação de até 60 caracteres.");
       await repository.saveCredential(uid, name, value);
     },
     async removeCredential(uid: string) { assertSession(uid); await repository.removeCredential(uid); },
     async listModels(uid: string, baseUrl: string, signal?: AbortSignal) {
       const url = normalizeChatPreferences({ baseUrl, model: "modelo" }).baseUrl;
-      return withAvailableKey(uid, (key) => ollama.listModels(url, key.apiKey, signal), signal);
+      return withAvailableKey(uid, (key) => client.listModels(url, key.apiKey, signal), signal);
     },
     async send(uid: string, conversationId: string, content: string, context = "", signal?: AbortSignal, onPersisted?: () => void) {
       assertSession(uid, signal);
@@ -69,7 +66,7 @@ export function createChatService(repository: ChatRepository, ollama: OllamaClie
       onPersisted?.();
       assertSession(uid, signal);
       const messages = await repository.recentMessages(uid, conversationId);
-      const answer = await withAvailableKey(uid, (key) => ollama.complete(preferences.baseUrl, key.apiKey, preferences.model, messages, context, signal), signal);
+      const answer = await withAvailableKey(uid, (key) => client.complete(preferences.baseUrl, key.apiKey, preferences.model, messages, context, signal), signal);
       assertSession(uid, signal);
       await repository.appendMessage(uid, conversationId, "assistant", answer);
     },

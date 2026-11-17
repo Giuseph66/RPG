@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { BookOpenText, CaretDown, DiceFive, Eye, IdentificationCard, Scroll, WarningCircle } from "@phosphor-icons/react";
 import styles from "./OracleAnswer.module.css";
 
-/** Visual-only trace shape. Nothing in the chat backend produces it yet. */
+/** Optional answer trace (reasoning, tools, sources). The chat backend does not produce it yet. */
 export type OracleSourceKind = "rule" | "sheet" | "journal" | "suggestion";
 export type OracleToolKind = "rules" | "sheet" | "journal" | "dice";
 
@@ -46,7 +46,7 @@ const seconds = (ms: number) => `${(ms / 1000).toLocaleString("pt-BR", { maximum
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /** Answer first; reasoning, tools and sources stay folded behind one quiet line. */
-export function OracleAnswer({ content, time, trace, example = false }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace; readonly example?: boolean }) {
+export function OracleAnswer({ content, time, trace }: { readonly content: string; readonly time: string; readonly trace?: OracleTrace }) {
   const prefix = useId();
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [highlighted, setHighlighted] = useState<number>();
@@ -85,7 +85,6 @@ export function OracleAnswer({ content, time, trace, example = false }: { readon
         <span className={styles.seal} aria-hidden="true"><Eye size={15} weight="duotone" /></span>
         <strong>Oráculo</strong>
         <time>{time}</time>
-        {example ? <span className={styles.exampleBadge} title="Dados fictícios para mostrar o formato da resposta.">Exemplo</span> : null}
       </header>
 
       <div className={styles.thread}>
@@ -155,37 +154,3 @@ export function OracleAnswer({ content, time, trace, example = false }: { readon
     </article>
   );
 }
-
-export const EXAMPLE_QUESTION = "Lyra levou 14 de dano mantendo Imobilizar Pessoa. Ela perde a magia?";
-
-export const EXAMPLE_ANSWER = `Não necessariamente: ela precisa passar num teste de resistência de Constituição para manter a concentração [1]. A CD é 10 ou metade do dano sofrido, o que for maior; com 14 de dano, metade é 7, então a CD fica em 10 [1].
-
-O bônus de Lyra nesse teste é +4 (Constituição +2 e proficiência +2) [2]. Ela mantém Imobilizar Pessoa com 6 ou mais no d20, cerca de 75% de chance. A magia prende o líder dos cultistas desde o segundo turno do combate na ponte [3].
-
-Sugestão: se falhar, descreva o cultista sentindo os músculos voltarem a obedecer no instante em que a lâmina atinge Lyra.`;
-
-export const EXAMPLE_TRACE: OracleTrace = {
-  model: "llama3.1:8b",
-  durationMs: 6400,
-  tokens: 412,
-  reasoning: {
-    durationMs: 3800,
-    steps: [
-      "A pergunta é sobre manter concentração depois de sofrer dano: regra de conjuração, não de combate.",
-      "Para dar uma resposta concreta preciso da CD (regra) e do bônus de Lyra (ficha).",
-      "14 de dano → metade é 7; o mínimo de 10 prevalece.",
-      "Separar o que é regra do que é sugestão narrativa.",
-    ],
-  },
-  tools: [
-    { id: "t1", kind: "rules", label: "Compêndio de regras", input: "concentração · sofrer dano", output: "1 regra: Concentração (Conjurando magias)", status: "ok", durationMs: 120 },
-    { id: "t2", kind: "sheet", label: "Ficha de Lyra", input: "resistência de Constituição", output: "+4 (CON +2, proficiência +2)", status: "ok", durationMs: 40 },
-    { id: "t3", kind: "journal", label: "Diário da campanha", input: "magias ativas na cena atual", output: "Imobilizar Pessoa ativa desde o 2º turno", status: "ok", durationMs: 210 },
-    { id: "t4", kind: "dice", label: "Calculadora de chances", input: "d20 + 4 ≥ 10", output: "75%", status: "ok", durationMs: 5 },
-  ],
-  sources: [
-    { id: 1, kind: "rule", title: "Concentração", locator: "Livro do Jogador · Conjurando magias", excerpt: "Sempre que sofrer dano enquanto estiver concentrado em uma magia, você deve realizar um teste de resistência de Constituição para manter a concentração. A CD é 10 ou metade do dano sofrido, o que for maior." },
-    { id: 2, kind: "sheet", title: "Lyra · Resistências", locator: "Ficha da personagem · Feiticeira 3", excerpt: "Constituição 14 (+2) · proficiente (Feiticeiro) · total +4" },
-    { id: 3, kind: "journal", title: "Combate na ponte de Vau de Sal", locator: "Diário · Sessão 7", excerpt: "Lyra conjura Imobilizar Pessoa no líder dos cultistas, que fica paralisado no meio da ponte." },
-  ],
-};

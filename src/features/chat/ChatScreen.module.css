@@ -136,9 +136,7 @@
 .userMessage { display: grid; justify-items: end; gap: .3rem; align-self: flex-end; max-width: min(80%, 34rem); }
 .userMessage p { margin: 0; padding: .7rem 1rem; color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 20%, var(--color-surface-warm)); border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent); border-radius: 1rem 1rem .3rem 1rem; font-size: 1rem; line-height: 1.5; white-space: pre-line; }
 
-.emptyState { display: grid; justify-items: center; gap: var(--spacing-sm); max-width: 32rem; margin: var(--spacing-xl) auto 0; text-align: center; }
-.exampleDivider { display: flex; align-items: center; gap: var(--spacing-md); margin: 0; color: var(--color-gold-muted); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
-.exampleDivider::before, .exampleDivider::after { height: 1px; flex: 1; background: color-mix(in srgb, var(--color-border) 22%, transparent); content: ""; }
+.emptyState { display: grid; justify-items: center; gap: var(--spacing-sm); max-width: 32rem; margin: auto; text-align: center; }
 .emptySeal { width: 4rem; height: 4rem; margin-bottom: var(--spacing-sm); box-shadow: 0 0 32px color-mix(in srgb, var(--color-primary) 25%, transparent); }
 .emptyState h2 { margin: 0; color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1.3rem; font-weight: 600; }
 .emptyState p { margin: 0; color: var(--color-text-muted); }

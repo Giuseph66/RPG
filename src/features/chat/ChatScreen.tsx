@@ -5,7 +5,7 @@ import { Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
 import { useChat } from "./use-chat";
 
-import { EXAMPLE_ANSWER, EXAMPLE_QUESTION, EXAMPLE_TRACE, OracleAnswer } from "./OracleAnswer";
+import { OracleAnswer } from "./OracleAnswer";
 import styles from "./ChatScreen.module.css";
 
 const formatTime = (value: number) => value ? new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "agora";
@@ -153,12 +153,6 @@ export function ChatScreen({ service, uid, context = "", onOpenSettings = () => 
           {error ? <InlineStatus tone="error" assertive>{error}</InlineStatus> : null}
           {loading ? <p role="status">Carregando conversas…</p> : null}
           {!loading && messages.length === 0 ? (
-            <>
-            <p className={styles.exampleDivider}><span>Exemplo de resposta</span></p>
-            <article className={styles.userMessage} aria-label="Pergunta de exemplo">
-              <p>{EXAMPLE_QUESTION}</p>
-            </article>
-            <OracleAnswer content={EXAMPLE_ANSWER} time="exemplo" trace={EXAMPLE_TRACE} example />
             <div className={styles.emptyState}>
               <span className={styles.emptySeal} aria-hidden="true"><Eye size={30} weight="duotone" /></span>
               {setup ? (
@@ -179,7 +173,6 @@ export function ChatScreen({ service, uid, context = "", onOpenSettings = () => 
                 </>
               )}
             </div>
-            </>
           ) : messages.map((message) => message.role === "assistant" ? (
             <OracleAnswer key={message.id} content={message.content} time={formatTime(message.createdAt)} />
           ) : (

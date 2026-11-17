@@ -39,7 +39,7 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
 
   const send = async () => {
     if (!service || !uid || inFlight.current || !draft.trim()) return;
-    if (!preferences.model) { setError("Escolha o servidor e o modelo em Configurações antes de enviar."); return; }
+    if (!preferences.model) { setError("Escolha o modelo GroqCloud em Configurações antes de enviar."); return; }
     if (!navigator.onLine) { setError("Conecte-se à internet para salvar e enviar mensagens."); return; }
     const controller = new AbortController();
     inFlight.current = controller;
