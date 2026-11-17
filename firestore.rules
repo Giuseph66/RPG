@@ -1,11 +1,26 @@
 // Firestore Security Rules — CLOUD-001 / ADR-0007.
-// O cliente só acessa dados da própria conta e campanhas de que é membro.
+// Dados privados por conta/campanha; os pools de chaves de IA são explicitamente compartilhados.
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function validChatScope(scope) {
+      return scope is map && scope.keys().hasOnly(['characterId', 'campaignId', 'rules', 'sheet', 'campaign', 'memory', 'master']) &&
+        scope.rules is bool && scope.sheet is bool && scope.campaign is bool && scope.memory is bool &&
+        (!('characterId' in scope) || (scope.characterId is string && scope.characterId.size() <= 160)) &&
+        (!('campaignId' in scope) || (scope.campaignId is string && scope.campaignId.size() <= 160)) &&
+        (!('master' in scope) || scope.master is bool);
+    }
+    function validChatMemory(data) {
+      return data.keys().hasOnly(['id', 'title', 'body', 'campaignId', 'characterId', 'visibility', 'updatedAt', 'ownerUid']) &&
+        data.id is string && data.ownerUid == request.auth.uid &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 120 &&
+        data.body is string && data.body.size() > 0 && data.body.size() <= 8000 && data.updatedAt is string &&
+        (!('campaignId' in data) || data.campaignId is string) &&
+        (!('characterId' in data) || data.characterId is string);
+    }
     function campaignExists(id) {
       return exists(/databases/$(database)/documents/campaigns/$(id));
     }
@@ -67,6 +82,82 @@ service cloud.firestore {
         request.resource.data.uid == uid && request.resource.data.uid == resource.data.uid &&
         request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if false;
+
+      match /chatSettings/{settingId} {
+        allow read: if self(uid);
+        allow create, update: if self(uid) && settingId in ['ollama', 'groq'] &&
+          request.resource.data.keys().hasOnly(['baseUrl', 'model', 'updatedAt']) &&
+          request.resource.data.baseUrl is string && request.resource.data.baseUrl.size() <= 2048 &&
+          request.resource.data.baseUrl.matches('^https?://.*') &&
+          (settingId != 'groq' || request.resource.data.baseUrl == 'https://api.groq.com/openai/v1') &&
+          request.resource.data.model is string && request.resource.data.model.size() > 0 &&
+          request.resource.data.model.size() <= 128 && request.resource.data.updatedAt == request.time;
+        allow delete: if self(uid);
+      }
+
+      match /chatConversations/{conversationId} {
+        function validConversation(data) {
+          return data.keys().hasOnly(['ownerUid', 'title', 'preview', 'createdAt', 'updatedAt', 'scope', 'archived', 'deleted', 'summary', 'summarizedThrough']) &&
+            data.ownerUid == uid && data.title is string && data.title.size() > 0 && data.title.size() <= 80 &&
+            data.preview is string && data.preview.size() <= 160 && data.createdAt is timestamp &&
+            (!('scope' in data) || validChatScope(data.scope)) &&
+            (!('archived' in data) || data.archived is bool) && (!('deleted' in data) || data.deleted is bool) &&
+            (!('summary' in data) || (data.summary is string && data.summary.size() <= 8000)) &&
+            (!('summarizedThrough' in data) || data.summarizedThrough is number) &&
+            data.updatedAt == request.time;
+        }
+        allow read: if self(uid);
+        allow create: if self(uid) && validConversation(request.resource.data) && request.resource.data.createdAt == request.time;
+        allow update: if self(uid) && validConversation(request.resource.data) &&
+          (!('scope' in resource.data) || request.resource.data.scope == resource.data.scope) &&
+          request.resource.data.createdAt == resource.data.createdAt && request.resource.data.ownerUid == resource.data.ownerUid;
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow read: if self(uid);
+          allow create: if self(uid) &&
+            exists(/databases/$(database)/documents/users/$(uid)/chatConversations/$(conversationId)) &&
+            request.resource.data.keys().hasOnly(['role', 'content', 'createdAt', 'trace', 'turnId', 'attachments']) &&
+            (!('trace' in request.resource.data) || (request.resource.data.role == 'assistant' && request.resource.data.trace is map)) &&
+            (!('turnId' in request.resource.data) || request.resource.data.turnId is string) &&
+            (!('attachments' in request.resource.data) || (request.resource.data.role == 'user' && request.resource.data.attachments is list && request.resource.data.attachments.size() <= 3)) &&
+            request.resource.data.role in ['user', 'assistant'] &&
+            request.resource.data.content is string && request.resource.data.content.size() > 0 &&
+            request.resource.data.content.size() <= 100000 && request.resource.data.createdAt == request.time;
+          allow update, delete: if false;
+        }
+
+        match /actions/{actionId} {
+          function validAction(data) {
+            return data.keys().hasOnly(['id', 'messageId', 'name', 'label', 'input', 'scope', 'expectedRevision', 'review', 'status', 'result', 'undo', 'createdAt', 'updatedAt']) &&
+              data.id == actionId && data.messageId is string && data.name is string && data.label is string &&
+              data.input is map && validChatScope(data.scope) &&
+              data.status in ['pending', 'executing', 'done', 'rejected', 'failed'] &&
+              data.createdAt is timestamp && data.updatedAt == request.time &&
+              (!('expectedRevision' in data) || data.expectedRevision is number) &&
+              (!('review' in data) || (data.review is string && data.review.size() <= 4000)) &&
+              (!('result' in data) || (data.result is string && data.result.size() <= 8000)) &&
+              (!('undo' in data) || data.undo is map);
+          }
+          allow read: if self(uid);
+          allow create: if self(uid) && validAction(request.resource.data) &&
+            request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time &&
+            existsAfter(/databases/$(database)/documents/users/$(uid)/chatConversations/$(conversationId)/messages/$(request.resource.data.messageId));
+          allow update: if self(uid) && validAction(request.resource.data) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'result', 'undo', 'updatedAt']) &&
+            ((resource.data.status == 'pending' && request.resource.data.status == 'executing') ||
+             (resource.data.status == 'done' && 'undo' in resource.data && request.resource.data.status == 'executing') ||
+             (resource.data.status == 'executing' && request.resource.data.status in ['done', 'failed', 'rejected']));
+          allow delete: if false;
+        }
+      }
+
+      match /chatMemories/{memoryId} {
+        allow read: if self(uid);
+        allow create, update: if self(uid) && validChatMemory(request.resource.data) &&
+          request.resource.data.id == memoryId && request.resource.data.visibility == 'private';
+        allow delete: if self(uid);
+      }
 
       match /characters/{characterId} {
         allow get: if self(uid) && (resource == null ||
@@ -171,6 +262,15 @@ service cloud.firestore {
           existsAfter(/databases/$(database)/documents/campaigns/$(campaignId)/members/$(request.auth.uid)) &&
           getAfter(/databases/$(database)/documents/campaigns/$(campaignId)/members/$(request.auth.uid)).data.inviteLinkId == tokenHash);
         allow delete: if false;
+      }
+
+      match /oracleMemories/{memoryId} {
+        allow get, list: if campaignOwner(campaignId) ||
+          (campaignMember(campaignId) && resource.data.visibility == 'party');
+        allow create, update: if campaignOwner(campaignId) && validChatMemory(request.resource.data) &&
+          request.resource.data.id == memoryId && request.resource.data.campaignId == campaignId &&
+          request.resource.data.visibility in ['party', 'master'];
+        allow delete: if campaignOwner(campaignId);
       }
 
       match /members/{memberUid} {
@@ -663,6 +763,38 @@ service cloud.firestore {
         (revisionAdvances(resource.data, request.resource.data) ||
           (!('revision' in resource.data) && request.resource.data.revision == 1));
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Até 5 chaves por conta e provedor, em vagas fixas: {uid} (formato antigo de chave única)
+    // e {uid}_2 … {uid}_5. As vagas fixas limitam a quantidade sem precisar contar documentos.
+    // O navegador precisa ler o pool para chamar a IA diretamente: as chaves são acessíveis
+    // a TODAS as contas autenticadas.
+    // O pool Ollama permanece para compatibilidade; credenciais não são copiadas entre provedores.
+    match /{keyPool}/{keyId} {
+      function keySlot(ownerUid) { return keyId == ownerUid || keyId.matches(ownerUid + '_[2-5]'); }
+      function ownsKey() { return signedIn() && resource.data.ownerUid == request.auth.uid; }
+      function validKey(data) {
+        return data.keys().hasOnly(['ownerUid', 'label', 'apiKey', 'status', 'cooldownUntil', 'createdAt', 'updatedAt']) &&
+          data.ownerUid is string && keySlot(data.ownerUid) &&
+          data.label is string && data.label.size() > 0 && data.label.size() <= 60 &&
+          data.apiKey is string && data.apiKey.size() >= 12 && data.apiKey.size() <= 512 &&
+          data.status in ['active', 'cooldown', 'invalid'] && data.cooldownUntil is number &&
+          data.cooldownUntil >= 0 && data.createdAt is timestamp && data.updatedAt == request.time;
+      }
+      allow read: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn();
+      allow create: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn() &&
+        request.resource.data.ownerUid == request.auth.uid && validKey(request.resource.data) &&
+        request.resource.data.createdAt == request.time && request.resource.data.status == 'active' &&
+        request.resource.data.cooldownUntil == 0;
+      allow update: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn() && validKey(request.resource.data) &&
+        request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.createdAt == resource.data.createdAt &&
+        (ownsKey() ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cooldownUntil', 'updatedAt']) &&
+            ((request.resource.data.status == 'invalid' && request.resource.data.cooldownUntil == 0) ||
+             (request.resource.data.status == 'cooldown' &&
+               request.resource.data.cooldownUntil > request.time.toMillis() &&
+               request.resource.data.cooldownUntil <= request.time.toMillis() + 3600000))));
+      allow delete: if keyPool in ['ollamaKeys', 'groqKeys'] && ownsKey();
     }
 
     match /{document=**} { allow read, write: if false; }

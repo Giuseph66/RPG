@@ -13,7 +13,7 @@ interface PrimaryNavigationProps {
 export function PrimaryNavigation({ route, navigate, isCampaignMaster = false, onOpenDice }: PrimaryNavigationProps) {
   const active = primaryRouteFor(route.kind);
   return (
-    <nav className={styles.navigation} aria-label="Destinos principais">
+    <nav className={styles.navigation} aria-label="Destinos principais" data-dice-hidden={route.kind === "chat" || undefined}>
       <p className={styles.navSectionLabel}>{isCampaignMaster ? "Mesa do mestre" : "Sua aventura"}</p>
       <div className={styles.navigationList}>
         {PRIMARY_NAV_ROUTES.map((item) => {

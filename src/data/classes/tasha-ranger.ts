@@ -110,7 +110,7 @@ const rangerFeatures: readonly FeatureDefinition[] = [
     { kind: "modifier", modifier: { id: "ranger.roving.swim", sourceRef: source(51, "Peregrino"), target: { kind: "speed-copy", speedKind: "swim", from: "walk" }, operator: "annotate", value: { kind: "flag" }, predicate: { kind: "always" } } },
   ], minRanger(6)),
   feature("ranger.tireless", "Incansável", 51, "Hábil", "A partir do 10º nível, ação para ganhar 1d8 + modificador de Sabedoria (mínimo 1) PV temporários; usos iguais ao bônus de proficiência por descanso longo. Ao terminar descanso curto, reduz exaustão em 1.", { kind: "action" }, [{ kind: "grants-resource", resourceRef: ref("ranger.tireless-use") }, { kind: "narrative", description: "Ação: PV temporários 1d8 + modificador de Sabedoria, mínimo 1; descanso curto reduz exaustão em 1." }], minRanger(10)),
-  feature("ranger.favored-foe", "Inimigo Eleito", 51, "Inimigo Eleito", "Quando acerta uma criatura com jogada de ataque, pode marcá-la por 1 minuto ou até perder concentração. A primeira vez em cada um dos seus turnos que acerta e causa dano ao inimigo marcado, inclusive no turno em que o marca, causa 1d4 adicional; aumenta para d6 no 6º nível e d8 no 14º. Usos iguais ao bônus de proficiência por descanso longo. Interage com Matador de Inimigos.", { kind: "free" }, [{ kind: "grants-resource", resourceRef: ref("ranger.favored-foe-use") }, { kind: "narrative", description: "Marca após acertar, concentração até 1 minuto; a primeira vez, em cada um dos seus turnos, que acerta e causa dano ao inimigo marcado, causa dano adicional, escalando para d6 no nível 6 e d8 no nível 14." }], minRanger(1)),
+  feature("ranger.favored-foe", "Inimigo Eleito", 51, "Inimigo Eleito", "Quando acerta uma criatura com jogada de ataque, pode marcá-la por 1 minuto ou até perder concentração. A primeira vez em cada um dos seus turnos que acerta e causa dano ao inimigo marcado, inclusive no turno em que o marca, causa 1d4 adicional; aumenta para d6 no 6º nível e d8 no 14º. Usos iguais ao bônus de proficiência por descanso longo. Interage com Matador de Inimigos. Substitui Inimigo Favorito por inteiro (Tasha p. 51): sem tipo de inimigo, sem o idioma do Inimigo Favorito e sem Inimigo Favorito Maior no 6º nível. Para idiomas extras, use Hábil (Astuto concede dois idiomas à escolha).", { kind: "free" }, [{ kind: "grants-resource", resourceRef: ref("ranger.favored-foe-use") }, { kind: "narrative", description: "Marca após acertar, concentração até 1 minuto; a primeira vez, em cada um dos seus turnos, que acerta e causa dano ao inimigo marcado, causa dano adicional, escalando para d6 no nível 6 e d8 no nível 14." }], minRanger(1)),
   ...primalAwarenessFeatures,
   feature("ranger.natures-veil", "Véu Natural", 52, "Véu Natural", "A partir do 10º nível, como ação bônus, fica magicamente invisível junto com o equipamento até o começo do próximo turno. Usos iguais ao bônus de proficiência; recupera-os em descanso longo.", { kind: "bonus-action" }, [
     { kind: "grants-resource", resourceRef: ref("ranger.natures-veil-use") },
@@ -176,6 +176,7 @@ const replacements: readonly OptionalClassFeatureReplacement[] = [
   {
     ...replacement("ranger.optional-favored-foe", ["ranger.favored-enemy", "ranger.favored-enemy-greater"], ["ranger.favored-foe"], 1, 51, "Inimigo Eleito"),
     replacesChoiceIds: ["ranger.favored-enemy.1", "ranger.favored-enemy-language.1", "ranger.greater-favored-enemy.6", "ranger.greater-favored-enemy-language.6"],
+    tradeOffNote: "Pelo Tasha (p. 51), quem troca uma característica não recebe nada dela: com Inimigo Eleito você não escolhe tipo de inimigo, não aprende o idioma do Inimigo Favorito e não recebe Inimigo Favorito Maior no 6º nível. Quer idiomas? Use Hábil abaixo: Astuto concede dois idiomas à escolha.",
   },
   replacement("ranger.optional-primal-awareness", ["ranger.primeval-awareness"], primalAwarenessFeatures.map((entry) => String(entry.id)), 3, 52, "Consciência Primordial"),
   replacement("ranger.optional-natures-veil", ["ranger.hide-in-plain-sight"], ["ranger.natures-veil"], 10, 52, "Véu Natural"),
@@ -183,9 +184,10 @@ const replacements: readonly OptionalClassFeatureReplacement[] = [
 ];
 const classOptions: readonly OptionalClassOption[] = [
   { ...option("ranger.optional-fighting-style", "choice", ["ranger.blind-fighting", "ranger.druidic-warrior", "ranger.thrown-weapon-fighting"], 2, 52, "Estilos de Luta"), choiceId: "ranger.fighting-style.2" },
-  option("ranger.optional-druidic-focus", "extend", ["ranger.druidic-focus"], 2, 52, "Foco de Conjuração"),
+  // Foco e magias extras não pedem decisão: valem sempre com o Tasha ligado (foco igual ao do livro base; magias só ampliam a lista).
+  { ...option("ranger.optional-druidic-focus", "extend", ["ranger.druidic-focus"], 2, 52, "Foco de Conjuração"), automatic: true },
   option("ranger.optional-martial-versatility", "extend", ["ranger.martial-versatility"], 4, 52, "Versatilidade Marcial"),
-  option("ranger.optional-additional-spells", "extend", [], 2, 52, "Magias Adicionais de Guardião", TASHA_ADDITIONAL_RANGER_SPELL_IDS),
+  { ...option("ranger.optional-additional-spells", "extend", [], 2, 52, "Magias Adicionais de Guardião", TASHA_ADDITIONAL_RANGER_SPELL_IDS), automatic: true },
 ];
 const resource = (id: string, name: string, owner: string, page: number, section: string, byProficiency = false): ResourceDefinition => ({
   id: asEntityId(id), name, tags: ["tasha", "ranger-resource"], sourceRefs: [source(page, section)], ownerRef: ref(owner), unit: "uses",

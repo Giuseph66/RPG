@@ -20,7 +20,7 @@ export const PRIMARY_ROUTES: readonly PrimaryRoute[] = [
 /** Visual destinations. Collaboration remains a deep compatibility route. */
 export const PRIMARY_NAV_ROUTES = PRIMARY_ROUTES.filter((route) => route.id !== "collaboration");
 
-export type AppRouteKind = PrimaryRouteId | "session" | "settings" | "account" | "data" | "onboarding" | "not-found";
+export type AppRouteKind = PrimaryRouteId | "session" | "settings" | "account" | "data" | "chat" | "onboarding" | "not-found";
 
 export interface RouteMatch {
   readonly kind: AppRouteKind;
@@ -46,6 +46,7 @@ export function matchRoute(pathname: string): RouteMatch {
   if (!first) return { kind: "onboarding", path, params: {} };
   if (first === "settings" && segments.length === 1) return { kind: "settings", path, params: {} };
   if (first === "account" && segments.length === 1) return { kind: "account", path, params: {} };
+  if (first === "chat" && segments.length === 1) return { kind: "chat", path, params: {} };
   if (first === "collaboration" && segments.length === 1) return { kind: "collaboration", primary: "collaboration", path, params: {} };
   if (first === "creatures" && segments.length === 1) return { kind: "journey", primary: "journey", path, params: { id: "creatures" } };
   if (first === "session" && second && segments.length === 2) return { kind: "session", path, params: { campaignId: second } };

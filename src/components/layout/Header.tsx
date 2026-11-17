@@ -1,5 +1,5 @@
 import { IconButton } from "@components/ui";
-import { Crown, UsersThree } from "@phosphor-icons/react";
+import { Crown, Robot, UsersThree } from "@phosphor-icons/react";
 import { Gear } from "../../assets/icons";
 import campaignSigil from "../../assets/art/icons/campaign-sigil.webp";
 import type { Character } from "@domain/contracts/character";
@@ -25,6 +25,7 @@ function routeContext(route: RouteMatch, character?: Character, campaign?: Sessi
     case "actions": return character ? `Ações · ${character.name}` : "Ações";
     case "compendium": return "Regras";
     case "account": return "Conta";
+    case "chat": return "Chat da mesa";
     case "collaboration": return "Mesa compartilhada";
     case "settings": return "Ajustes";
     case "data": return "Dados";
@@ -56,6 +57,7 @@ export function Header({ session, campaign, campaignRole, connection, route, nav
         </button>
         <div className={styles.headerActions}>
           {campaign?.value && campaignRole ? <span className={styles.roleBadge} data-role={campaignRole} data-connection={connection} aria-label={`${campaignRole === "master" ? "Mestre da campanha" : "Jogador"}${connectionLabel ? ` · ${connectionLabel}` : ""}`} title={`${campaignRole === "master" ? "Mestre da campanha" : "Jogador"}${connectionLabel ? ` · ${connectionLabel}` : ""}`}>{campaignRole === "master" ? <Crown size={15} weight="duotone" aria-hidden="true" /> : <UsersThree size={15} weight="duotone" aria-hidden="true" />}</span> : null}
+          <IconButton label="Abrir chat da campanha" icon={<Robot size={20} weight="duotone" />} variant="ghost" className={styles.headerSettingsButton} onClick={() => navigate("/chat")} />
           <IconButton label="Abrir ajustes" icon={<Gear size={20} weight="duotone" />} variant="ghost" className={styles.headerSettingsButton} onClick={() => navigate("/settings")} />
         </div>
       </div>

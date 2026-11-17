@@ -1,0 +1,68 @@
+.panel { display: grid; gap: var(--spacing-xl); margin-bottom: var(--spacing-section); padding-bottom: var(--spacing-xl); border-bottom: 1px solid var(--color-border-soft); }
+.panel p { margin: 0; }
+
+.header { display: grid; gap: var(--spacing-xs); }
+.header h2 { margin: 0; color: var(--color-text); font-family: var(--typography-heading-font-family); font-size: 1.35rem; line-height: 1.25; }
+.header p:not(.eyebrow) { color: var(--color-text-muted); }
+.eyebrow { color: var(--color-secondary); font-size: .7rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+
+.muted { color: var(--color-text-muted); font-size: .92rem; }
+.warn { color: var(--color-warning); font-size: .9rem; }
+
+
+
+
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); }
+
+/* Key */
+.keyForm, .keyBlock { display: grid; gap: var(--spacing-md); }
+.keyCard { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-surface-elevated) 70%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); border-radius: var(--radius-surface); }
+.keyCard > svg { flex: 0 0 auto; color: var(--color-secondary); }
+.keyInfo { display: grid; flex: 1; gap: .3rem; min-width: 0; }
+.keyInfo strong { overflow: hidden; color: var(--color-text); text-overflow: ellipsis; white-space: nowrap; }
+.keyMeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs) var(--spacing-sm); }
+.keyMeta > span { color: var(--color-gold-muted); font-size: .8rem; }
+
+.callout { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); color: var(--color-text-muted); background: var(--color-surface-warm); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); }
+.callout[data-tone="warning"] { flex-wrap: nowrap; align-items: flex-start; font-size: .9rem; line-height: 1.5; border-color: color-mix(in srgb, var(--color-warning) 40%, transparent); }
+.callout[data-tone="warning"] > svg { flex: 0 0 auto; margin-top: .15rem; color: var(--color-warning); }
+.callout strong { color: var(--color-text); }
+
+.confirm { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface)); border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent); border-radius: var(--radius-surface); }
+.confirm p { color: var(--color-text); font-size: .92rem; }
+
+@media (max-width: 767px) {
+  .panel { gap: var(--spacing-lg); }
+  .actions > * { flex: 1 1 auto; }
+}
+
+/* Mini tutorial: how to get a GroqCloud key */
+.tutorial { display: grid; padding: 0 var(--spacing-md); background: color-mix(in srgb, var(--color-surface-elevated) 60%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 28%, transparent); border-radius: var(--radius-surface); }
+.tutorial summary { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--size-touch-target); color: var(--color-secondary); font-weight: 700; list-style: none; cursor: pointer; }
+.tutorial summary::-webkit-details-marker { display: none; }
+.tutorial summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+.tutorial summary svg { transition: rotate var(--motion-transition) var(--motion-easing); }
+.tutorial[open] summary svg { rotate: 180deg; }
+.tutorial ol { display: grid; gap: var(--spacing-sm); margin: 0; padding: 0 0 var(--spacing-sm); list-style: none; counter-reset: step; }
+.tutorial li { display: flex; gap: var(--spacing-sm); color: var(--color-text-muted); font-size: .92rem; line-height: 1.45; counter-increment: step; }
+.tutorial li::before { display: grid; flex: 0 0 auto; width: 1.4rem; height: 1.4rem; place-items: center; color: var(--color-on-secondary); background: var(--color-secondary); border-radius: 50%; font-size: .75rem; font-weight: 800; content: counter(step); }
+.tutorial li strong { color: var(--color-text); }
+.tutorial code { padding: 0 .3rem; color: var(--color-secondary); background: color-mix(in srgb, var(--color-background) 65%, transparent); border-radius: .25rem; font-family: inherit; }
+.tutorialLink { display: inline-flex; align-items: center; gap: var(--spacing-xs); justify-self: start; min-height: var(--size-touch-target); margin-bottom: var(--spacing-sm); color: var(--color-secondary); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.tutorialLink:hover { color: var(--color-text); }
+.tutorialLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+
+/* Key list */
+.listTitle { display: flex; align-items: baseline; justify-content: space-between; gap: var(--spacing-sm); margin: 0; color: var(--color-secondary); font-family: var(--typography-heading-font-family); font-size: 1rem; font-weight: 600; }
+.listTitle span { color: var(--color-gold-muted); font-family: var(--typography-body-font-family); font-size: .8rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+.keyList { display: grid; gap: var(--spacing-sm); margin: 0; padding: 0; list-style: none; }
+.keyItem { display: grid; gap: var(--spacing-xs); }
+.keyActions { display: flex; flex: 0 0 auto; gap: 2px; margin-right: calc(-1 * var(--spacing-xs)); }
+.iconAction { display: grid; width: var(--size-touch-target); height: var(--size-touch-target); place-items: center; padding: 0; color: var(--color-text-muted); background: none; border: 0; border-radius: var(--radius-control); cursor: pointer; transition: color var(--motion-feedback) var(--motion-easing), background-color var(--motion-feedback) var(--motion-easing); }
+.iconAction:hover:not(:disabled) { color: var(--color-secondary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+.iconAction[data-tone="danger"]:hover:not(:disabled) { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
+.iconAction:disabled { color: var(--color-control-disabled); cursor: default; }
+.iconAction:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* Button wraps its children in a span; keep icon and text on one line. */
+.iconLabel > span { display: inline-flex; align-items: center; gap: var(--spacing-sm); }

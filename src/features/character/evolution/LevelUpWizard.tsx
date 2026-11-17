@@ -7,6 +7,7 @@ import type { Ability, ChoiceDefinition, ChoiceSelection } from "@domain/contrac
 import type { ProgressionHitPointGain } from "@domain/contracts/character";
 import { asEntityId, asIsoTimestamp, type DefinitionRef, type Uuid } from "@domain/contracts/ids";
 import { buildLevelUpPreview, type LevelUpRequest } from "@domain/character/progression";
+import { composeOptionalRuleContent, optionalRuleOptionsForLevel } from "@domain/character/creation";
 import { allotmentsOf, castingSourcesOf, CLASS_CASTING, preparedLimitFor, projectClasses, choiceFlavor, choiceTitle, evolveCharacter, explicitOptionsFor, featOptionsFor, spellOptionsForChoice, type ChoiceOptionView, type EvolutionViewContext } from "@domain/character/evolution";
 
 import { ABILITY_LABELS, formatRef, LANGUAGE_LABELS, PROFICIENCY_LABELS, SKILL_LABELS, TOOL_PROFICIENCY_OPTIONS } from "../creation/mapping";
@@ -23,7 +24,7 @@ const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const satisfies 
 
 type HpMode = "average" | "rolled" | "manual";
 
-export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo, subclassInfo, racialTraits = [], newId, onConfirm, onCancel }: LevelUpWizardProps) {
+export function LevelUpWizard({ character, derived, pack: characterPack, spellInfo, featureInfo, subclassInfo, racialTraits = [], newId, onConfirm, onCancel }: LevelUpWizardProps) {
   const totalLevel = character.classes.reduce((sum, entry) => sum + entry.level, 0);
   const [classId, setClassId] = useState<string>(String(character.classes[0]?.classId ?? ""));
   const [subclassId, setSubclassId] = useState<string>();
@@ -35,11 +36,26 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
   const [infoId, setInfoId] = useState<string>();
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = useState<string>();
+  const [optionalPicks, setOptionalPicks] = useState<readonly string[]>([]);
 
-  const definition = classId ? pack.classes.get(asEntityId(classId)) : undefined;
   const existing = character.classes.find((entry) => String(entry.classId) === classId);
   const currentLevel = existing?.level ?? 0;
   const targetLevel = currentLevel + 1;
+  // Opções de suplemento (ex.: Tasha) que o jogador alcança neste nível. Ligadas, recompõem as regras antes da
+  // prévia: assim a característica trocada, a lista de estilos ampliada e as magias aparecem já neste nível.
+  const projectedSubclassId = subclassId ?? (existing?.subclassId ? String(existing.subclassId) : undefined);
+  const optionalOptions = useMemo(() => (classId ? optionalRuleOptionsForLevel(characterPack, character, asEntityId(classId), targetLevel, projectedSubclassId ? asEntityId(projectedSubclassId) : undefined) : []), [characterPack, character, classId, targetLevel, projectedSubclassId]);
+  const optionalKey = (option: { readonly supplementId: string; readonly optionId: string }) => `${option.supplementId}:${option.optionId}`;
+  const pickedSelections = useMemo(() => optionalOptions.filter((option) => optionalPicks.includes(optionalKey(option))).map((option) => option.selection), [optionalOptions, optionalPicks]);
+  const composedForPicks = useMemo(() => (pickedSelections.length === 0
+    ? { ok: true as const, value: characterPack }
+    : composeOptionalRuleContent(characterPack, character.selectedSupplementIds ?? [], [...(character.optionalRuleSelections ?? []), ...pickedSelections])), [characterPack, character, pickedSelections]);
+  const optionalError = composedForPicks.ok ? undefined : composedForPicks.error.message;
+  const pack = composedForPicks.ok ? composedForPicks.value : characterPack;
+  // O domínio recompõe as regras pelas seleções gravadas na ficha: as opções ligadas agora entram na ficha de trabalho
+  // (prévia, escolhas e evolução) e ficam salvas junto com o nível.
+  const working = useMemo(() => (pickedSelections.length && !optionalError ? { ...character, optionalRuleSelections: [...(character.optionalRuleSelections ?? []), ...pickedSelections] } : character), [character, pickedSelections, optionalError]);
+  const definition = classId ? pack.classes.get(asEntityId(classId)) : undefined;
   const hitDie = definition?.hitDie ?? 8;
   const averageGain = Math.floor(hitDie / 2) + 1;
   const hpGain = hpMode === "average" ? averageGain : Math.min(hitDie, Math.max(1, hpAmount ?? averageGain));
@@ -56,9 +72,9 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
     classId: asEntityId(classId || "unknown"), targetClassLevel: targetLevel, ...(subclassId ? { subclassId: asEntityId(subclassId) } : {}),
     hitPointGain, choices: choiceArray, mode: "milestone", abilityScores: scores,
   }), [classId, targetLevel, subclassId, hitPointGain.kind, hitPointGain.amount, rollId, choiceArray, scores]); // eslint-disable-line react-hooks/exhaustive-deps
-  const preview = useMemo(() => (definition ? buildLevelUpPreview(character, request, pack) : undefined), [character, request, pack, definition]);
+  const preview = useMemo(() => (definition ? buildLevelUpPreview(working, request, pack) : undefined), [working, request, pack, definition]);
 
-  const view: EvolutionViewContext = { character, pack, classId, targetLevel, ...(subclassId ? { subclassId } : {}), selections: choiceArray, abilityScores: scores };
+  const view: EvolutionViewContext = { character: working, pack, classId, targetLevel, ...(subclassId ? { subclassId } : {}), selections: choiceArray, abilityScores: scores };
   const choices: readonly ChoiceDefinition[] = preview?.ok ? preview.value.choices : [];
   const abilityChoices = choices.filter((entry) => ["asi", "feat"].includes(choiceFlavor(entry)));
   const spellChoices = choices.filter((entry) => ["spells", "swap"].includes(choiceFlavor(entry)));
@@ -72,7 +88,8 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
   const labelFor = (id: string): string => (SKILL_LABELS as Record<string, string>)[id] ?? (ABILITY_LABELS as Record<string, string>)[id] ?? LANGUAGE_LABELS[id] ?? PROFICIENCY_LABELS[id] ?? pack.features.get(asEntityId(id))?.name ?? formatRef(id);
   const nameOf = (id: string): string => pack.features.get(asEntityId(id))?.name ?? labelFor(id);
   const setChoice = (choiceId: string, ids: readonly string[]) => setSelections((current) => ({ ...current, [choiceId]: ids }));
-  const chooseClass = (id: string) => { setClassId(id); setSubclassId(undefined); setSelections({}); setHpMode("average"); setMessage(undefined); };
+  const chooseClass = (id: string) => { setClassId(id); setSubclassId(undefined); setSelections({}); setOptionalPicks([]); setHpMode("average"); setMessage(undefined); };
+  const toggleOptional = (key: string, on: boolean) => { setOptionalPicks((current) => (on ? [...current.filter((entry) => entry !== key), key] : current.filter((entry) => entry !== key))); setSelections({}); };
 
   const skillOptions = (choice: ChoiceDefinition): readonly ChoiceOptionView[] => {
     const derivedSkills = new Map((derived?.skills ?? []).map((entry) => [entry.skill, entry]));
@@ -134,7 +151,8 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
 
   const confirm = async () => {
     if (!preview?.ok || status === "saving") return;
-    const result = evolveCharacter(character, request, pack, { idGenerator: () => newId(), now: asIsoTimestamp(new Date().toISOString()) });
+    if (optionalError) { setStatus("error"); setMessage(optionalError); return; }
+    const result = evolveCharacter(working, request, pack, { idGenerator: () => newId(), now: asIsoTimestamp(new Date().toISOString()) });
     if (!result.ok) { setStatus("error"); setMessage(result.error.map((entry) => entry.message).join(" ")); return; }
     setStatus("saving");
     const saved = await onConfirm(result.value);
@@ -190,7 +208,24 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
           <p className={styles.hint}>Você ganha {hpGain + conModifier} PV neste nível (mínimo 1 pelas regras).</p>
         </fieldset>
         {needsSubclass ? (
-          <SubclassPicker label={`Subclasse de ${definition?.name ?? "classe"}: escolha o caminho do seu personagem`} options={subclassOptions.map((entry) => ({ id: String(entry.id), name: entry.name }))} value={subclassId} onChange={(id) => { setSubclassId(id); setSelections({}); }} {...(subclassInfo ? { info: subclassInfo } : {})} />
+          <SubclassPicker label={`Subclasse de ${definition?.name ?? "classe"}: escolha o caminho do seu personagem`} options={subclassOptions.map((entry) => ({ id: String(entry.id), name: entry.name }))} value={subclassId} onChange={(id) => { setSubclassId(id); setSelections({}); setOptionalPicks([]); }} {...(subclassInfo ? { info: subclassInfo } : {})} />
+        ) : null}
+        {optionalOptions.length ? (
+          <fieldset className={styles.optionalRules}>
+            <legend>Opções do suplemento neste nível</legend>
+            <p className={styles.hint}>Opcional. Estas opções só podem ser escolhidas neste nível: marque agora as que quiser usar. O que ficar desmarcado segue o livro base, e a escolha não se troca depois.</p>
+            {optionalOptions.map((option) => {
+              const key = optionalKey(option);
+              const featureNames = option.featureIds.map((id) => nameOf(String(id)));
+              const replacedNames = option.replacesFeatureIds.map((id) => characterPack.features.get(id)?.name ?? formatRef(String(id)));
+              const label = option.extendsChoiceId
+                ? `Adicionar à lista de ${option.title}: ${option.extendsChoiceFeatureIds.map((id) => nameOf(String(id))).join(", ")}`
+                : replacedNames.length ? `Usar ${option.title} no lugar de ${replacedNames.join(" e ")}` : `Usar ${option.title}`;
+              const unlocks = featureNames.length > 1 ? `Você ganha todas, conforme sobe de nível: ${featureNames.join(" · ")}.` : undefined;
+              return <label key={key} className={styles.optionalRule}><input type="checkbox" checked={optionalPicks.includes(key)} onChange={(event) => toggleOptional(key, event.currentTarget.checked)} /><span><strong>{label}</strong>{unlocks ? <small>{unlocks}</small> : null}<small>{characterPack.optionalRulePacks?.get(option.supplementId)?.name ?? "Suplemento"} · {option.choiceLevel}º nível</small></span></label>;
+            })}
+            {optionalError ? <InlineStatus tone="error">{optionalError}</InlineStatus> : null}
+          </fieldset>
         ) : null}
         <h3>O que você ganha</h3>
         {featureRefs.length === 0 && resources.length === 0 && unlocks.length === 0 && slotChanges.length === 0 && !preparedChange ? <p className={styles.muted}>Este nível não traz características novas além das escolhas.</p> : (
@@ -235,7 +270,7 @@ export function LevelUpWizard({ character, derived, pack, spellInfo, featureInfo
       <div className={styles.content}>{body()}</div>
       <footer className={styles.footer}>
         {previous ? <Button variant="ghost" onClick={() => setStep(previous)}>Voltar</Button> : <span />}
-        {next ? <Button disabled={!definition || totalLevel >= 20 || (step === "class" && !preview?.ok)} onClick={() => setStep(next)}>Continuar</Button> : <Button busy={status === "saving"} disabled={!preview?.ok || blocking.length > 0 || status === "saving"} disabledReason={blocking[0]?.message} onClick={() => void confirm()}>Confirmar nível</Button>}
+        {next ? <Button disabled={!definition || totalLevel >= 20 || (step === "class" && !preview?.ok) || Boolean(optionalError)} onClick={() => setStep(next)}>Continuar</Button> : <Button busy={status === "saving"} disabled={!preview?.ok || blocking.length > 0 || status === "saving"} disabledReason={blocking[0]?.message} onClick={() => void confirm()}>Confirmar nível</Button>}
       </footer>
       {info ? <AppModal open title={info.name} onClose={() => setInfoId(undefined)} dismissOnBackdrop footer={<Button onClick={() => setInfoId(undefined)}>Fechar</Button>}><div className={styles.info}>{info.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}{info.source ? <p className={styles.muted}>{info.source}</p> : null}</div></AppModal> : null}
     </section>

@@ -42,6 +42,8 @@ import { RACE_CHOICE_ALLOWED_OPTIONS } from "@data/races/races";
 import { attackRollsFor, carryingFor, conditionOptionsFor, featureInfoFor, racialTraitsFor, spellInfoFor, traitRowsFor, subclassInfoFor, equipmentCatalog, equipmentInfo, restInfoFor, spellOptionsFor, spellRollsFor, unequippedWeaponsFor, walkSpeedFor } from "./character-route-data";
 
 const LazyCampaignLog = lazy(() => import("@features/campaign-log").then((module) => ({ default: module.CampaignLog })));
+const LazyChatScreen = lazy(() => import("@features/chat").then((module) => ({ default: module.ChatScreen })));
+const LazyChatSettingsPanel = lazy(() => import("@features/chat/ChatSettingsPanel").then((module) => ({ default: module.ChatSettingsPanel })));
 const LazyCharacterSelection = lazy(() => import("@features/character/selection").then((module) => ({ default: module.CharacterSelection })));
 const LazyCharacterSheet = lazy(() => import("@features/character/sheet").then((module) => ({ default: module.CharacterSheet })));
 const LazyLevelUp = lazy(() => import("@features/character/evolution").then((module) => ({ default: module.LevelUpWizard })));
@@ -1470,7 +1472,7 @@ function SettingsRoute({ registry, store, character, navigate }: { readonly regi
     return () => { active = false; };
   }, [list, resolveName, sessionUid]);
   const Panel = LazySettingsPanel;
-  return <Panel store={store} characters={characters} activeCharacterId={character?.value?.id ? String(character.value.id) : undefined} onSelectCharacter={registry ? (id) => { void registry.character.service.select(asUuid(id)); } : undefined} onCreateCharacter={() => navigate("/character/create")} drafts={drafts} onResumeDraft={(id) => navigate(`/character/create/${id}`)} onOpenDataManagement={() => navigate("/data")} />;
+  return <Panel chatSettings={<LazyChatSettingsPanel key={sessionUid ?? "guest"} service={registry?.chat} uid={sessionUid} onOpenAccount={() => navigate("/account")} />} store={store} characters={characters} activeCharacterId={character?.value?.id ? String(character.value.id) : undefined} onSelectCharacter={registry ? (id) => { void registry.character.service.select(asUuid(id)); } : undefined} onCreateCharacter={() => navigate("/character/create")} drafts={drafts} onResumeDraft={(id) => navigate(`/character/create/${id}`)} onOpenDataManagement={() => navigate("/data")} />;
 }
 
 /** Conexão com o Firebase para o selo do cabeçalho; sem conta conectada não há o que indicar. */
@@ -1587,7 +1589,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
   const cloudHydrationPending = Boolean(accountSession && !syncHydration && (syncState === "pending" || syncState === "synced"));
   const awaitingCharacterRole = navigation.match.kind === "character" && !navigation.match.params.id && !navigation.match.params.mode && (!roleReady || cloudHydrationPending);
   const accountCharacterId = accountSession ? shellProps.settingsStore?.settings?.activeCharacterIdsByAccount?.[accountSession.uid] : undefined;
-  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, isAccountMaster, navigation.navigate, navigation.replace, campaignRole) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : undefined);
+  const outlet = renderRoute?.(navigation.match) ?? (registry ? awaitingCharacterRole ? <section aria-live="polite" aria-busy="true"><h1>Carregando personagens</h1><InlineStatus tone="info">Confirmando seu papel na campanha.</InlineStatus></section> : renderRegistryRoute(navigation.match, registry, character, campaign, actionCapabilities, pack, createDraft, onCharacterCreated, syncState, syncMessage, syncHydration, onRefreshSync, Boolean(accountSession), accountCharacterId, actionsDice, isCampaignMaster, isAccountMaster, navigation.navigate, navigation.replace, campaignRole) : undefined) ?? (navigation.match.kind === "account" ? <LazyAccountPanel availability={{ available: false }} /> : navigation.match.kind === "settings" ? <SettingsRoute registry={registry} store={shellProps.settingsStore} character={character} navigate={navigation.navigate} /> : navigation.match.kind === "chat" ? <LazyChatScreen key={accountSession?.uid ?? "guest"} service={registry?.chat} uid={accountSession?.uid} context={[character?.value?.name ? `Personagem: ${character.value.name}` : "", campaign?.value?.name ? `Campanha: ${campaign.value.name}` : ""].filter(Boolean).join(". ")} onOpenSettings={() => navigation.navigate("/settings")} onOpenAccount={() => navigation.navigate("/account")} /> : undefined);
 
   return (
     <AppShell
@@ -1601,7 +1603,7 @@ export function AppRouter({ renderRoute, registry, character, campaign, actionCa
       route={navigation.match}
       navigate={navigation.navigate}
     >
-      <Suspense fallback={<RouteLoadingFallback />}>{outlet}</Suspense>
+      <Suspense fallback={<RouteLoadingFallback />}>{navigation.match.kind === "chat" && registry ? <RuleLookupBoundary registry={registry}>{outlet}</RuleLookupBoundary> : outlet}</Suspense>
     </AppShell>
   );
 }

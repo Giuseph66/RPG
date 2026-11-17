@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Button, Input } from "@components/ui";
 import type { AppSettings, DiceColorHex } from "@application/ports/settings-repository";
 import type { SettingsStore } from "@application/settings";
@@ -22,6 +23,7 @@ export interface SettingsDraftOption {
 }
 
 export interface SettingsPanelProps {
+  readonly chatSettings?: ReactNode;
   readonly store?: SettingsStore;
   /** Fichas deste aparelho; a escolha só aparece com mais de uma. */
   readonly characters?: readonly SettingsCharacterOption[];
@@ -110,7 +112,7 @@ function CharacterDropdown({ characters, activeCharacterId, onSelect, onCreate, 
 }
 
 /** Settings stay a utility surface; persistence is optional until composition injects it. */
-export function SettingsPanel({ store, characters = [], activeCharacterId, onSelectCharacter, onCreateCharacter, drafts = [], onResumeDraft, onOpenDataManagement }: SettingsPanelProps) {
+export function SettingsPanel({ store, characters = [], activeCharacterId, onSelectCharacter, onCreateCharacter, drafts = [], onResumeDraft, onOpenDataManagement, chatSettings }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings>(store?.getSnapshot().value ?? FALLBACK);
   const previewRef = useRef<Dice3DHandle>(null);
 
@@ -155,6 +157,7 @@ export function SettingsPanel({ store, characters = [], activeCharacterId, onSel
   return (
     <section className={styles.panel} aria-labelledby="settings-title">
       {onSelectCharacter ? <CharacterDropdown characters={characters} activeCharacterId={activeCharacterId} onSelect={onSelectCharacter} onCreate={onCreateCharacter} drafts={drafts} onResumeDraft={onResumeDraft} /> : null}
+      {chatSettings}
       <p className={styles.eyebrow}>FERRAMENTAS DA MESA</p>
       <h1 id="settings-title" className={styles.title} tabIndex={-1}>Definição do dado</h1>
       <p className={styles.intro}>Escolha as cores usadas por todos os dados da mesa.</p>

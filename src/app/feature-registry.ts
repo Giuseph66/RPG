@@ -31,6 +31,7 @@ import type { AuthPort } from "@application/ports/auth-port";
 import type { AccountAvailability, AccountPanelProps } from "@features/account";
 import type { MembershipService } from "@application/membership";
 import type { SessionService } from "@application/session";
+import type { ChatService } from "@application/chat/service";
 
 export const FEATURE_DESTINATIONS = ["character", "actions", "journey", "compendium"] as const;
 export type FeatureDestinationId = (typeof FEATURE_DESTINATIONS)[number];
@@ -42,6 +43,7 @@ export type CampaignRecordDispatcher = (intent: CampaignRecordIntent) => void;
 export type JournalDispatcher = (intent: JournalIntent) => void;
 
 export interface FeatureRegistryDependencies {
+  readonly chat?: ChatService;
   /** Application services must be created by bootstrap/application composition. */
   readonly services: ApplicationServices;
   /** CompendiumService is injected so the registry never creates an empty catalog implicitly. */
@@ -87,6 +89,7 @@ export interface FeatureRegistryDependencies {
 }
 
 export interface FeatureRegistry {
+  readonly chat?: ChatService;
   readonly destinations: typeof FEATURE_DESTINATIONS;
   readonly creatures?: CreatureApplicationRuntime;
   readonly character: {
@@ -247,5 +250,5 @@ export function createFeatureRegistry(dependencies: FeatureRegistryDependencies)
     }),
   };
 
-  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.creatures ? { creatures: dependencies.creatures } : {}), ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.campaignLog ? { campaignLog: dependencies.campaignLog } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
+  return Object.freeze({ destinations: FEATURE_DESTINATIONS, character, actions, inventory, journey, compendium, dice, account, ...(dependencies.chat ? { chat: dependencies.chat } : {}), ...(dependencies.creatures ? { creatures: dependencies.creatures } : {}), ...(dependencies.membership ? { membership: dependencies.membership } : {}), ...(dependencies.campaignLog ? { campaignLog: dependencies.campaignLog } : {}), ...(dependencies.session ? { session: dependencies.session } : {}), ...(dependencies.dataManagement ? { dataManagement: dependencies.dataManagement } : {}) });
 }
