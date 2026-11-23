@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { ArrowUp, CaretUp, ChatsCircle, Eye, Info, List, Microphone, NotePencil, SpeakerHigh, Stop, X } from "@phosphor-icons/react";
+import { Archive, ArrowCounterClockwise, ArrowUp, CaretUp, ChatsCircle, DownloadSimple, Eye, Info, List, Microphone, NotePencil, SpeakerHigh, Stop, Trash, X } from "@phosphor-icons/react";
 import { AppModal, BottomSheet, Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
 import { useShellChrome } from "@components/layout/chrome-context";
@@ -126,29 +126,45 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
             <h3 id="chat-info-context" className={styles.infoHeading}>Contexto do Oráculo</h3>
             <ChatContextPanel service={service} uid={uid} scope={scope} options={options} locked={Boolean(activeId) || sending || Boolean(busyAction)} onScope={setScope} onPrompt={(text) => { setInfoOpen(false); applySuggestion(text); }} onError={setError} />
           </section>
-          {activeId ? <section className={[styles.conversationTools, styles.infoSection].join(" ")} aria-labelledby="chat-info-conversation"><h3 id="chat-info-conversation" className={styles.infoHeading}>Esta conversa</h3><div className={styles.infoTools}>
-            <form onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}><label>Título<input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label><button type="submit" disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Renomear</button></form>
-            <button type="button" onClick={() => void exportConversation()}>Exportar conversa</button>
-            <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}>{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
-            {activeConversation?.deleted ? <button type="button" onClick={() => void manageConversation({ deleted: false })}>Restaurar da lixeira</button> : <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => setDeleteReview(true)}>Mover para lixeira</button>}
-            {deleteReview ? <div><p>Mover esta conversa para a lixeira? Você poderá restaurá-la.</p><button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ deleted: true })}>Confirmar</button><button type="button" onClick={() => setDeleteReview(false)}>Cancelar</button></div> : null}
-          </div></section> : null}
+          {activeId ? <section className={[styles.conversationTools, styles.infoSection].join(" ")} aria-labelledby="chat-info-conversation"><h3 id="chat-info-conversation" className={styles.infoHeading}>Esta conversa</h3>
+            <form className={styles.renameForm} onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}>
+              <label className={styles.renameField}><span>Título</span><input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label>
+              <button type="submit" className={styles.renameButton} disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Salvar</button>
+            </form>
+            <div className={styles.actionList}>
+              <button type="button" className={styles.actionButton} onClick={() => void exportConversation()}><DownloadSimple size={18} aria-hidden="true" />Exportar conversa</button>
+              <button type="button" className={styles.actionButton} disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}><Archive size={18} aria-hidden="true" />{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
+              {activeConversation?.deleted
+                ? <button type="button" className={styles.actionButton} onClick={() => void manageConversation({ deleted: false })}><ArrowCounterClockwise size={18} aria-hidden="true" />Restaurar da lixeira</button>
+                : <button type="button" className={[styles.actionButton, styles.actionDanger].join(" ")} disabled={sending || Boolean(busyAction)} onClick={() => setDeleteReview(true)}><Trash size={18} aria-hidden="true" />Mover para lixeira</button>}
+            </div>
+            {deleteReview ? <div className={styles.deleteReview} role="alert"><p>Mover esta conversa para a lixeira? Você poderá restaurá-la.</p><div className={styles.deleteActions}><button type="button" className={styles.confirmDanger} disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ deleted: true })}>Confirmar</button><button type="button" onClick={() => setDeleteReview(false)}>Cancelar</button></div></div> : null}
+          </section> : null}
         </div> : null;
 
   return (
     <section className={styles.screen} aria-labelledby="chat-title" data-history-open={historyOpen || undefined}>
       <aside id="chat-history" className={styles.history} aria-label="Histórico de conversas">
-        <div className={styles.historyHeading}>
-          <h2>Conversas</h2>
-          <button type="button" className={styles.iconButton} onClick={() => setHistoryOpen(false)} aria-label="Fechar conversas" data-mobile-only>
-            <X size={20} weight="bold" aria-hidden="true" />
-          </button>
+        <div className={styles.historyTop}>
+          <div className={styles.historyHeading}>
+            <h2>Conversas</h2>
+            <button type="button" className={styles.iconButton} onClick={() => setHistoryOpen(false)} aria-label="Fechar conversas" data-mobile-only>
+              <X size={20} weight="bold" aria-hidden="true" />
+            </button>
+          </div>
+          <div className={styles.historyFilters}>
+            <div className={styles.historyTools}>
+              <label className={styles.searchField}><span className={styles.srOnly}>Buscar conversas</span><input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Título ou última mensagem" /></label>
+              <button type="button" className={styles.newConversation} disabled={!canChat || sending || Boolean(busyAction)} onClick={startConversation} aria-label="Nova conversa" title="Nova conversa">
+                <NotePencil size={18} weight="duotone" aria-hidden="true" />
+              </button>
+            </div>
+            <div className={styles.filterRow}>
+              <label>Mostrar<select value={historyFilter} onChange={(event) => setHistoryFilter(event.currentTarget.value)}><option value="active">Ativas</option><option value="archived">Arquivadas</option><option value="trash">Lixeira</option></select></label>
+              <small>Até 200 recentes</small>
+            </div>
+          </div>
         </div>
-        <button type="button" className={styles.newConversation} disabled={!canChat || sending || Boolean(busyAction)} onClick={startConversation}>
-          <NotePencil size={18} weight="duotone" aria-hidden="true" />
-          Nova conversa
-        </button>
-        <div className={styles.historyFilters}><label>Buscar conversas<input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Título ou última mensagem" /></label><label>Mostrar<select value={historyFilter} onChange={(event) => setHistoryFilter(event.currentTarget.value)}><option value="active">Ativas</option><option value="archived">Arquivadas</option><option value="trash">Lixeira</option></select></label><small>Até 200 conversas recentes</small></div>
         <nav className={styles.conversationList} aria-label="Conversas recentes">
           {filteredConversations.map((conversation) => {
             const active = activeId === conversation.id;
