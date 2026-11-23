@@ -1,25 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-interface Recognition {
-  lang: string; continuous: boolean; interimResults: boolean;
-  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
-  onend: (() => void) | null;
-  start(): void; stop(): void; abort(): void;
-}
-type VoiceWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
-export function useChatVoice(onText: (text: string) => void, onError: (text: string) => void) {
-  const recognition = useRef<Recognition | undefined>(undefined);
-  const [listening, setListening] = useState(false);
+import { createDictation, recognitionConstructor, type DictationState } from "./dictation";
+
+const IDLE: DictationState = { phase: "idle", text: "", interim: "", startedAt: 0 };
+export function useChatVoice(onDictation: (text: string, send: boolean) => void, onError: (text: string) => void, onNotice: (text: string) => void) {
+  const dictationRef = useRef<ReturnType<typeof createDictation> | undefined>(undefined);
+  const [dictation, setDictation] = useState<DictationState>(IDLE);
   const [speaking, setSpeaking] = useState(false);
   const [rate, setRate] = useState(1);
   const rateRef = useRef(1);
   const restartSpeech = useRef<(() => void) | undefined>(undefined);
   const [reading, setReading] = useState<{ messageId: string; start: number; end: number }>();
   const speech = useRef<SpeechSynthesisUtterance | undefined>(undefined);
-  const textHandler = useRef(onText), errorHandler = useRef(onError);
-  textHandler.current = onText; errorHandler.current = onError;
-  const available = typeof window !== "undefined" && Boolean((window as VoiceWindow).SpeechRecognition || (window as VoiceWindow).webkitSpeechRecognition);
-  useEffect(() => () => { if (recognition.current) { recognition.current.onend = null; recognition.current.onresult = null; recognition.current.onerror = null; recognition.current.abort(); } speech.current = undefined; restartSpeech.current = undefined; if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
+  const textHandler = useRef(onDictation), errorHandler = useRef(onError), noticeHandler = useRef(onNotice);
+  textHandler.current = onDictation; errorHandler.current = onError; noticeHandler.current = onNotice;
+  const available = Boolean(recognitionConstructor());
+  useEffect(() => () => { dictationRef.current?.cancel(); speech.current = undefined; restartSpeech.current = undefined; if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
+  useEffect(() => {
+    // A hidden tab must not keep listening; what was said stays for review.
+    const hide = () => { if (document.hidden) dictationRef.current?.finish(false); };
+    document.addEventListener("visibilitychange", hide);
+    return () => document.removeEventListener("visibilitychange", hide);
+  }, []);
   const stopReading = useCallback(() => {
     speech.current = undefined;
     restartSpeech.current = undefined;
@@ -38,25 +39,26 @@ export function useChatVoice(onText: (text: string) => void, onError: (text: str
       resume();
     }
   }
-  function toggleListening() {
-    if (listening) { recognition.current?.stop(); return; }
-    const Constructor = (window as VoiceWindow).SpeechRecognition ?? (window as VoiceWindow).webkitSpeechRecognition;
+  function startDictation() {
+    const Constructor = recognitionConstructor();
     if (!Constructor) { errorHandler.current("Este navegador não oferece ditado por voz. Use o campo de texto."); return; }
     stopReading();
-    const instance = new Constructor();
-    instance.lang = "pt-BR"; instance.continuous = false; instance.interimResults = false;
-    instance.onresult = (event) => { const phrase = Array.from(event.results).map((result) => result[0]?.transcript ?? "").join(" "); textHandler.current(phrase); };
-    instance.onerror = () => { setListening(false); errorHandler.current("Não foi possível usar o microfone. Confira a permissão do navegador."); };
-    instance.onend = () => setListening(false);
-    recognition.current = instance;
-    try { instance.start(); setListening(true); } catch { errorHandler.current("Não foi possível iniciar o ditado."); }
+    dictationRef.current = createDictation(Constructor, {
+      onState: setDictation,
+      onDone: (text, send) => textHandler.current(text, send),
+      onError: (message) => errorHandler.current(message),
+      onNotice: (message) => noticeHandler.current(message),
+    });
+    dictationRef.current.start();
   }
+  const finishDictation = useCallback((send: boolean) => dictationRef.current?.finish(send), []);
+  const cancelDictation = useCallback(() => dictationRef.current?.cancel(), []);
   function readAloud(text: string, messageId: string) {
     if (!window.speechSynthesis) return;
     const wasSpeaking = speaking;
     stopReading();
     if (wasSpeaking) return;
-    recognition.current?.stop();
+    dictationRef.current?.finish(false);
     // Preserve character offsets so the spoken range still maps to the formatted answer.
     const spoken = text.replace(/\[\d+\]/g, (citation) => " ".repeat(citation.length)).replace(/[*`#]/g, " ");
     const chunks = typeof Intl.Segmenter === "function"
@@ -97,5 +99,5 @@ export function useChatVoice(onText: (text: string) => void, onError: (text: str
     setSpeaking(true);
     speak(0);
   }
-  return { available, listening, speaking, reading, rate, changeRate, toggleListening, readAloud, stopReading, stop: () => recognition.current?.stop() };
+  return { available, dictation, listening: dictation.phase !== "idle", startDictation, cancelDictation, finishDictation, speaking, reading, rate, changeRate, readAloud, stopReading };
 }

@@ -47,14 +47,15 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     setActiveId(id); setDraft(""); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
     if (!id && options) setScope(options.defaults);
   };
-  const send = async (retry?: ChatMessage) => {
-    if (!service || !uid || inFlight.current || busyAction || (!retry && !draft.trim())) return;
+  const send = async (retry?: ChatMessage, text?: string) => {
+    const typed = (text ?? draft).trim();
+    if (!service || !uid || inFlight.current || busyAction || (!retry && !typed)) return;
     if (!navigator.onLine) { setError("Conecte-se à internet para consultar a IA e salvar mensagens."); return; }
     if (!options) { setError("Aguarde a consulta das permissões."); return; }
     const controller = new AbortController();
     inFlight.current = controller; setSending(true); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
     try {
-      const content = retry?.content ?? draft.trim();
+      const content = retry?.content ?? typed;
       const id = activeId ?? await service.createConversation(uid, content.slice(0, 80), activeScope);
       controller.signal.throwIfAborted();
       if (!alive.current) return;
@@ -101,7 +102,7 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao exportar."); }
   };
-  return { conversations, messages, actions, activeId, draft, setDraft, select, send, loading: historyLoading || messagesLoading,
+  return { conversations, messages, actions, activeId, draft, setDraft, setNotice, select, send, loading: historyLoading || messagesLoading,
     sending, error, setError, notice, partial, trace, usage: Object.values(usageByKey), options, scope: activeScope, setScope,
     resolveAction, busyAction, manageConversation, exportConversation, cancel: () => inFlight.current?.abort() };
 }

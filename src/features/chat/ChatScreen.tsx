@@ -5,6 +5,7 @@ import { AppModal, BottomSheet, Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
 import { useShellChrome } from "@components/layout/chrome-context";
 import { useChat } from "./use-chat";
+import { DictationPanel } from "./DictationPanel";
 import { useChatVoice } from "./use-chat-voice";
 import { ChatContextPanel } from "./ChatContextPanel";
 
@@ -22,8 +23,14 @@ const suggestions: readonly string[] = [
 ];
 
 export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAccount = () => {} }: { readonly service?: ChatService; readonly uid?: string; readonly context?: string; readonly onOpenSettings?: () => void; readonly onOpenAccount?: () => void }) {
-  const { conversations, messages, actions, activeId, draft, setDraft, select, send, loading, sending, error, setError, notice, partial, trace, usage, options, scope, setScope, resolveAction, busyAction, manageConversation, exportConversation, cancel } = useChat(service, uid);
-  const voice = useChatVoice((text) => setDraft((previous) => (previous + " " + text).trim().slice(0, 12000)), setError);
+  const { conversations, messages, actions, activeId, draft, setDraft, setNotice, select, send, loading, sending, error, setError, notice, partial, trace, usage, options, scope, setScope, resolveAction, busyAction, manageConversation, exportConversation, cancel } = useChat(service, uid);
+  const voice = useChatVoice((text, sendNow) => {
+    const content = (draft + " " + text).trim().slice(0, 12000);
+    // Kept in the field either way: if sending fails, nothing that was said is lost.
+    setDraft(content);
+    if (sendNow) void send(undefined, content);
+    else window.setTimeout(() => composerRef.current?.focus());
+  }, setError, setNotice);
   const canChat = Boolean(service && uid);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -61,7 +68,9 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
   }, [messages, partial, trace]);
 
   useEffect(() => { setRenameTitle(activeTitle); setDeleteReview(false); }, [activeId, activeTitle]);
-  useEffect(() => { voice.stopReading(); }, [activeId, voice.stopReading]);
+  // Changing conversation ends the dictation for review, never sends it to another one.
+  useEffect(() => { voice.stopReading(); voice.finishDictation(false); }, [activeId, voice.stopReading, voice.finishDictation]);
+  useEffect(() => voice.cancelDictation, [uid, voice.cancelDictation]);
 
   useEffect(() => {
     const textarea = composerRef.current;
@@ -92,7 +101,6 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
   const sendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    voice.stop();
     voice.stopReading();
     void send();
   };
@@ -245,9 +253,9 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
         <form className={styles.composer} onSubmit={sendMessage}>
           {canChat && usage.length ? <ChatUsagePanel usages={usage} /> : null}
-          {voice.available ? <small className={styles.voiceHint}>O ditado usa o serviço de voz do navegador. Revise o texto antes de enviar.</small> : null}
           <label className={styles.visuallyHidden} htmlFor="chat-message">Escreva uma mensagem</label>
-          <div className={styles.composerField}>
+          {voice.listening ? <DictationPanel state={voice.dictation} canSend={Boolean(options) && !sending && !busyAction} onDiscard={() => { voice.cancelDictation(); composerRef.current?.focus(); }} onReview={() => voice.finishDictation(false)} onSend={() => voice.finishDictation(true)} /> : null}
+          <div className={styles.composerField} hidden={voice.listening}>
             <textarea
               ref={composerRef}
               id="chat-message"
@@ -259,13 +267,13 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               maxLength={12000}
               disabled={!canChat || sending || readOnly || Boolean(busyAction)}
             />
-            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || sending || readOnly} aria-pressed={voice.listening} onClick={voice.toggleListening} aria-label={voice.listening ? "Parar ditado" : "Ditar mensagem"} title={voice.listening ? "Parar ditado" : "Ditar mensagem"}>{voice.listening ? <Stop size={19} weight="fill" aria-hidden="true" /> : <Microphone size={19} aria-hidden="true" />}</button> : null}
+            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || sending || readOnly || Boolean(busyAction)} onClick={voice.startDictation} aria-label="Ditar mensagem" title="Ditar mensagem. O navegador transcreve o áudio."><Microphone size={19} aria-hidden="true" /></button> : null}
             {typeof window !== "undefined" && window.speechSynthesis && lastAnswer ? <button type="button" className={styles.composerTool} aria-pressed={voice.speaking} onClick={() => voice.readAloud(lastAnswer.content, lastAnswer.id)} aria-label={voice.speaking ? "Parar leitura" : "Ouvir resposta"} title={voice.speaking ? "Parar leitura" : "Ouvir resposta"}>{voice.speaking ? <Stop size={19} weight="fill" aria-hidden="true" /> : <SpeakerHigh size={19} aria-hidden="true" />}</button> : null}
             {sending ? <button type="button" className={styles.sendButton} onClick={cancel} aria-label="Cancelar resposta" title="Cancelar resposta"><Stop size={19} weight="fill" aria-hidden="true" /></button> : <button type="submit" className={styles.sendButton} disabled={!canChat || !options || sending || loading || readOnly || Boolean(busyAction) || voice.listening || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
             </button>}
           </div>
-          <p className={styles.composerHint}>Fontes consultáveis · alterações com confirmação · Enter envia</p>
+          <p className={styles.composerHint} hidden={voice.listening}>Fontes consultáveis · alterações com confirmação · Enter envia</p>
         </form>
       </div>
       {compact
