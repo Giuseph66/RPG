@@ -1,5 +1,5 @@
-/** Fixed provider and model: the Oráculo always answers with this model; users never pick one. */
-export const CHAT_PROVIDER = { baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-4-hydrogen" } as const;
+/** Fixed provider and models, all on the free tier: the fallbacks answer, in order, only when the main model fails. Users never pick one. */
+export const CHAT_PROVIDER = { baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-4-hydrogen", fallbackModels: ["gemini-3.8-flash", "gemini-3.5-flash-lite"] } as const;
 import type { ChatAction, ChatAttachment, ChatCompletion, ChatMemory, ChatModelMessage, ChatScope, ChatToolDefinition, ChatTrace } from "./chat-agent";
 
 export interface ChatMessage {
@@ -95,5 +95,5 @@ export interface ChatCredentialUsage extends ChatUsage {
 }
 
 export interface ChatClient {
-  turn(apiKey: string, messages: readonly ChatModelMessage[], tools: readonly ChatToolDefinition[], signal?: AbortSignal, onText?: (text: string) => void, forceText?: boolean, onUsage?: (usage: ChatUsage) => void): Promise<ChatCompletion>;
+  turn(apiKey: string, messages: readonly ChatModelMessage[], tools: readonly ChatToolDefinition[], signal?: AbortSignal, onText?: (text: string) => void, forceText?: boolean, onUsage?: (usage: ChatUsage) => void, model?: string): Promise<ChatCompletion>;
 }

@@ -104,6 +104,12 @@ describe("gemini client", () => {
     await expect(createGeminiClient().turn("k", question, [])).rejects.toThrow(message);
   });
 
+  it("usa o modelo pedido e mostra código e detalhe da falha", async () => {
+    const { fetchMock } = mock(failure(503, "UNAVAILABLE", [], "The model is overloaded."));
+    await expect(createGeminiClient().turn("k", question, [], undefined, undefined, false, undefined, "gemini-3.8-flash")).rejects.toThrow(/503.*The model is overloaded/);
+    expect(fetchMock.mock.calls[0][0]).toContain("/models/gemini-3.8-flash:");
+  });
+
   it("marca texto cortado pelo limite", async () => {
     mock(sse(chunk([{ text: "parcial" }], "MAX_TOKENS")));
     await expect(createGeminiClient().turn("k", question, [])).resolves.toMatchObject({ content: "parcial", truncated: true });

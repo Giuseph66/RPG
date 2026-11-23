@@ -7,9 +7,9 @@ import { createChatService } from "./service";
 const scope = { ...DEFAULT_CHAT_SCOPE, memory: false };
 const reply = (content: string): ChatCompletion => ({ content, tools: [], tokens: 1 });
 
-function setup(ids: string[], answer: (key: string, call: number, messages: readonly ChatModelMessage[]) => ChatCompletion, overrides: Partial<ChatRepository> = {}) {
+function setup(ids: string[], answer: (key: string, call: number, messages: readonly ChatModelMessage[], model: string) => ChatCompletion, overrides: Partial<ChatRepository> = {}) {
   const keys: ChatCredential[] = ids.map((id, index) => ({ id, ownerUid: id, label: id, apiKey: "key-" + id, status: "active", cooldownUntil: 0, createdAt: index }));
-  const messages: ChatMessage[] = [], used: string[] = [], states: unknown[][] = [];
+  const messages: ChatMessage[] = [], used: string[] = [], models: string[] = [], states: unknown[][] = [];
   const repository = {
     listCredentials: async () => keys,
     setCredentialState: async (key: ChatCredential, status: ChatCredential["status"], cooldownUntil: number) => { states.push([key.id, status, cooldownUntil]); Object.assign(keys.find((item) => item.id === key.id)!, { status, cooldownUntil }); },
@@ -21,8 +21,8 @@ function setup(ids: string[], answer: (key: string, call: number, messages: read
   } as unknown as ChatRepository;
   const agent = { context: async () => ({ scope, text: "" }), tools: () => [{ type: "function", function: { name: "search_rules", description: "", parameters: {} } }], invoke: async () => ({ content: "regra" }) } as unknown as ChatAgent;
   let calls = 0;
-  const client: ChatClient = { turn: async (apiKey, history) => { used.push(apiKey.slice(4)); return answer(apiKey.slice(4), ++calls, history); } };
-  return { service: createChatService(repository, client, () => "u", agent), used, states, messages, repository, keys };
+  const client: ChatClient = { turn: async (apiKey, history, _tools, _signal, _onText, _force, _report, model) => { used.push(apiKey.slice(4)); models.push(model!); return answer(apiKey.slice(4), ++calls, history, model!); } };
+  return { service: createChatService(repository, client, () => "u", agent), used, models, states, messages, repository, keys };
 }
 const fail = (kind: ChatRequestError["kind"], retryAfterMs?: number): never => { throw new ChatRequestError(kind, 0, kind, retryAfterMs); };
 
@@ -142,5 +142,38 @@ describe("pool de chaves do Oráculo", () => {
     test.service.agent.context = async () => { throw new Error("Você não tem acesso a esta campanha."); };
     await expect(test.service.send("u", "c", "oi")).rejects.toThrow("campanha");
     expect(test.used).toEqual([]);
+  });
+
+  const main = "gemini-4-hydrogen", second = "gemini-3.8-flash", third = "gemini-3.5-flash-lite";
+  it("usa o modelo reserva na sobrecarga, com a mesma chave e até o fim da resposta", async () => {
+    vi.useFakeTimers();
+    try {
+      let saved: { trace?: { model?: string; notices?: readonly string[] } } | undefined;
+      const test = setup(["a"], (_key, number, _messages, model) => model === main ? fail("transient") : number === 2 ? { content: "", tools: [{ id: "1", type: "function", function: { name: "search_rules", arguments: "{}" } }], tokens: 1 } : reply("ok"));
+      const append = test.repository.appendMessage;
+      test.repository.appendMessage = async (uid, id, role, content, metadata) => { if (role === "assistant") saved = metadata; return append(uid, id, role, content, metadata); };
+      const sending = test.service.send("u", "c", "oi");
+      await vi.runAllTimersAsync();
+      await sending;
+      expect(test.models).toEqual([main, second, second]);
+      expect(saved?.trace?.model).toBe(second);
+      expect(saved?.trace?.notices?.join()).toContain("modelo reserva gemini-3.8-flash");
+      const next = test.service.send("u", "c", "de novo");
+      await vi.runAllTimersAsync();
+      await next;
+      expect(test.models[3]).toBe(main);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("não marca a chave por limite ou recusa do modelo reserva e mostra a falha original", async () => {
+    vi.useFakeTimers();
+    try {
+      const test = setup(["a"], (_key, _number, _messages, model) => fail(model === main ? "transient" : model === second ? "cooldown" : "rejected"));
+      const sending = expect(test.service.send("u", "c", "oi")).rejects.toThrow("transient");
+      await vi.runAllTimersAsync();
+      await sending;
+      expect(test.models).toEqual([main, second, third]);
+      expect(test.states).toEqual([]);
+    } finally { vi.useRealTimers(); }
   });
 });

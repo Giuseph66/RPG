@@ -106,18 +106,20 @@ function toRequestError(code: number, error: Awaited<ReturnType<typeof readError
     return new ChatRequestError(daily ? "O limite diário do Gemini foi atingido." : "O limite de uso do Gemini foi atingido.", code, "cooldown", daily ? LONG_COOLDOWN_MS : seconds ? Number(seconds) * 1000 : DEFAULT_COOLDOWN_MS);
   }
   if (code === 400 && error.status === "FAILED_PRECONDITION") return new ChatRequestError("O plano gratuito do Gemini não está disponível nesta região para esta chave.", code, "unavailable");
-  if (code === 408 || code >= 500) return new ChatRequestError("O Gemini está sobrecarregado no momento. Tente novamente em instantes.", code, "transient");
-  return new ChatRequestError(`O Gemini rejeitou a solicitação (${code}). Tente reduzir o contexto da conversa.${error.message ? ` Detalhe: ${error.message.slice(0, 300)}` : ""}`, code, "rejected");
+  const detail = error.message ? ` Detalhe: ${error.message.slice(0, 300)}` : "";
+  if (code === 503) return new ChatRequestError(`O Gemini está sobrecarregado no momento (503). Tente novamente em instantes.${detail}`, code, "transient");
+  if (code === 408 || code >= 500) return new ChatRequestError(`O Gemini não conseguiu processar o pedido (${code}). Tente novamente em instantes.${detail}`, code, "transient");
+  return new ChatRequestError(`O Gemini rejeitou a solicitação (${code}). Tente reduzir o contexto da conversa.${detail}`, code, "rejected");
 }
 
 /** Transport only: permissions and tool execution belong to the application. */
 export function createGeminiClient(): ChatClient {
   return {
-    async turn(apiKey, messages, tools, signal, onText, forceText = false, onUsage): Promise<ChatCompletion> {
+    async turn(apiKey, messages, tools, signal, onText, forceText = false, onUsage, model = CHAT_PROVIDER.model): Promise<ChatCompletion> {
       const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
       const post = async (contents: readonly GeminiContent[]) => {
         try {
-          return await fetch(`${CHAT_PROVIDER.baseUrl}/models/${CHAT_PROVIDER.model}:streamGenerateContent?alt=sse`, {
+          return await fetch(`${CHAT_PROVIDER.baseUrl}/models/${model}:streamGenerateContent?alt=sse`, {
             method: "POST", credentials: "omit", redirect: "error",
             headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
             body: requestBody(messages, contents, tools, forceText),
