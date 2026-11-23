@@ -1,13 +1,14 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatRequestError, type ChatClient, type ChatCredential, type ChatMessage, type ChatRepository } from "@application/ports/chat";
+import { ChatRequestError, type ChatClient, type ChatCredential, type ChatMessage, type ChatModelUsage, type ChatRepository } from "@application/ports/chat";
+import { nextUsage, usageId } from "./key-rotation";
 import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE, type ChatAgent, type ChatCompletion, type ChatModelMessage, type ChatScope } from "@application/ports/chat-agent";
 import { createChatService } from "./service";
 
 const scope = { ...DEFAULT_CHAT_SCOPE, memory: false };
 const reply = (content: string): ChatCompletion => ({ content, tools: [], tokens: 1 });
 
-function setup(ids: string[], answer: (key: string, call: number, messages: readonly ChatModelMessage[], model: string) => ChatCompletion, overrides: Partial<ChatRepository> = {}) {
+function setup(ids: string[], answer: (key: string, call: number, messages: readonly ChatModelMessage[], model: string) => ChatCompletion, overrides: Partial<ChatRepository> = {}, table = new Map<string, ChatModelUsage>()) {
   const keys: ChatCredential[] = ids.map((id, index) => ({ id, ownerUid: id, label: id, apiKey: "key-" + id, status: "active", cooldownUntil: 0, createdAt: index }));
   const messages: ChatMessage[] = [], used: string[] = [], models: string[] = [], states: unknown[][] = [];
   const repository = {
@@ -16,6 +17,8 @@ function setup(ids: string[], answer: (key: string, call: number, messages: read
     getConversation: async () => ({ id: "c", title: "t", preview: "", updatedAt: 0, scope }),
     recentMessages: async () => [...messages],
     appendMessage: async (_uid: string, _id: string, role: ChatMessage["role"], content: string, metadata?: { id?: string }) => { messages.push({ id: metadata!.id!, role, content, createdAt: messages.length }); return metadata!.id!; },
+    watchUsage: () => (next: (value: readonly ChatModelUsage[]) => void) => { next([...table.values()]); return () => {}; },
+    recordUsage: async (_previous: unknown, change: Parameters<typeof nextUsage>[1]) => { const id = usageId(change.keyId, change.model); table.set(id, nextUsage(table.get(id), change)); },
     saveCredential: vi.fn(async () => {}),
     ...overrides,
   } as unknown as ChatRepository;
@@ -31,14 +34,73 @@ beforeEach(() => { vi.restoreAllMocks(); });
 describe("pool de chaves do Oráculo", () => {
   const all = ["gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
   const [main, second, third] = all;
-  it("troca de chave no limite de um modelo, sem pôr a chave inteira em espera", async () => {
-    const test = setup(["a", "b"], (key) => key === "a" ? fail("cooldown", 30_000) : reply("ok"));
+  it("esgota os modelos da chave, passa para a outra e não volta a tentar o que já sabe", async () => {
+    const test = setup(["a", "b"], (key) => key === "a" ? fail("cooldown", 3_000_000) : reply("ok"));
     await test.service.send("u", "c", "oi");
-    expect(test.used).toEqual(["a", "b"]);
-    expect(test.models).toEqual([main, main]);
+    expect(test.used).toEqual(["a", "a", "a", "a", "a", "b"]);
+    expect(test.models).toEqual([...all, main]);
     expect(test.states).toEqual([]);
     await test.service.send("u", "c", "de novo");
-    expect(test.used).toEqual(["a", "b", "b"]);
+    expect(test.used.slice(6)).toEqual(["b"]);
+  });
+
+  it("vai direto ao que funciona usando o que outro aparelho registrou", async () => {
+    const table = new Map<string, ChatModelUsage>();
+    const first = setup(["a", "b"], (key, _call, _messages, model) => key === "a" || model === main ? fail("cooldown", 3_000_000) : reply("ok"), {}, table);
+    await first.service.send("u", "c", "oi");
+    const other = setup(["a", "b"], () => reply("ok"), {}, table);
+    await other.service.send("u", "c", "oi");
+    expect(other.used).toEqual(["b"]);
+    expect(other.models).toEqual([second]);
+  });
+
+  it("alterna as chaves entre perguntas e mantém a mesma dentro da resposta", async () => {
+    vi.useFakeTimers();
+    try {
+      const call = { id: "1", type: "function" as const, function: { name: "search_rules", arguments: "{}" } };
+      const test = setup(["a", "b"], (_key, number) => number % 2 ? { content: "", tools: [call], tokens: 5 } : reply("ok"));
+      for (const text of ["um", "dois", "três"]) { vi.advanceTimersByTime(1000); await test.service.send("u", "c", text); }
+      expect(test.used).toEqual(["a", "a", "b", "b", "a", "a"]);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("registra uso e tokens por chave e modelo, sem a chave em si", async () => {
+    const table = new Map<string, ChatModelUsage>();
+    const test = setup(["a"], () => ({ ...reply("ok"), tokens: 42 }), {}, table);
+    await test.service.send("u", "c", "oi");
+    expect(table.get(usageId("a", main))).toMatchObject({ requests: 1, tokens: 42, minuteRequests: 1, minuteTokens: 42, blockedUntil: 0 });
+    expect(JSON.stringify([...table.values()])).not.toContain("key-a");
+  });
+
+  it("guarda o limite diário informado pelo Google e o momento em que libera", async () => {
+    const table = new Map<string, ChatModelUsage>();
+    const test = setup(["a"], (_key, _call, _messages, model) => { if (model === main) throw new ChatRequestError("dia", 429, "cooldown", 40_998_000, false, { period: "day", perModel: true, dayLimit: 20 }); return reply("ok"); }, {}, table);
+    await test.service.send("u", "c", "oi");
+    const row = table.get(usageId("a", main))!;
+    expect(row).toMatchObject({ dayLimit: 20, reason: "day" });
+    expect(row.blockedUntil).toBeGreaterThan(Date.now() + 11 * 3_600_000);
+  });
+
+  it("pula a chave inteira quando o limite é do projeto", async () => {
+    const test = setup(["a", "b"], (key) => { if (key === "a") throw new ChatRequestError("x", 429, "cooldown", 60_000, false, { period: "minute", perModel: false }); return reply("ok"); });
+    await test.service.send("u", "c", "oi");
+    expect(test.used).toEqual(["a", "b"]);
+  });
+
+  it("esquece o bloqueio quando o dono troca a chave", async () => {
+    const table = new Map<string, ChatModelUsage>();
+    const test = setup(["a"], () => fail("cooldown", 3_000_000), {}, table);
+    await expect(test.service.send("u", "c", "oi")).rejects.toThrow();
+    const replaced = setup(["a"], () => reply("ok"), {}, table);
+    Object.assign(replaced.keys[0], { apiKey: "key-a-nova" });
+    await replaced.service.send("u", "c", "oi");
+    expect(replaced.models).toEqual([main]);
+  });
+
+  it("responde mesmo com a tabela inacessível", async () => {
+    const test = setup(["a"], (_key, _call, _messages, model) => model === main ? fail("cooldown", 3_000_000) : reply("ok"), { watchUsage: () => (_next, failed) => { failed(new Error("permission-denied")); return () => {}; }, recordUsage: async () => { throw new Error("permission-denied"); } });
+    await test.service.send("u", "c", "oi");
+    expect(test.messages.at(-1)?.content).toBe("ok");
   });
 
   it("usa outro modelo com a mesma chave quando a cota do principal acaba", async () => {
@@ -49,13 +111,15 @@ describe("pool de chaves do Oráculo", () => {
     expect(test.states).toEqual([]);
   });
 
-  it("põe a chave em espera só quando todos os modelos a limitaram", async () => {
-    const test = setup(["a"], () => fail("cooldown", 30_000));
+  it("avisa quando libera se todas as chaves estão sem cota, sem chamar o Google", async () => {
+    const test = setup(["a"], () => fail("cooldown", 3_000_000));
     const usage = vi.fn();
     await expect(test.service.send("u", "c", "oi", { onUsage: usage })).rejects.toThrow("cooldown");
     expect(test.models).toEqual(all);
-    expect(test.states).toEqual([["a", "cooldown", expect.any(Number)]]);
+    expect(test.states).toEqual([]);
     expect(usage).toHaveBeenCalledWith(expect.objectContaining({ credentialId: "a", limited: true }));
+    await expect(test.service.send("u", "c", "de novo")).rejects.toThrow(/próxima libera/);
+    expect(test.models).toHaveLength(5);
   });
 
   it("põe a chave sem créditos em espera na hora", async () => {
@@ -83,9 +147,9 @@ describe("pool de chaves do Oráculo", () => {
     expect(test.states).toEqual([["a", "invalid", 0]]);
   });
 
-  it("limita a espera ao que o Firestore aceita", async () => {
-    const test = setup(["a"], () => fail("cooldown", 86_400_000));
-    await expect(test.service.send("u", "c", "oi")).rejects.toThrow();
+  it("limita a espera da chave ao que o Firestore aceita", async () => {
+    const test = setup(["a"], () => { throw new ChatRequestError("projeto", 403, "cooldown", 86_400_000); });
+    await expect(test.service.send("u", "c", "oi")).rejects.toThrow("projeto");
     expect(test.states[0][2]).toBeLessThan(Date.now() + 3_600_000);
   });
 
@@ -111,7 +175,7 @@ describe("pool de chaves do Oráculo", () => {
       await vi.runAllTimersAsync();
       await sending;
       expect(test.models).toEqual([...all, main, second, third]);
-      expect(new Set(test.used)).toEqual(new Set(["a"]));
+      expect(test.used).toEqual(["a", "a", "a", "a", "a", "b", "b", "b"]);
       expect(progress.join()).toContain("Nova tentativa em");
       expect(test.states).toEqual([]);
     } finally { vi.useRealTimers(); }
@@ -215,11 +279,11 @@ describe("pool de chaves do Oráculo", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("tenta as outras chaves no modelo reserva limitado, sem marcar nenhuma", async () => {
+  it("passa para a outra chave quando os reservas da primeira estão limitados", async () => {
     const test = setup(["a", "b"], (key, _call, _messages, model) => model === main ? fail("transient") : key === "a" ? fail("cooldown") : reply("ok"));
     await test.service.send("u", "c", "oi");
-    expect(test.used).toEqual(["a", "a", "b"]);
-    expect(test.models).toEqual([main, second, second]);
+    expect(test.used).toEqual(["a", "a", "a", "a", "a", "b"]);
+    expect(test.models.at(-1)).toBe(second);
     expect(test.states).toEqual([]);
   });
 });

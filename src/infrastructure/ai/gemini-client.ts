@@ -9,7 +9,7 @@ interface GeminiPart {
   readonly functionResponse?: { readonly id: string; readonly name: string; readonly response: Record<string, unknown> };
 }
 interface GeminiContent { readonly role: "user" | "model"; readonly parts: readonly GeminiPart[] }
-interface ErrorDetail { readonly "@type"?: string; readonly reason?: string; readonly retryDelay?: string; readonly violations?: readonly { readonly quotaId?: string }[] }
+interface ErrorDetail { readonly "@type"?: string; readonly reason?: string; readonly retryDelay?: string; readonly violations?: readonly { readonly quotaId?: string; readonly quotaValue?: string; readonly quotaDimensions?: Readonly<Record<string, string>> }[] }
 
 const REQUEST_TIMEOUT_MS = 300_000;
 /** No answer, or no new data, for this long: give the turn to another model. */
@@ -104,9 +104,15 @@ function toRequestError(code: number, error: Awaited<ReturnType<typeof readError
   if (code === 403) return new ChatRequestError("O projeto desta chave não tem acesso ao Gemini. Confira a verificação e o faturamento no Google AI Studio." + detail, code, "cooldown", LONG_COOLDOWN_MS);
   if (code === 402) return new ChatRequestError("Os créditos do projeto no Gemini acabaram. Confira o faturamento no Google AI Studio." + detail, code, "cooldown", LONG_COOLDOWN_MS);
   if (code === 429) {
-    const daily = error.details.some((item) => item.violations?.some((violation) => /PerDay/i.test(violation.quotaId ?? "")));
+    const violations = error.details.flatMap((item) => item.violations ?? []);
+    const day = violations.find((item) => /PerDay/i.test(item.quotaId ?? "")), violation = day ?? violations[0];
+    const limit = Number(violations.find((item) => /Requests.*PerDay/i.test(item.quotaId ?? ""))?.quotaValue);
     const seconds = /^(\d+(?:\.\d+)?)s$/.exec(error.details.find((item) => item.retryDelay)?.retryDelay ?? "")?.[1];
-    return new ChatRequestError(daily ? "O limite diário do Gemini foi atingido." : "O limite de uso do Gemini foi atingido.", code, "cooldown", daily ? LONG_COOLDOWN_MS : seconds ? Number(seconds) * 1000 : DEFAULT_COOLDOWN_MS);
+    // Google's own delay reaches the renewal of a daily quota, so it is trusted unless it is too short for one.
+    const delay = seconds ? Number(seconds) * 1000 : day ? LONG_COOLDOWN_MS : DEFAULT_COOLDOWN_MS;
+    return new ChatRequestError(day ? "O limite diário do Gemini foi atingido." : "O limite de uso do Gemini foi atingido.", code, "cooldown", day ? Math.max(delay, LONG_COOLDOWN_MS) : delay, false, {
+      period: day ? "day" : "minute", perModel: !violation || !!violation.quotaDimensions?.model || /PerModel/i.test(violation.quotaId ?? ""), ...(Number.isInteger(limit) && limit > 0 ? { dayLimit: limit } : {}),
+    });
   }
   if (code === 400 && error.status === "FAILED_PRECONDITION") return new ChatRequestError("O plano gratuito do Gemini não está disponível nesta região para esta chave.", code, "unavailable");
   if (code === 503) return new ChatRequestError(`O Gemini está sobrecarregado no momento (503). Tente novamente em instantes.${detail}`, code, "transient");

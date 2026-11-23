@@ -3,7 +3,8 @@ import type { FormEvent } from "react";
 import { ArrowSquareOutIcon, ArrowsClockwiseIcon, CaretDownIcon, KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Badge, Button, InlineStatus, Input } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
-import { MAX_CREDENTIALS_PER_USER, type ChatCredentialSummary } from "@application/ports/chat";
+import { CHAT_MODELS, MAX_CREDENTIALS_PER_USER, type ChatCredentialSummary, type ChatModelUsage } from "@application/ports/chat";
+import { ALL_KEYS, usageDay } from "@application/chat/key-rotation";
 import styles from "./ChatSettingsPanel.module.css";
 
 type Feedback = { readonly tone: "info" | "error"; readonly text: string };
@@ -18,9 +19,38 @@ function keyStatus(credential: ChatCredentialSummary) {
   return { tone: "xp" as const, text: "Disponível" };
 }
 
+const REASON: Record<string, string> = { day: "cota do dia usada", minute: "limite por minuto", unavailable: "modelo indisponível", overload: "modelo sobrecarregado" };
+const clock = (time: number) => new Date(time).toLocaleString("pt-BR", { ...(time - Date.now() > 12 * 3_600_000 ? { day: "2-digit", month: "2-digit" } : {}), hour: "2-digit", minute: "2-digit" });
+
+/** What the shared control table knows about one key; the rows of a replaced secret are ignored. */
+function KeyUsage({ keyId, rows }: { readonly keyId: string; readonly rows: readonly ChatModelUsage[] }) {
+  const now = Date.now(), today = usageDay(now);
+  const own = rows.filter((row) => row.keyId === keyId);
+  const hash = own.reduce<ChatModelUsage | undefined>((latest, row) => !latest || row.lastUsedAt > latest.lastUsedAt ? row : latest, undefined)?.keyHash;
+  const models = CHAT_MODELS.map((model) => {
+    const row = own.find((item) => item.model === model && item.keyHash === hash);
+    const overload = rows.find((item) => item.keyId === ALL_KEYS && item.model === model && item.blockedUntil > now);
+    const block = row && row.blockedUntil > now ? row : overload;
+    return { model, block, requests: row?.day === today ? row.requests : 0, tokens: row?.day === today ? row.tokens : 0, limit: row?.dayLimit ?? 0 };
+  });
+  const free = models.filter((item) => !item.block).length;
+  return <details className={styles.usage}>
+    <summary>{free} de {models.length} modelos disponíveis<CaretDownIcon size={12} weight="bold" aria-hidden="true" /></summary>
+    <ul>
+      {models.map(({ model, block, requests, tokens, limit }) => <li key={model}>
+        <strong>{model}</strong>
+        <span>Hoje: {requests}{limit ? ` de ${limit}` : ""} {requests === 1 && !limit ? "pedido" : "pedidos"} · {tokens.toLocaleString("pt-BR")} tokens</span>
+        <span data-blocked={Boolean(block) || undefined}>{block ? `${REASON[block.reason] ?? "em espera"} até ${clock(block.blockedUntil)}` : "Disponível"}</span>
+      </li>)}
+    </ul>
+    <p>Conta só o que passou por este app. O dia renova à meia-noite do Pacífico.</p>
+  </details>;
+}
+
 /** The Oráculo's model is fixed; players only manage their shared Gemini keys. */
 export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly service?: ChatService; readonly uid?: string; readonly onOpenAccount: () => void }) {
   const [credentials, setCredentials] = useState<readonly ChatCredentialSummary[]>([]);
+  const [usage, setUsage] = useState<readonly ChatModelUsage[]>([]);
   const [editing, setEditing] = useState<Editing>();
   const [confirmRemove, setConfirmRemove] = useState<string>();
   const [label, setLabel] = useState(DEFAULT_KEY_LABEL);
@@ -36,6 +66,12 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
       (value) => { setCredentials(value); setReady(true); },
       (cause) => { setLoadError(`Não foi possível carregar suas chaves: ${cause.message}`); setReady(false); },
     );
+  }, [service, uid]);
+
+  useEffect(() => {
+    if (!service || !uid) return;
+    // Informative only: without access to the table the keys can still be managed.
+    return service.repository.watchUsage()(setUsage, () => setUsage([]));
   }, [service, uid]);
 
   const perform = async (operation: () => Promise<void>, message: string) => {
@@ -71,7 +107,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
     <header className={styles.header}>
       <p className={styles.eyebrow}>Oráculo</p>
       <h2 id="oracle-settings-title">Inteligência artificial</h2>
-      <p>O Oráculo responde usando chaves de acesso do Google Gemini cadastradas pela mesa, na ordem em que foram adicionadas. Quando uma chave atinge o limite de uso, ele passa para a próxima. Se ninguém tiver chave, adicione a sua (o plano gratuito serve). As chaves antigas do Groq não são mais usadas.</p>
+      <p>O Oráculo responde usando chaves de acesso do Google Gemini cadastradas pela mesa, em rodízio. Ele anota o que cada chave já gastou em cada modelo e vai direto para a que ainda tem cota. Se ninguém tiver chave, adicione a sua (o plano gratuito serve). As chaves antigas do Groq não são mais usadas.</p>
     </header>
   );
 
@@ -121,6 +157,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
                   </div>
                 </div>
                 {credential.status === "invalid" ? <p className={styles.warn}>O Google recusou esta chave. Troque por uma chave válida.</p> : null}
+                {credential.status !== "invalid" ? <KeyUsage keyId={credential.id} rows={usage} /> : null}
                 {removing ? (
                   <div className={styles.confirm} role="group" aria-label={`Confirmar remoção de ${credential.label}`}>
                     <p>Remover "{credential.label}"? {credentials.length === 1 ? "Se não houver outras chaves na mesa, o Oráculo para de responder." : "As outras chaves continuam funcionando."}</p>

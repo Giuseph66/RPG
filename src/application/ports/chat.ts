@@ -1,5 +1,6 @@
 /** Fixed provider and models, all on the free tier: the fallbacks answer, in order, only when the main model fails. Users never pick one. */
 export const CHAT_PROVIDER = { baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-4-hydrogen", fallbackModels: ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"] } as const;
+export const CHAT_MODELS: readonly string[] = [CHAT_PROVIDER.model, ...CHAT_PROVIDER.fallbackModels];
 import type { ChatAction, ChatAttachment, ChatCompletion, ChatMemory, ChatModelMessage, ChatScope, ChatToolDefinition, ChatTrace } from "./chat-agent";
 
 export interface ChatMessage {
@@ -40,6 +41,37 @@ export interface ChatCredential extends ChatCredentialSummary {
   readonly apiKey: string;
 }
 
+export type ChatBlockReason = "day" | "minute" | "overload" | "unavailable";
+/** Shared control row of one key and model; never holds the key itself. */
+export interface ChatModelUsage {
+  readonly keyId: string;
+  readonly model: string;
+  /** Changes when the owner replaces the secret, which voids the row. */
+  readonly keyHash: string;
+  /** Pacific date and epoch minute the counters refer to. */
+  readonly day: string;
+  readonly minute: number;
+  readonly requests: number;
+  readonly tokens: number;
+  readonly minuteRequests: number;
+  readonly minuteTokens: number;
+  /** Daily limit informed by Google, 0 while unknown. */
+  readonly dayLimit: number;
+  readonly blockedUntil: number;
+  readonly reason: ChatBlockReason | "";
+  readonly lastUsedAt: number;
+}
+export interface ChatUsageChange {
+  readonly keyId: string;
+  readonly model: string;
+  readonly keyHash: string;
+  readonly now: number;
+  readonly requests?: number;
+  readonly tokens?: number;
+  readonly dayLimit?: number;
+  readonly block?: { readonly until: number; readonly reason: ChatBlockReason };
+}
+
 export type ChatWatch<T> = (onValue: (value: T) => void, onError: (error: Error) => void) => () => void;
 
 export interface ChatRepository {
@@ -51,6 +83,9 @@ export interface ChatRepository {
   removeCredential(uid: string, credentialId: string): Promise<void>;
   listCredentials(): Promise<readonly ChatCredential[]>;
   setCredentialState(credential: ChatCredential, status: "cooldown" | "invalid", cooldownUntil: number): Promise<void>;
+  /** Live control table shared by everyone who uses the pool. */
+  watchUsage(): ChatWatch<readonly ChatModelUsage[]>;
+  recordUsage(previous: ChatModelUsage | undefined, change: ChatUsageChange): Promise<void>;
   createConversation(uid: string, title: string, scope?: ChatScope): Promise<string>;
   appendMessage(uid: string, conversationId: string, role: ChatMessage["role"], content: string, metadata?: { readonly id?: string; readonly turnId?: string; readonly trace?: ChatTrace; readonly attachments?: readonly ChatAttachment[]; readonly actions?: readonly ChatAction[] }): Promise<string>;
   recentMessages(uid: string, conversationId: string): Promise<readonly ChatMessage[]>;
@@ -74,8 +109,10 @@ export interface ChatRepository {
  */
 export type ChatFailureKind = "invalid" | "cooldown" | "unavailable" | "transient" | "rejected";
 
+export interface ChatQuotaFailure { readonly period: "day" | "minute"; readonly dayLimit?: number; /** False when the limit covers every model of the key. */ readonly perModel: boolean }
+
 export class ChatRequestError extends Error {
-  constructor(message: string, readonly status: number, readonly kind: ChatFailureKind, readonly retryAfterMs = 60_000, /** The model ran, but its output could not be used. */ readonly unusable = false) {
+  constructor(message: string, readonly status: number, readonly kind: ChatFailureKind, readonly retryAfterMs = 60_000, /** The model ran, but its output could not be used. */ readonly unusable = false, /** Quota Google says was exceeded. */ readonly quota?: ChatQuotaFailure) {
     super(message);
     this.name = "ChatRequestError";
   }

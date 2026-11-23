@@ -1,8 +1,11 @@
+// @vitest-environment node
 /// <reference types="node" />
 import { deleteApp, initializeApp, type FirebaseApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, signInAnonymously } from "firebase/auth";
-import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
-import { afterAll, describe, expect, it } from "vitest";
+import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getFirestore, increment, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import type { ChatModelUsage } from "@application/ports/chat";
+import { createFirestoreChatRepository } from "@infrastructure/cloud/firebase/chat-repository";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 const enabled = process.env.FIREBASE_RULES_EMULATOR === "1";
 const firestoreHost = process.env.FIRESTORE_RULES_HOST ?? "127.0.0.1:8182";
@@ -42,4 +45,40 @@ describe.skipIf(!enabled)("regras do pool de chaves do Gemini", () => {
     await denied(deleteDoc(doc(player.db, path)));
     await deleteDoc(doc(owner.db, path));
   });
+
+  it("controla o uso por chave e modelo sem guardar a chave", async () => {
+    const owner = await newUser("usage-owner"), player = await newUser("usage-player");
+    await setDoc(doc(owner.db, `geminiKeys/${owner.uid}`), { ownerUid: owner.uid, label: "Minha", apiKey: "AQ." + "x".repeat(40), status: "active", cooldownUntil: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const row = (keyId: string, extra = {}) => ({ keyId, model: "gemini-4-hydrogen", keyHash: "0123456789abcdef", day: "2026-11-23", minute: 29_000_000, requests: 1, tokens: 10, minuteRequests: 1, minuteTokens: 10, dayLimit: 20, blockedUntil: Date.now() + 12 * 3_600_000, reason: "day", lastUsedAt: Date.now(), updatedAt: serverTimestamp(), ...extra });
+    const path = `geminiUsage/${owner.uid}~gemini-4-hydrogen`;
+    await setDoc(doc(player.db, path), row(owner.uid));
+    await setDoc(doc(owner.db, path), { requests: increment(1), updatedAt: serverTimestamp() }, { merge: true });
+    expect((await getDoc(doc(player.db, path))).data()?.requests).toBe(2);
+    await denied(setDoc(doc(player.db, path), row(owner.uid, { apiKey: "AQ.x" })));
+    await denied(setDoc(doc(player.db, path), row(owner.uid, { blockedUntil: Date.now() + 48 * 3_600_000 })));
+    await denied(setDoc(doc(player.db, path), row(owner.uid, { requests: -1 })));
+    await denied(setDoc(doc(player.db, "geminiUsage/inexistente~gemini-4-hydrogen"), row("inexistente")));
+    await denied(setDoc(doc(player.db, `geminiUsage/${owner.uid}~outro`), row(owner.uid)));
+    await setDoc(doc(player.db, "geminiUsage/all~gemini-4-hydrogen"), row("all", { blockedUntil: Date.now() + 5 * 60_000, reason: "overload" }));
+    await denied(setDoc(doc(player.db, "geminiUsage/all~gemini-4-hydrogen"), row("all", { blockedUntil: Date.now() + 3_600_000 })));
+    await denied(deleteDoc(doc(player.db, path)));
+  });
+
+  it("registra e remove pelo repositório do app, inclusive as linhas de uso da chave", async () => {
+    const owner = await newUser("repo-owner"), repository = createFirestoreChatRepository(() => owner.db);
+    await repository.saveCredential(owner.uid, "Minha", "AQ." + "z".repeat(40));
+    const change = { keyId: owner.uid, model: "gemini-3.8-flash", keyHash: "0123456789abcdef", now: Date.now() };
+    await repository.recordUsage(undefined, { ...change, requests: 1 });
+    // One listener for the whole test, as in the app: it also proves the live table follows each write.
+    let rows: readonly ChatModelUsage[] = [];
+    const stop = repository.watchUsage()((value) => { rows = value.filter((item) => item.keyId === owner.uid); }, () => {});
+    await vi.waitFor(() => expect(rows[0]?.requests).toBe(1), 5000);
+    const first = rows[0];
+    await repository.recordUsage(first, { ...change, tokens: 30 });
+    await repository.recordUsage(first, { ...change, requests: 1, dayLimit: 20, block: { until: Date.now() + 60_000, reason: "day" } });
+    await vi.waitFor(() => expect(rows[0]).toMatchObject({ requests: 2, tokens: 30, dayLimit: 20, reason: "day" }), 5000);
+    await repository.removeCredential(owner.uid, owner.uid);
+    await vi.waitFor(() => expect(rows).toEqual([]), 5000);
+    stop();
+  }, 30_000);
 });

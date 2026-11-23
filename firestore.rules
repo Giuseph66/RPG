@@ -798,6 +798,31 @@ service cloud.firestore {
       allow delete: if keyPool in ['ollamaKeys', 'groqKeys', 'geminiKeys'] && ownsKey();
     }
 
+    // Controle de uso do Gemini: um documento por chave e modelo (keyId~model), nunca com a chave em si.
+    // Como o pool, é compartilhado: qualquer conta registra o que usou. keyId 'all' indica modelo
+    // sobrecarregado para todos e só pode bloquear por poucos minutos.
+    match /geminiUsage/{usageId} {
+      function ownsSlot() { return signedIn() && usageId.matches(request.auth.uid + '(_[2-5])?~.*'); }
+      function counter(value, max) { return value is int && value >= 0 && value <= max; }
+      function validUsage(data) {
+        return data.keys().hasOnly(['keyId', 'model', 'keyHash', 'day', 'minute', 'requests', 'tokens', 'minuteRequests', 'minuteTokens', 'dayLimit', 'blockedUntil', 'reason', 'lastUsedAt', 'updatedAt']) &&
+          data.keys().hasAll(['keyId', 'model', 'keyHash', 'day', 'requests', 'blockedUntil']) &&
+          data.keyId is string && data.model is string && usageId == data.keyId + '~' + data.model &&
+          data.model.matches('gemini-[a-z0-9.-]{1,60}') && data.keyHash is string && data.keyHash.matches('[0-9a-f]{16}') &&
+          data.day is string && data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && counter(data.minute, 1000000000) &&
+          counter(data.requests, 1000000) && counter(data.tokens, 100000000000) &&
+          counter(data.minuteRequests, 1000000) && counter(data.minuteTokens, 100000000000) && counter(data.dayLimit, 100000000) &&
+          data.blockedUntil is number && data.blockedUntil >= 0 &&
+          data.blockedUntil <= request.time.toMillis() + (data.keyId == 'all' ? 600000 : 93600000) &&
+          data.reason in ['', 'day', 'minute', 'overload', 'unavailable'] && data.lastUsedAt is number && data.lastUsedAt >= 0 &&
+          data.updatedAt == request.time &&
+          (data.keyId == 'all' || exists(/databases/$(database)/documents/geminiKeys/$(data.keyId)));
+      }
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validUsage(request.resource.data);
+      allow delete: if ownsSlot();
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

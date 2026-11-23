@@ -66,3 +66,16 @@
 .iconAction:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 /* Button wraps its children in a span; keep icon and text on one line. */
 .iconLabel > span { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
+
+/* Control table of a key: what each model already used */
+.usage { padding: 0 var(--spacing-sm); color: var(--color-text-muted); font-size: .85rem; }
+.usage summary { display: flex; align-items: center; gap: var(--spacing-xs); min-height: var(--size-touch-target); color: var(--color-secondary); list-style: none; cursor: pointer; }
+.usage summary::-webkit-details-marker { display: none; }
+.usage summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+.usage summary svg { transition: rotate var(--motion-transition) var(--motion-easing); }
+.usage[open] summary svg { rotate: 180deg; }
+.usage ul { display: grid; gap: var(--spacing-sm); margin: 0; padding: 0; list-style: none; }
+.usage li { display: grid; gap: .1rem; min-width: 0; overflow-wrap: anywhere; }
+.usage li strong { color: var(--color-text); font-weight: 600; }
+.usage li span[data-blocked] { color: var(--color-danger); }
+.usage p { margin: var(--spacing-sm) 0; }

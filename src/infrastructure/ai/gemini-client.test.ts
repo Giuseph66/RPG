@@ -80,7 +80,7 @@ describe("gemini client", () => {
     ["sem créditos", failure(402, "RESOURCE_EXHAUSTED"), "cooldown", 3_300_000],
     ["limite por minuto", failure(429, "RESOURCE_EXHAUSTED", [{ retryDelay: "17.5s" }]), "cooldown", 17_500],
     ["limite sem prazo", failure(429, "RESOURCE_EXHAUSTED"), "cooldown", 60_000],
-    ["limite diário", failure(429, "RESOURCE_EXHAUSTED", [{ violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }] }, { retryDelay: "3s" }]), "cooldown", 3_300_000],
+    ["limite diário", failure(429, "RESOURCE_EXHAUSTED", [{ violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "20", quotaDimensions: { model: "gemini-4-hydrogen" } }] }, { retryDelay: "40998s" }]), "cooldown", 40_998_000],
     ["região", failure(400, "FAILED_PRECONDITION"), "unavailable", undefined],
     ["sobrecarga", failure(503, "UNAVAILABLE"), "transient", undefined],
     ["pedido malformado", failure(400, "INVALID_ARGUMENT"), "rejected", undefined],
@@ -118,6 +118,12 @@ describe("gemini client", () => {
       await vi.advanceTimersByTimeAsync(21_000);
       await result;
     } finally { vi.useRealTimers(); }
+  });
+
+  it("lê do 429 o limite diário, o prazo e se vale só para o modelo", async () => {
+    mock(failure(429, "RESOURCE_EXHAUSTED", [{ violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "20", quotaDimensions: { model: "gemini-4-hydrogen" } }] }, { retryDelay: "40998s" }]), failure(429, "RESOURCE_EXHAUSTED", [{ violations: [{ quotaId: "TokensPerMinutePerProject", quotaValue: "9" }] }]));
+    await expect(createGeminiClient().turn("k", question, [])).rejects.toMatchObject({ quota: { period: "day", perModel: true, dayLimit: 20 } });
+    await expect(createGeminiClient().turn("k", question, [])).rejects.toMatchObject({ quota: { period: "minute", perModel: false } });
   });
 
   it("marca texto cortado pelo limite", async () => {
