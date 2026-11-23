@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatRequestError, type ChatClient, type ChatCredential, type ChatMessage, type ChatRepository } from "@application/ports/chat";
-import { DEFAULT_CHAT_SCOPE, type ChatAgent, type ChatCompletion, type ChatModelMessage } from "@application/ports/chat-agent";
+import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE, type ChatAgent, type ChatCompletion, type ChatModelMessage, type ChatScope } from "@application/ports/chat-agent";
 import { createChatService } from "./service";
 
 const scope = { ...DEFAULT_CHAT_SCOPE, memory: false };
@@ -120,5 +120,27 @@ describe("pool de chaves do Oráculo", () => {
     expect(test.repository.saveCredential).toHaveBeenCalledWith("u", "n", "AQ." + "x".repeat(40), undefined);
     await test.service.send("u", "c", "minha chave AIza" + "x".repeat(35) + " e AQ." + "y".repeat(40));
     expect(test.messages[0].content).toBe("minha chave [chave ocultada] e [chave ocultada]");
+  });
+
+  it("responde sem a ficha quando a vinculada à conversa deixou de ser acessível", async () => {
+    let history: readonly ChatModelMessage[] = [], saved: { trace?: { notices?: readonly string[] } } | undefined;
+    const pinned = { ...scope, characterId: "ficha", campaignId: "mesa" };
+    const test = setup(["a"], (_key, _call, messages) => { history = [...messages]; return reply("ok"); }, { getConversation: async () => ({ id: "c", title: "t", preview: "", updatedAt: 0, scope: pinned }) });
+    const append = test.repository.appendMessage;
+    test.repository.appendMessage = async (uid, id, role, content, metadata) => { if (role === "assistant") saved = metadata; return append(uid, id, role, content, metadata); };
+    const seen: ChatScope[] = [];
+    test.service.agent.context = async (_uid, value) => { if (value.characterId) throw new ChatSheetUnavailableError("A ficha saiu."); seen.push(value); return { scope: value, text: "" }; };
+    await test.service.send("u", "c", "oi");
+    expect(test.messages.at(-1)?.content).toBe("ok");
+    expect(seen.every((item) => !item.sheet && item.campaignId === "mesa")).toBe(true);
+    expect(saved?.trace?.notices?.[0]).toMatch(/A ficha saiu\./);
+    expect(history[0].content).toContain("não suponha dados dela");
+  });
+
+  it("continua recusando a conversa quando falta outra permissão", async () => {
+    const test = setup(["a"], () => reply("ok"));
+    test.service.agent.context = async () => { throw new Error("Você não tem acesso a esta campanha."); };
+    await expect(test.service.send("u", "c", "oi")).rejects.toThrow("campanha");
+    expect(test.used).toEqual([]);
   });
 });

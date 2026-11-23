@@ -21,7 +21,7 @@ import { applyCondition, removeCondition } from "@domain/rules/conditions";
 import { addInventoryItem, createInventoryItem, createInventoryState, equipInventoryItem, unequipInventoryItem, removeInventoryItem, setItemQuantity, setCurrency, consumeItem } from "@domain/inventory/operations";
 import { createPlatformRandomSource, parseDiceFormula, rollExpression } from "@domain/dice";
 import type { CoinDenomination } from "@domain/contracts/primitives";
-import { DEFAULT_CHAT_SCOPE } from "@application/ports/chat-agent";
+import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE } from "@application/ports/chat-agent";
 import { ownSlots, preparedLimitFor } from "@domain/character/evolution/spell-tables";
 
 interface Dependencies {
@@ -50,6 +50,8 @@ const number = (input: Record<string, unknown>, key: string, min = 0, max = 1000
   return value;
 };
 const value = <T,>(result: Result<T, { readonly message: string }>): T => { if (!result.ok) throw new Error(result.error.message); return result.value; };
+/** Same rule as the character lists: a sheet created before sign-in has no owner yet and belongs to this device. */
+const ownsSheet = (sheet: { readonly ownerUid?: string }, uid: string) => !sheet.ownerUid || sheet.ownerUid === uid;
 const json = (data: unknown, max = 18000): string => { const result = JSON.stringify(data); return result.length > max ? result.slice(0, max) + "\n[Conteúdo parcial: refine a consulta.]" : result; };
 function passage(content: string, query: string): string {
   const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
@@ -97,13 +99,15 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
   }
   async function character(uid: string, scope: ChatScope, write = false) {
     if (!scope.sheet || !scope.characterId) throw new Error("Selecione e compartilhe uma ficha para esta consulta.");
-    const current = value(await d.services.character.get(asUuid(scope.characterId)));
+    const found = await d.services.character.get(asUuid(scope.characterId));
+    if (!found.ok && found.error.code === "not-found") throw new ChatSheetUnavailableError("A ficha desta conversa não está mais neste aparelho.");
+    const current = value(found);
     const campaignRole = await role(uid, scope);
-    if (current.ownerUid !== uid && !(campaignRole === "master" && current.campaignId === scope.campaignId)) throw new Error("Você não tem acesso a esta ficha.");
+    if (!ownsSheet(current, uid) && !(campaignRole === "master" && current.campaignId === scope.campaignId)) throw new ChatSheetUnavailableError(`A ficha "${current.name}" pertence a outro jogador ou saiu da campanha desta conversa.`);
     const snapshot = d.services.character.store.getSnapshot();
     if (write && snapshot.value?.id !== current.id) throw new Error("Selecione esta ficha no aplicativo antes de confirmar a alteração.");
     if (write && (snapshot.hasPendingChanges || snapshot.value?.revision !== current.revision)) throw new Error("Aguarde a gravação das alterações pendentes da ficha antes de confirmar.");
-    if (current.campaignId && scope.campaignId && current.campaignId !== scope.campaignId) throw new Error("A ficha pertence a outra campanha. Abra uma conversa com a campanha correta.");
+    if (current.campaignId && scope.campaignId && current.campaignId !== scope.campaignId) throw new ChatSheetUnavailableError(`A ficha "${current.name}" agora pertence a outra campanha.`);
     return current;
   }
   function calculated(current: Character) {
@@ -448,7 +452,7 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       for (const item of availableCampaigns) { try { if (await d.repository.campaignRole(uid, item.id)) campaigns.push({ id: item.id, name: item.name }); } catch { /* inaccessible local copies are omitted */ } }
       const masters = new Set<string>();
       for (const item of campaigns) if (await d.repository.campaignRole(uid, item.id) === "master") masters.add(item.id);
-      const characters = value(await d.characters.list()).filter((item) => item.ownerUid === uid || (item.campaignId && masters.has(item.campaignId)));
+      const characters = value(await d.characters.list()).filter((item) => ownsSheet(item, uid) || (item.campaignId && masters.has(item.campaignId)));
       const current = d.services.character.store.getSnapshot().value;
       const characterId = current && characters.some((item) => item.id === current.id) ? current.id : undefined;
       const campaignId = current?.campaignId ?? d.services.campaign.store.selectedId;

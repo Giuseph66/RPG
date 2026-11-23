@@ -39,6 +39,10 @@ export interface ChatToolResult {
   readonly sources?: readonly Omit<ChatSource, "id">[];
   readonly proposal?: Omit<ChatAction, "id" | "messageId" | "status" | "createdAt">;
 }
+/** The sheet of a scope can no longer be used; the rest of the conversation still can. */
+export class ChatSheetUnavailableError extends Error {
+  constructor(message: string) { super(message); this.name = "ChatSheetUnavailableError"; }
+}
 export interface ChatAgent {
   options(uid: string): Promise<{ readonly characters: readonly { id: string; name: string; campaignId?: string }[]; readonly campaigns: readonly { id: string; name: string }[]; readonly defaults: ChatScope }>;
   context(uid: string, scope: ChatScope): Promise<{ readonly scope: ChatScope; readonly text: string; readonly alerts?: readonly string[] }>;
