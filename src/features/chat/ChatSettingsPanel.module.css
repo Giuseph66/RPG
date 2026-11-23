@@ -7,7 +7,7 @@
 .eyebrow { color: var(--color-secondary); font-size: .7rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 
 .muted { color: var(--color-text-muted); font-size: .92rem; }
-.warn { color: var(--color-warning); font-size: .9rem; }
+.warn { padding: var(--spacing-sm) var(--spacing-md); color: var(--color-warning); border-top: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent); font-size: .85rem; }
 
 
 
@@ -17,12 +17,13 @@
 
 /* Key */
 .keyForm, .keyBlock { display: grid; gap: var(--spacing-md); }
-.keyCard { display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); background: color-mix(in srgb, var(--color-surface-elevated) 70%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); border-radius: var(--radius-surface); }
-.keyCard > svg { flex: 0 0 auto; color: var(--color-secondary); }
+.keyCard { display: grid; background: color-mix(in srgb, var(--color-surface-elevated) 70%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent); border-radius: var(--radius-surface); }
+.keyRow { display: flex; align-items: center; gap: var(--spacing-md); min-width: 0; padding: var(--spacing-md); }
+.keyRow > svg { flex: 0 0 auto; color: var(--color-secondary); }
 .keyInfo { display: grid; flex: 1; gap: .3rem; min-width: 0; }
 .keyInfo strong { overflow: hidden; color: var(--color-text); text-overflow: ellipsis; white-space: nowrap; }
 .keyMeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs) var(--spacing-sm); }
-.keyMeta > span { color: var(--color-gold-muted); font-size: .8rem; }
+.keyMeta > span:last-child { color: var(--color-gold-muted); font-size: .8rem; }
 
 .callout { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); color: var(--color-text-muted); background: var(--color-surface-warm); border: 1px solid var(--color-border-soft); border-radius: var(--radius-surface); }
 .callout[data-tone="warning"] { flex-wrap: nowrap; align-items: flex-start; font-size: .9rem; line-height: 1.5; border-color: color-mix(in srgb, var(--color-warning) 40%, transparent); }
@@ -67,15 +68,30 @@
 /* Button wraps its children in a span; keep icon and text on one line. */
 .iconLabel > span { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
 
-/* Control table of a key: what each model already used */
-.usage { padding: 0 var(--spacing-sm); color: var(--color-text-muted); font-size: .85rem; }
-.usage summary { display: flex; align-items: center; gap: var(--spacing-xs); min-height: var(--size-touch-target); color: var(--color-secondary); list-style: none; cursor: pointer; }
+/* Control table of a key: what each model already used. One tone per row, from its state. */
+.usage { border-top: 1px solid color-mix(in srgb, var(--color-border) 22%, transparent); color: var(--color-text-muted); font-size: .85rem; }
+.usage summary { display: flex; align-items: center; gap: var(--spacing-sm); min-height: var(--size-touch-target); padding: 0 var(--spacing-md); list-style: none; cursor: pointer; }
 .usage summary::-webkit-details-marker { display: none; }
-.usage summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
-.usage summary svg { transition: rotate var(--motion-transition) var(--motion-easing); }
+.usage summary:hover { color: var(--color-text); }
+.usage summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: var(--radius-control); }
+.usage summary svg { flex: 0 0 auto; margin-left: auto; color: var(--color-secondary); transition: rotate var(--motion-transition) var(--motion-easing); }
 .usage[open] summary svg { rotate: 180deg; }
-.usage ul { display: grid; gap: var(--spacing-sm); margin: 0; padding: 0; list-style: none; }
-.usage li { display: grid; gap: .1rem; min-width: 0; overflow-wrap: anywhere; }
-.usage li strong { color: var(--color-text); font-weight: 600; }
-.usage li span[data-blocked] { color: var(--color-danger); }
-.usage p { margin: var(--spacing-sm) 0; }
+.usageDots { display: inline-flex; flex: 0 0 auto; gap: 3px; }
+.usageDots > span { width: 12px; height: 5px; background: var(--tone); border-radius: var(--radius-pill); }
+.usage [data-tone] { --tone: var(--color-xp); --tone-text: color-mix(in srgb, var(--color-xp) 80%, var(--color-text)); }
+.usage [data-tone="wait"] { --tone: var(--color-warning); --tone-text: var(--color-warning); }
+.usage [data-tone="spent"] { --tone: color-mix(in srgb, var(--color-danger) 75%, var(--color-surface)); --tone-text: color-mix(in srgb, var(--color-danger) 70%, var(--color-text)); }
+.usage ul { display: grid; margin: 0; padding: 0 var(--spacing-md); list-style: none; }
+.usage li { display: grid; gap: .3rem; min-width: 0; padding: var(--spacing-sm) 0; border-top: 1px solid color-mix(in srgb, var(--color-border) 14%, transparent); }
+.usageLine { display: flex; align-items: baseline; justify-content: space-between; gap: var(--spacing-xs) var(--spacing-sm); min-width: 0; }
+.usageLine strong { min-width: 0; color: var(--color-text); font-size: .92rem; font-weight: 600; overflow-wrap: anywhere; }
+.usageLine small { font-size: .8rem; font-variant-numeric: lining-nums tabular-nums; }
+.usageLine small + small { flex: 0 0 auto; white-space: nowrap; }
+.usageState { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .4rem; color: var(--tone-text); font-size: .8rem; font-weight: 600; }
+.usageState::before { width: 7px; height: 7px; background: var(--tone); border-radius: 50%; content: ""; }
+.usageBar { display: block; height: 4px; overflow: hidden; background: color-mix(in srgb, var(--color-border) 18%, transparent); border-radius: var(--radius-pill); }
+.usageBar > span { display: block; height: 100%; background: var(--tone); border-radius: inherit; }
+.usage p { padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md); color: var(--color-gold-muted); font-size: .78rem; line-height: 1.45; }
+@media (min-width: 768px) {
+  .usage ul { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--spacing-xl); }
+}

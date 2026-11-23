@@ -13,37 +13,58 @@ type Editing = { readonly kind: "new" } | { readonly kind: "replace"; readonly c
 
 const DEFAULT_KEY_LABEL = "Minha chave Gemini";
 
-function keyStatus(credential: ChatCredentialSummary) {
+function keyStatus(credential: ChatCredentialSummary, models: ReturnType<typeof keyModels>) {
   if (credential.status === "invalid") return { tone: "danger" as const, text: "Inválida" };
   if (credential.status === "cooldown" && credential.cooldownUntil > Date.now()) return { tone: "warning" as const, text: `Em espera até ${new Date(credential.cooldownUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` };
+  if (models.every((item) => item.block)) return { tone: "warning" as const, text: models.every((item) => item.label?.tone === "spent") ? "Sem cota" : "Em pausa" };
   return { tone: "xp" as const, text: "Disponível" };
 }
 
-const REASON: Record<string, string> = { day: "cota do dia usada", minute: "limite por minuto", unavailable: "modelo indisponível", overload: "modelo sobrecarregado" };
-const clock = (time: number) => new Date(time).toLocaleString("pt-BR", { ...(time - Date.now() > 12 * 3_600_000 ? { day: "2-digit", month: "2-digit" } : {}), hour: "2-digit", minute: "2-digit" });
+const BLOCK_LABEL: Record<string, { readonly text: string; readonly tone: "spent" | "wait" }> = {
+  day: { text: "Sem cota", tone: "spent" }, unavailable: { text: "Indisponível", tone: "spent" },
+  minute: { text: "Em pausa", tone: "wait" }, overload: { text: "Sobrecarregado", tone: "wait" },
+};
+const modelName = (model: string) => model.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ").replace("Flash Lite", "Flash-Lite");
+const clock = (time: number) => new Date(time).toLocaleString("pt-BR", { ...(new Date(time).toDateString() !== new Date().toDateString() && time - Date.now() > 12 * 3_600_000 ? { day: "2-digit", month: "2-digit" } : {}), hour: "2-digit", minute: "2-digit" });
+const plural = (count: number, one: string, many: string) => `${count.toLocaleString("pt-BR")} ${count === 1 ? one : many}`;
 
 /** What the shared control table knows about one key; the rows of a replaced secret are ignored. */
-function KeyUsage({ keyId, rows }: { readonly keyId: string; readonly rows: readonly ChatModelUsage[] }) {
+function keyModels(keyId: string, rows: readonly ChatModelUsage[]) {
   const now = Date.now(), today = usageDay(now);
   const own = rows.filter((row) => row.keyId === keyId);
   const hash = own.reduce<ChatModelUsage | undefined>((latest, row) => !latest || row.lastUsedAt > latest.lastUsedAt ? row : latest, undefined)?.keyHash;
-  const models = CHAT_MODELS.map((model) => {
+  return CHAT_MODELS.map((model) => {
     const row = own.find((item) => item.model === model && item.keyHash === hash);
     const overload = rows.find((item) => item.keyId === ALL_KEYS && item.model === model && item.blockedUntil > now);
     const block = row && row.blockedUntil > now ? row : overload;
-    return { model, block, requests: row?.day === today ? row.requests : 0, tokens: row?.day === today ? row.tokens : 0, limit: row?.dayLimit ?? 0 };
+    return { model, block, label: block ? BLOCK_LABEL[block.reason] ?? BLOCK_LABEL.minute : undefined, requests: row?.day === today ? row.requests : 0, tokens: row?.day === today ? row.tokens : 0, limit: row?.dayLimit ?? 0 };
   });
+}
+
+function KeyUsage({ models }: { readonly models: ReturnType<typeof keyModels> }) {
   const free = models.filter((item) => !item.block).length;
   return <details className={styles.usage}>
-    <summary>{free} de {models.length} modelos disponíveis<CaretDownIcon size={12} weight="bold" aria-hidden="true" /></summary>
+    <summary>
+      <span className={styles.usageDots} aria-hidden="true">{models.map(({ model, label }) => <span key={model} data-tone={label?.tone ?? "ready"} />)}</span>
+      <span>{free} de {models.length} modelos prontos</span>
+      <CaretDownIcon size={14} weight="bold" aria-hidden="true" />
+    </summary>
     <ul>
-      {models.map(({ model, block, requests, tokens, limit }) => <li key={model}>
-        <strong>{model}</strong>
-        <span>Hoje: {requests}{limit ? ` de ${limit}` : ""} {requests === 1 && !limit ? "pedido" : "pedidos"} · {tokens.toLocaleString("pt-BR")} tokens</span>
-        <span data-blocked={Boolean(block) || undefined}>{block ? `${REASON[block.reason] ?? "em espera"} até ${clock(block.blockedUntil)}` : "Disponível"}</span>
-      </li>)}
+      {models.map(({ model, block, label, requests, tokens, limit }) => {
+        // The app may have seen few calls of a quota spent elsewhere, so Google's answer wins over our count.
+        const spent = block?.reason === "day";
+        const used = spent ? 100 : limit ? Math.min(100, Math.round(requests / limit * 100)) : 0;
+        return <li key={model} data-tone={label?.tone ?? "ready"}>
+          <div className={styles.usageLine}><strong>{modelName(model)}</strong><span className={styles.usageState}>{label?.text ?? "Pronto"}</span></div>
+          {limit ? <span className={styles.usageBar} aria-hidden="true"><span style={{ width: `${used}%` }} /></span> : null}
+          <div className={styles.usageLine}>
+            <small>{spent ? limit ? `Limite de ${limit} por dia atingido` : "Limite do dia atingido" : requests ? `${limit ? `${requests} de ${limit} pedidos` : plural(requests, "pedido", "pedidos")} hoje${tokens ? ` · ${plural(tokens, "token", "tokens")}` : ""}` : "Sem uso hoje"}</small>
+            {block ? <small>volta {clock(block.blockedUntil)}</small> : null}
+          </div>
+        </li>;
+      })}
     </ul>
-    <p>Conta só o que passou por este app. O dia renova à meia-noite do Pacífico.</p>
+    <p>Conta só o uso por este app. A cota do dia renova à meia-noite do Pacífico.</p>
   </details>;
 }
 
@@ -134,30 +155,32 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
         <h3 className={styles.listTitle}>Suas chaves <span>{credentials.length} de {MAX_CREDENTIALS_PER_USER}</span></h3>
         <ul className={styles.keyList}>
           {credentials.map((credential) => {
-            const status = keyStatus(credential);
+            const models = keyModels(credential.id, usage);
+            const status = keyStatus(credential, models);
             const removing = confirmRemove === credential.id;
             return (
               <li key={credential.id} className={styles.keyItem}>
                 <div className={styles.keyCard}>
-                  <KeyIcon size={20} weight="duotone" aria-hidden="true" />
-                  <div className={styles.keyInfo}>
-                    <strong>{credential.label}</strong>
-                    <span className={styles.keyMeta}>
-                      <Badge tone={status.tone}>{status.text}</Badge>
-                      <span>{credential.createdAt ? `desde ${new Date(credential.createdAt).toLocaleDateString("pt-BR")}` : "agora"}</span>
-                    </span>
+                  <div className={styles.keyRow}>
+                    <KeyIcon size={20} weight="duotone" aria-hidden="true" />
+                    <div className={styles.keyInfo}>
+                      <strong>{credential.label}</strong>
+                      <span className={styles.keyMeta}>
+                        <Badge tone={status.tone}>{status.text}</Badge>
+                        <span>{credential.createdAt ? `desde ${new Date(credential.createdAt).toLocaleDateString("pt-BR")}` : "agora"}</span>
+                      </span>
+                    </div>
+                    <div className={styles.keyActions}>
+                      <button type="button" className={styles.iconAction} disabled={busy} onClick={() => openForm({ kind: "replace", credential })} aria-label={`Trocar ${credential.label}`} title="Trocar chave">
+                        <ArrowsClockwiseIcon size={18} aria-hidden="true" />
+                      </button>
+                      <button type="button" className={styles.iconAction} data-tone="danger" disabled={busy} onClick={() => { setFeedback(undefined); setEditing(undefined); setConfirmRemove(credential.id); }} aria-label={`Remover ${credential.label}`} title="Remover chave">
+                        <TrashIcon size={18} aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
-                  <div className={styles.keyActions}>
-                    <button type="button" className={styles.iconAction} disabled={busy} onClick={() => openForm({ kind: "replace", credential })} aria-label={`Trocar ${credential.label}`} title="Trocar chave">
-                      <ArrowsClockwiseIcon size={18} aria-hidden="true" />
-                    </button>
-                    <button type="button" className={styles.iconAction} data-tone="danger" disabled={busy} onClick={() => { setFeedback(undefined); setEditing(undefined); setConfirmRemove(credential.id); }} aria-label={`Remover ${credential.label}`} title="Remover chave">
-                      <TrashIcon size={18} aria-hidden="true" />
-                    </button>
-                  </div>
+                  {credential.status !== "invalid" ? <KeyUsage models={models} /> : <p className={styles.warn}>O Google recusou esta chave. Troque por uma chave válida.</p>}
                 </div>
-                {credential.status === "invalid" ? <p className={styles.warn}>O Google recusou esta chave. Troque por uma chave válida.</p> : null}
-                {credential.status !== "invalid" ? <KeyUsage keyId={credential.id} rows={usage} /> : null}
                 {removing ? (
                   <div className={styles.confirm} role="group" aria-label={`Confirmar remoção de ${credential.label}`}>
                     <p>Remover "{credential.label}"? {credentials.length === 1 ? "Se não houver outras chaves na mesa, o Oráculo para de responder." : "As outras chaves continuam funcionando."}</p>
