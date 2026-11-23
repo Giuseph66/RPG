@@ -16,10 +16,11 @@ const SYSTEM = [
 const redact = (text: string) => text.replace(/\b(?:AIza[A-Za-z0-9_-]{30,}|AQ\.[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]+)/g, "[chave ocultada]").replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [oculto]");
 const toolKind = (name: string): ChatToolTrace["kind"] => name.startsWith("propose_") ? "action" : name.includes("rule") ? "rules" : name.includes("sheet") || name.includes("actions") ? "sheet" : name.includes("journal") ? "journal" : name.includes("memor") ? "memory" : name.includes("roll") ? "dice" : name.includes("session") ? "session" : "campaign";
 const toolLabel: Record<string, string> = { search_rules: "Consultar regras", read_sheet: "Ler ficha", read_campaign: "Ler campanha", read_journal: "Buscar no diário", read_sessions: "Consultar sessões", read_creatures: "Consultar elenco visível", read_party: "Consultar fichas do grupo", read_rolls: "Consultar rolagens", read_memories: "Consultar memórias", read_actions: "Consultar ações disponíveis", propose_action: "Preparar ação", propose_roll: "Preparar rolagem", propose_inventory: "Preparar alteração de inventário", propose_condition: "Preparar condição", propose_preparation: "Preparar seleção de magias", propose_record: "Preparar registro", propose_memory: "Preparar memória", propose_session: "Preparar alteração de sessão", propose_creature: "Preparar criatura" };
-const historyTool = { type: "function" as const, function: { name: "search_conversation", description: "Busca mensagens antigas desta conversa para recuperar decisões e fatos com fonte. Só lê a conversa aberta.", parameters: { type: "object", properties: { query: { type: "string", description: "Trecho ou termos exatos a localizar" } }, required: ["query"], additionalProperties: false } } };
+export const historyTool = { type: "function" as const, function: { name: "search_conversation", description: "Busca mensagens antigas desta conversa para recuperar decisões e fatos com fonte. Só lê a conversa aberta.", parameters: { type: "object", properties: { query: { type: "string", description: "Trecho ou termos exatos a localizar" } }, required: ["query"], additionalProperties: false } } };
 /** Firestore accepts at most one hour; the margin absorbs clock differences between devices. */
 const MAX_COOLDOWN_MS = 55 * 60_000, MIN_COOLDOWN_MS = 5_000;
-const TRANSIENT_RETRIES = 2;
+/** Counted across keys: an overloaded service must not burn the quota of the whole pool. */
+const MAX_TRANSIENT_FAILURES = 3;
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(signal!.reason); };
@@ -49,8 +50,9 @@ export function createChatService(repository: ChatRepository, client: ChatClient
   async function withAvailableKey<T>(uid: string, call: (key: ChatCredential, report: (usage: ChatUsage) => void) => Promise<T>, signal?: AbortSignal, onUsage?: ChatSendOptions["onUsage"]): Promise<T> {
     assertSession(uid, signal);
     let lastError: ChatRequestError | undefined;
-    for (let attempt = 0; attempt <= TRANSIENT_RETRIES; attempt++) {
-      if (attempt) await wait(1000 * 2 ** (attempt - 1) * (1 + Math.random() / 2), signal);
+    let transientFailures = 0;
+    while (true) {
+      if (transientFailures) await wait(1000 * 2 ** (transientFailures - 1) * (1 + Math.random() / 2), signal);
       assertSession(uid, signal);
       // Read again on every pass: other players share the pool and may have changed it.
       const keys = [...await repository.listCredentials()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
@@ -72,7 +74,10 @@ export function createChatService(repository: ChatRepository, client: ChatClient
           assertSession(uid, signal);
           if (!(error instanceof ChatRequestError) || error.kind === "rejected") throw error;
           lastError = error;
-          if (error.kind === "transient") transient = true;
+          if (error.kind === "transient") {
+            if (++transientFailures >= MAX_TRANSIENT_FAILURES) throw error;
+            transient = true;
+          }
           if (error.kind !== "cooldown" && error.kind !== "invalid") continue;
           const cooldownUntil = error.kind === "invalid" ? 0 : Date.now() + Math.min(Math.max(error.retryAfterMs, MIN_COOLDOWN_MS), MAX_COOLDOWN_MS);
           if (error.kind === "cooldown") onUsage?.({ ...reading, ...identity, observedAt: reading?.observedAt ?? Date.now(), limited: true, cooldownUntil });

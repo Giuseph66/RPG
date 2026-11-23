@@ -107,7 +107,7 @@ function toRequestError(code: number, error: Awaited<ReturnType<typeof readError
   }
   if (code === 400 && error.status === "FAILED_PRECONDITION") return new ChatRequestError("O plano gratuito do Gemini não está disponível nesta região para esta chave.", code, "unavailable");
   if (code === 408 || code >= 500) return new ChatRequestError("O Gemini está sobrecarregado no momento. Tente novamente em instantes.", code, "transient");
-  return new ChatRequestError("O Gemini rejeitou a solicitação (" + code + "). Tente reduzir o contexto da conversa.", code, "rejected");
+  return new ChatRequestError(`O Gemini rejeitou a solicitação (${code}). Tente reduzir o contexto da conversa.${error.message ? ` Detalhe: ${error.message.slice(0, 300)}` : ""}`, code, "rejected");
 }
 
 /** Transport only: permissions and tool execution belong to the application. */

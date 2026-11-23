@@ -3,6 +3,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatRequestError } from "@application/ports/chat";
 import type { ChatModelMessage, ChatToolDefinition } from "@application/ports/chat-agent";
+import { READ_TOOLS, WRITE_TOOLS } from "@application/chat/game-agent";
+import { historyTool } from "@application/chat/service";
 import { createGeminiClient } from "./gemini-client";
 
 const tool: ChatToolDefinition = { type: "function", function: { name: "search_rules", description: "Busca", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"], additionalProperties: false } } };
@@ -113,9 +115,11 @@ describe.skipIf(!process.env.GEMINI_API_KEY)("gemini real", () => {
   it("usa uma ferramenta e responde com o resultado", async () => {
     const client = createGeminiClient(), key = process.env.GEMINI_API_KEY!;
     const messages: ChatModelMessage[] = [{ role: "system", content: "Sempre consulte search_rules antes de responder." }, { role: "user", content: "Quanto dano causa Bola de Fogo?" }];
-    const first = await client.turn(key, messages, [tool]);
+    // The app's real declarations, so a schema refused by Google fails here.
+    const tools = [...READ_TOOLS, ...WRITE_TOOLS, historyTool];
+    const first = await client.turn(key, messages, tools);
     expect(first.tools.length).toBeGreaterThan(0);
-    const second = await client.turn(key, [...messages, { role: "assistant", content: first.content || null, tool_calls: first.tools, native: first.native }, ...first.tools.map((call): ChatModelMessage => ({ role: "tool", tool_call_id: call.id, content: "Bola de Fogo: 8d6 de dano de fogo." }))], [tool], undefined, undefined, true);
+    const second = await client.turn(key, [...messages, { role: "assistant", content: first.content || null, tool_calls: first.tools, native: first.native }, ...first.tools.map((call): ChatModelMessage => ({ role: "tool", tool_call_id: call.id, content: "Bola de Fogo: 8d6 de dano de fogo." }))], tools, undefined, undefined, true);
     expect(second.content).toContain("8d6");
   }, 120_000);
 });

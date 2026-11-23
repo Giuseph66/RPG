@@ -60,7 +60,7 @@ function passage(content: string, query: string): string {
 }
 const prop = (description: string) => ({ type: "string", description });
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ChatToolDefinition => ({ type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } } });
-const READ_TOOLS = [
+export const READ_TOOLS = [
   tool("search_rules", "Busca no livro/compêndio habilitado. Use termos curtos, em português; refine quando vazio. Retorna fontes reais.", { query: prop("Termos da regra, magia, item ou criatura"), category: prop("Categoria opcional") }, ["query"]),
   tool("read_sheet", "Consulta a ficha selecionada, cálculos do motor, recursos, equipamentos e magias. section limita o contexto.", { section: { type: "string", enum: ["all", "identity", "abilities", "combat", "inventory", "spells", "resources"] } }),
   tool("read_campaign", "Consulta campanha, objetivos, regras da casa, NPCs e mapas respeitando visibilidade."),
@@ -72,7 +72,7 @@ const READ_TOOLS = [
   tool("read_memories", "Consulta memórias pessoais e da campanha; nunca trate sugestões como fatos ocorridos.", { query: prop("Termos opcionais") }),
   tool("read_actions", "Lista ações executáveis e bloqueadas calculadas pelo motor. Filtre por kind ou nome para listas extensas.", { kind: { type: "string", enum: ["attack", "damage", "spell", "resource", "item", "rest", "concentration"] }, query: prop("Parte do nome da ação") }),
 ];
-const WRITE_TOOLS = [
+export const WRITE_TOOLS = [
   tool("propose_action", "Prepara ação do motor para confirmação. Use capabilityId e kind de read_actions. Não executa até o usuário confirmar.", { capabilityId: prop("ID real de read_actions"), kind: prop("Tipo da capacidade"), value: { type: "integer" }, targetArmorClass: { type: "integer" }, hitDice: { type: "object", additionalProperties: { type: "integer", minimum: 0 } }, ateAndDrank: { type: "boolean" }, spellTargetContext: { type: "object" }, spellComponentContext: { type: "object" } }, ["capabilityId", "kind"]),
   tool("propose_roll", "Prepara rolagem real. Para perícia/atributo/salvaguarda/iniciativa, o app calcula o modificador. Exige confirmação.", { formula: prop("NdF+M para rolagem livre"), check: { type: "string", enum: ["free", "skill", "ability", "save", "initiative"] }, key: prop("Nome/ID do atributo ou perícia conforme read_sheet"), mode: { type: "string", enum: ["normal", "advantage", "disadvantage"] }, label: prop("Descrição") }, ["check"]),
   tool("propose_inventory", "Prepara alteração validada de inventário ou moedas, com confirmação.", { operation: { type: "string", enum: ["add", "quantity", "equip", "unequip", "remove", "consume", "currency"] }, itemId: prop("ID da instância"), equipmentId: prop("ID da definição do catálogo"), quantity: { type: "integer", minimum: 0 }, denomination: { type: "string", enum: ["cp", "sp", "ep", "gp", "pp"] }, amount: { type: "integer", minimum: 0 } }, ["operation"]),

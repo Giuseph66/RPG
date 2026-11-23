@@ -69,12 +69,23 @@ describe("pool de chaves do Oráculo", () => {
   it("repete o pool com intervalo em falhas temporárias, sem marcar chaves", async () => {
     vi.useFakeTimers();
     try {
-      const test = setup(["a", "b"], (_key, call) => call < 4 ? fail("transient") : reply("ok"));
+      const test = setup(["a", "b"], (_key, call) => call < 3 ? fail("transient") : reply("ok"));
       const sending = test.service.send("u", "c", "oi");
       await vi.runAllTimersAsync();
       await sending;
-      expect(test.used).toEqual(["a", "b", "a", "b"]);
+      expect(test.used).toEqual(["a", "b", "a"]);
       expect(test.states).toEqual([]);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("desiste após três falhas temporárias no total", async () => {
+    vi.useFakeTimers();
+    try {
+      const test = setup(["a", "b", "c", "d"], () => fail("transient"));
+      const sending = expect(test.service.send("u", "c", "oi")).rejects.toThrow("transient");
+      await vi.runAllTimersAsync();
+      await sending;
+      expect(test.used).toEqual(["a", "b", "c"]);
     } finally { vi.useRealTimers(); }
   });
 
