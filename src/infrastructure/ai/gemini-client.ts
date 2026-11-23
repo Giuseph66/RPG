@@ -11,7 +11,9 @@ interface GeminiPart {
 interface GeminiContent { readonly role: "user" | "model"; readonly parts: readonly GeminiPart[] }
 interface ErrorDetail { readonly "@type"?: string; readonly reason?: string; readonly retryDelay?: string; readonly violations?: readonly { readonly quotaId?: string }[] }
 
-const REQUEST_TIMEOUT_MS = 600_000;
+const REQUEST_TIMEOUT_MS = 300_000;
+/** No answer, or no new data, for this long: give the turn to another model. */
+const STALL_TIMEOUT_MS = 20_000;
 /** The limit covers thinking plus answer, so a low cap would cut answers short. */
 const MAX_OUTPUT_TOKENS = 32_768;
 const DEFAULT_COOLDOWN_MS = 60_000;
@@ -80,7 +82,7 @@ function requestBody(messages: readonly ChatModelMessage[], contents: readonly G
       tools: [{ functionDeclarations: tools.map(({ function: item }) => ({ name: item.name, description: item.description, parametersJsonSchema: item.parameters })) }],
       toolConfig: { functionCallingConfig: { mode: forceText ? "NONE" : "AUTO" } },
     } : {}),
-    generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: tools.length ? "medium" : "low" } },
+    generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: "low" } },
   });
 }
 
@@ -116,17 +118,23 @@ function toRequestError(code: number, error: Awaited<ReturnType<typeof readError
 export function createGeminiClient(): ChatClient {
   return {
     async turn(apiKey, messages, tools, signal, onText, forceText = false, onUsage, model = CHAT_PROVIDER.model): Promise<ChatCompletion> {
-      const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+      const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS), stall = new AbortController();
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      const alive = () => { clearTimeout(stallTimer); stallTimer = setTimeout(() => stall.abort(), STALL_TIMEOUT_MS); };
+      const stalled = () => new ChatRequestError("O Gemini demorou demais para responder.", 504, "transient");
+      try {
+      alive();
       const post = async (contents: readonly GeminiContent[]) => {
         try {
           return await fetch(`${CHAT_PROVIDER.baseUrl}/models/${model}:streamGenerateContent?alt=sse`, {
             method: "POST", credentials: "omit", redirect: "error",
             headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
             body: requestBody(messages, contents, tools, forceText),
-            signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+            signal: AbortSignal.any([...(signal ? [signal] : []), timeout, stall.signal]),
           });
         } catch {
           signal?.throwIfAborted();
+          if (stall.signal.aborted || timeout.aborted) throw stalled();
           throw new Error("Não foi possível acessar o Gemini. Verifique a conexão e tente novamente.");
         }
       };
@@ -185,8 +193,10 @@ export function createGeminiClient(): ChatClient {
         while (true) {
           const { done, value } = await reader.read().catch((cause) => {
             signal?.throwIfAborted();
+            if (stall.signal.aborted || timeout.aborted) throw stalled();
             throw new Error("A conexão com o Gemini foi interrompida. Você pode tentar novamente.", { cause });
           });
+          alive();
           pending = (pending + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
           let boundary: number;
           while ((boundary = pending.indexOf("\n\n")) >= 0) { event(pending.slice(0, boundary)); pending = pending.slice(boundary + 2); }
@@ -203,6 +213,7 @@ export function createGeminiClient(): ChatClient {
       if (truncated && (requests.length || !content.trim())) throw new Error("O Gemini atingiu o limite de geração antes de concluir. Peça algo mais específico.");
       if (!content.trim() && !requests.length) throw new ChatRequestError("O modelo retornou uma resposta vazia.", 502, "transient", 0, true);
       return { content, tools: requests, tokens, truncated, ...(requests.length ? { native } : {}) };
+      } finally { clearTimeout(stallTimer); }
     },
   };
 }

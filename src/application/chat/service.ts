@@ -4,6 +4,8 @@ import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE, type ChatAction, type Ch
 const SYSTEM = [
   "Você é o Oráculo, assistente de RPG em português brasileiro.",
   "Consulte as ferramentas para fatos do livro, ficha, campanha e sessões; nunca invente acesso a registros, páginas ou acontecimentos.",
+  "Seja rápido: planeje antes e use o mínimo de consultas, em paralelo quando independentes. Para criaturas/animais/bestas use search_creatures e para listas de magias search_spells, com filtros e ordenação; nunca teste nomes um a um nem repita consultas. Responda assim que tiver os dados.",
+  "Só afirme números, nomes e superlativos que estejam nos resultados das consultas. Se o catálogo não tiver, diga isso claramente em vez de completar com conhecimento próprio.",
   "Cite as fontes fornecidas usando [1], [2], etc. Diferencie regra oficial, regra da casa, interpretação e sugestão.",
   "Use os números do motor de regras. Para ações, obtenha IDs reais com read_actions/read_sheet. Nunca invente resultados de dados.",
   "Ferramentas propose_* APENAS preparam propostas. Diga que aguardam confirmação. Somente um recibo executado confirma uma alteração.",
@@ -14,8 +16,9 @@ const SYSTEM = [
   "Sugestões narrativas só viram fatos quando o usuário confirma um registro. Memórias pessoais, do grupo e do mestre têm visibilidades diferentes.",
 ].join("\n");
 const redact = (text: string) => text.replace(/\b(?:AIza[A-Za-z0-9_-]{30,}|AQ\.[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]+)/g, "[chave ocultada]").replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [oculto]");
-const toolKind = (name: string): ChatToolTrace["kind"] => name.startsWith("propose_") ? "action" : name.includes("rule") ? "rules" : name.includes("sheet") || name.includes("actions") ? "sheet" : name.includes("journal") ? "journal" : name.includes("memor") ? "memory" : name.includes("roll") ? "dice" : name.includes("session") ? "session" : "campaign";
-const toolLabel: Record<string, string> = { search_rules: "Consultar regras", read_sheet: "Ler ficha", read_campaign: "Ler campanha", read_journal: "Buscar no diário", read_sessions: "Consultar sessões", read_creatures: "Consultar elenco visível", read_party: "Consultar fichas do grupo", read_rolls: "Consultar rolagens", read_memories: "Consultar memórias", read_actions: "Consultar ações disponíveis", propose_action: "Preparar ação", propose_roll: "Preparar rolagem", propose_inventory: "Preparar alteração de inventário", propose_condition: "Preparar condição", propose_preparation: "Preparar seleção de magias", propose_record: "Preparar registro", propose_memory: "Preparar memória", propose_session: "Preparar alteração de sessão", propose_creature: "Preparar criatura" };
+const toolKind = (name: string): ChatToolTrace["kind"] => name.startsWith("propose_") ? "action" : name.includes("rule") || name === "search_creatures" || name === "search_spells" ? "rules" : name.includes("sheet") || name.includes("actions") ? "sheet" : name.includes("journal") ? "journal" : name.includes("memor") ? "memory" : name.includes("roll") ? "dice" : name.includes("session") ? "session" : "campaign";
+const toolLabel: Record<string, string> = { search_rules: "Consultar regras", search_creatures: "Comparar criaturas", search_spells: "Listar magias", read_sheet: "Ler ficha", read_campaign: "Ler campanha", read_journal: "Buscar no diário", read_sessions: "Consultar sessões", read_creatures: "Consultar elenco visível", read_party: "Consultar fichas do grupo", read_rolls: "Consultar rolagens", read_memories: "Consultar memórias", read_actions: "Consultar ações disponíveis", propose_action: "Preparar ação", propose_roll: "Preparar rolagem", propose_inventory: "Preparar alteração de inventário", propose_condition: "Preparar condição", propose_preparation: "Preparar seleção de magias", propose_record: "Preparar registro", propose_memory: "Preparar memória", propose_session: "Preparar alteração de sessão", propose_creature: "Preparar criatura" };
+const FILTER_LABEL: Record<string, string> = { query: "nome", type: "tipo", size: "tamanho", minChallenge: "ND mín.", maxChallenge: "ND máx.", minHitPoints: "PV mín.", sortBy: "ordem", order: "sentido", topPerChallenge: "melhor de cada ND", includeSwarms: "enxames", limit: "até", detail: "ficha completa", level: "círculo", class: "classe", school: "escola", concentration: "concentração", hitPoints: "PV", armorClass: "CA", challengeRating: "ND", stealth: "furtividade", beast: "besta", desc: "maior primeiro", asc: "menor primeiro" };
 export const historyTool = { type: "function" as const, function: { name: "search_conversation", description: "Busca mensagens antigas desta conversa para recuperar decisões e fatos com fonte. Só lê a conversa aberta.", parameters: { type: "object", properties: { query: { type: "string", description: "Trecho ou termos exatos a localizar" } }, required: ["query"], additionalProperties: false } } };
 /** Firestore accepts at most one hour; the margin absorbs clock differences between devices. */
 const MAX_COOLDOWN_MS = 55 * 60_000, MIN_COOLDOWN_MS = 5_000;
@@ -27,7 +30,7 @@ const RETRY_PAUSES_MS = [3_000, 8_000, 15_000];
 /** Generations that ran but came back unusable spend quota, unlike an overloaded refusal. */
 const MAX_UNUSABLE_GENERATIONS = 2;
 /** Kept for the whole answer, so later steps start from the model that worked. */
-interface ModelChoice { index: number; onRetry?: (notice: string) => void }
+interface ModelChoice { index: number; pauses: number; onRetry?: (notice: string) => void }
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(signal!.reason); };
@@ -123,9 +126,9 @@ export function createChatService(repository: ChatRepository, client: ChatClient
           }
         }
       }
-      if (!overloaded || !usable.size || round >= RETRY_PAUSES_MS.length) break;
-      const pause = RETRY_PAUSES_MS[round] * (1 + Math.random() / 4);
-      choice.onRetry?.(`O Gemini está sobrecarregado. Nova tentativa em ${Math.ceil(pause / 1000)} s (${round + 1} de ${RETRY_PAUSES_MS.length}).`);
+      if (!overloaded || !usable.size || choice.pauses >= RETRY_PAUSES_MS.length) break;
+      const pause = RETRY_PAUSES_MS[choice.pauses++] * (1 + Math.random() / 4);
+      choice.onRetry?.(`O Gemini está sobrecarregado. Nova tentativa em ${Math.ceil(pause / 1000)} s (${choice.pauses} de ${RETRY_PAUSES_MS.length}).`);
       await wait(pause, signal);
     }
     if (modelFailed) throw new Error(`O Gemini não atendeu agora em nenhum modelo. Sua mensagem foi guardada; tente novamente em alguns minutos. Respostas do Google: ${[...outcomes].map(([index, status]) => `${MODELS[index]} (${status})`).join(", ")}.`);
@@ -173,7 +176,7 @@ export function createChatService(repository: ChatRepository, client: ChatClient
         if (!text || text.length > 12_000) throw new Error("Escreva uma mensagem com até 12.000 caracteres.");
         const attachments = (options.attachments ?? []).map((item) => ({ name: item.name.slice(0, 120), text: redact(item.text) }));
         if (attachments.length > 3 || attachments.some((item) => item.text.length > 16000) || attachments.reduce((size, item) => size + item.text.length, 0) > 24000) throw new Error("Anexe até três arquivos de texto, com até 24.000 caracteres no total.");
-        const choice: ModelChoice = { index: firstModel(), onRetry: (notice) => options.onProgress?.("", { ...traceFor(MODELS[choice.index], [], [], Date.now(), 0), notices: [notice] }) };
+        const choice: ModelChoice = { index: firstModel(), pauses: 0, onRetry: (notice) => options.onProgress?.("", { ...traceFor(MODELS[choice.index], [], [], Date.now(), 0), notices: [notice] }) };
         const turnId = options.turnId ?? crypto.randomUUID();
         const answerId = turnId + "-answer";
         const recent = await repository.recentMessages(uid, conversationId);
@@ -210,6 +213,7 @@ export function createChatService(repository: ChatRepository, client: ChatClient
         if (sources.length) messages[0] = { ...messages[0], content: messages[0].content + "\nFontes dos arquivos: " + JSON.stringify(sources.map(({ id, title }) => ({ id, title }))) };
         const tools: ChatToolTrace[] = [], actions: ChatAction[] = [], notices: string[] = [...(sheetNotice ? [sheetNotice] : []), ...context.alerts ?? []];
         const started = Date.now();
+        const asked = new Set<string>();
         let tokens = 0, answer = "", calls = 0, toolBudget = 50000;
         if (scope.memory && scope.campaign && scope.campaignId) {
           const before = Date.now();
@@ -248,7 +252,10 @@ export function createChatService(repository: ChatRepository, client: ChatClient
               if (!available.some((item) => item.function.name === name)) throw new Error("Ferramenta não habilitada.");
               const input = JSON.parse(request.function.arguments);
               if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Argumentos inválidos.");
-              displayInput = typeof input.query === "string" ? input.query : input.number ? `Sessão ${input.number}` : input.section ? `Seção: ${String(input.section)}` : "Contexto selecionado";
+              displayInput = Array.isArray(input.queries) ? input.queries.join(", ") : name === "search_creatures" || name === "search_spells" ? Object.entries(input).map(([key, item]) => `${FILTER_LABEL[key] ?? key}: ${FILTER_LABEL[String(item)] ?? (item === true ? "sim" : item === false ? "não" : String(item))}`).join(" · ") || "Todas" : typeof input.query === "string" ? input.query : input.number ? `Sessão ${input.number}` : input.section ? `Seção: ${String(input.section)}` : "Contexto selecionado";
+              const signature = name + JSON.stringify(Object.entries(input).sort(([a], [b]) => a.localeCompare(b)));
+              if (asked.has(signature)) throw new Error("Esta consulta já foi feita nesta resposta. Use o resultado anterior e responda.");
+              asked.add(signature);
               const found: ChatToolResult = name === "search_conversation" ? await (async () => {
                 if (typeof input.query !== "string" || !input.query.trim() || input.query.length > 160) throw new Error("Informe um termo de até 160 caracteres para buscar.");
                 const terms = input.query.toLocaleLowerCase("pt-BR").split(/\s+/).filter(Boolean);

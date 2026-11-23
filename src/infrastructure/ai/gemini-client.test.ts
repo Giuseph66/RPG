@@ -36,7 +36,7 @@ describe("gemini client", () => {
     expect(usage).toEqual([expect.objectContaining({ limited: false })]);
     expect(fetchMock.mock.calls[0][0]).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-4-hydrogen:streamGenerateContent?alt=sse");
     expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ "x-goog-api-key": "chave" });
-    expect(body(0)).toMatchObject({ systemInstruction: { parts: [{ text: "SYS" }] }, contents: [{ role: "user", parts: [{ text: "oi" }] }], toolConfig: { functionCallingConfig: { mode: "AUTO" } }, tools: [{ functionDeclarations: [{ name: "search_rules", parametersJsonSchema: tool.function.parameters }] }], generationConfig: { thinkingConfig: { thinkingLevel: "medium" } } });
+    expect(body(0)).toMatchObject({ systemInstruction: { parts: [{ text: "SYS" }] }, contents: [{ role: "user", parts: [{ text: "oi" }] }], toolConfig: { functionCallingConfig: { mode: "AUTO" } }, tools: [{ functionDeclarations: [{ name: "search_rules", parametersJsonSchema: tool.function.parameters }] }], generationConfig: { thinkingConfig: { thinkingLevel: "low" } } });
   });
 
   it("devolve chamadas paralelas intactas e agrupa os resultados em um só turno", async () => {
@@ -108,6 +108,16 @@ describe("gemini client", () => {
     const { fetchMock } = mock(failure(503, "UNAVAILABLE", [], "The model is overloaded."));
     await expect(createGeminiClient().turn("k", question, [], undefined, undefined, false, undefined, "gemini-3.8-flash")).rejects.toThrow(/503.*The model is overloaded/);
     expect(fetchMock.mock.calls[0][0]).toContain("/models/gemini-3.8-flash:");
+  });
+
+  it("desiste de uma resposta parada e libera o próximo modelo", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("fetch", (_url: string, init: RequestInit) => new Promise((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(new DOMException("x", "AbortError")))));
+      const result = expect(createGeminiClient().turn("k", question, [])).rejects.toMatchObject({ kind: "transient", status: 504 });
+      await vi.advanceTimersByTimeAsync(21_000);
+      await result;
+    } finally { vi.useRealTimers(); }
   });
 
   it("marca texto cortado pelo limite", async () => {

@@ -21,6 +21,9 @@ import { applyCondition, removeCondition } from "@domain/rules/conditions";
 import { addInventoryItem, createInventoryItem, createInventoryState, equipInventoryItem, unequipInventoryItem, removeInventoryItem, setItemQuantity, setCurrency, consumeItem } from "@domain/inventory/operations";
 import { createPlatformRandomSource, parseDiceFormula, rollExpression } from "@domain/dice";
 import type { CoinDenomination } from "@domain/contracts/primitives";
+import { COMPENDIUM_CATEGORIES } from "@application/compendium/types";
+import { CREATURE_SIZES, CREATURE_TYPES } from "@domain/creatures";
+import { CREATURE_SORTS, searchCreatures, searchSpells, SPELL_CLASSES } from "./catalog-queries";
 import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE } from "@application/ports/chat-agent";
 import { ownSlots, preparedLimitFor } from "@domain/character/evolution/spell-tables";
 
@@ -63,7 +66,9 @@ function passage(content: string, query: string): string {
 const prop = (description: string) => ({ type: "string", description });
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ChatToolDefinition => ({ type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } } });
 export const READ_TOOLS = [
-  tool("search_rules", "Busca no livro/compêndio habilitado. Use termos curtos, em português; refine quando vazio. Retorna fontes reais.", { query: prop("Termos da regra, magia, item ou criatura"), category: prop("Categoria opcional") }, ["query"]),
+  tool("search_creatures", "Filtra, ordena e compara as fichas de criaturas (bestas, monstros, NPCs) do catálogo em UMA chamada. Use sempre para criatura, animal, besta ou monstro: maior/menor PV, CA, furtividade, velocidade, por ND ou tipo. Nunca procure criaturas nome a nome. topPerChallenge devolve a melhor de cada ND segundo sortBy. Com query e detail devolve a ficha completa (até 3).", { query: prop("Parte do nome, só quando o usuário citou uma criatura"), type: { type: "string", enum: [...CREATURE_TYPES], description: "beast = besta/animal" }, size: { type: "string", enum: [...CREATURE_SIZES] }, minChallenge: { type: "number", description: "ND mínimo; 1/4 = 0.25" }, maxChallenge: { type: "number" }, minHitPoints: { type: "number" }, sortBy: { type: "string", enum: [...CREATURE_SORTS], description: "hitPoints = PV/vida; stealth = furtividade; challengeRating = ND" }, order: { type: "string", enum: ["desc", "asc"] }, topPerChallenge: { type: "boolean" }, includeSwarms: { type: "boolean", description: "false exclui enxames" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
+  tool("search_spells", "Filtra e lista magias do livro em UMA chamada por círculo, classe, escola, concentração ou ritual. detail devolve a descrição completa (até 3 resultados).", { query: prop("Parte do nome ou da descrição"), level: { type: "integer", minimum: 0, maximum: 9, description: "0 = truque" }, minLevel: { type: "integer", minimum: 0 }, maxLevel: { type: "integer", maximum: 9 }, class: { type: "string", enum: [...SPELL_CLASSES] }, school: prop("Escola em português"), concentration: { type: "boolean" }, ritual: { type: "boolean" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
+  tool("search_rules", "Busca textos de regras, itens, talentos e classes no livro/compêndio. Envie todos os termos de uma vez em queries (até 5). Para listas ou comparações use search_creatures ou search_spells. Retorna fontes reais.", { queries: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 5, description: "Termos curtos, em português" }, category: { type: "string", enum: COMPENDIUM_CATEGORIES.map((item) => item.id) } }, ["queries"]),
   tool("read_sheet", "Consulta a ficha selecionada, cálculos do motor, recursos, equipamentos e magias. section limita o contexto.", { section: { type: "string", enum: ["all", "identity", "abilities", "combat", "inventory", "spells", "resources"] } }),
   tool("read_campaign", "Consulta campanha, objetivos, regras da casa, NPCs e mapas respeitando visibilidade."),
   tool("read_journal", "Busca registros visíveis do diário e linha do tempo; jogador só acessa seu diário.", { query: prop("Termos opcionais") }),
@@ -190,17 +195,28 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
     if (name.startsWith("propose_")) return proposal(uid, scope, name, input);
     if (name === "search_rules") {
       await d.loadCatalog(); session(uid);
-      const query = text(input, "query", 160);
-      const entries = d.compendium.search({ query, ...(typeof input.category === "string" ? { category: input.category as never } : {}) }).entries
-        .filter((entry) => entry.ruleset.id === d.pack.manifest.id && entry.ruleset.version === d.pack.manifest.version).slice(0, 5);
-      const sources = entries.map((entry) => {
+      const queries = [...new Set((Array.isArray(input.queries) ? input.queries : [input.query]).map((item) => text({ query: item }, "query", 160)))].slice(0, 5);
+      const seen = new Set<string>(), missing: string[] = [];
+      const entries = queries.flatMap((query) => {
+        const found = d.compendium.search({ query, ...(typeof input.category === "string" ? { category: input.category as never } : {}) }).entries
+          .filter((entry) => entry.ruleset.id === d.pack.manifest.id && entry.ruleset.version === d.pack.manifest.version).slice(0, queries.length > 1 ? 3 : 5);
+        if (!found.length) missing.push(query);
+        return found.filter((entry) => !seen.has(entry.key) && seen.add(entry.key)).map((entry) => ({ entry, query }));
+      });
+      const sources = entries.map(({ entry, query }) => {
         const detail = d.compendium.getDetail(entry.ref);
         const locator = entry.sourceRefs.map((item) => [item.sourceId, item.chapter, item.section, item.printedPage ? `p. ${item.printedPage}` : ""].filter(Boolean).join(" · ")).join("; ");
         const definition = detail.ok ? detail.value.definition : undefined;
         const content = definition && "text" in definition ? String(definition.text) : definition && "description" in definition ? String(definition.description) : json(definition ?? entry.summary);
         return { ...source("rule", entry.title, locator || `${entry.ruleset.id} · ${entry.ruleset.version}`, content, `/compendium/${entry.category}/${encodeURIComponent(entry.ref.entityId)}`), excerpt: passage(content, query) };
       });
-      return { content: entries.length ? "Trechos do catálogo carregado; páginas apenas quando constam da fonte. Referencie as fontes retornadas." : "Nenhuma regra encontrada. Refine os termos; não invente referência ou página.", sources };
+      return { content: (entries.length ? "Trechos do catálogo carregado; páginas apenas quando constam da fonte. Referencie as fontes retornadas." : "Nenhuma regra encontrada.") + (missing.length ? ` Sem resultado para: ${missing.join(", ")}. Tente no máximo um sinônimo; se continuar vazio, diga que não está no catálogo. Não invente referência ou página.` : ""), sources };
+    }
+    if (name === "search_creatures" || name === "search_spells") {
+      await d.loadCatalog(); session(uid);
+      const creature = name === "search_creatures";
+      const listing = (creature ? searchCreatures : searchSpells)(d.compendium, d.pack.manifest, input);
+      return { content: listing.content, sources: listing.names.length ? [source("rule", listing.title, listing.locator, listing.names.join("\n").slice(0, 3500), creature ? "/compendium/creature" : "/compendium/spell")] : [] };
     }
     if (name === "read_sheet" || name === "read_actions" || name === "read_rolls") {
       const current = await character(uid, scope), { pack, derived } = calculated(current);
@@ -258,7 +274,7 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
     throw new Error("Ferramenta desconhecida.");
   }
   function tools(scope: ChatScope) {
-    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : f.name === "search_rules" ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
+    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : ["search_rules", "search_creatures", "search_spells"].includes(f.name) ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
   }
   async function execute(uid: string, action: ChatAction) {
     const { scope, input, name } = action;
