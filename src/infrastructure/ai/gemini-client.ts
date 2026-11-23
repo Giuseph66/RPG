@@ -12,8 +12,8 @@ interface GeminiContent { readonly role: "user" | "model"; readonly parts: reado
 interface ErrorDetail { readonly "@type"?: string; readonly reason?: string; readonly retryDelay?: string; readonly violations?: readonly { readonly quotaId?: string; readonly quotaValue?: string; readonly quotaDimensions?: Readonly<Record<string, string>> }[] }
 
 const REQUEST_TIMEOUT_MS = 300_000;
-/** No answer, or no new data, for this long: give the turn to another model. */
-const STALL_TIMEOUT_MS = 20_000;
+/** No first answer, or no new data later, for this long: give the turn to another model. */
+const FIRST_ANSWER_TIMEOUT_MS = 12_000, STALL_TIMEOUT_MS = 20_000;
 /** The limit covers thinking plus answer, so a low cap would cut answers short. */
 const MAX_OUTPUT_TOKENS = 32_768;
 const DEFAULT_COOLDOWN_MS = 60_000;
@@ -126,10 +126,10 @@ export function createGeminiClient(): ChatClient {
     async turn(apiKey, messages, tools, signal, onText, forceText = false, onUsage, model = CHAT_PROVIDER.model): Promise<ChatCompletion> {
       const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS), stall = new AbortController();
       let stallTimer: ReturnType<typeof setTimeout> | undefined;
-      const alive = () => { clearTimeout(stallTimer); stallTimer = setTimeout(() => stall.abort(), STALL_TIMEOUT_MS); };
+      const alive = (limit = STALL_TIMEOUT_MS) => { clearTimeout(stallTimer); stallTimer = setTimeout(() => stall.abort(), limit); };
       const stalled = () => new ChatRequestError("O Gemini demorou demais para responder.", 504, "transient");
       try {
-      alive();
+      alive(FIRST_ANSWER_TIMEOUT_MS);
       const post = async (contents: readonly GeminiContent[]) => {
         try {
           return await fetch(`${CHAT_PROVIDER.baseUrl}/models/${model}:streamGenerateContent?alt=sse`, {

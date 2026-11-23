@@ -115,7 +115,7 @@ describe("gemini client", () => {
     try {
       vi.stubGlobal("fetch", (_url: string, init: RequestInit) => new Promise((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(new DOMException("x", "AbortError")))));
       const result = expect(createGeminiClient().turn("k", question, [])).rejects.toMatchObject({ kind: "transient", status: 504 });
-      await vi.advanceTimersByTimeAsync(21_000);
+      await vi.advanceTimersByTimeAsync(12_500);
       await result;
     } finally { vi.useRealTimers(); }
   });
