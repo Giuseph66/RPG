@@ -266,7 +266,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               value={draft}
               onChange={(event) => setDraft(event.currentTarget.value)}
               onKeyDown={handleComposerKeyDown}
-              placeholder={sending ? "Escreva a próxima mensagem…" : "Pergunte ao oráculo…"}
+              placeholder={"Pergunte ao oráculo…"}
               rows={1}
               maxLength={12000}
               disabled={!canChat || readOnly}
