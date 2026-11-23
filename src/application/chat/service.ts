@@ -19,10 +19,15 @@ const toolLabel: Record<string, string> = { search_rules: "Consultar regras", re
 export const historyTool = { type: "function" as const, function: { name: "search_conversation", description: "Busca mensagens antigas desta conversa para recuperar decisões e fatos com fonte. Só lê a conversa aberta.", parameters: { type: "object", properties: { query: { type: "string", description: "Trecho ou termos exatos a localizar" } }, required: ["query"], additionalProperties: false } } };
 /** Firestore accepts at most one hour; the margin absorbs clock differences between devices. */
 const MAX_COOLDOWN_MS = 55 * 60_000, MIN_COOLDOWN_MS = 5_000;
-/** Each failure moves to the next model; counted across keys so an overloaded service does not burn the whole pool. */
 const MODELS: readonly string[] = [CHAT_PROVIDER.model, ...CHAT_PROVIDER.fallbackModels];
-/** Kept for the whole answer, so later steps do not go back to a model that just failed. */
-interface ModelChoice { index: number }
+/** How long later questions skip a model that just refused for overload. */
+const OVERLOAD_MEMORY_MS = 5 * 60_000;
+/** Pauses before trying every model again while the provider is overloaded. */
+const RETRY_PAUSES_MS = [3_000, 8_000, 15_000];
+/** Generations that ran but came back unusable spend quota, unlike an overloaded refusal. */
+const MAX_UNUSABLE_GENERATIONS = 2;
+/** Kept for the whole answer, so later steps start from the model that worked. */
+interface ModelChoice { index: number; onRetry?: (notice: string) => void }
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(signal!.reason); };
@@ -45,56 +50,75 @@ export interface ChatSendOptions {
 }
 export function createChatService(repository: ChatRepository, client: ChatClient, currentUid: () => string | undefined, agent: ChatAgent) {
   const busy = new Set<string>();
+  const overloadedUntil = new Map<number, number>();
+  const firstModel = () => Math.max(0, MODELS.findIndex((_model, index) => (overloadedUntil.get(index) ?? 0) <= Date.now()));
   function assertSession(uid: string, signal?: AbortSignal) {
     signal?.throwIfAborted();
     if (currentUid() !== uid) throw new Error("Entre na sua conta para usar o chat.");
   }
   async function withAvailableKey<T>(uid: string, call: (key: ChatCredential, report: (usage: ChatUsage) => void, model: string) => Promise<T>, choice: ModelChoice, signal?: AbortSignal, onUsage?: ChatSendOptions["onUsage"]): Promise<T> {
     assertSession(uid, signal);
-    let lastError: ChatRequestError | undefined;
-    let transientFailures = 0;
-    while (true) {
-      if (transientFailures) await wait(1000 * 2 ** (transientFailures - 1) * (1 + Math.random() / 2), signal);
+    let keyError: ChatRequestError | undefined;
+    let unusable = 0;
+    let modelFailed = false;
+    const refused = new Set<number>();
+    const outcomes = new Map<number, number>();
+    for (let round = 0; ; round++) {
       assertSession(uid, signal);
-      // Read again on every pass: other players share the pool and may have changed it.
+      // Read again on every round: other players share the pool and may have changed it.
       const keys = [...await repository.listCredentials()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
       assertSession(uid, signal);
-      let transient = false;
-      for (const key of keys) {
-        const identity = { credentialId: key.id, credentialLabel: redact(key.label) };
-        if (!credentialAvailable(key)) {
-          if (key.status === "cooldown") onUsage?.({ ...identity, observedAt: Date.now(), limited: true, cooldownUntil: key.cooldownUntil });
-          continue;
-        }
-        let reading: ChatUsage | undefined;
-        const fallback = choice.index > 0;
-        try {
-          return await call(key, (usage) => {
-            reading = usage;
-            if (!usage.limited) onUsage?.({ ...usage, ...identity });
-          }, MODELS[choice.index]);
-        } catch (error) {
-          assertSession(uid, signal);
-          if (!(error instanceof ChatRequestError) || (error.kind === "rejected" && !fallback)) throw error;
-          // Quota and access are per model, so a fallback never changes the state of a key.
-          const modelFailed = error.kind === "transient" || (fallback && (error.kind === "cooldown" || error.kind === "rejected"));
-          if (!fallback || error.kind === "transient") lastError = error;
-          if (modelFailed) {
-            if (choice.index === MODELS.length - 1) throw lastError ?? error;
-            choice.index++; transientFailures++;
-            transient = true;
-            continue;
+      const usable = new Set(keys.filter((key) => {
+        if (credentialAvailable(key)) return true;
+        if (key.status === "cooldown") onUsage?.({ credentialId: key.id, credentialLabel: redact(key.label), observedAt: Date.now(), limited: true, cooldownUntil: key.cooldownUntil });
+        return false;
+      }));
+      let overloaded = false;
+      for (let index = round ? 0 : choice.index; index < MODELS.length; index++) {
+        if (refused.has(index) || !usable.size) continue;
+        const fallback = index > 0;
+        for (const key of [...usable]) {
+          const identity = { credentialId: key.id, credentialLabel: redact(key.label) };
+          let reading: ChatUsage | undefined;
+          try {
+            const result = await call(key, (usage) => {
+              reading = usage;
+              if (!usage.limited) onUsage?.({ ...usage, ...identity });
+            }, MODELS[index]);
+            choice.index = index;
+            overloadedUntil.delete(index);
+            return result;
+          } catch (error) {
+            assertSession(uid, signal);
+            if (!(error instanceof ChatRequestError) || (error.kind === "rejected" && !fallback)) throw error;
+            outcomes.set(index, error.status);
+            if (error.kind === "rejected") { refused.add(index); break; }
+            if (error.kind === "transient") {
+              if (error.unusable && ++unusable >= MAX_UNUSABLE_GENERATIONS) throw error;
+              // The model is failing for everyone; another key would not help.
+              overloaded = modelFailed = true;
+              if (!error.unusable) overloadedUntil.set(index, Date.now() + OVERLOAD_MEMORY_MS);
+              break;
+            }
+            // Quota and access are per model, so a fallback never changes the state of a key.
+            if (error.kind === "cooldown" && fallback) continue;
+            keyError = error;
+            usable.delete(key);
+            if (error.kind === "unavailable") continue;
+            const cooldownUntil = error.kind === "invalid" ? 0 : Date.now() + Math.min(Math.max(error.retryAfterMs, MIN_COOLDOWN_MS), MAX_COOLDOWN_MS);
+            if (error.kind === "cooldown") onUsage?.({ ...reading, ...identity, observedAt: reading?.observedAt ?? Date.now(), limited: true, cooldownUntil });
+            // Failing to record the state must not stop the next key from being tried.
+            await repository.setCredentialState(key, error.kind, cooldownUntil).catch(() => {});
           }
-          if (error.kind !== "cooldown" && error.kind !== "invalid") continue;
-          const cooldownUntil = error.kind === "invalid" ? 0 : Date.now() + Math.min(Math.max(error.retryAfterMs, MIN_COOLDOWN_MS), MAX_COOLDOWN_MS);
-          if (error.kind === "cooldown") onUsage?.({ ...reading, ...identity, observedAt: reading?.observedAt ?? Date.now(), limited: true, cooldownUntil });
-          // Failing to record the state must not stop the next key from being tried.
-          await repository.setCredentialState(key, error.kind, cooldownUntil).catch(() => {});
         }
       }
-      if (!transient) break;
+      if (!overloaded || !usable.size || round >= RETRY_PAUSES_MS.length) break;
+      const pause = RETRY_PAUSES_MS[round] * (1 + Math.random() / 4);
+      choice.onRetry?.(`O Gemini está sobrecarregado. Nova tentativa em ${Math.ceil(pause / 1000)} s (${round + 1} de ${RETRY_PAUSES_MS.length}).`);
+      await wait(pause, signal);
     }
-    throw lastError ?? new Error("Nenhuma chave disponível no pool. Cadastre uma chave em Configurações ou aguarde o fim do limite de uso.");
+    if (modelFailed) throw new Error(`O Gemini não atendeu agora em nenhum modelo. Sua mensagem foi guardada; tente novamente em alguns minutos. Respostas do Google: ${[...outcomes].map(([index, status]) => `${MODELS[index]} (${status})`).join(", ")}.`);
+    throw keyError ?? new Error("Nenhuma chave disponível no pool. Cadastre uma chave em Configurações ou aguarde o fim do limite de uso.");
   }
   const traceFor = (model: string, sources: ChatSource[], tools: ChatToolTrace[], started: number, tokens: number, notices: string[] = []): ChatTrace => ({ model, durationMs: Date.now() - started, tokens, sources, tools, notices });
   return {
@@ -138,7 +162,7 @@ export function createChatService(repository: ChatRepository, client: ChatClient
         if (!text || text.length > 12_000) throw new Error("Escreva uma mensagem com até 12.000 caracteres.");
         const attachments = (options.attachments ?? []).map((item) => ({ name: item.name.slice(0, 120), text: redact(item.text) }));
         if (attachments.length > 3 || attachments.some((item) => item.text.length > 16000) || attachments.reduce((size, item) => size + item.text.length, 0) > 24000) throw new Error("Anexe até três arquivos de texto, com até 24.000 caracteres no total.");
-        const choice: ModelChoice = { index: 0 };
+        const choice: ModelChoice = { index: firstModel(), onRetry: (notice) => options.onProgress?.("", { ...traceFor(MODELS[choice.index], [], [], Date.now(), 0), notices: [notice] }) };
         const turnId = options.turnId ?? crypto.randomUUID();
         const answerId = turnId + "-answer";
         const recent = await repository.recentMessages(uid, conversationId);
@@ -250,7 +274,7 @@ export function createChatService(repository: ChatRepository, client: ChatClient
           }
         }
         if (!answer.trim()) throw new Error("Não foi possível concluir a resposta. Tente um pedido mais específico.");
-        if (choice.index) notices.push(`Respondido pelo modelo reserva ${MODELS[choice.index]}: o ${CHAT_PROVIDER.model} falhou nesta solicitação.`);
+        if (choice.index) notices.push(`Respondido pelo modelo reserva ${MODELS[choice.index]}: o ${CHAT_PROVIDER.model} está sobrecarregado ou falhou há pouco.`);
         assertSession(uid, options.signal);
         await agent.context(uid, scope);
         await repository.appendMessage(uid, conversationId, "assistant", answer, { id: answerId, turnId, trace: traceFor(MODELS[choice.index], sources, tools, started, tokens, notices), actions });

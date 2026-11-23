@@ -1,5 +1,5 @@
 /** Fixed provider and models, all on the free tier: the fallbacks answer, in order, only when the main model fails. Users never pick one. */
-export const CHAT_PROVIDER = { baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-4-hydrogen", fallbackModels: ["gemini-3.8-flash", "gemini-3.5-flash-lite"] } as const;
+export const CHAT_PROVIDER = { baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-4-hydrogen", fallbackModels: ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"] } as const;
 import type { ChatAction, ChatAttachment, ChatCompletion, ChatMemory, ChatModelMessage, ChatScope, ChatToolDefinition, ChatTrace } from "./chat-agent";
 
 export interface ChatMessage {
@@ -75,7 +75,7 @@ export interface ChatRepository {
 export type ChatFailureKind = "invalid" | "cooldown" | "unavailable" | "transient" | "rejected";
 
 export class ChatRequestError extends Error {
-  constructor(message: string, readonly status: number, readonly kind: ChatFailureKind, readonly retryAfterMs = 60_000) {
+  constructor(message: string, readonly status: number, readonly kind: ChatFailureKind, readonly retryAfterMs = 60_000, /** The model ran, but its output could not be used. */ readonly unusable = false) {
     super(message);
     this.name = "ChatRequestError";
   }

@@ -29,6 +29,8 @@ const fail = (kind: ChatRequestError["kind"], retryAfterMs?: number): never => {
 beforeEach(() => { vi.restoreAllMocks(); });
 
 describe("pool de chaves do Oráculo", () => {
+  const all = ["gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+  const [main, second, third] = all;
   it("coloca a chave limitada em espera e responde com a próxima", async () => {
     const test = setup(["a", "b"], (key) => key === "a" ? fail("cooldown", 30_000) : reply("ok"));
     const usage = vi.fn();
@@ -66,34 +68,44 @@ describe("pool de chaves do Oráculo", () => {
     expect(test.states).toEqual([]);
   });
 
-  it("repete o pool com intervalo em falhas temporárias, sem marcar chaves", async () => {
+  it("espera e repete todos os modelos enquanto o Google está sobrecarregado", async () => {
     vi.useFakeTimers();
     try {
-      const test = setup(["a", "b"], (_key, call) => call < 3 ? fail("transient") : reply("ok"));
-      const sending = test.service.send("u", "c", "oi");
+      const progress: string[] = [];
+      const test = setup(["a", "b"], (_key, call) => call < 8 ? fail("transient") : reply("ok"));
+      const sending = test.service.send("u", "c", "oi", { onProgress: (_text, trace) => progress.push(...trace.notices ?? []) });
       await vi.runAllTimersAsync();
       await sending;
-      expect(test.used).toEqual(["a", "b", "a"]);
+      expect(test.models).toEqual([...all, main, second, third]);
+      expect(new Set(test.used)).toEqual(new Set(["a"]));
+      expect(progress.join()).toContain("Nova tentativa em");
       expect(test.states).toEqual([]);
     } finally { vi.useRealTimers(); }
   });
 
-  it("desiste após três falhas temporárias no total", async () => {
+  it("desiste após quatro rodadas e diz o que cada modelo respondeu", async () => {
     vi.useFakeTimers();
     try {
-      const test = setup(["a", "b", "c", "d"], () => fail("transient"));
-      const sending = expect(test.service.send("u", "c", "oi")).rejects.toThrow("transient");
+      const test = setup(["a"], (_key, _call, _messages, model) => { throw new ChatRequestError("x", model === third ? 404 : 503, model === third ? "rejected" : "transient"); });
+      const sending = expect(test.service.send("u", "c", "oi")).rejects.toThrow(/gemini-4-hydrogen \(503\).*gemini-3\.6-flash \(404\)/);
       await vi.runAllTimersAsync();
       await sending;
-      expect(test.used).toEqual(["a", "b", "c"]);
+      expect(test.models.filter((model) => model === main)).toHaveLength(4);
+      expect(test.models.filter((model) => model === third)).toHaveLength(1);
     } finally { vi.useRealTimers(); }
+  });
+
+  it("não gasta cota repetindo gerações inaproveitáveis", async () => {
+    const test = setup(["a"], () => { throw new ChatRequestError("vazia", 502, "transient", 0, true); });
+    await expect(test.service.send("u", "c", "oi")).rejects.toThrow("vazia");
+    expect(test.models).toEqual([main, second]);
   });
 
   it("cancela durante o intervalo de repetição", async () => {
     const controller = new AbortController();
     const test = setup(["a"], () => { setTimeout(() => controller.abort(), 20); return fail("transient"); });
     await expect(test.service.send("u", "c", "oi", { signal: controller.signal })).rejects.toThrow();
-    expect(test.used).toEqual(["a"]);
+    expect(test.models).toEqual(all);
   });
 
   it("devolve ao modelo o turno original e todos os resultados, mesmo trocando de chave no meio", async () => {
@@ -144,7 +156,6 @@ describe("pool de chaves do Oráculo", () => {
     expect(test.used).toEqual([]);
   });
 
-  const main = "gemini-4-hydrogen", second = "gemini-3.8-flash", third = "gemini-3.5-flash-lite";
   it("usa o modelo reserva na sobrecarga, com a mesma chave e até o fim da resposta", async () => {
     vi.useFakeTimers();
     try {
@@ -161,19 +172,20 @@ describe("pool de chaves do Oráculo", () => {
       const next = test.service.send("u", "c", "de novo");
       await vi.runAllTimersAsync();
       await next;
-      expect(test.models[3]).toBe(main);
+      expect(test.models[3]).toBe(second);
+      vi.advanceTimersByTime(6 * 60_000);
+      const later = test.service.send("u", "c", "mais tarde");
+      await vi.runAllTimersAsync();
+      await later;
+      expect(test.models[4]).toBe(main);
     } finally { vi.useRealTimers(); }
   });
 
-  it("não marca a chave por limite ou recusa do modelo reserva e mostra a falha original", async () => {
-    vi.useFakeTimers();
-    try {
-      const test = setup(["a"], (_key, _number, _messages, model) => fail(model === main ? "transient" : model === second ? "cooldown" : "rejected"));
-      const sending = expect(test.service.send("u", "c", "oi")).rejects.toThrow("transient");
-      await vi.runAllTimersAsync();
-      await sending;
-      expect(test.models).toEqual([main, second, third]);
-      expect(test.states).toEqual([]);
-    } finally { vi.useRealTimers(); }
+  it("tenta as outras chaves no modelo reserva limitado, sem marcar nenhuma", async () => {
+    const test = setup(["a", "b"], (key, _call, _messages, model) => model === main ? fail("transient") : key === "a" ? fail("cooldown") : reply("ok"));
+    await test.service.send("u", "c", "oi");
+    expect(test.used).toEqual(["a", "a", "b"]);
+    expect(test.models).toEqual([main, second, second]);
+    expect(test.states).toEqual([]);
   });
 });

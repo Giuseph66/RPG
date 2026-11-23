@@ -199,9 +199,9 @@ export function createGeminiClient(): ChatClient {
       if (!finish) throw new ChatRequestError("A conexão foi interrompida antes do fim da resposta. Você pode tentar novamente.", 503, "transient");
       const truncated = finish === "MAX_TOKENS" || finish === "CONTINUATION";
       // A call cut by the limit or malformed must never reach the application.
-      if (!truncated && finish !== "STOP") throw new ChatRequestError("O Gemini não conseguiu concluir esta resposta. Tente novamente.", 502, "transient");
+      if (!truncated && finish !== "STOP") throw new ChatRequestError("O Gemini não conseguiu concluir esta resposta. Tente novamente.", 502, "transient", 0, true);
       if (truncated && (requests.length || !content.trim())) throw new Error("O Gemini atingiu o limite de geração antes de concluir. Peça algo mais específico.");
-      if (!content.trim() && !requests.length) throw new ChatRequestError("O modelo retornou uma resposta vazia.", 502, "transient");
+      if (!content.trim() && !requests.length) throw new ChatRequestError("O modelo retornou uma resposta vazia.", 502, "transient", 0, true);
       return { content, tools: requests, tokens, truncated, ...(requests.length ? { native } : {}) };
     },
   };

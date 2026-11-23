@@ -1,7 +1,7 @@
 // @vitest-environment node
 /// <reference types="node" />
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatRequestError } from "@application/ports/chat";
+import { CHAT_PROVIDER, ChatRequestError } from "@application/ports/chat";
 import type { ChatModelMessage, ChatToolDefinition } from "@application/ports/chat-agent";
 import { READ_TOOLS, WRITE_TOOLS } from "@application/chat/game-agent";
 import { historyTool } from "@application/chat/service";
@@ -116,16 +116,16 @@ describe("gemini client", () => {
   });
 });
 
-/** Opt-in: GEMINI_API_KEY=... npx vitest run src/infrastructure/ai/gemini-client.test.ts */
+/** Opt-in: node --env-file=.env.local node_modules/vitest/vitest.mjs run src/infrastructure/ai/gemini-client.test.ts */
 describe.skipIf(!process.env.GEMINI_API_KEY)("gemini real", () => {
-  it("usa uma ferramenta e responde com o resultado", async () => {
+  it.each([CHAT_PROVIDER.model, ...CHAT_PROVIDER.fallbackModels])("%s usa uma ferramenta e responde com o resultado", async (model) => {
     const client = createGeminiClient(), key = process.env.GEMINI_API_KEY!;
     const messages: ChatModelMessage[] = [{ role: "system", content: "Sempre consulte search_rules antes de responder." }, { role: "user", content: "Quanto dano causa Bola de Fogo?" }];
     // The app's real declarations, so a schema refused by Google fails here.
     const tools = [...READ_TOOLS, ...WRITE_TOOLS, historyTool];
-    const first = await client.turn(key, messages, tools);
+    const first = await client.turn(key, messages, tools, undefined, undefined, false, undefined, model);
     expect(first.tools.length).toBeGreaterThan(0);
-    const second = await client.turn(key, [...messages, { role: "assistant", content: first.content || null, tool_calls: first.tools, native: first.native }, ...first.tools.map((call): ChatModelMessage => ({ role: "tool", tool_call_id: call.id, content: "Bola de Fogo: 8d6 de dano de fogo." }))], tools, undefined, undefined, true);
+    const second = await client.turn(key, [...messages, { role: "assistant", content: first.content || null, tool_calls: first.tools, native: first.native }, ...first.tools.map((call): ChatModelMessage => ({ role: "tool", tool_call_id: call.id, content: "Bola de Fogo: 8d6 de dano de fogo." }))], tools, undefined, undefined, true, undefined, model);
     expect(second.content).toContain("8d6");
   }, 120_000);
 });
