@@ -18,8 +18,8 @@ export interface ChatAttachment { readonly name: string; readonly text: string }
 export interface ChatMemory { readonly id: string; readonly title: string; readonly body: string; readonly campaignId?: string; readonly characterId?: string; readonly visibility: "private" | "party" | "master"; readonly updatedAt: string }
 export interface ChatToolDefinition { readonly type: "function"; readonly function: { readonly name: string; readonly description: string; readonly parameters: Record<string, unknown> } }
 export interface ChatToolRequest { readonly id: string; readonly type: "function"; readonly function: { readonly name: string; readonly arguments: string } }
-export interface ChatModelMessage { readonly role: "system" | "user" | "assistant" | "tool"; readonly content: string | null; readonly tool_calls?: readonly ChatToolRequest[]; readonly tool_call_id?: string }
-export interface ChatCompletion { readonly content: string; readonly tools: readonly ChatToolRequest[]; readonly tokens: number; readonly truncated?: boolean }
+export interface ChatModelMessage { readonly role: "system" | "user" | "assistant" | "tool"; readonly content: string | null; readonly tool_calls?: readonly ChatToolRequest[]; readonly tool_call_id?: string; /** Provider parts of a model turn, opaque to the application and returned unchanged. */ readonly native?: unknown }
+export interface ChatCompletion { readonly content: string; readonly tools: readonly ChatToolRequest[]; readonly tokens: number; readonly truncated?: boolean; readonly native?: unknown }
 export interface ChatAction {
   readonly id: string;
   readonly messageId: string;
@@ -38,6 +38,10 @@ export interface ChatToolResult {
   readonly content: string;
   readonly sources?: readonly Omit<ChatSource, "id">[];
   readonly proposal?: Omit<ChatAction, "id" | "messageId" | "status" | "createdAt">;
+}
+/** The sheet of a scope can no longer be used; the rest of the conversation still can. */
+export class ChatSheetUnavailableError extends Error {
+  constructor(message: string) { super(message); this.name = "ChatSheetUnavailableError"; }
 }
 export interface ChatAgent {
   options(uid: string): Promise<{ readonly characters: readonly { id: string; name: string; campaignId?: string }[]; readonly campaigns: readonly { id: string; name: string }[]; readonly defaults: ChatScope }>;

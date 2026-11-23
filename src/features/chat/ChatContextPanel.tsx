@@ -71,7 +71,7 @@ export function ChatContextPanel({ service, uid, scope, options, locked, onScope
           </label>
         ))}
       </div>
-      <p className={styles.privacy}><LockSimpleIcon size={14} weight="duotone" aria-hidden="true" />Só o que estiver marcado é enviado ao Groq. Registros privados e conteúdo do mestre seguem as permissões da campanha.</p>
+      <p className={styles.privacy}><LockSimpleIcon size={14} weight="duotone" aria-hidden="true" />Só o que estiver marcado é enviado ao Google Gemini. No plano gratuito, o Google pode usar esse conteúdo para melhorar os produtos dele. Registros privados e conteúdo do mestre seguem as permissões da campanha.</p>
     </fieldset>
 
     <details className={styles.memories}>

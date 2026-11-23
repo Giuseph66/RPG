@@ -21,7 +21,10 @@ import { applyCondition, removeCondition } from "@domain/rules/conditions";
 import { addInventoryItem, createInventoryItem, createInventoryState, equipInventoryItem, unequipInventoryItem, removeInventoryItem, setItemQuantity, setCurrency, consumeItem } from "@domain/inventory/operations";
 import { createPlatformRandomSource, parseDiceFormula, rollExpression } from "@domain/dice";
 import type { CoinDenomination } from "@domain/contracts/primitives";
-import { DEFAULT_CHAT_SCOPE } from "@application/ports/chat-agent";
+import { COMPENDIUM_CATEGORIES } from "@application/compendium/types";
+import { CREATURE_SIZES, CREATURE_TYPES } from "@domain/creatures";
+import { bookCreatures, CREATURE_SORTS, masterCreatures, playerCreatures, searchCreatures, searchSpells, SPELL_CLASSES, type CreatureEntry } from "./catalog-queries";
+import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE } from "@application/ports/chat-agent";
 import { ownSlots, preparedLimitFor } from "@domain/character/evolution/spell-tables";
 
 interface Dependencies {
@@ -50,6 +53,8 @@ const number = (input: Record<string, unknown>, key: string, min = 0, max = 1000
   return value;
 };
 const value = <T,>(result: Result<T, { readonly message: string }>): T => { if (!result.ok) throw new Error(result.error.message); return result.value; };
+/** Same rule as the character lists: a sheet created before sign-in has no owner yet and belongs to this device. */
+const ownsSheet = (sheet: { readonly ownerUid?: string }, uid: string) => !sheet.ownerUid || sheet.ownerUid === uid;
 const json = (data: unknown, max = 18000): string => { const result = JSON.stringify(data); return result.length > max ? result.slice(0, max) + "\n[Conteúdo parcial: refine a consulta.]" : result; };
 function passage(content: string, query: string): string {
   const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
@@ -60,19 +65,20 @@ function passage(content: string, query: string): string {
 }
 const prop = (description: string) => ({ type: "string", description });
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ChatToolDefinition => ({ type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } } });
-const READ_TOOLS = [
-  tool("search_rules", "Busca no livro/compêndio habilitado. Use termos curtos, em português; refine quando vazio. Retorna fontes reais.", { query: prop("Termos da regra, magia, item ou criatura"), category: prop("Categoria opcional") }, ["query"]),
+export const READ_TOOLS = [
+  tool("search_creatures", "Filtra, ordena e compara as criaturas do livro e as da campanha que esta pessoa pode ver (bestas, monstros, NPCs, elenco) em UMA chamada. Use sempre para criatura, animal, besta ou monstro: maior/menor PV, CA, furtividade, velocidade, por ND ou tipo. Nunca procure criaturas nome a nome. topPerChallenge devolve a melhor de cada ND segundo sortBy. Com query e detail devolve a ficha completa (até 3).", { query: prop("Parte do nome, só quando o usuário citou uma criatura"), origin: { type: "string", enum: ["all", "book", "campaign"], description: "campaign = só o elenco da campanha" }, type: { type: "string", enum: [...CREATURE_TYPES], description: "beast = besta/animal" }, size: { type: "string", enum: [...CREATURE_SIZES] }, minChallenge: { type: "number", description: "ND mínimo; 1/4 = 0.25" }, maxChallenge: { type: "number" }, minHitPoints: { type: "number" }, sortBy: { type: "string", enum: [...CREATURE_SORTS], description: "hitPoints = PV/vida; stealth = furtividade; challengeRating = ND" }, order: { type: "string", enum: ["desc", "asc"] }, topPerChallenge: { type: "boolean" }, includeSwarms: { type: "boolean", description: "false exclui enxames" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
+  tool("search_spells", "Filtra e lista magias do livro em UMA chamada por círculo, classe, escola, concentração ou ritual. detail devolve a descrição completa (até 3 resultados).", { query: prop("Parte do nome ou da descrição"), level: { type: "integer", minimum: 0, maximum: 9, description: "0 = truque" }, minLevel: { type: "integer", minimum: 0 }, maxLevel: { type: "integer", maximum: 9 }, class: { type: "string", enum: [...SPELL_CLASSES] }, school: prop("Escola em português"), concentration: { type: "boolean" }, ritual: { type: "boolean" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
+  tool("search_rules", "Busca textos de regras, itens, talentos e classes no livro/compêndio. Envie todos os termos de uma vez em queries (até 5). Para listas ou comparações use search_creatures ou search_spells. Retorna fontes reais.", { queries: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 5, description: "Termos curtos, em português" }, category: { type: "string", enum: COMPENDIUM_CATEGORIES.map((item) => item.id) } }, ["queries"]),
   tool("read_sheet", "Consulta a ficha selecionada, cálculos do motor, recursos, equipamentos e magias. section limita o contexto.", { section: { type: "string", enum: ["all", "identity", "abilities", "combat", "inventory", "spells", "resources"] } }),
   tool("read_campaign", "Consulta campanha, objetivos, regras da casa, NPCs e mapas respeitando visibilidade."),
   tool("read_journal", "Busca registros visíveis do diário e linha do tempo; jogador só acessa seu diário.", { query: prop("Termos opcionais") }),
   tool("read_sessions", "Consulta sessões, recapitulações, participantes e iniciativa. Filtre por número ou termos para localizar sessões antigas. Notas completas só para mestre.", { number: { type: "integer", minimum: 1 }, query: prop("Termos do título ou resumo") }),
-  tool("read_creatures", "Mestre consulta elenco; jogador recebe apenas avistamentos publicados para ele."),
   tool("read_party", "Consulta o grupo para planejar encontros e comparar recursos. Mestre lê fichas da campanha; jogador só recebe sua própria ficha."),
   tool("read_rolls", "Consulta os últimos resultados reais de dados da ficha selecionada."),
   tool("read_memories", "Consulta memórias pessoais e da campanha; nunca trate sugestões como fatos ocorridos.", { query: prop("Termos opcionais") }),
   tool("read_actions", "Lista ações executáveis e bloqueadas calculadas pelo motor. Filtre por kind ou nome para listas extensas.", { kind: { type: "string", enum: ["attack", "damage", "spell", "resource", "item", "rest", "concentration"] }, query: prop("Parte do nome da ação") }),
 ];
-const WRITE_TOOLS = [
+export const WRITE_TOOLS = [
   tool("propose_action", "Prepara ação do motor para confirmação. Use capabilityId e kind de read_actions. Não executa até o usuário confirmar.", { capabilityId: prop("ID real de read_actions"), kind: prop("Tipo da capacidade"), value: { type: "integer" }, targetArmorClass: { type: "integer" }, hitDice: { type: "object", additionalProperties: { type: "integer", minimum: 0 } }, ateAndDrank: { type: "boolean" }, spellTargetContext: { type: "object" }, spellComponentContext: { type: "object" } }, ["capabilityId", "kind"]),
   tool("propose_roll", "Prepara rolagem real. Para perícia/atributo/salvaguarda/iniciativa, o app calcula o modificador. Exige confirmação.", { formula: prop("NdF+M para rolagem livre"), check: { type: "string", enum: ["free", "skill", "ability", "save", "initiative"] }, key: prop("Nome/ID do atributo ou perícia conforme read_sheet"), mode: { type: "string", enum: ["normal", "advantage", "disadvantage"] }, label: prop("Descrição") }, ["check"]),
   tool("propose_inventory", "Prepara alteração validada de inventário ou moedas, com confirmação.", { operation: { type: "string", enum: ["add", "quantity", "equip", "unequip", "remove", "consume", "currency"] }, itemId: prop("ID da instância"), equipmentId: prop("ID da definição do catálogo"), quantity: { type: "integer", minimum: 0 }, denomination: { type: "string", enum: ["cp", "sp", "ep", "gp", "pp"] }, amount: { type: "integer", minimum: 0 } }, ["operation"]),
@@ -97,13 +103,15 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
   }
   async function character(uid: string, scope: ChatScope, write = false) {
     if (!scope.sheet || !scope.characterId) throw new Error("Selecione e compartilhe uma ficha para esta consulta.");
-    const current = value(await d.services.character.get(asUuid(scope.characterId)));
+    const found = await d.services.character.get(asUuid(scope.characterId));
+    if (!found.ok && found.error.code === "not-found") throw new ChatSheetUnavailableError("A ficha desta conversa não está mais neste aparelho.");
+    const current = value(found);
     const campaignRole = await role(uid, scope);
-    if (current.ownerUid !== uid && !(campaignRole === "master" && current.campaignId === scope.campaignId)) throw new Error("Você não tem acesso a esta ficha.");
+    if (!ownsSheet(current, uid) && !(campaignRole === "master" && current.campaignId === scope.campaignId)) throw new ChatSheetUnavailableError(`A ficha "${current.name}" pertence a outro jogador ou saiu da campanha desta conversa.`);
     const snapshot = d.services.character.store.getSnapshot();
     if (write && snapshot.value?.id !== current.id) throw new Error("Selecione esta ficha no aplicativo antes de confirmar a alteração.");
     if (write && (snapshot.hasPendingChanges || snapshot.value?.revision !== current.revision)) throw new Error("Aguarde a gravação das alterações pendentes da ficha antes de confirmar.");
-    if (current.campaignId && scope.campaignId && current.campaignId !== scope.campaignId) throw new Error("A ficha pertence a outra campanha. Abra uma conversa com a campanha correta.");
+    if (current.campaignId && scope.campaignId && current.campaignId !== scope.campaignId) throw new ChatSheetUnavailableError(`A ficha "${current.name}" agora pertence a outra campanha.`);
     return current;
   }
   function calculated(current: Character) {
@@ -186,17 +194,43 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
     if (name.startsWith("propose_")) return proposal(uid, scope, name, input);
     if (name === "search_rules") {
       await d.loadCatalog(); session(uid);
-      const query = text(input, "query", 160);
-      const entries = d.compendium.search({ query, ...(typeof input.category === "string" ? { category: input.category as never } : {}) }).entries
-        .filter((entry) => entry.ruleset.id === d.pack.manifest.id && entry.ruleset.version === d.pack.manifest.version).slice(0, 5);
-      const sources = entries.map((entry) => {
+      const queries = [...new Set((Array.isArray(input.queries) ? input.queries : [input.query]).map((item) => text({ query: item }, "query", 160)))].slice(0, 5);
+      const seen = new Set<string>(), missing: string[] = [];
+      const entries = queries.flatMap((query) => {
+        const found = d.compendium.search({ query, ...(typeof input.category === "string" ? { category: input.category as never } : {}) }).entries
+          .filter((entry) => entry.ruleset.id === d.pack.manifest.id && entry.ruleset.version === d.pack.manifest.version).slice(0, queries.length > 1 ? 3 : 5);
+        if (!found.length) missing.push(query);
+        return found.filter((entry) => !seen.has(entry.key) && seen.add(entry.key)).map((entry) => ({ entry, query }));
+      });
+      const sources = entries.map(({ entry, query }) => {
         const detail = d.compendium.getDetail(entry.ref);
         const locator = entry.sourceRefs.map((item) => [item.sourceId, item.chapter, item.section, item.printedPage ? `p. ${item.printedPage}` : ""].filter(Boolean).join(" · ")).join("; ");
         const definition = detail.ok ? detail.value.definition : undefined;
         const content = definition && "text" in definition ? String(definition.text) : definition && "description" in definition ? String(definition.description) : json(definition ?? entry.summary);
         return { ...source("rule", entry.title, locator || `${entry.ruleset.id} · ${entry.ruleset.version}`, content, `/compendium/${entry.category}/${encodeURIComponent(entry.ref.entityId)}`), excerpt: passage(content, query) };
       });
-      return { content: entries.length ? "Trechos do catálogo carregado; páginas apenas quando constam da fonte. Referencie as fontes retornadas." : "Nenhuma regra encontrada. Refine os termos; não invente referência ou página.", sources };
+      return { content: (entries.length ? "Trechos do catálogo carregado; páginas apenas quando constam da fonte. Referencie as fontes retornadas." : "Nenhuma regra encontrada.") + (missing.length ? ` Sem resultado para: ${missing.join(", ")}. Tente no máximo um sinônimo; se continuar vazio, diga que não está no catálogo. Não invente referência ou página.` : ""), sources };
+    }
+    if (name === "search_spells") {
+      await d.loadCatalog(); session(uid);
+      const listing = searchSpells(d.compendium, d.pack.manifest, input);
+      return { content: listing.content, sources: listing.names.length ? [source("rule", listing.title, listing.locator, listing.names.join("\n").slice(0, 3500), "/compendium/spell")] : [] };
+    }
+    if (name === "search_creatures") {
+      const visible: CreatureEntry[] = [];
+      let master = false, notice = "";
+      if (scope.campaign && scope.campaignId) {
+        // The role decides what is even loaded: hidden creatures never reach a player's search.
+        master = await role(uid, scope) === "master";
+        const id = asUuid(scope.campaignId);
+        try { visible.push(...(master ? masterCreatures(value(await d.creatures.listCreatures(id))) : playerCreatures(value(await d.creatures.listSightings(id, asAccountId(uid)))))); }
+        catch { notice = "\nO elenco da campanha não pôde ser lido agora; avise que a resposta considera só o livro."; }
+      }
+      if (scope.rules) { await d.loadCatalog(); visible.push(...bookCreatures(d.compendium, d.pack.manifest)); }
+      session(uid);
+      const listing = searchCreatures(visible, input);
+      const campaignSources = listing.campaign.slice(0, 8).map((entry) => source("campaign", entry.name, `Elenco da campanha · ${master ? "registro do mestre" : "revelado a você"}`, `PV ${entry.hitPoints ?? "não informado"} · CA ${entry.armorClass ?? "não informada"}`, "/journey/creatures", entry.updatedAt));
+      return { content: listing.content + notice, sources: [...(listing.names.length ? [source("rule", listing.title, listing.locator, listing.names.join("\n").slice(0, 3500), "/compendium/creature")] : []), ...campaignSources] };
     }
     if (name === "read_sheet" || name === "read_actions" || name === "read_rolls") {
       const current = await character(uid, scope), { pack, derived } = calculated(current);
@@ -250,11 +284,10 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       const sessions = [...value(await d.session.list(current.id))].filter((item) => (!input.number || item.number === input.number) && (!input.query || `${item.title} ${item.summary}`.toLocaleLowerCase("pt-BR").includes(String(input.query).toLocaleLowerCase("pt-BR")))).sort((a, b) => b.number - a.number).slice(0, 10).map(({ notes, ...item }) => ({ ...item, ...(r === "master" ? { notes } : {}) }));
       return { content: json(sessions), sources: sessions.map((item) => source("session", item.title, `Sessão ${item.number} · ${item.status}`, item.summary, `/session/${current.id}`, item.updatedAt)) };
     }
-    if (name === "read_creatures") return { content: json(r === "master" ? value(await d.creatures.listCreatures(current.id)) : value(await d.creatures.listSightings(current.id, asAccountId(uid)))) };
     throw new Error("Ferramenta desconhecida.");
   }
   function tools(scope: ChatScope) {
-    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : f.name === "search_rules" ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
+    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : f.name === "search_creatures" ? scope.rules || (scope.campaign && !!scope.campaignId) : ["search_rules", "search_spells"].includes(f.name) ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
   }
   async function execute(uid: string, action: ChatAction) {
     const { scope, input, name } = action;
@@ -448,7 +481,7 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       for (const item of availableCampaigns) { try { if (await d.repository.campaignRole(uid, item.id)) campaigns.push({ id: item.id, name: item.name }); } catch { /* inaccessible local copies are omitted */ } }
       const masters = new Set<string>();
       for (const item of campaigns) if (await d.repository.campaignRole(uid, item.id) === "master") masters.add(item.id);
-      const characters = value(await d.characters.list()).filter((item) => item.ownerUid === uid || (item.campaignId && masters.has(item.campaignId)));
+      const characters = value(await d.characters.list()).filter((item) => ownsSheet(item, uid) || (item.campaignId && masters.has(item.campaignId)));
       const current = d.services.character.store.getSnapshot().value;
       const characterId = current && characters.some((item) => item.id === current.id) ? current.id : undefined;
       const campaignId = current?.campaignId ?? d.services.campaign.store.selectedId;

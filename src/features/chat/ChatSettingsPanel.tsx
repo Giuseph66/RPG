@@ -3,24 +3,75 @@ import type { FormEvent } from "react";
 import { ArrowSquareOutIcon, ArrowsClockwiseIcon, CaretDownIcon, KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { Badge, Button, InlineStatus, Input } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
-import { MAX_CREDENTIALS_PER_USER, type ChatCredentialSummary } from "@application/ports/chat";
+import { CHAT_MODELS, MAX_CREDENTIALS_PER_USER, type ChatCredentialSummary, type ChatModelUsage } from "@application/ports/chat";
+import { ALL_KEYS, usageDay } from "@application/chat/key-rotation";
 import styles from "./ChatSettingsPanel.module.css";
 
 type Feedback = { readonly tone: "info" | "error"; readonly text: string };
 /** `new` adds a key in a free slot; `replace` swaps the secret of an existing key. */
 type Editing = { readonly kind: "new" } | { readonly kind: "replace"; readonly credential: ChatCredentialSummary };
 
-const DEFAULT_KEY_LABEL = "Minha chave Groq";
+const DEFAULT_KEY_LABEL = "Minha chave Gemini";
 
-function keyStatus(credential: ChatCredentialSummary) {
+function keyStatus(credential: ChatCredentialSummary, models: ReturnType<typeof keyModels>) {
   if (credential.status === "invalid") return { tone: "danger" as const, text: "Inválida" };
   if (credential.status === "cooldown" && credential.cooldownUntil > Date.now()) return { tone: "warning" as const, text: `Em espera até ${new Date(credential.cooldownUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` };
+  if (models.every((item) => item.block)) return { tone: "warning" as const, text: models.every((item) => item.label?.tone === "spent") ? "Sem cota" : "Em pausa" };
   return { tone: "xp" as const, text: "Disponível" };
 }
 
-/** The Oráculo's model is fixed; players only manage their shared GroqCloud keys. */
+const BLOCK_LABEL: Record<string, { readonly text: string; readonly tone: "spent" | "wait" }> = {
+  day: { text: "Sem cota", tone: "spent" }, unavailable: { text: "Indisponível", tone: "spent" },
+  minute: { text: "Em pausa", tone: "wait" }, overload: { text: "Google ocupado", tone: "wait" },
+};
+const modelName = (model: string) => model.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ").replace("Flash Lite", "Flash-Lite");
+const clock = (time: number) => new Date(time).toLocaleString("pt-BR", { ...(new Date(time).toDateString() !== new Date().toDateString() && time - Date.now() > 12 * 3_600_000 ? { day: "2-digit", month: "2-digit" } : {}), hour: "2-digit", minute: "2-digit" });
+const plural = (count: number, one: string, many: string) => `${count.toLocaleString("pt-BR")} ${count === 1 ? one : many}`;
+
+/** What the shared control table knows about one key; the rows of a replaced secret are ignored. */
+function keyModels(keyId: string, rows: readonly ChatModelUsage[]) {
+  const now = Date.now(), today = usageDay(now);
+  const own = rows.filter((row) => row.keyId === keyId);
+  const hash = own.reduce<ChatModelUsage | undefined>((latest, row) => !latest || row.lastUsedAt > latest.lastUsedAt ? row : latest, undefined)?.keyHash;
+  return CHAT_MODELS.map((model) => {
+    const row = own.find((item) => item.model === model && item.keyHash === hash);
+    const overload = rows.find((item) => item.keyId === ALL_KEYS && item.model === model && item.blockedUntil > now);
+    const block = row && row.blockedUntil > now ? row : overload;
+    return { model, block, label: block ? BLOCK_LABEL[block.reason] ?? BLOCK_LABEL.minute : undefined, requests: row?.day === today ? row.requests : 0, tokens: row?.day === today ? row.tokens : 0, limit: row?.dayLimit ?? 0 };
+  });
+}
+
+function KeyUsage({ models }: { readonly models: ReturnType<typeof keyModels> }) {
+  const free = models.filter((item) => !item.block).length;
+  return <details className={styles.usage}>
+    <summary>
+      <span className={styles.usageDots} aria-hidden="true">{models.map(({ model, label }) => <span key={model} data-tone={label?.tone ?? "ready"} />)}</span>
+      <span>{free} de {models.length} modelos prontos</span>
+      <CaretDownIcon size={14} weight="bold" aria-hidden="true" />
+    </summary>
+    <ul>
+      {models.map(({ model, block, label, requests, tokens, limit }) => {
+        // The app may have seen few calls of a quota spent elsewhere, so Google's answer wins over our count.
+        const spent = block?.reason === "day";
+        const used = spent ? 100 : limit ? Math.min(100, Math.round(requests / limit * 100)) : 0;
+        return <li key={model} data-tone={label?.tone ?? "ready"}>
+          <div className={styles.usageLine}><strong>{modelName(model)}</strong><span className={styles.usageState}>{label?.text ?? "Pronto"}</span></div>
+          {limit ? <span className={styles.usageBar} aria-hidden="true"><span style={{ width: `${used}%` }} /></span> : null}
+          <div className={styles.usageLine}>
+            <small>{spent ? limit ? `Limite de ${limit} por dia atingido` : "Limite do dia atingido" : block?.reason === "overload" ? "Falhou no Google; não é a sua chave" : requests ? `${limit ? `${requests} de ${limit} pedidos` : plural(requests, "pedido", "pedidos")} hoje${tokens ? ` · ${plural(tokens, "token", "tokens")}` : ""}` : "Sem uso hoje"}</small>
+            {block ? <small>{block.reason === "overload" ? "nova tentativa" : "volta"} {clock(block.blockedUntil)}</small> : null}
+          </div>
+        </li>;
+      })}
+    </ul>
+    <p>Conta só o uso por este app. A cota do dia renova à meia-noite do Pacífico.</p>
+  </details>;
+}
+
+/** The Oráculo's model is fixed; players only manage their shared Gemini keys. */
 export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly service?: ChatService; readonly uid?: string; readonly onOpenAccount: () => void }) {
   const [credentials, setCredentials] = useState<readonly ChatCredentialSummary[]>([]);
+  const [usage, setUsage] = useState<readonly ChatModelUsage[]>([]);
   const [editing, setEditing] = useState<Editing>();
   const [confirmRemove, setConfirmRemove] = useState<string>();
   const [label, setLabel] = useState(DEFAULT_KEY_LABEL);
@@ -38,6 +89,12 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
     );
   }, [service, uid]);
 
+  useEffect(() => {
+    if (!service || !uid) return;
+    // Informative only: without access to the table the keys can still be managed.
+    return service.repository.watchUsage()(setUsage, () => setUsage([]));
+  }, [service, uid]);
+
   const perform = async (operation: () => Promise<void>, message: string) => {
     if (busy) return false;
     setBusy(true); setFeedback(undefined);
@@ -48,7 +105,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
 
   const openForm = (next: Editing) => {
     setFeedback(undefined); setConfirmRemove(undefined); setApiKey("");
-    setLabel(next.kind === "replace" ? next.credential.label : credentials.length ? `Chave Groq ${credentials.length + 1}` : DEFAULT_KEY_LABEL);
+    setLabel(next.kind === "replace" ? next.credential.label : credentials.length ? `Chave Gemini ${credentials.length + 1}` : DEFAULT_KEY_LABEL);
     setEditing(next);
   };
   const closeForm = () => { setEditing(undefined); setApiKey(""); setFeedback(undefined); };
@@ -71,7 +128,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
     <header className={styles.header}>
       <p className={styles.eyebrow}>Oráculo</p>
       <h2 id="oracle-settings-title">Inteligência artificial</h2>
-      <p>O Oráculo responde usando chaves de acesso do GroqCloud cadastradas pela mesa, na ordem em que foram adicionadas. Quando uma chave atinge o limite de uso, ele passa para a próxima. Se ninguém tiver chave, adicione a sua (o plano gratuito serve).</p>
+      <p>O Oráculo responde usando chaves de acesso do Google Gemini cadastradas pela mesa, em rodízio. Ele anota o que cada chave já gastou em cada modelo e vai direto para a que ainda tem cota. Se ninguém tiver chave, adicione a sua (o plano gratuito serve). As chaves antigas do Groq não são mais usadas.</p>
     </header>
   );
 
@@ -98,29 +155,32 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
         <h3 className={styles.listTitle}>Suas chaves <span>{credentials.length} de {MAX_CREDENTIALS_PER_USER}</span></h3>
         <ul className={styles.keyList}>
           {credentials.map((credential) => {
-            const status = keyStatus(credential);
+            const models = keyModels(credential.id, usage);
+            const status = keyStatus(credential, models);
             const removing = confirmRemove === credential.id;
             return (
               <li key={credential.id} className={styles.keyItem}>
                 <div className={styles.keyCard}>
-                  <KeyIcon size={20} weight="duotone" aria-hidden="true" />
-                  <div className={styles.keyInfo}>
-                    <strong>{credential.label}</strong>
-                    <span className={styles.keyMeta}>
-                      <Badge tone={status.tone}>{status.text}</Badge>
-                      <span>{credential.createdAt ? `desde ${new Date(credential.createdAt).toLocaleDateString("pt-BR")}` : "agora"}</span>
-                    </span>
+                  <div className={styles.keyRow}>
+                    <KeyIcon size={20} weight="duotone" aria-hidden="true" />
+                    <div className={styles.keyInfo}>
+                      <strong>{credential.label}</strong>
+                      <span className={styles.keyMeta}>
+                        <Badge tone={status.tone}>{status.text}</Badge>
+                        <span>{credential.createdAt ? `desde ${new Date(credential.createdAt).toLocaleDateString("pt-BR")}` : "agora"}</span>
+                      </span>
+                    </div>
+                    <div className={styles.keyActions}>
+                      <button type="button" className={styles.iconAction} disabled={busy} onClick={() => openForm({ kind: "replace", credential })} aria-label={`Trocar ${credential.label}`} title="Trocar chave">
+                        <ArrowsClockwiseIcon size={18} aria-hidden="true" />
+                      </button>
+                      <button type="button" className={styles.iconAction} data-tone="danger" disabled={busy} onClick={() => { setFeedback(undefined); setEditing(undefined); setConfirmRemove(credential.id); }} aria-label={`Remover ${credential.label}`} title="Remover chave">
+                        <TrashIcon size={18} aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
-                  <div className={styles.keyActions}>
-                    <button type="button" className={styles.iconAction} disabled={busy} onClick={() => openForm({ kind: "replace", credential })} aria-label={`Trocar ${credential.label}`} title="Trocar chave">
-                      <ArrowsClockwiseIcon size={18} aria-hidden="true" />
-                    </button>
-                    <button type="button" className={styles.iconAction} data-tone="danger" disabled={busy} onClick={() => { setFeedback(undefined); setEditing(undefined); setConfirmRemove(credential.id); }} aria-label={`Remover ${credential.label}`} title="Remover chave">
-                      <TrashIcon size={18} aria-hidden="true" />
-                    </button>
-                  </div>
+                  {credential.status !== "invalid" ? <KeyUsage models={models} /> : <p className={styles.warn}>O Google recusou esta chave. Troque por uma chave válida.</p>}
                 </div>
-                {credential.status === "invalid" ? <p className={styles.warn}>O GroqCloud recusou esta chave. Troque por uma chave válida.</p> : null}
                 {removing ? (
                   <div className={styles.confirm} role="group" aria-label={`Confirmar remoção de ${credential.label}`}>
                     <p>Remover "{credential.label}"? {credentials.length === 1 ? "Se não houver outras chaves na mesa, o Oráculo para de responder." : "As outras chaves continuam funcionando."}</p>
@@ -147,17 +207,18 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
         <details className={styles.tutorial} open={!credentials.length}>
           <summary>Como conseguir sua chave<CaretDownIcon size={12} weight="bold" aria-hidden="true" /></summary>
           <ol>
-            <li><span><strong>Crie uma conta grátis</strong> no GroqCloud (dá para entrar com Google ou GitHub).</span></li>
-            <li><span>Abra a página <strong>API Keys</strong> do console.</span></li>
-            <li><span>Toque em <strong>Create API Key</strong>, dê um nome (ex.: "Oráculo da Mesa") e confirme.</span></li>
-            <li><span><strong>Copie a chave na hora</strong>: ela começa com <code>gsk_</code> e só aparece uma vez.</span></li>
+            <li><span><strong>Entre com sua conta Google</strong> no Google AI Studio e aceite os termos (é preciso ter 18 anos ou mais).</span></li>
+            <li><span>Abra a página <strong>API Keys</strong>.</span></li>
+            <li><span>Toque em <strong>Create API key</strong>, dê um nome (ex.: "Oráculo da Mesa") e confirme.</span></li>
+            <li><span><strong>Copie a chave inteira</strong>, sem espaços.</span></li>
             <li><span>Volte aqui, cole no campo abaixo e toque em <strong>Salvar chave</strong>.</span></li>
           </ol>
-          <a className={styles.tutorialLink} href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">
-            Abrir API Keys no GroqCloud<ArrowSquareOutIcon size={16} weight="bold" aria-hidden="true" />
+          <p>O limite de uso é contado por projeto do Google. Várias chaves do mesmo projeto dividem o mesmo limite; para somar, use chaves de contas ou projetos diferentes. No plano gratuito, o Google pode usar as conversas para melhorar os produtos dele.</p>
+          <a className={styles.tutorialLink} href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
+            Abrir API Keys no Google AI Studio<ArrowSquareOutIcon size={16} weight="bold" aria-hidden="true" />
           </a>
         </details>
-        <Input label="Chave da API GroqCloud" type="password" autoComplete="new-password" value={apiKey} maxLength={512} disabled={busy} onChange={(event) => setApiKey(event.currentTarget.value)} hint="Cole aqui a chave que começa com gsk_." />
+        <Input label="Chave da API Gemini" type="password" autoComplete="new-password" value={apiKey} maxLength={512} disabled={busy} onChange={(event) => setApiKey(event.currentTarget.value)} hint="Cole aqui a chave criada no Google AI Studio." />
         <Input label="Nome (opcional)" value={label} maxLength={60} disabled={busy} onChange={(event) => setLabel(event.currentTarget.value)} hint="Para você reconhecer a chave depois." />
         {feedbackStatus}
         <div className={styles.actions}>

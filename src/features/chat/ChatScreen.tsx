@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { ArrowUp, CaretUp, ChatsCircle, Eye, Info, List, Microphone, NotePencil, SpeakerHigh, Stop, X } from "@phosphor-icons/react";
+import { Archive, ArrowCounterClockwise, ArrowUp, CaretUp, ChatsCircle, DownloadSimple, Eye, Info, List, Microphone, NotePencil, SpeakerHigh, Stop, Trash, X } from "@phosphor-icons/react";
 import { AppModal, BottomSheet, Button, InlineStatus } from "@components/ui";
 import type { ChatService } from "@application/chat/service";
 import { useShellChrome } from "@components/layout/chrome-context";
 import { useChat } from "./use-chat";
+import { DictationPanel } from "./DictationPanel";
 import { useChatVoice } from "./use-chat-voice";
 import { ChatContextPanel } from "./ChatContextPanel";
 
@@ -22,8 +23,14 @@ const suggestions: readonly string[] = [
 ];
 
 export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAccount = () => {} }: { readonly service?: ChatService; readonly uid?: string; readonly context?: string; readonly onOpenSettings?: () => void; readonly onOpenAccount?: () => void }) {
-  const { conversations, messages, actions, activeId, draft, setDraft, select, send, loading, sending, error, setError, notice, partial, trace, usage, options, scope, setScope, resolveAction, busyAction, manageConversation, exportConversation, cancel } = useChat(service, uid);
-  const voice = useChatVoice((text) => setDraft((previous) => (previous + " " + text).trim().slice(0, 12000)), setError);
+  const { conversations, messages, actions, activeId, draft, setDraft, setNotice, select, send, loading, sending, error, setError, notice, partial, trace, usage, options, scope, setScope, resolveAction, busyAction, manageConversation, exportConversation, cancel } = useChat(service, uid);
+  const voice = useChatVoice((text, sendNow) => {
+    const content = (draft + " " + text).trim().slice(0, 12000);
+    // Kept in the field either way: if sending fails, nothing that was said is lost.
+    setDraft(content);
+    if (sendNow) void send(undefined, content);
+    else window.setTimeout(() => composerRef.current?.focus());
+  }, setError, setNotice);
   const canChat = Boolean(service && uid);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -61,7 +68,12 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
   }, [messages, partial, trace]);
 
   useEffect(() => { setRenameTitle(activeTitle); setDeleteReview(false); }, [activeId, activeTitle]);
-  useEffect(() => { voice.stopReading(); }, [activeId, voice.stopReading]);
+  // Changing conversation ends the dictation for review, never sends it to another one.
+  // The first message of a new conversation also sets its id, while the next one may already be dictated.
+  const sendingRef = useRef(sending);
+  sendingRef.current = sending;
+  useEffect(() => { voice.stopReading(); if (!sendingRef.current) voice.finishDictation(false); }, [activeId, voice.stopReading, voice.finishDictation]);
+  useEffect(() => voice.cancelDictation, [uid, voice.cancelDictation]);
 
   useEffect(() => {
     const textarea = composerRef.current;
@@ -92,7 +104,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
   const sendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    voice.stop();
+    if (sending) return; // The text waits in the field until the answer ends.
     voice.stopReading();
     void send();
   };
@@ -114,29 +126,45 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
             <h3 id="chat-info-context" className={styles.infoHeading}>Contexto do Oráculo</h3>
             <ChatContextPanel service={service} uid={uid} scope={scope} options={options} locked={Boolean(activeId) || sending || Boolean(busyAction)} onScope={setScope} onPrompt={(text) => { setInfoOpen(false); applySuggestion(text); }} onError={setError} />
           </section>
-          {activeId ? <section className={[styles.conversationTools, styles.infoSection].join(" ")} aria-labelledby="chat-info-conversation"><h3 id="chat-info-conversation" className={styles.infoHeading}>Esta conversa</h3><div className={styles.infoTools}>
-            <form onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}><label>Título<input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label><button type="submit" disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Renomear</button></form>
-            <button type="button" onClick={() => void exportConversation()}>Exportar conversa</button>
-            <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}>{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
-            {activeConversation?.deleted ? <button type="button" onClick={() => void manageConversation({ deleted: false })}>Restaurar da lixeira</button> : <button type="button" disabled={sending || Boolean(busyAction)} onClick={() => setDeleteReview(true)}>Mover para lixeira</button>}
-            {deleteReview ? <div><p>Mover esta conversa para a lixeira? Você poderá restaurá-la.</p><button type="button" disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ deleted: true })}>Confirmar</button><button type="button" onClick={() => setDeleteReview(false)}>Cancelar</button></div> : null}
-          </div></section> : null}
+          {activeId ? <section className={[styles.conversationTools, styles.infoSection].join(" ")} aria-labelledby="chat-info-conversation"><h3 id="chat-info-conversation" className={styles.infoHeading}>Esta conversa</h3>
+            <form className={styles.renameForm} onSubmit={(event) => { event.preventDefault(); void manageConversation({ title: renameTitle.trim() }); }}>
+              <label className={styles.renameField}><span>Título</span><input value={renameTitle} maxLength={80} onChange={(event) => setRenameTitle(event.currentTarget.value)} /></label>
+              <button type="submit" className={styles.renameButton} disabled={sending || Boolean(busyAction) || !renameTitle.trim()}>Salvar</button>
+            </form>
+            <div className={styles.actionList}>
+              <button type="button" className={styles.actionButton} onClick={() => void exportConversation()}><DownloadSimple size={18} aria-hidden="true" />Exportar conversa</button>
+              <button type="button" className={styles.actionButton} disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ archived: !activeConversation?.archived })}><Archive size={18} aria-hidden="true" />{activeConversation?.archived ? "Desarquivar" : "Arquivar"}</button>
+              {activeConversation?.deleted
+                ? <button type="button" className={styles.actionButton} onClick={() => void manageConversation({ deleted: false })}><ArrowCounterClockwise size={18} aria-hidden="true" />Restaurar da lixeira</button>
+                : <button type="button" className={[styles.actionButton, styles.actionDanger].join(" ")} disabled={sending || Boolean(busyAction)} onClick={() => setDeleteReview(true)}><Trash size={18} aria-hidden="true" />Mover para lixeira</button>}
+            </div>
+            {deleteReview ? <div className={styles.deleteReview} role="alert"><p>Mover esta conversa para a lixeira? Você poderá restaurá-la.</p><div className={styles.deleteActions}><button type="button" className={styles.confirmDanger} disabled={sending || Boolean(busyAction)} onClick={() => void manageConversation({ deleted: true })}>Confirmar</button><button type="button" onClick={() => setDeleteReview(false)}>Cancelar</button></div></div> : null}
+          </section> : null}
         </div> : null;
 
   return (
     <section className={styles.screen} aria-labelledby="chat-title" data-history-open={historyOpen || undefined}>
       <aside id="chat-history" className={styles.history} aria-label="Histórico de conversas">
-        <div className={styles.historyHeading}>
-          <h2>Conversas</h2>
-          <button type="button" className={styles.iconButton} onClick={() => setHistoryOpen(false)} aria-label="Fechar conversas" data-mobile-only>
-            <X size={20} weight="bold" aria-hidden="true" />
-          </button>
+        <div className={styles.historyTop}>
+          <div className={styles.historyHeading}>
+            <h2>Conversas</h2>
+            <button type="button" className={styles.iconButton} onClick={() => setHistoryOpen(false)} aria-label="Fechar conversas" data-mobile-only>
+              <X size={20} weight="bold" aria-hidden="true" />
+            </button>
+          </div>
+          <div className={styles.historyFilters}>
+            <div className={styles.historyTools}>
+              <label className={styles.searchField}><span className={styles.srOnly}>Buscar conversas</span><input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Título ou última mensagem" /></label>
+              <button type="button" className={styles.newConversation} disabled={!canChat || sending || Boolean(busyAction)} onClick={startConversation} aria-label="Nova conversa" title="Nova conversa">
+                <NotePencil size={18} weight="duotone" aria-hidden="true" />
+              </button>
+            </div>
+            <div className={styles.filterRow}>
+              <label>Mostrar<select value={historyFilter} onChange={(event) => setHistoryFilter(event.currentTarget.value)}><option value="active">Ativas</option><option value="archived">Arquivadas</option><option value="trash">Lixeira</option></select></label>
+              <small>Até 200 recentes</small>
+            </div>
+          </div>
         </div>
-        <button type="button" className={styles.newConversation} disabled={!canChat || sending || Boolean(busyAction)} onClick={startConversation}>
-          <NotePencil size={18} weight="duotone" aria-hidden="true" />
-          Nova conversa
-        </button>
-        <div className={styles.historyFilters}><label>Buscar conversas<input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Título ou última mensagem" /></label><label>Mostrar<select value={historyFilter} onChange={(event) => setHistoryFilter(event.currentTarget.value)}><option value="active">Ativas</option><option value="archived">Arquivadas</option><option value="trash">Lixeira</option></select></label><small>Até 200 conversas recentes</small></div>
         <nav className={styles.conversationList} aria-label="Conversas recentes">
           {filteredConversations.map((conversation) => {
             const active = activeId === conversation.id;
@@ -245,27 +273,27 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
         <form className={styles.composer} onSubmit={sendMessage}>
           {canChat && usage.length ? <ChatUsagePanel usages={usage} /> : null}
-          {voice.available ? <small className={styles.voiceHint}>O ditado usa o serviço de voz do navegador. Revise o texto antes de enviar.</small> : null}
           <label className={styles.visuallyHidden} htmlFor="chat-message">Escreva uma mensagem</label>
-          <div className={styles.composerField}>
+          {voice.listening ? <DictationPanel state={voice.dictation} canSend={Boolean(options) && !sending && !busyAction} onDiscard={() => { voice.cancelDictation(); composerRef.current?.focus(); }} onReview={() => voice.finishDictation(false)} onSend={() => voice.finishDictation(true)} /> : null}
+          <div className={styles.composerField} hidden={voice.listening}>
             <textarea
               ref={composerRef}
               id="chat-message"
               value={draft}
               onChange={(event) => setDraft(event.currentTarget.value)}
               onKeyDown={handleComposerKeyDown}
-              placeholder="Pergunte ao oráculo…"
+              placeholder={"Pergunte ao oráculo…"}
               rows={1}
               maxLength={12000}
-              disabled={!canChat || sending || readOnly || Boolean(busyAction)}
+              disabled={!canChat || readOnly}
             />
-            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || sending || readOnly} aria-pressed={voice.listening} onClick={voice.toggleListening} aria-label={voice.listening ? "Parar ditado" : "Ditar mensagem"} title={voice.listening ? "Parar ditado" : "Ditar mensagem"}>{voice.listening ? <Stop size={19} weight="fill" aria-hidden="true" /> : <Microphone size={19} aria-hidden="true" />}</button> : null}
+            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || readOnly} onClick={voice.startDictation} aria-label="Ditar mensagem" title="Ditar mensagem. O navegador transcreve o áudio."><Microphone size={19} aria-hidden="true" /></button> : null}
             {typeof window !== "undefined" && window.speechSynthesis && lastAnswer ? <button type="button" className={styles.composerTool} aria-pressed={voice.speaking} onClick={() => voice.readAloud(lastAnswer.content, lastAnswer.id)} aria-label={voice.speaking ? "Parar leitura" : "Ouvir resposta"} title={voice.speaking ? "Parar leitura" : "Ouvir resposta"}>{voice.speaking ? <Stop size={19} weight="fill" aria-hidden="true" /> : <SpeakerHigh size={19} aria-hidden="true" />}</button> : null}
             {sending ? <button type="button" className={styles.sendButton} onClick={cancel} aria-label="Cancelar resposta" title="Cancelar resposta"><Stop size={19} weight="fill" aria-hidden="true" /></button> : <button type="submit" className={styles.sendButton} disabled={!canChat || !options || sending || loading || readOnly || Boolean(busyAction) || voice.listening || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
             </button>}
           </div>
-          <p className={styles.composerHint}>Fontes consultáveis · alterações com confirmação · Enter envia</p>
+          <p className={styles.composerHint} hidden={voice.listening}>Fontes consultáveis · alterações com confirmação · Enter envia</p>
         </form>
       </div>
       {compact

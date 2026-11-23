@@ -769,7 +769,8 @@ service cloud.firestore {
     // e {uid}_2 … {uid}_5. As vagas fixas limitam a quantidade sem precisar contar documentos.
     // O navegador precisa ler o pool para chamar a IA diretamente: as chaves são acessíveis
     // a TODAS as contas autenticadas.
-    // O pool Ollama permanece para compatibilidade; credenciais não são copiadas entre provedores.
+    // O app usa geminiKeys; os pools Ollama e Groq ficam só para versões antigas do app. Credenciais não
+    // são copiadas entre provedores.
     match /{keyPool}/{keyId} {
       function keySlot(ownerUid) { return keyId == ownerUid || keyId.matches(ownerUid + '_[2-5]'); }
       function ownsKey() { return signedIn() && resource.data.ownerUid == request.auth.uid; }
@@ -781,12 +782,12 @@ service cloud.firestore {
           data.status in ['active', 'cooldown', 'invalid'] && data.cooldownUntil is number &&
           data.cooldownUntil >= 0 && data.createdAt is timestamp && data.updatedAt == request.time;
       }
-      allow read: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn();
-      allow create: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn() &&
+      allow read: if keyPool in ['ollamaKeys', 'groqKeys', 'geminiKeys'] && signedIn();
+      allow create: if keyPool in ['ollamaKeys', 'groqKeys', 'geminiKeys'] && signedIn() &&
         request.resource.data.ownerUid == request.auth.uid && validKey(request.resource.data) &&
         request.resource.data.createdAt == request.time && request.resource.data.status == 'active' &&
         request.resource.data.cooldownUntil == 0;
-      allow update: if keyPool in ['ollamaKeys', 'groqKeys'] && signedIn() && validKey(request.resource.data) &&
+      allow update: if keyPool in ['ollamaKeys', 'groqKeys', 'geminiKeys'] && signedIn() && validKey(request.resource.data) &&
         request.resource.data.ownerUid == resource.data.ownerUid && request.resource.data.createdAt == resource.data.createdAt &&
         (ownsKey() ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cooldownUntil', 'updatedAt']) &&
@@ -794,7 +795,32 @@ service cloud.firestore {
              (request.resource.data.status == 'cooldown' &&
                request.resource.data.cooldownUntil > request.time.toMillis() &&
                request.resource.data.cooldownUntil <= request.time.toMillis() + 3600000))));
-      allow delete: if keyPool in ['ollamaKeys', 'groqKeys'] && ownsKey();
+      allow delete: if keyPool in ['ollamaKeys', 'groqKeys', 'geminiKeys'] && ownsKey();
+    }
+
+    // Controle de uso do Gemini: um documento por chave e modelo (keyId~model), nunca com a chave em si.
+    // Como o pool, é compartilhado: qualquer conta registra o que usou. keyId 'all' indica modelo
+    // sobrecarregado para todos e só pode bloquear por poucos minutos.
+    match /geminiUsage/{usageId} {
+      function ownsSlot() { return signedIn() && usageId.matches(request.auth.uid + '(_[2-5])?~.*'); }
+      function counter(value, max) { return value is int && value >= 0 && value <= max; }
+      function validUsage(data) {
+        return data.keys().hasOnly(['keyId', 'model', 'keyHash', 'day', 'minute', 'requests', 'tokens', 'minuteRequests', 'minuteTokens', 'dayLimit', 'blockedUntil', 'reason', 'lastUsedAt', 'updatedAt']) &&
+          data.keys().hasAll(['keyId', 'model', 'keyHash', 'day', 'requests', 'blockedUntil']) &&
+          data.keyId is string && data.model is string && usageId == data.keyId + '~' + data.model &&
+          data.model.matches('gemini-[a-z0-9.-]{1,60}') && data.keyHash is string && data.keyHash.matches('[0-9a-f]{16}') &&
+          data.day is string && data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && counter(data.minute, 1000000000) &&
+          counter(data.requests, 1000000) && counter(data.tokens, 100000000000) &&
+          counter(data.minuteRequests, 1000000) && counter(data.minuteTokens, 100000000000) && counter(data.dayLimit, 100000000) &&
+          data.blockedUntil is number && data.blockedUntil >= 0 &&
+          data.blockedUntil <= request.time.toMillis() + (data.keyId == 'all' ? 600000 : 93600000) &&
+          data.reason in ['', 'day', 'minute', 'overload', 'unavailable'] && data.lastUsedAt is number && data.lastUsedAt >= 0 &&
+          data.updatedAt == request.time &&
+          (data.keyId == 'all' || exists(/databases/$(database)/documents/geminiKeys/$(data.keyId)));
+      }
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validUsage(request.resource.data);
+      allow delete: if ownsSlot();
     }
 
     match /{document=**} { allow read, write: if false; }

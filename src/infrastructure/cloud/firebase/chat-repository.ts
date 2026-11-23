@@ -1,19 +1,21 @@
-import { collection, deleteDoc, doc, getDocFromServer, getDocsFromServer, limit, limitToLast, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter, where, writeBatch, type Firestore, type QueryDocumentSnapshot } from "firebase/firestore";
-import { MAX_CREDENTIALS_PER_USER, type ChatConversation, type ChatCredential, type ChatCredentialSummary, type ChatRepository } from "@application/ports/chat";
+import { nextUsage, usageId } from "@application/chat/key-rotation";
+import { collection, deleteDoc, doc, getDocFromServer, increment, getDocsFromServer, limit, limitToLast, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter, where, writeBatch, type Firestore, type QueryDocumentSnapshot } from "firebase/firestore";
+import { CHAT_MODELS, MAX_CREDENTIALS_PER_USER, type ChatConversation, type ChatCredential, type ChatCredentialSummary, type ChatModelUsage, type ChatRepository } from "@application/ports/chat";
 import type { ChatAction, ChatMemory, ChatScope } from "@application/ports/chat-agent";
 
 const millis = (value: unknown): number => value && typeof value === "object" && "toMillis" in value ? (value as { toMillis(): number }).toMillis() : 0;
 const clean = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 function credential(id: string, data: Record<string, unknown>): ChatCredentialSummary {
   // The first slot reuses the owner uid as document id (the old single-key layout); ownerUid is stored in every key.
-  return { id, ownerUid: String(data.ownerUid ?? id), label: String(data.label ?? "Chave GroqCloud"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
+  return { id, ownerUid: String(data.ownerUid ?? id), label: String(data.label ?? "Chave Gemini"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
 }
 export function createFirestoreChatRepository(getFirestore: () => Firestore): ChatRepository {
   const conversationsRef = (uid: string) => collection(getFirestore(), "users", uid, "chatConversations");
   const conversationRef = (uid: string, id: string) => doc(conversationsRef(uid), id);
   const messagesRef = (uid: string, id: string) => collection(conversationRef(uid, id), "messages");
   const actionsRef = (uid: string, id: string) => collection(conversationRef(uid, id), "actions");
-  const keysRef = () => collection(getFirestore(), "groqKeys");
+  const keysRef = () => collection(getFirestore(), "geminiKeys");
+  const usageRef = () => collection(getFirestore(), "geminiUsage");
   const keyRef = (id: string) => doc(keysRef(), id);
   /** Fixed slots per account (`uid`, `uid_2` … `uid_N`); the Firestore rules accept only these ids, which caps keys per account. */
   const keySlots = (uid: string) => Array.from({ length: MAX_CREDENTIALS_PER_USER }, (_, index) => index === 0 ? uid : `${uid}_${index + 1}`);
@@ -57,7 +59,25 @@ export function createFirestoreChatRepository(getFirestore: () => Firestore): Ch
         transaction.set(reference, { ownerUid: uid, label, apiKey, status: "active", cooldownUntil: 0, createdAt: existing?.exists() ? existing.data().createdAt : serverTimestamp(), updatedAt: serverTimestamp() });
       });
     },
-    async removeCredential(_uid, credentialId) { await deleteDoc(keyRef(credentialId)); },
+    async removeCredential(_uid, credentialId) {
+      await deleteDoc(keyRef(credentialId));
+      // Leftover rows are harmless (their hash no longer matches any key), so failing here is not an error.
+      const batch = writeBatch(getFirestore());
+      for (const model of CHAT_MODELS) batch.delete(doc(usageRef(), usageId(credentialId, model)));
+      await batch.commit().catch(() => {});
+    },
+    watchUsage: () => (next, fail) => onSnapshot(usageRef(), (snapshot) => next(snapshot.docs.map((item) => { const { updatedAt: _updatedAt, ...row } = item.data(); return row as ChatModelUsage; })), fail),
+    async recordUsage(previous, change) {
+      const row = nextUsage(previous, change), same = previous?.keyHash === change.keyHash;
+      // Counters add up on the server, so simultaneous players do not overwrite each other.
+      const count = (kept: boolean, total: number, added = 0) => kept ? increment(added) : total;
+      const today = same && previous.day === row.day, current = same && previous.minute === row.minute;
+      const counters = { requests: count(today, row.requests, change.requests), tokens: count(today, row.tokens, change.tokens), minuteRequests: count(current, row.minuteRequests, change.requests), minuteTokens: count(current, row.minuteTokens, change.tokens) };
+      const { dayLimit, blockedUntil, reason, lastUsedAt, ...base } = row;
+      // Within the same secret, only what this change knows is written; the rest may be newer on the server.
+      const known = same ? { ...(change.dayLimit ? { dayLimit } : {}), ...(change.block ? { blockedUntil, reason } : {}), ...(change.requests ? { lastUsedAt } : {}) } : { dayLimit, blockedUntil, reason, lastUsedAt };
+      await setDoc(doc(usageRef(), usageId(change.keyId, change.model)), { ...base, ...counters, ...known, updatedAt: serverTimestamp() }, { merge: true });
+    },
     async listCredentials() {
       const snapshot = await getDocsFromServer(query(keysRef(), orderBy("createdAt", "asc")));
       return snapshot.docs.flatMap((item) => typeof item.data().apiKey === "string" ? [{ ...credential(item.id, item.data()), apiKey: item.data().apiKey } as ChatCredential] : []);

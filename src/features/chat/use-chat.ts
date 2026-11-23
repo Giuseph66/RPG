@@ -47,21 +47,25 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     setActiveId(id); setDraft(""); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
     if (!id && options) setScope(options.defaults);
   };
-  const send = async (retry?: ChatMessage) => {
-    if (!service || !uid || inFlight.current || busyAction || (!retry && !draft.trim())) return;
+  const send = async (retry?: ChatMessage, text?: string) => {
+    const typed = (text ?? draft).trim();
+    if (!service || !uid || inFlight.current || busyAction || (!retry && !typed)) return;
     if (!navigator.onLine) { setError("Conecte-se à internet para consultar a IA e salvar mensagens."); return; }
     if (!options) { setError("Aguarde a consulta das permissões."); return; }
     const controller = new AbortController();
     inFlight.current = controller; setSending(true); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
+    // Cleared now, not when the server confirms: what is typed during the answer belongs to the next message.
+    let pending = retry ? "" : typed;
+    if (pending) setDraft("");
     try {
-      const content = retry?.content ?? draft.trim();
+      const content = retry?.content ?? typed;
       const id = activeId ?? await service.createConversation(uid, content.slice(0, 80), activeScope);
       controller.signal.throwIfAborted();
       if (!alive.current) return;
       setActiveId(id);
       await service.send(uid, id, content, { scope: activeScope, signal: controller.signal,
         ...(retry ? { retry: true, turnId: retry.id } : {}),
-        onPersisted: () => { if (!controller.signal.aborted && alive.current) { setDraft(""); } },
+        onPersisted: () => { pending = ""; },
         onProgress: (text, details) => { if (!controller.signal.aborted && alive.current) { setPartial(text); setTrace(details); } },
         onUsage: (value) => {
           if (!controller.signal.aborted && alive.current) setUsageByKey((previous) => {
@@ -73,6 +77,8 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
         },
       });
     } catch (cause) {
+      // Never saved: it goes back to the field, before anything typed meanwhile.
+      if (alive.current && pending) setDraft((next) => [pending, next].filter(Boolean).join("\n"));
       if (alive.current) setError(controller.signal.aborted ? "Geração cancelada. A mensagem foi preservada; você pode tentar novamente." : cause instanceof Error ? cause.message : "Não foi possível enviar a mensagem.");
     } finally {
       if (alive.current) { setSending(false); setPartial(""); setTrace(undefined); }
@@ -101,7 +107,7 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao exportar."); }
   };
-  return { conversations, messages, actions, activeId, draft, setDraft, select, send, loading: historyLoading || messagesLoading,
+  return { conversations, messages, actions, activeId, draft, setDraft, setNotice, select, send, loading: historyLoading || messagesLoading,
     sending, error, setError, notice, partial, trace, usage: Object.values(usageByKey), options, scope: activeScope, setScope,
     resolveAction, busyAction, manageConversation, exportConversation, cancel: () => inFlight.current?.abort() };
 }

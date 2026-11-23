@@ -1,0 +1,40 @@
+.panel { display: grid; gap: var(--spacing-sm); padding: var(--spacing-md); background: var(--color-background); border: 1px solid color-mix(in srgb, var(--color-danger) 45%, var(--color-border)); border-radius: 1.4rem; }
+.status { display: flex; align-items: center; gap: var(--spacing-sm); min-height: 1.5rem; }
+.status strong { color: var(--color-text); font-size: .92rem; font-weight: 600; }
+.time { margin-left: auto; color: var(--color-text-muted); font-size: .88rem; font-variant-numeric: lining-nums tabular-nums; }
+
+/* Still while waiting, moving only while words are arriving. */
+.wave { display: inline-flex; align-items: center; gap: 3px; height: 18px; }
+.wave > span { width: 3px; height: 5px; background: var(--color-danger); border-radius: var(--radius-pill); transition: height var(--motion-transition) var(--motion-easing); }
+.wave[data-active] > span { height: 16px; animation: wave .9s ease-in-out infinite; transform-origin: center; }
+.wave > span:nth-child(2) { animation-delay: .12s !important; }
+.wave > span:nth-child(3) { animation-delay: .24s !important; }
+.wave > span:nth-child(4) { animation-delay: .36s !important; }
+.wave > span:nth-child(5) { animation-delay: .48s !important; }
+@keyframes wave { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+
+.transcript { min-height: 3rem; max-height: 8rem; overflow-y: auto; overscroll-behavior: contain; color: var(--color-text); font-size: 1rem; line-height: 1.5; border-radius: var(--radius-control); }
+.transcript:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.transcript p { margin: 0; overflow-wrap: anywhere; }
+.interim, .placeholder { color: var(--color-text-muted); }
+
+.actions { display: grid; grid-template-columns: auto 1fr 1fr; gap: var(--spacing-sm); }
+.actions button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 0; min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text); background: transparent; border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); font: inherit; font-size: .92rem; font-weight: 600; white-space: nowrap; overflow-wrap: normal; cursor: pointer; }
+.actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
+.actions button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.actions button:disabled { opacity: .5; cursor: default; }
+.actions .discard { color: var(--color-text-muted); border-color: transparent; }
+.actions .send { color: var(--color-on-secondary); background: var(--color-secondary); border-color: var(--color-secondary); }
+.actions .send:hover:not(:disabled) { background: var(--color-text); }
+
+@media (min-width: 768px) { .actions { grid-template-columns: 1fr auto auto; } .actions .discard { justify-self: start; } .actions button { min-width: 8rem; } }
+@media (max-width: 767px) {
+  .panel { gap: var(--spacing-xs); padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md); border-radius: 1.1rem; }
+  .transcript { min-height: 1.5rem; max-height: 7.5rem; }
+  .actions { grid-template-columns: var(--size-touch-target) 1fr 1fr; margin-top: var(--spacing-xs); }
+  .actions button { padding: 0 var(--spacing-sm); }
+  /* Icon only; the label stays for screen readers. */
+  .actions .discard { padding: 0; border-color: var(--color-border-soft); }
+  .discard > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+@media (prefers-reduced-motion: reduce) { .wave[data-active] > span { animation: none; } }
