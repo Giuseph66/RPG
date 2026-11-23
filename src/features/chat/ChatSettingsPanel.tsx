@@ -22,7 +22,7 @@ function keyStatus(credential: ChatCredentialSummary, models: ReturnType<typeof 
 
 const BLOCK_LABEL: Record<string, { readonly text: string; readonly tone: "spent" | "wait" }> = {
   day: { text: "Sem cota", tone: "spent" }, unavailable: { text: "Indisponível", tone: "spent" },
-  minute: { text: "Em pausa", tone: "wait" }, overload: { text: "Sobrecarregado", tone: "wait" },
+  minute: { text: "Em pausa", tone: "wait" }, overload: { text: "Google ocupado", tone: "wait" },
 };
 const modelName = (model: string) => model.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ").replace("Flash Lite", "Flash-Lite");
 const clock = (time: number) => new Date(time).toLocaleString("pt-BR", { ...(new Date(time).toDateString() !== new Date().toDateString() && time - Date.now() > 12 * 3_600_000 ? { day: "2-digit", month: "2-digit" } : {}), hour: "2-digit", minute: "2-digit" });
@@ -58,8 +58,8 @@ function KeyUsage({ models }: { readonly models: ReturnType<typeof keyModels> })
           <div className={styles.usageLine}><strong>{modelName(model)}</strong><span className={styles.usageState}>{label?.text ?? "Pronto"}</span></div>
           {limit ? <span className={styles.usageBar} aria-hidden="true"><span style={{ width: `${used}%` }} /></span> : null}
           <div className={styles.usageLine}>
-            <small>{spent ? limit ? `Limite de ${limit} por dia atingido` : "Limite do dia atingido" : requests ? `${limit ? `${requests} de ${limit} pedidos` : plural(requests, "pedido", "pedidos")} hoje${tokens ? ` · ${plural(tokens, "token", "tokens")}` : ""}` : "Sem uso hoje"}</small>
-            {block ? <small>volta {clock(block.blockedUntil)}</small> : null}
+            <small>{spent ? limit ? `Limite de ${limit} por dia atingido` : "Limite do dia atingido" : block?.reason === "overload" ? "Falhou no Google; não é a sua chave" : requests ? `${limit ? `${requests} de ${limit} pedidos` : plural(requests, "pedido", "pedidos")} hoje${tokens ? ` · ${plural(tokens, "token", "tokens")}` : ""}` : "Sem uso hoje"}</small>
+            {block ? <small>{block.reason === "overload" ? "nova tentativa" : "volta"} {clock(block.blockedUntil)}</small> : null}
           </div>
         </li>;
       })}
