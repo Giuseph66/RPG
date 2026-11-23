@@ -19,7 +19,7 @@
 .interim, .placeholder { color: var(--color-text-muted); }
 
 .actions { display: grid; grid-template-columns: auto 1fr 1fr; gap: var(--spacing-sm); }
-.actions button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 0; min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text); background: transparent; border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; }
+.actions button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 0; min-height: var(--size-touch-target); padding: 0 var(--spacing-md); color: var(--color-text); background: transparent; border: 1px solid var(--color-border-soft); border-radius: var(--radius-pill); font: inherit; font-size: .92rem; font-weight: 600; white-space: nowrap; overflow-wrap: normal; cursor: pointer; }
 .actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
 .actions button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .actions button:disabled { opacity: .5; cursor: default; }
@@ -28,5 +28,13 @@
 .actions .send:hover:not(:disabled) { background: var(--color-text); }
 
 @media (min-width: 768px) { .actions { grid-template-columns: 1fr auto auto; } .actions .discard { justify-self: start; } .actions button { min-width: 8rem; } }
-@media (max-width: 359px) { .actions button { padding: 0 var(--spacing-sm); font-size: .85rem; } }
+@media (max-width: 767px) {
+  .panel { gap: var(--spacing-xs); padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md); border-radius: 1.1rem; }
+  .transcript { min-height: 1.5rem; max-height: 7.5rem; }
+  .actions { grid-template-columns: var(--size-touch-target) 1fr 1fr; margin-top: var(--spacing-xs); }
+  .actions button { padding: 0 var(--spacing-sm); }
+  /* Icon only; the label stays for screen readers. */
+  .actions .discard { padding: 0; border-color: var(--color-border-soft); }
+  .discard > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
 @media (prefers-reduced-motion: reduce) { .wave[data-active] > span { animation: none; } }

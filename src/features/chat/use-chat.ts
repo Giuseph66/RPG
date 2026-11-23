@@ -54,6 +54,9 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
     if (!options) { setError("Aguarde a consulta das permissões."); return; }
     const controller = new AbortController();
     inFlight.current = controller; setSending(true); setError(""); setNotice(""); setPartial(""); setTrace(undefined);
+    // Cleared now, not when the server confirms: what is typed during the answer belongs to the next message.
+    let pending = retry ? "" : typed;
+    if (pending) setDraft("");
     try {
       const content = retry?.content ?? typed;
       const id = activeId ?? await service.createConversation(uid, content.slice(0, 80), activeScope);
@@ -62,7 +65,7 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
       setActiveId(id);
       await service.send(uid, id, content, { scope: activeScope, signal: controller.signal,
         ...(retry ? { retry: true, turnId: retry.id } : {}),
-        onPersisted: () => { if (!controller.signal.aborted && alive.current) { setDraft(""); } },
+        onPersisted: () => { pending = ""; },
         onProgress: (text, details) => { if (!controller.signal.aborted && alive.current) { setPartial(text); setTrace(details); } },
         onUsage: (value) => {
           if (!controller.signal.aborted && alive.current) setUsageByKey((previous) => {
@@ -74,6 +77,8 @@ export function useChat(service: ChatService | undefined, uid: string | undefine
         },
       });
     } catch (cause) {
+      // Never saved: it goes back to the field, before anything typed meanwhile.
+      if (alive.current && pending) setDraft((next) => [pending, next].filter(Boolean).join("\n"));
       if (alive.current) setError(controller.signal.aborted ? "Geração cancelada. A mensagem foi preservada; você pode tentar novamente." : cause instanceof Error ? cause.message : "Não foi possível enviar a mensagem.");
     } finally {
       if (alive.current) { setSending(false); setPartial(""); setTrace(undefined); }

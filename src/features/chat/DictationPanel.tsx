@@ -23,7 +23,7 @@ export function DictationPanel({ state, canSend, onDiscard, onReview, onSend }: 
       {empty ? <p className={styles.placeholder}>Pode falar. Pausas não encerram: toque em Enviar quando terminar.</p> : <p>{state.text}{state.text && state.interim ? " " : ""}<span className={styles.interim}>{state.interim}</span></p>}
     </div>
     <div className={styles.actions}>
-      <button type="button" className={styles.discard} disabled={finishing} onClick={onDiscard}><TrashIcon size={18} aria-hidden="true" />Descartar</button>
+      <button type="button" className={styles.discard} title="Descartar gravação" disabled={finishing} onClick={onDiscard}><TrashIcon size={18} aria-hidden="true" /><span>Descartar</span></button>
       <button type="button" className={styles.review} disabled={finishing} onClick={onReview}><CheckIcon size={18} weight="bold" aria-hidden="true" />Revisar</button>
       <button ref={primary} type="button" className={styles.send} disabled={finishing || !canSend} onClick={onSend}><ArrowUpIcon size={18} weight="bold" aria-hidden="true" />Enviar</button>
     </div>

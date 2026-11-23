@@ -69,7 +69,10 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
   useEffect(() => { setRenameTitle(activeTitle); setDeleteReview(false); }, [activeId, activeTitle]);
   // Changing conversation ends the dictation for review, never sends it to another one.
-  useEffect(() => { voice.stopReading(); voice.finishDictation(false); }, [activeId, voice.stopReading, voice.finishDictation]);
+  // The first message of a new conversation also sets its id, while the next one may already be dictated.
+  const sendingRef = useRef(sending);
+  sendingRef.current = sending;
+  useEffect(() => { voice.stopReading(); if (!sendingRef.current) voice.finishDictation(false); }, [activeId, voice.stopReading, voice.finishDictation]);
   useEffect(() => voice.cancelDictation, [uid, voice.cancelDictation]);
 
   useEffect(() => {
@@ -101,6 +104,7 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
 
   const sendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (sending) return; // The text waits in the field until the answer ends.
     voice.stopReading();
     void send();
   };
@@ -262,12 +266,12 @@ export function ChatScreen({ service, uid, onOpenSettings = () => {}, onOpenAcco
               value={draft}
               onChange={(event) => setDraft(event.currentTarget.value)}
               onKeyDown={handleComposerKeyDown}
-              placeholder="Pergunte ao oráculo…"
+              placeholder={sending ? "Escreva a próxima mensagem…" : "Pergunte ao oráculo…"}
               rows={1}
               maxLength={12000}
-              disabled={!canChat || sending || readOnly || Boolean(busyAction)}
+              disabled={!canChat || readOnly}
             />
-            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || sending || readOnly || Boolean(busyAction)} onClick={voice.startDictation} aria-label="Ditar mensagem" title="Ditar mensagem. O navegador transcreve o áudio."><Microphone size={19} aria-hidden="true" /></button> : null}
+            {voice.available ? <button type="button" className={styles.composerTool} disabled={!canChat || readOnly} onClick={voice.startDictation} aria-label="Ditar mensagem" title="Ditar mensagem. O navegador transcreve o áudio."><Microphone size={19} aria-hidden="true" /></button> : null}
             {typeof window !== "undefined" && window.speechSynthesis && lastAnswer ? <button type="button" className={styles.composerTool} aria-pressed={voice.speaking} onClick={() => voice.readAloud(lastAnswer.content, lastAnswer.id)} aria-label={voice.speaking ? "Parar leitura" : "Ouvir resposta"} title={voice.speaking ? "Parar leitura" : "Ouvir resposta"}>{voice.speaking ? <Stop size={19} weight="fill" aria-hidden="true" /> : <SpeakerHigh size={19} aria-hidden="true" />}</button> : null}
             {sending ? <button type="button" className={styles.sendButton} onClick={cancel} aria-label="Cancelar resposta" title="Cancelar resposta"><Stop size={19} weight="fill" aria-hidden="true" /></button> : <button type="submit" className={styles.sendButton} disabled={!canChat || !options || sending || loading || readOnly || Boolean(busyAction) || voice.listening || !draft.trim()} aria-label="Enviar mensagem">
               <ArrowUp size={20} weight="bold" aria-hidden="true" />
