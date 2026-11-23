@@ -94,19 +94,19 @@ async function readError(response: Response): Promise<{ status: string; message:
 
 /** Only failures that belong to the key itself may change its state in the shared pool. */
 function toRequestError(code: number, error: Awaited<ReturnType<typeof readError>>): ChatRequestError {
+  const detail = error.message ? ` Detalhe: ${error.message.slice(0, 300)}` : "";
   const reasons = error.details.map((item) => item.reason ?? "");
   if (reasons.includes("API_KEY_INVALID") || reasons.includes("API_KEY_EXPIRED") || code === 401) return new ChatRequestError("A chave do Gemini não é válida.", code, "invalid");
   if (reasons.some((reason) => /^API_KEY_(HTTP_REFERRER|IP_ADDRESS|ANDROID_APP|IOS_APP)_BLOCKED$/.test(reason))) return new ChatRequestError("A chave do Gemini não aceita pedidos deste endereço.", code, "unavailable");
   if (code === 403 && (/leaked|api key.*(blocked|suspended)/i.test(error.message) || reasons.includes("API_KEY_SERVICE_BLOCKED") || reasons.includes("CONSUMER_SUSPENDED"))) return new ChatRequestError("O Google bloqueou esta chave do Gemini.", code, "invalid");
-  if (code === 403) return new ChatRequestError("O projeto desta chave não tem acesso ao Gemini. Confira a verificação e o faturamento no Google AI Studio.", code, "cooldown", LONG_COOLDOWN_MS);
-  if (code === 402) return new ChatRequestError("Os créditos do projeto no Gemini acabaram. Confira o faturamento no Google AI Studio.", code, "cooldown", LONG_COOLDOWN_MS);
+  if (code === 403) return new ChatRequestError("O projeto desta chave não tem acesso ao Gemini. Confira a verificação e o faturamento no Google AI Studio." + detail, code, "cooldown", LONG_COOLDOWN_MS);
+  if (code === 402) return new ChatRequestError("Os créditos do projeto no Gemini acabaram. Confira o faturamento no Google AI Studio." + detail, code, "cooldown", LONG_COOLDOWN_MS);
   if (code === 429) {
     const daily = error.details.some((item) => item.violations?.some((violation) => /PerDay/i.test(violation.quotaId ?? "")));
     const seconds = /^(\d+(?:\.\d+)?)s$/.exec(error.details.find((item) => item.retryDelay)?.retryDelay ?? "")?.[1];
     return new ChatRequestError(daily ? "O limite diário do Gemini foi atingido." : "O limite de uso do Gemini foi atingido.", code, "cooldown", daily ? LONG_COOLDOWN_MS : seconds ? Number(seconds) * 1000 : DEFAULT_COOLDOWN_MS);
   }
   if (code === 400 && error.status === "FAILED_PRECONDITION") return new ChatRequestError("O plano gratuito do Gemini não está disponível nesta região para esta chave.", code, "unavailable");
-  const detail = error.message ? ` Detalhe: ${error.message.slice(0, 300)}` : "";
   if (code === 503) return new ChatRequestError(`O Gemini está sobrecarregado no momento (503). Tente novamente em instantes.${detail}`, code, "transient");
   if (code === 408 || code >= 500) return new ChatRequestError(`O Gemini não conseguiu processar o pedido (${code}). Tente novamente em instantes.${detail}`, code, "transient");
   return new ChatRequestError(`O Gemini rejeitou a solicitação (${code}). Tente reduzir o contexto da conversa.${detail}`, code, "rejected");
