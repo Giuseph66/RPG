@@ -24,23 +24,57 @@ function setup(ids: string[], answer: (key: string, call: number, messages: read
   const client: ChatClient = { turn: async (apiKey, history, _tools, _signal, _onText, _force, _report, model) => { used.push(apiKey.slice(4)); models.push(model!); return answer(apiKey.slice(4), ++calls, history, model!); } };
   return { service: createChatService(repository, client, () => "u", agent), used, models, states, messages, repository, keys };
 }
-const fail = (kind: ChatRequestError["kind"], retryAfterMs?: number): never => { throw new ChatRequestError(kind, 0, kind, retryAfterMs); };
+const fail = (kind: ChatRequestError["kind"], retryAfterMs?: number): never => { throw new ChatRequestError(kind, kind === "cooldown" ? 429 : 0, kind, retryAfterMs); };
 
 beforeEach(() => { vi.restoreAllMocks(); });
 
 describe("pool de chaves do Oráculo", () => {
   const all = ["gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
   const [main, second, third] = all;
-  it("coloca a chave limitada em espera e responde com a próxima", async () => {
+  it("troca de chave no limite de um modelo, sem pôr a chave inteira em espera", async () => {
     const test = setup(["a", "b"], (key) => key === "a" ? fail("cooldown", 30_000) : reply("ok"));
-    const usage = vi.fn();
-    await test.service.send("u", "c", "oi", { onUsage: usage });
+    await test.service.send("u", "c", "oi");
     expect(test.used).toEqual(["a", "b"]);
-    expect(test.states).toEqual([["a", "cooldown", expect.any(Number)]]);
-    expect(test.messages.at(-1)?.content).toBe("ok");
-    expect(usage).toHaveBeenCalledWith(expect.objectContaining({ credentialId: "a", limited: true, cooldownUntil: expect.any(Number) }));
+    expect(test.models).toEqual([main, main]);
+    expect(test.states).toEqual([]);
     await test.service.send("u", "c", "de novo");
     expect(test.used).toEqual(["a", "b", "b"]);
+  });
+
+  it("usa outro modelo com a mesma chave quando a cota do principal acaba", async () => {
+    const test = setup(["a"], (_key, _call, _messages, model) => model === main ? fail("cooldown", 3_300_000) : reply("ok"));
+    await test.service.send("u", "c", "oi");
+    await test.service.send("u", "c", "de novo");
+    expect(test.models).toEqual([main, second, second]);
+    expect(test.states).toEqual([]);
+  });
+
+  it("põe a chave em espera só quando todos os modelos a limitaram", async () => {
+    const test = setup(["a"], () => fail("cooldown", 30_000));
+    const usage = vi.fn();
+    await expect(test.service.send("u", "c", "oi", { onUsage: usage })).rejects.toThrow("cooldown");
+    expect(test.models).toEqual(all);
+    expect(test.states).toEqual([["a", "cooldown", expect.any(Number)]]);
+    expect(usage).toHaveBeenCalledWith(expect.objectContaining({ credentialId: "a", limited: true }));
+  });
+
+  it("põe a chave sem créditos em espera na hora", async () => {
+    const test = setup(["a", "b"], (key) => { if (key === "a") throw new ChatRequestError("créditos", 402, "cooldown", 3_300_000); return reply("ok"); });
+    await test.service.send("u", "c", "oi");
+    expect(test.used).toEqual(["a", "b"]);
+    expect(test.states).toEqual([["a", "cooldown", expect.any(Number)]]);
+  });
+
+  it("volta aos modelos sobrecarregados se os reservas ficarem sem cota", async () => {
+    vi.useFakeTimers();
+    try {
+      let first = true;
+      const test = setup(["a"], (_key, _call, _messages, model) => model === main && first ? fail("transient") : model === main ? reply("principal") : first && model === second ? (first = false, reply("reserva")) : fail("cooldown"));
+      await test.service.send("u", "c", "oi");
+      await test.service.send("u", "c", "de novo");
+      expect(test.messages.at(-1)?.content).toBe("principal");
+      expect(test.states).toEqual([]);
+    } finally { vi.useRealTimers(); }
   });
 
   it("marca só a chave inválida", async () => {
@@ -50,13 +84,13 @@ describe("pool de chaves do Oráculo", () => {
   });
 
   it("limita a espera ao que o Firestore aceita", async () => {
-    const test = setup(["a", "b"], (key) => key === "a" ? fail("cooldown", 86_400_000) : reply("ok"));
-    await test.service.send("u", "c", "oi");
+    const test = setup(["a"], () => fail("cooldown", 86_400_000));
+    await expect(test.service.send("u", "c", "oi")).rejects.toThrow();
     expect(test.states[0][2]).toBeLessThan(Date.now() + 3_600_000);
   });
 
   it("continua na próxima chave mesmo sem conseguir gravar o estado", async () => {
-    const test = setup(["a", "b"], (key) => key === "a" ? fail("cooldown") : reply("ok"), { setCredentialState: async () => { throw new Error("permission-denied"); } });
+    const test = setup(["a", "b"], (key) => key === "a" ? fail("invalid") : reply("ok"), { setCredentialState: async () => { throw new Error("permission-denied"); } });
     await test.service.send("u", "c", "oi");
     expect(test.messages.at(-1)?.content).toBe("ok");
   });

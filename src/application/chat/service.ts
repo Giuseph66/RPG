@@ -51,6 +51,10 @@ export interface ChatSendOptions {
 export function createChatService(repository: ChatRepository, client: ChatClient, currentUid: () => string | undefined, agent: ChatAgent) {
   const busy = new Set<string>();
   const overloadedUntil = new Map<number, number>();
+  /** Quota is per model: a key only waits as a whole when every model refused it. */
+  const limitedUntil = new Map<string, number>();
+  const limitKey = (key: ChatCredential, index: number) => `${key.id}/${key.apiKey}/${index}`;
+  const limitEnd = (key: ChatCredential, index: number) => limitedUntil.get(limitKey(key, index)) ?? 0;
   const firstModel = () => Math.max(0, MODELS.findIndex((_model, index) => (overloadedUntil.get(index) ?? 0) <= Date.now()));
   function assertSession(uid: string, signal?: AbortSignal) {
     signal?.throwIfAborted();
@@ -74,10 +78,12 @@ export function createChatService(repository: ChatRepository, client: ChatClient
         return false;
       }));
       let overloaded = false;
-      for (let index = round ? 0 : choice.index; index < MODELS.length; index++) {
+      const order = MODELS.map((_model, position) => round ? position : (choice.index + position) % MODELS.length);
+      for (const index of order) {
         if (refused.has(index) || !usable.size) continue;
         const fallback = index > 0;
         for (const key of [...usable]) {
+          if (limitEnd(key, index) > Date.now()) continue;
           const identity = { credentialId: key.id, credentialLabel: redact(key.label) };
           let reading: ChatUsage | undefined;
           try {
@@ -100,12 +106,17 @@ export function createChatService(repository: ChatRepository, client: ChatClient
               if (!error.unusable) overloadedUntil.set(index, Date.now() + OVERLOAD_MEMORY_MS);
               break;
             }
-            // Quota and access are per model, so a fallback never changes the state of a key.
-            if (error.kind === "cooldown" && fallback) continue;
             keyError = error;
+            let cooldownEnd = Date.now() + Math.min(Math.max(error.retryAfterMs, MIN_COOLDOWN_MS), MAX_COOLDOWN_MS);
+            if (error.kind === "cooldown" && (error.status === 429 || fallback)) {
+              limitedUntil.set(limitKey(key, index), cooldownEnd);
+              const ends = MODELS.flatMap((_model, position) => refused.has(position) ? [] : [limitEnd(key, position)]);
+              if (ends.some((end) => end <= Date.now())) continue;
+              cooldownEnd = Math.min(...ends);
+            }
             usable.delete(key);
             if (error.kind === "unavailable") continue;
-            const cooldownUntil = error.kind === "invalid" ? 0 : Date.now() + Math.min(Math.max(error.retryAfterMs, MIN_COOLDOWN_MS), MAX_COOLDOWN_MS);
+            const cooldownUntil = error.kind === "invalid" ? 0 : cooldownEnd;
             if (error.kind === "cooldown") onUsage?.({ ...reading, ...identity, observedAt: reading?.observedAt ?? Date.now(), limited: true, cooldownUntil });
             // Failing to record the state must not stop the next key from being tried.
             await repository.setCredentialState(key, error.kind, cooldownUntil).catch(() => {});
@@ -274,7 +285,7 @@ export function createChatService(repository: ChatRepository, client: ChatClient
           }
         }
         if (!answer.trim()) throw new Error("Não foi possível concluir a resposta. Tente um pedido mais específico.");
-        if (choice.index) notices.push(`Respondido pelo modelo reserva ${MODELS[choice.index]}: o ${CHAT_PROVIDER.model} está sobrecarregado ou falhou há pouco.`);
+        if (choice.index) notices.push(`Respondido pelo modelo reserva ${MODELS[choice.index]}: o ${CHAT_PROVIDER.model} está sobrecarregado ou sem cota no momento.`);
         assertSession(uid, options.signal);
         await agent.context(uid, scope);
         await repository.appendMessage(uid, conversationId, "assistant", answer, { id: answerId, turnId, trace: traceFor(MODELS[choice.index], sources, tools, started, tokens, notices), actions });
