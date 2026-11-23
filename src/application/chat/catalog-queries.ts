@@ -2,6 +2,7 @@ import { normalizeSearchText, type CompendiumService } from "@application/compen
 import type { CompendiumBookCreatureDefinition, CompendiumBookSpellDefinition } from "@application/compendium/types";
 import type { RulesetRef } from "@domain/contracts/ids";
 import type { Ability, Skill, SourceRef } from "@domain/contracts/primitives";
+import type { CreatureRecord, CreatureSighting, CreatureSightingRevealed, CreatureKind } from "@domain/campaign/creatures";
 import { CREATURE_SIZES, CREATURE_TYPES, type CreatureStatBlock } from "@domain/creatures";
 import { ABILITIES, SKILLS, SKILL_ABILITY } from "@domain/rules/core/modifiers";
 
@@ -11,6 +12,20 @@ export const SPELL_CLASSES = ["bard", "cleric", "druid", "paladin", "ranger", "s
 
 type Input = Record<string, unknown>;
 interface Listing { readonly content: string; readonly title: string; readonly locator: string; readonly names: readonly string[] }
+
+/** One creature the asking person may see, from the book or from the campaign. */
+export interface CreatureEntry {
+  readonly origin: "livro" | "campanha";
+  readonly name: string;
+  readonly kind?: CreatureKind;
+  readonly statBlock?: CreatureStatBlock;
+  readonly hitPoints?: number;
+  readonly armorClass?: number;
+  /** Everything else this person may read; private notes only exist for the master. */
+  readonly details?: Readonly<Record<string, unknown>>;
+  readonly updatedAt?: string;
+}
+export interface CreatureListing extends Listing { readonly campaign: readonly CreatureEntry[] }
 
 const page = (refs: readonly SourceRef[]) => refs.map((ref) => [ref.chapter, ref.printedPage ? `p. ${ref.printedPage}` : ""].filter(Boolean).join(" ")).join("; ");
 const challenge = (block: CreatureStatBlock) => block.challengeRating ? block.challengeRating.numerator / block.challengeRating.denominator : undefined;
@@ -36,12 +51,14 @@ function choice<T extends string>(input: Input, key: string, values: readonly T[
 const limitOf = (input: Input) => Math.max(1, Math.min(30, Math.trunc(amount(input, "limit") ?? 12)));
 
 /** Value used to rank; a skill the block does not list falls back to its ability modifier. */
-function measure(block: CreatureStatBlock, sort: CreatureSort): number | undefined {
+function measure(entry: CreatureEntry, sort: CreatureSort): number | undefined {
+  const block = entry.statBlock;
+  if (sort === "hitPoints") return entry.hitPoints;
+  if (sort === "armorClass") return entry.armorClass;
+  if (!block) return undefined;
   if (isOneOf<Ability>(ABILITIES, sort)) return block.abilityScores[sort];
   if (isOneOf<Skill>(SKILLS, sort)) return block.skills?.[sort] ?? modifier(block.abilityScores[SKILL_ABILITY[sort]]);
   switch (sort) {
-    case "hitPoints": return block.hitPoints.average;
-    case "armorClass": return block.armorClass;
     case "challengeRating": return challenge(block);
     case "experiencePoints": return block.experiencePoints;
     case "passivePerception": return block.passivePerception;
@@ -53,51 +70,89 @@ function measure(block: CreatureStatBlock, sort: CreatureSort): number | undefin
   }
 }
 
-function creatures(compendium: CompendiumService, ruleset: RulesetRef): readonly CompendiumBookCreatureDefinition[] {
-  return compendium.search({ category: "creature" }).entries
-    .filter((entry) => entry.ruleset.id === ruleset.id && entry.ruleset.version === ruleset.version)
-    .flatMap((entry) => { const found = compendium.getDetail({ ...entry.ref, version: entry.ruleset.version }); return found.ok && "kind" in found.value.definition && found.value.definition.kind === "book-creature" ? [found.value.definition] : []; });
+/** Cast fields are free text: only an unambiguous leading number counts (“40 (6d8+13)”, never “uns 40”). */
+export function plainNumber(value: string | undefined): number | undefined {
+  const found = /^\s*(\d{1,5})\s*(?:\(.*\)|pv|hp|pontos de vida|ca)?\s*\.?\s*$/i.exec(value ?? "");
+  return found ? Number(found[1]) : undefined;
 }
 
-/** Filters, ranks and groups stat blocks in one step, so the model never has to guess names one by one. */
-export function searchCreatures(compendium: CompendiumService, ruleset: RulesetRef, input: Input): Listing {
+export function bookCreatures(compendium: CompendiumService, ruleset: RulesetRef): readonly CreatureEntry[] {
+  return compendium.search({ category: "creature" }).entries
+    .filter((entry) => entry.ruleset.id === ruleset.id && entry.ruleset.version === ruleset.version)
+    .flatMap((entry) => { const found = compendium.getDetail({ ...entry.ref, version: entry.ruleset.version }); return found.ok && "kind" in found.value.definition && found.value.definition.kind === "book-creature" ? [found.value.definition as CompendiumBookCreatureDefinition] : []; })
+    .map(({ statBlock }) => ({ origin: "livro", name: statBlock.name, statBlock, hitPoints: statBlock.hitPoints.average, armorClass: statBlock.armorClass }));
+}
+
+function campaignEntry(fields: CreatureSightingRevealed, kind: CreatureKind | undefined, updatedAt: string, extra: Readonly<Record<string, unknown>> = {}): CreatureEntry {
+  const { name, statBlock, hitPoints, armorClass, ...rest } = fields;
+  const details = Object.fromEntries(Object.entries({ ...rest, ...extra, ...(hitPoints ? { pvInformado: hitPoints } : {}), ...(armorClass ? { caInformada: armorClass } : {}) }).filter(([, value]) => value !== "" && value !== undefined));
+  const life = statBlock?.hitPoints.average ?? plainNumber(hitPoints), defense = statBlock?.armorClass ?? plainNumber(armorClass);
+  return { origin: "campanha", name: name?.trim() || "Criatura sem nome revelado", ...(kind ? { kind } : {}), ...(statBlock ? { statBlock } : {}), ...(life === undefined ? {} : { hitPoints: life }), ...(defense === undefined ? {} : { armorClass: defense }), details, updatedAt };
+}
+/** Master only: the whole private cast. Callers must have confirmed the role. */
+export const masterCreatures = (records: readonly CreatureRecord[]): readonly CreatureEntry[] => records.map(({ name, appearance, race, description, hitPoints, armorClass, abilities, notes, statBlock, kind, updatedAt }) =>
+  campaignEntry({ name, appearance, race, description, hitPoints, armorClass, abilities, ...(statBlock ? { statBlock } : {}) }, kind, updatedAt, { notasDoMestre: notes }));
+/** Player: nothing but the fields revealed to that account. */
+export const playerCreatures = (sightings: readonly CreatureSighting[]): readonly CreatureEntry[] => sightings.map((item) => campaignEntry(item.revealed, item.kind, item.updatedAt));
+
+const matchesType = (entry: CreatureEntry, type: string) => entry.statBlock ? entry.statBlock.creatureType === type : type === "beast" && entry.kind === "animal";
+const origin = (entry: CreatureEntry) => entry.statBlock && entry.origin === "livro" ? page(entry.statBlock.sourceRefs.slice(0, 1)) : "Elenco da campanha";
+const entryChallenge = (entry: CreatureEntry) => entry.statBlock ? challenge(entry.statBlock) : undefined;
+const entryChallengeLabel = (entry: CreatureEntry) => entry.statBlock ? challengeLabel(entry.statBlock) : "—";
+
+/**
+ * Filters, ranks and groups in one step, so the model never has to guess names one by one. `visible` must
+ * hold only what the asking person may see: counts, order and ties are computed from nothing else.
+ */
+export function searchCreatures(visible: readonly CreatureEntry[], input: Input): CreatureListing {
   const query = text(input, "query"), type = choice(input, "type", CREATURE_TYPES), size = choice(input, "size", CREATURE_SIZES);
+  const wanted = choice(input, "origin", ["all", "book", "campaign"] as const) ?? "all";
   const minChallenge = amount(input, "minChallenge"), maxChallenge = amount(input, "maxChallenge"), minHitPoints = amount(input, "minHitPoints");
-  const sort = choice(input, "sortBy", CREATURE_SORTS) ?? (query ? "name" : "challengeRating");
+  const sort = choice(input, "sortBy", CREATURE_SORTS) ?? (query || wanted === "campaign" ? "name" : "challengeRating");
   const ascending = input.order === "asc" || (input.order !== "desc" && sort === "name");
   const limit = limitOf(input), terms = query.split(" ").filter(Boolean);
-  const all = creatures(compendium, ruleset).map((item) => item.statBlock);
-  let found = all.filter((block) => (!type || block.creatureType === type) && (!size || block.size === size) &&
-    (input.includeSwarms !== false || !block.isSwarm) &&
-    (minChallenge === undefined || (challenge(block) ?? -1) >= minChallenge) && (maxChallenge === undefined || (challenge(block) ?? Infinity) <= maxChallenge) &&
-    (minHitPoints === undefined || block.hitPoints.average >= minHitPoints) &&
-    (!terms.length || terms.every((term) => normalizeSearchText(block.name).includes(term))));
-  if (sort !== "name") found = found.filter((block) => measure(block, sort) !== undefined);
-  found = found.sort((a, b) => (sort === "name" ? 0 : (measure(a, sort)! - measure(b, sort)!) * (ascending ? 1 : -1)) || a.name.localeCompare(b.name, "pt-BR") * (sort === "name" && !ascending ? -1 : 1));
+  const all = visible.filter((entry) => wanted === "all" || entry.origin === (wanted === "book" ? "livro" : "campanha"));
+  const candidates = all.filter((entry) => (!type || matchesType(entry, type)) && (!size || entry.statBlock?.size === size) &&
+    (input.includeSwarms !== false || !entry.statBlock?.isSwarm) &&
+    (minChallenge === undefined || (entryChallenge(entry) ?? -1) >= minChallenge) && (maxChallenge === undefined || (entryChallenge(entry) ?? Infinity) <= maxChallenge) &&
+    (minHitPoints === undefined || (entry.hitPoints ?? -1) >= minHitPoints) &&
+    (!terms.length || terms.every((term) => normalizeSearchText(entry.name).includes(term))));
+  // Without the value there is no place in the ranking; saying so is better than guessing one.
+  const unranked = sort === "name" ? [] : candidates.filter((entry) => measure(entry, sort) === undefined);
+  const found = candidates.filter((entry) => !unranked.includes(entry))
+    .sort((a, b) => (sort === "name" ? 0 : (measure(a, sort)! - measure(b, sort)!) * (ascending ? 1 : -1)) || a.name.localeCompare(b.name, "pt-BR") * (sort === "name" && !ascending ? -1 : 1));
   const matched = found.length;
   let shown = found.slice(0, limit);
   let tied = 0;
   if (input.topPerChallenge === true) {
-    const best = new Map<string, CreatureStatBlock[]>();
-    for (const block of found) {
-      const group = best.get(challengeLabel(block));
-      if (!group) best.set(challengeLabel(block), [block]);
-      else if (sort !== "name" && measure(group[0], sort) === measure(block, sort)) group.push(block);
+    const best = new Map<string, CreatureEntry[]>();
+    for (const entry of found) {
+      const group = best.get(entryChallengeLabel(entry));
+      if (!group) best.set(entryChallengeLabel(entry), [entry]);
+      else if (sort !== "name" && measure(group[0], sort) === measure(entry, sort)) group.push(entry);
     }
-    const groups = [...best.values()].sort((a, b) => (challenge(a[0]) ?? -1) - (challenge(b[0]) ?? -1)).map((group) => { tied += Math.max(0, group.length - 3); return group.slice(0, 3); });
-    shown = groups.flat();
+    shown = [...best.values()].sort((a, b) => (entryChallenge(a[0]) ?? -1) - (entryChallenge(b[0]) ?? -1)).flatMap((group) => { tied += Math.max(0, group.length - 3); return group.slice(0, 3); });
   }
   // A short list must not hide creatures tied with its last one.
   const last = shown.at(-1);
-  const hidden = input.topPerChallenge !== true && sort !== "name" && last ? found.slice(shown.length).filter((block) => measure(block, sort) === measure(last, sort)) : [];
+  const hidden = input.topPerChallenge !== true && sort !== "name" && last ? found.slice(shown.length).filter((entry) => measure(entry, sort) === measure(last, sort)) : [];
   const detail = input.detail === true && shown.length <= 3;
-  const rows = shown.map((block) => detail ? block : {
-    nome: block.name, tipo: block.creatureType, ...(block.isSwarm ? { enxame: true } : {}), tamanho: block.size, nd: challengeLabel(block), pv: block.hitPoints.average, dados: block.hitPoints.hitDice, ca: block.armorClass,
-    ...(sort !== "name" && sort !== "hitPoints" && sort !== "armorClass" && sort !== "challengeRating" ? { [sort]: measure(block, sort) } : {}), fonte: page(block.sourceRefs.slice(0, 1)),
+  const rows = shown.map((entry) => {
+    const block = entry.statBlock;
+    return {
+      nome: entry.name, origem: entry.origin, ...(entry.kind ? { categoria: entry.kind } : {}), ...(block ? { tipo: block.creatureType, ...(block.isSwarm ? { enxame: true } : {}), tamanho: block.size, nd: challengeLabel(block), dados: block.hitPoints.hitDice } : {}),
+      pv: entry.hitPoints ?? "não informado", ca: entry.armorClass ?? "não informada",
+      ...(sort !== "name" && sort !== "hitPoints" && sort !== "armorClass" && sort !== "challengeRating" ? { [sort]: measure(entry, sort) } : {}), fonte: origin(entry),
+      ...(detail ? { ...(block ? { ficha: block } : {}), ...(entry.details ? { detalhes: entry.details } : {}) } : {}),
+    };
   });
-  const note = `${matched} de ${all.length} criaturas com ficha no catálogo do app atendem ao filtro; ${shown.length} listadas.${tied ? ` ${tied} empate(s) omitido(s).` : ""}${hidden.length ? ` Empatadas com a última listada e fora da lista: ${hidden.slice(0, 8).map((block) => block.name).join(", ")}${hidden.length > 8 ? ` e mais ${hidden.length - 8}` : ""}.` : ""} Só afirme o que está no catálogo: criaturas ausentes não estão cadastradas no app.${matched ? "" : " Nada encontrado: diga isso ou remova filtros; não tente nomes ao acaso."}`;
-  return { content: JSON.stringify({ observacao: note, ordenadoPor: sort, criaturas: rows }), title: "Criaturas do catálogo", locator: `${matched} de ${all.length} criaturas · ordem: ${sort}${input.topPerChallenge === true ? " · melhor de cada ND" : ""}`,
-    names: shown.map((block) => `${block.name}: ND ${challengeLabel(block)}, PV ${block.hitPoints.average}, CA ${block.armorClass} (${page(block.sourceRefs.slice(0, 1))})`) };
+  const names = (list: readonly CreatureEntry[]) => `${list.slice(0, 8).map((entry) => entry.name).join(", ")}${list.length > 8 ? ` e mais ${list.length - 8}` : ""}`;
+  const unrankedCampaign = unranked.filter((entry) => entry.origin === "campanha");
+  const note = `${matched} de ${all.length} criaturas visíveis para esta pessoa atendem ao filtro; ${shown.length} listadas.${tied ? ` ${tied} empate(s) omitido(s).` : ""}${hidden.length ? ` Empatadas com a última listada e fora da lista: ${names(hidden)}.` : ""}${unrankedCampaign.length ? ` Da campanha, sem valor conhecido para ${sort} e por isso fora da ordem: ${names(unrankedCampaign)}.` : ""} Indique a origem (livro ou campanha). Só afirme o que está aqui.${matched ? "" : " Nada encontrado no livro nem no que esta pessoa pode ver da campanha: diga exatamente isso, sem concluir que não existe; não tente nomes ao acaso."}`;
+  const line = (entry: CreatureEntry) => `${entry.name}: ${entry.statBlock ? `ND ${challengeLabel(entry.statBlock)}, ` : ""}PV ${entry.hitPoints ?? "não informado"}, CA ${entry.armorClass ?? "não informada"} (${origin(entry)})`;
+  const book = shown.filter((entry) => entry.origin === "livro");
+  return { content: JSON.stringify({ observacao: note, ordenadoPor: sort, criaturas: rows }), title: "Criaturas do catálogo", locator: `Livro · ordem: ${sort}${input.topPerChallenge === true ? " · melhor de cada ND" : ""}`,
+    names: book.map(line), campaign: shown.filter((entry) => entry.origin === "campanha") };
 }
 
 export function searchSpells(compendium: CompendiumService, ruleset: RulesetRef, input: Input): Listing {

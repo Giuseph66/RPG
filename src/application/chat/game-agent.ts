@@ -23,7 +23,7 @@ import { createPlatformRandomSource, parseDiceFormula, rollExpression } from "@d
 import type { CoinDenomination } from "@domain/contracts/primitives";
 import { COMPENDIUM_CATEGORIES } from "@application/compendium/types";
 import { CREATURE_SIZES, CREATURE_TYPES } from "@domain/creatures";
-import { CREATURE_SORTS, searchCreatures, searchSpells, SPELL_CLASSES } from "./catalog-queries";
+import { bookCreatures, CREATURE_SORTS, masterCreatures, playerCreatures, searchCreatures, searchSpells, SPELL_CLASSES, type CreatureEntry } from "./catalog-queries";
 import { ChatSheetUnavailableError, DEFAULT_CHAT_SCOPE } from "@application/ports/chat-agent";
 import { ownSlots, preparedLimitFor } from "@domain/character/evolution/spell-tables";
 
@@ -66,14 +66,13 @@ function passage(content: string, query: string): string {
 const prop = (description: string) => ({ type: "string", description });
 const tool = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): ChatToolDefinition => ({ type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } } });
 export const READ_TOOLS = [
-  tool("search_creatures", "Filtra, ordena e compara as fichas de criaturas (bestas, monstros, NPCs) do catálogo em UMA chamada. Use sempre para criatura, animal, besta ou monstro: maior/menor PV, CA, furtividade, velocidade, por ND ou tipo. Nunca procure criaturas nome a nome. topPerChallenge devolve a melhor de cada ND segundo sortBy. Com query e detail devolve a ficha completa (até 3).", { query: prop("Parte do nome, só quando o usuário citou uma criatura"), type: { type: "string", enum: [...CREATURE_TYPES], description: "beast = besta/animal" }, size: { type: "string", enum: [...CREATURE_SIZES] }, minChallenge: { type: "number", description: "ND mínimo; 1/4 = 0.25" }, maxChallenge: { type: "number" }, minHitPoints: { type: "number" }, sortBy: { type: "string", enum: [...CREATURE_SORTS], description: "hitPoints = PV/vida; stealth = furtividade; challengeRating = ND" }, order: { type: "string", enum: ["desc", "asc"] }, topPerChallenge: { type: "boolean" }, includeSwarms: { type: "boolean", description: "false exclui enxames" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
+  tool("search_creatures", "Filtra, ordena e compara as criaturas do livro e as da campanha que esta pessoa pode ver (bestas, monstros, NPCs, elenco) em UMA chamada. Use sempre para criatura, animal, besta ou monstro: maior/menor PV, CA, furtividade, velocidade, por ND ou tipo. Nunca procure criaturas nome a nome. topPerChallenge devolve a melhor de cada ND segundo sortBy. Com query e detail devolve a ficha completa (até 3).", { query: prop("Parte do nome, só quando o usuário citou uma criatura"), origin: { type: "string", enum: ["all", "book", "campaign"], description: "campaign = só o elenco da campanha" }, type: { type: "string", enum: [...CREATURE_TYPES], description: "beast = besta/animal" }, size: { type: "string", enum: [...CREATURE_SIZES] }, minChallenge: { type: "number", description: "ND mínimo; 1/4 = 0.25" }, maxChallenge: { type: "number" }, minHitPoints: { type: "number" }, sortBy: { type: "string", enum: [...CREATURE_SORTS], description: "hitPoints = PV/vida; stealth = furtividade; challengeRating = ND" }, order: { type: "string", enum: ["desc", "asc"] }, topPerChallenge: { type: "boolean" }, includeSwarms: { type: "boolean", description: "false exclui enxames" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
   tool("search_spells", "Filtra e lista magias do livro em UMA chamada por círculo, classe, escola, concentração ou ritual. detail devolve a descrição completa (até 3 resultados).", { query: prop("Parte do nome ou da descrição"), level: { type: "integer", minimum: 0, maximum: 9, description: "0 = truque" }, minLevel: { type: "integer", minimum: 0 }, maxLevel: { type: "integer", maximum: 9 }, class: { type: "string", enum: [...SPELL_CLASSES] }, school: prop("Escola em português"), concentration: { type: "boolean" }, ritual: { type: "boolean" }, limit: { type: "integer", minimum: 1, maximum: 30 }, detail: { type: "boolean" } }),
   tool("search_rules", "Busca textos de regras, itens, talentos e classes no livro/compêndio. Envie todos os termos de uma vez em queries (até 5). Para listas ou comparações use search_creatures ou search_spells. Retorna fontes reais.", { queries: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 5, description: "Termos curtos, em português" }, category: { type: "string", enum: COMPENDIUM_CATEGORIES.map((item) => item.id) } }, ["queries"]),
   tool("read_sheet", "Consulta a ficha selecionada, cálculos do motor, recursos, equipamentos e magias. section limita o contexto.", { section: { type: "string", enum: ["all", "identity", "abilities", "combat", "inventory", "spells", "resources"] } }),
   tool("read_campaign", "Consulta campanha, objetivos, regras da casa, NPCs e mapas respeitando visibilidade."),
   tool("read_journal", "Busca registros visíveis do diário e linha do tempo; jogador só acessa seu diário.", { query: prop("Termos opcionais") }),
   tool("read_sessions", "Consulta sessões, recapitulações, participantes e iniciativa. Filtre por número ou termos para localizar sessões antigas. Notas completas só para mestre.", { number: { type: "integer", minimum: 1 }, query: prop("Termos do título ou resumo") }),
-  tool("read_creatures", "Mestre consulta elenco; jogador recebe apenas avistamentos publicados para ele."),
   tool("read_party", "Consulta o grupo para planejar encontros e comparar recursos. Mestre lê fichas da campanha; jogador só recebe sua própria ficha."),
   tool("read_rolls", "Consulta os últimos resultados reais de dados da ficha selecionada."),
   tool("read_memories", "Consulta memórias pessoais e da campanha; nunca trate sugestões como fatos ocorridos.", { query: prop("Termos opcionais") }),
@@ -212,11 +211,26 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       });
       return { content: (entries.length ? "Trechos do catálogo carregado; páginas apenas quando constam da fonte. Referencie as fontes retornadas." : "Nenhuma regra encontrada.") + (missing.length ? ` Sem resultado para: ${missing.join(", ")}. Tente no máximo um sinônimo; se continuar vazio, diga que não está no catálogo. Não invente referência ou página.` : ""), sources };
     }
-    if (name === "search_creatures" || name === "search_spells") {
+    if (name === "search_spells") {
       await d.loadCatalog(); session(uid);
-      const creature = name === "search_creatures";
-      const listing = (creature ? searchCreatures : searchSpells)(d.compendium, d.pack.manifest, input);
-      return { content: listing.content, sources: listing.names.length ? [source("rule", listing.title, listing.locator, listing.names.join("\n").slice(0, 3500), creature ? "/compendium/creature" : "/compendium/spell")] : [] };
+      const listing = searchSpells(d.compendium, d.pack.manifest, input);
+      return { content: listing.content, sources: listing.names.length ? [source("rule", listing.title, listing.locator, listing.names.join("\n").slice(0, 3500), "/compendium/spell")] : [] };
+    }
+    if (name === "search_creatures") {
+      const visible: CreatureEntry[] = [];
+      let master = false, notice = "";
+      if (scope.campaign && scope.campaignId) {
+        // The role decides what is even loaded: hidden creatures never reach a player's search.
+        master = await role(uid, scope) === "master";
+        const id = asUuid(scope.campaignId);
+        try { visible.push(...(master ? masterCreatures(value(await d.creatures.listCreatures(id))) : playerCreatures(value(await d.creatures.listSightings(id, asAccountId(uid)))))); }
+        catch { notice = "\nO elenco da campanha não pôde ser lido agora; avise que a resposta considera só o livro."; }
+      }
+      if (scope.rules) { await d.loadCatalog(); visible.push(...bookCreatures(d.compendium, d.pack.manifest)); }
+      session(uid);
+      const listing = searchCreatures(visible, input);
+      const campaignSources = listing.campaign.slice(0, 8).map((entry) => source("campaign", entry.name, `Elenco da campanha · ${master ? "registro do mestre" : "revelado a você"}`, `PV ${entry.hitPoints ?? "não informado"} · CA ${entry.armorClass ?? "não informada"}`, "/journey/creatures", entry.updatedAt));
+      return { content: listing.content + notice, sources: [...(listing.names.length ? [source("rule", listing.title, listing.locator, listing.names.join("\n").slice(0, 3500), "/compendium/creature")] : []), ...campaignSources] };
     }
     if (name === "read_sheet" || name === "read_actions" || name === "read_rolls") {
       const current = await character(uid, scope), { pack, derived } = calculated(current);
@@ -270,11 +284,10 @@ export function createGameChatAgent(d: Dependencies): ChatAgent {
       const sessions = [...value(await d.session.list(current.id))].filter((item) => (!input.number || item.number === input.number) && (!input.query || `${item.title} ${item.summary}`.toLocaleLowerCase("pt-BR").includes(String(input.query).toLocaleLowerCase("pt-BR")))).sort((a, b) => b.number - a.number).slice(0, 10).map(({ notes, ...item }) => ({ ...item, ...(r === "master" ? { notes } : {}) }));
       return { content: json(sessions), sources: sessions.map((item) => source("session", item.title, `Sessão ${item.number} · ${item.status}`, item.summary, `/session/${current.id}`, item.updatedAt)) };
     }
-    if (name === "read_creatures") return { content: json(r === "master" ? value(await d.creatures.listCreatures(current.id)) : value(await d.creatures.listSightings(current.id, asAccountId(uid)))) };
     throw new Error("Ferramenta desconhecida.");
   }
   function tools(scope: ChatScope) {
-    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : ["search_rules", "search_creatures", "search_spells"].includes(f.name) ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
+    return [...READ_TOOLS, ...WRITE_TOOLS].filter(({ function: f }) => f.name === "propose_roll" ? true : f.name === "search_creatures" ? scope.rules || (scope.campaign && !!scope.campaignId) : ["search_rules", "search_spells"].includes(f.name) ? scope.rules : ["read_sheet", "read_actions", "read_rolls", "propose_action", "propose_inventory", "propose_condition", "propose_preparation"].includes(f.name) ? scope.sheet && !!scope.characterId : f.name.includes("memor") ? scope.memory : scope.campaign && !!scope.campaignId);
   }
   async function execute(uid: string, action: ChatAction) {
     const { scope, input, name } = action;
