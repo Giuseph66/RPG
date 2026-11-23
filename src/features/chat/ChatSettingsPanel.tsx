@@ -10,7 +10,7 @@ type Feedback = { readonly tone: "info" | "error"; readonly text: string };
 /** `new` adds a key in a free slot; `replace` swaps the secret of an existing key. */
 type Editing = { readonly kind: "new" } | { readonly kind: "replace"; readonly credential: ChatCredentialSummary };
 
-const DEFAULT_KEY_LABEL = "Minha chave Groq";
+const DEFAULT_KEY_LABEL = "Minha chave Gemini";
 
 function keyStatus(credential: ChatCredentialSummary) {
   if (credential.status === "invalid") return { tone: "danger" as const, text: "Inválida" };
@@ -18,7 +18,7 @@ function keyStatus(credential: ChatCredentialSummary) {
   return { tone: "xp" as const, text: "Disponível" };
 }
 
-/** The Oráculo's model is fixed; players only manage their shared GroqCloud keys. */
+/** The Oráculo's model is fixed; players only manage their shared Gemini keys. */
 export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly service?: ChatService; readonly uid?: string; readonly onOpenAccount: () => void }) {
   const [credentials, setCredentials] = useState<readonly ChatCredentialSummary[]>([]);
   const [editing, setEditing] = useState<Editing>();
@@ -48,7 +48,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
 
   const openForm = (next: Editing) => {
     setFeedback(undefined); setConfirmRemove(undefined); setApiKey("");
-    setLabel(next.kind === "replace" ? next.credential.label : credentials.length ? `Chave Groq ${credentials.length + 1}` : DEFAULT_KEY_LABEL);
+    setLabel(next.kind === "replace" ? next.credential.label : credentials.length ? `Chave Gemini ${credentials.length + 1}` : DEFAULT_KEY_LABEL);
     setEditing(next);
   };
   const closeForm = () => { setEditing(undefined); setApiKey(""); setFeedback(undefined); };
@@ -71,7 +71,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
     <header className={styles.header}>
       <p className={styles.eyebrow}>Oráculo</p>
       <h2 id="oracle-settings-title">Inteligência artificial</h2>
-      <p>O Oráculo responde usando chaves de acesso do GroqCloud cadastradas pela mesa, na ordem em que foram adicionadas. Quando uma chave atinge o limite de uso, ele passa para a próxima. Se ninguém tiver chave, adicione a sua (o plano gratuito serve).</p>
+      <p>O Oráculo responde usando chaves de acesso do Google Gemini cadastradas pela mesa, na ordem em que foram adicionadas. Quando uma chave atinge o limite de uso, ele passa para a próxima. Se ninguém tiver chave, adicione a sua (o plano gratuito serve). As chaves antigas do Groq não são mais usadas.</p>
     </header>
   );
 
@@ -120,7 +120,7 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
                     </button>
                   </div>
                 </div>
-                {credential.status === "invalid" ? <p className={styles.warn}>O GroqCloud recusou esta chave. Troque por uma chave válida.</p> : null}
+                {credential.status === "invalid" ? <p className={styles.warn}>O Google recusou esta chave. Troque por uma chave válida.</p> : null}
                 {removing ? (
                   <div className={styles.confirm} role="group" aria-label={`Confirmar remoção de ${credential.label}`}>
                     <p>Remover "{credential.label}"? {credentials.length === 1 ? "Se não houver outras chaves na mesa, o Oráculo para de responder." : "As outras chaves continuam funcionando."}</p>
@@ -147,17 +147,18 @@ export function ChatSettingsPanel({ service, uid, onOpenAccount }: { readonly se
         <details className={styles.tutorial} open={!credentials.length}>
           <summary>Como conseguir sua chave<CaretDownIcon size={12} weight="bold" aria-hidden="true" /></summary>
           <ol>
-            <li><span><strong>Crie uma conta grátis</strong> no GroqCloud (dá para entrar com Google ou GitHub).</span></li>
-            <li><span>Abra a página <strong>API Keys</strong> do console.</span></li>
-            <li><span>Toque em <strong>Create API Key</strong>, dê um nome (ex.: "Oráculo da Mesa") e confirme.</span></li>
-            <li><span><strong>Copie a chave na hora</strong>: ela começa com <code>gsk_</code> e só aparece uma vez.</span></li>
+            <li><span><strong>Entre com sua conta Google</strong> no Google AI Studio e aceite os termos (é preciso ter 18 anos ou mais).</span></li>
+            <li><span>Abra a página <strong>API Keys</strong>.</span></li>
+            <li><span>Toque em <strong>Create API key</strong>, dê um nome (ex.: "Oráculo da Mesa") e confirme.</span></li>
+            <li><span><strong>Copie a chave inteira</strong>, sem espaços.</span></li>
             <li><span>Volte aqui, cole no campo abaixo e toque em <strong>Salvar chave</strong>.</span></li>
           </ol>
-          <a className={styles.tutorialLink} href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">
-            Abrir API Keys no GroqCloud<ArrowSquareOutIcon size={16} weight="bold" aria-hidden="true" />
+          <p>O limite de uso é contado por projeto do Google. Várias chaves do mesmo projeto dividem o mesmo limite; para somar, use chaves de contas ou projetos diferentes. No plano gratuito, o Google pode usar as conversas para melhorar os produtos dele.</p>
+          <a className={styles.tutorialLink} href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
+            Abrir API Keys no Google AI Studio<ArrowSquareOutIcon size={16} weight="bold" aria-hidden="true" />
           </a>
         </details>
-        <Input label="Chave da API GroqCloud" type="password" autoComplete="new-password" value={apiKey} maxLength={512} disabled={busy} onChange={(event) => setApiKey(event.currentTarget.value)} hint="Cole aqui a chave que começa com gsk_." />
+        <Input label="Chave da API Gemini" type="password" autoComplete="new-password" value={apiKey} maxLength={512} disabled={busy} onChange={(event) => setApiKey(event.currentTarget.value)} hint="Cole aqui a chave criada no Google AI Studio." />
         <Input label="Nome (opcional)" value={label} maxLength={60} disabled={busy} onChange={(event) => setLabel(event.currentTarget.value)} hint="Para você reconhecer a chave depois." />
         {feedbackStatus}
         <div className={styles.actions}>

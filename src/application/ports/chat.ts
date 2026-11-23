@@ -1,5 +1,5 @@
 /** Fixed provider and model: the Oráculo always answers with this model; users never pick one. */
-export const CHAT_PROVIDER = { baseUrl: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-20b" } as const;
+export const CHAT_PROVIDER = { baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-4-hydrogen" } as const;
 import type { ChatAction, ChatAttachment, ChatCompletion, ChatMemory, ChatModelMessage, ChatScope, ChatToolDefinition, ChatTrace } from "./chat-agent";
 
 export interface ChatMessage {
@@ -24,7 +24,7 @@ export interface ChatConversation {
   readonly summarizedThrough?: number;
 }
 
-/** Each account may register up to this many GroqCloud keys in the shared pool. */
+/** Each account may register up to this many Gemini keys in the shared pool. */
 export const MAX_CREDENTIALS_PER_USER = 5;
 
 export interface ChatCredentialSummary {
@@ -68,24 +68,22 @@ export interface ChatRepository {
   deleteMemory(uid: string, memory: ChatMemory): Promise<void>;
 }
 
+/**
+ * What a failed call means for the pool: `invalid` and `cooldown` mark the key; `unavailable` and
+ * `transient` only move on to the next one; `rejected` is a problem with the request, not the key.
+ */
+export type ChatFailureKind = "invalid" | "cooldown" | "unavailable" | "transient" | "rejected";
+
 export class ChatRequestError extends Error {
-  constructor(message: string, readonly status: number, readonly retryAfterMs = 300_000) {
+  constructor(message: string, readonly status: number, readonly kind: ChatFailureKind, readonly retryAfterMs = 60_000) {
     super(message);
     this.name = "ChatRequestError";
   }
 }
 
-export interface ChatUsageWindow {
-  readonly limit: number;
-  readonly remaining: number;
-  readonly resetsAt?: number;
-}
-
-/** Última leitura da organização da chave usada; não representa o pool inteiro. */
+/** Estado da última chamada feita com a chave; o Gemini não informa saldo nas respostas. */
 export interface ChatUsage {
   readonly observedAt: number;
-  readonly requests?: ChatUsageWindow;
-  readonly tokens?: ChatUsageWindow;
   readonly limited: boolean;
   readonly retryAt?: number;
 }

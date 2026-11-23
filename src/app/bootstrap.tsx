@@ -78,7 +78,7 @@ import { AppRouter } from "./router";
 import { createChatService } from "@application/chat/service";
 import { createGameChatAgent } from "@application/chat/game-agent";
 import { createFirestoreChatRepository } from "@infrastructure/cloud/firebase/chat-repository";
-import { createGroqClient } from "@infrastructure/ai/groq-client";
+import { createGeminiClient } from "@infrastructure/ai/gemini-client";
 
 type FirebaseCloudModule = typeof import("@infrastructure/cloud/firebase");
 
@@ -760,7 +760,7 @@ export async function createApplicationRuntime(options: ApplicationRuntimeOption
       race: optionalNames((supplement) => supplement.races, activePack.races), subrace: optionalNames((supplement) => supplement.subraces, activePack.subraces), class: activePack.classes, subclass: optionalNames((supplement) => supplement.subclasses, activePack.subclasses), background: activePack.backgrounds, feat: activePack.feats, feature: optionalNames((supplement) => supplement.features, activePack.features), resource: optionalNames((supplement) => supplement.resources, activePack.resources), condition: activePack.conditions, equipment: activePack.equipment, spell: optionalNames((supplement) => supplement.spells, activePack.spells),
     };
     const chatRepository = firebaseApp && cloud ? createFirestoreChatRepository(() => cloud.getFirestoreClient(firebaseApp).firestore) : undefined;
-    const chat = chatRepository ? createChatService(chatRepository, createGroqClient(), () => auth?.currentSession()?.uid, createGameChatAgent({
+    const chat = chatRepository ? createChatService(chatRepository, createGeminiClient(), () => auth?.currentSession()?.uid, createGameChatAgent({
       services, repository: chatRepository, characters: characterRepository, campaigns: campaignRepository,
       dice: diceHistoryRepository, compendium: compendiumService, loadCatalog: loadCompendiumCatalog,
       session, creatures: creatureService, pack: activePack, ruleContext: STATIC_RULE_CONTEXT,

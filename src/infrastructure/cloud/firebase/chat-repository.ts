@@ -6,14 +6,14 @@ const millis = (value: unknown): number => value && typeof value === "object" &&
 const clean = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 function credential(id: string, data: Record<string, unknown>): ChatCredentialSummary {
   // The first slot reuses the owner uid as document id (the old single-key layout); ownerUid is stored in every key.
-  return { id, ownerUid: String(data.ownerUid ?? id), label: String(data.label ?? "Chave GroqCloud"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
+  return { id, ownerUid: String(data.ownerUid ?? id), label: String(data.label ?? "Chave Gemini"), status: data.status === "cooldown" || data.status === "invalid" ? data.status : "active", cooldownUntil: Number(data.cooldownUntil ?? 0), createdAt: millis(data.createdAt) };
 }
 export function createFirestoreChatRepository(getFirestore: () => Firestore): ChatRepository {
   const conversationsRef = (uid: string) => collection(getFirestore(), "users", uid, "chatConversations");
   const conversationRef = (uid: string, id: string) => doc(conversationsRef(uid), id);
   const messagesRef = (uid: string, id: string) => collection(conversationRef(uid, id), "messages");
   const actionsRef = (uid: string, id: string) => collection(conversationRef(uid, id), "actions");
-  const keysRef = () => collection(getFirestore(), "groqKeys");
+  const keysRef = () => collection(getFirestore(), "geminiKeys");
   const keyRef = (id: string) => doc(keysRef(), id);
   /** Fixed slots per account (`uid`, `uid_2` … `uid_N`); the Firestore rules accept only these ids, which caps keys per account. */
   const keySlots = (uid: string) => Array.from({ length: MAX_CREDENTIALS_PER_USER }, (_, index) => index === 0 ? uid : `${uid}_${index + 1}`);

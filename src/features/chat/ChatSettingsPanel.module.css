@@ -37,7 +37,7 @@
   .actions > * { flex: 1 1 auto; }
 }
 
-/* Mini tutorial: how to get a GroqCloud key */
+/* Mini tutorial: how to get a Gemini key */
 .tutorial { display: grid; padding: 0 var(--spacing-md); background: color-mix(in srgb, var(--color-surface-elevated) 60%, transparent); border: 1px solid color-mix(in srgb, var(--color-border) 28%, transparent); border-radius: var(--radius-surface); }
 .tutorial summary { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--size-touch-target); color: var(--color-secondary); font-weight: 700; list-style: none; cursor: pointer; }
 .tutorial summary::-webkit-details-marker { display: none; }
@@ -48,7 +48,7 @@
 .tutorial li { display: flex; gap: var(--spacing-sm); color: var(--color-text-muted); font-size: .92rem; line-height: 1.45; counter-increment: step; }
 .tutorial li::before { display: grid; flex: 0 0 auto; width: 1.4rem; height: 1.4rem; place-items: center; color: var(--color-on-secondary); background: var(--color-secondary); border-radius: 50%; font-size: .75rem; font-weight: 800; content: counter(step); }
 .tutorial li strong { color: var(--color-text); }
-.tutorial code { padding: 0 .3rem; color: var(--color-secondary); background: color-mix(in srgb, var(--color-background) 65%, transparent); border-radius: .25rem; font-family: inherit; }
+.tutorial p { margin: 0 0 var(--spacing-xs); color: var(--color-text-muted); font-size: .85rem; line-height: 1.45; }
 .tutorialLink { display: inline-flex; align-items: center; gap: var(--spacing-xs); justify-self: start; min-height: var(--size-touch-target); margin-bottom: var(--spacing-sm); color: var(--color-secondary); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .tutorialLink:hover { color: var(--color-text); }
 .tutorialLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }

@@ -251,35 +251,19 @@
 .usageToggle small[data-limited] { color: var(--color-danger); }
 .usageToggle:hover .usageToggleHeading { color: var(--color-text); }
 .usageToggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.usageMiniMeters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
-.usageMiniMeters .usageTrack { height: .2rem; }
-.usageMiniMeters .usageTrack > span { display: block; height: 100%; background: var(--color-secondary); }
-.usageMiniMeters .usageTrack > span[data-warning] { background: var(--color-danger); }
 .usagePanel { display: grid; gap: var(--spacing-md); color: var(--color-text-muted); font-size: .875rem; }
 .usageKeySelector { display: grid; gap: .35rem; }
 .usageKeySelector select { width: 100%; min-width: 0; min-height: var(--size-touch-target); padding: .4rem .5rem; border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); background: var(--color-background); font: inherit; }
 .usageKeySelector select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.usageHeading, .usageLabel { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .6rem; }
+.usageHeading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .6rem; }
 .usageHeading strong { color: var(--color-secondary); font-weight: 600; }
 .usageLink { display: inline-flex; align-items: center; flex-shrink: 0; width: fit-content; min-height: var(--size-touch-target); padding: .35rem .2rem; border-radius: var(--radius-control); color: var(--color-secondary); font-size: .75rem; text-decoration: none; }
 .usageLink:hover { color: var(--color-text); text-decoration: underline; }
 .usageLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.usageMeters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1rem; }
-.usageMeter { display: grid; align-content: start; gap: .25rem; min-width: 0; }
-.usageMeter small { overflow-wrap: anywhere; }
-.usageMeter progress, .usageTrack { display: block; width: 100%; height: .4rem; overflow: hidden; border: 0; border-radius: var(--radius-control); background: var(--color-surface-elevated); }
-.usageMeter progress { appearance: none; accent-color: var(--color-secondary); }
-.usageMeter progress::-webkit-progress-bar { background: var(--color-surface-elevated); }
-.usageMeter progress::-webkit-progress-value { background: var(--color-secondary); border-radius: var(--radius-control); }
-.usageMeter progress::-moz-progress-bar { background: var(--color-secondary); border-radius: var(--radius-control); }
-.usageMeter progress[data-warning] { accent-color: var(--color-danger); }
-.usageMeter progress[data-warning]::-webkit-progress-value { background: var(--color-danger); }
-.usageMeter progress[data-warning]::-moz-progress-bar { background: var(--color-danger); }
 .usageWarning { margin: 0; color: var(--color-danger); }
 .usageInfo summary { width: fit-content; cursor: pointer; color: var(--color-gold-muted); }
 .usageInfo p { margin: .3rem 0 0; }
 .usageInfo summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-@media (max-width: 480px) { .usageMeters { grid-template-columns: minmax(0, 1fr); } }
 .voiceHint { color: var(--color-text-muted); font-size: .7rem; }
 .userMessage pre { max-width: 100%; max-height: 15rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .retryButton { align-self: flex-start; }

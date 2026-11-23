@@ -13,10 +13,20 @@ const SYSTEM = [
   "Não peça nem repita chaves, tokens ou credenciais. Não exponha raciocínio interno; explique decisões e fontes de forma breve.",
   "Sugestões narrativas só viram fatos quando o usuário confirma um registro. Memórias pessoais, do grupo e do mestre têm visibilidades diferentes.",
 ].join("\n");
-const redact = (text: string) => text.replace(/gsk_[A-Za-z0-9_-]+/g, "[chave ocultada]").replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [oculto]");
+const redact = (text: string) => text.replace(/\b(?:AIza[A-Za-z0-9_-]{30,}|AQ\.[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]+)/g, "[chave ocultada]").replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [oculto]");
 const toolKind = (name: string): ChatToolTrace["kind"] => name.startsWith("propose_") ? "action" : name.includes("rule") ? "rules" : name.includes("sheet") || name.includes("actions") ? "sheet" : name.includes("journal") ? "journal" : name.includes("memor") ? "memory" : name.includes("roll") ? "dice" : name.includes("session") ? "session" : "campaign";
 const toolLabel: Record<string, string> = { search_rules: "Consultar regras", read_sheet: "Ler ficha", read_campaign: "Ler campanha", read_journal: "Buscar no diário", read_sessions: "Consultar sessões", read_creatures: "Consultar elenco visível", read_party: "Consultar fichas do grupo", read_rolls: "Consultar rolagens", read_memories: "Consultar memórias", read_actions: "Consultar ações disponíveis", propose_action: "Preparar ação", propose_roll: "Preparar rolagem", propose_inventory: "Preparar alteração de inventário", propose_condition: "Preparar condição", propose_preparation: "Preparar seleção de magias", propose_record: "Preparar registro", propose_memory: "Preparar memória", propose_session: "Preparar alteração de sessão", propose_creature: "Preparar criatura" };
 const historyTool = { type: "function" as const, function: { name: "search_conversation", description: "Busca mensagens antigas desta conversa para recuperar decisões e fatos com fonte. Só lê a conversa aberta.", parameters: { type: "object", properties: { query: { type: "string", description: "Trecho ou termos exatos a localizar" } }, required: ["query"], additionalProperties: false } } };
+/** Firestore accepts at most one hour; the margin absorbs clock differences between devices. */
+const MAX_COOLDOWN_MS = 55 * 60_000, MIN_COOLDOWN_MS = 5_000;
+const TRANSIENT_RETRIES = 2;
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(signal!.reason); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, ms);
+    if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
+  });
+}
 export function credentialAvailable(key: ChatCredential, now = Date.now()): boolean {
   return key.status === "active" || (key.status === "cooldown" && key.cooldownUntil <= now);
 }
@@ -38,31 +48,39 @@ export function createChatService(repository: ChatRepository, client: ChatClient
   }
   async function withAvailableKey<T>(uid: string, call: (key: ChatCredential, report: (usage: ChatUsage) => void) => Promise<T>, signal?: AbortSignal, onUsage?: ChatSendOptions["onUsage"]): Promise<T> {
     assertSession(uid, signal);
-    const keys = [...await repository.listCredentials()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
-    assertSession(uid, signal);
-    let lastError: Error | undefined;
-    for (const key of keys) {
-      const identity = { credentialId: key.id, credentialLabel: redact(key.label) };
-      if (!credentialAvailable(key)) {
-        if (key.status === "cooldown") onUsage?.({ ...identity, observedAt: Date.now(), limited: true, cooldownUntil: key.cooldownUntil });
-        continue;
-      }
-      let reading: ChatUsage | undefined;
-      try { return await call(key, (usage) => {
-        reading = usage;
-        if (!usage.limited) onUsage?.({ ...usage, ...identity });
-      }); } catch (error) {
-        assertSession(uid, signal);
-        if (!(error instanceof ChatRequestError)) throw error;
-        lastError = error;
-        if (error.status === 429) {
-          const cooldownUntil = Date.now() + (Number.isFinite(error.retryAfterMs) ? Math.max(error.retryAfterMs, 1000) : 300_000);
-          onUsage?.({ ...reading, ...identity, observedAt: reading?.observedAt ?? Date.now(), limited: true, cooldownUntil });
-          await repository.setCredentialState(key, "cooldown", cooldownUntil);
+    let lastError: ChatRequestError | undefined;
+    for (let attempt = 0; attempt <= TRANSIENT_RETRIES; attempt++) {
+      if (attempt) await wait(1000 * 2 ** (attempt - 1) * (1 + Math.random() / 2), signal);
+      assertSession(uid, signal);
+      // Read again on every pass: other players share the pool and may have changed it.
+      const keys = [...await repository.listCredentials()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+      assertSession(uid, signal);
+      let transient = false;
+      for (const key of keys) {
+        const identity = { credentialId: key.id, credentialLabel: redact(key.label) };
+        if (!credentialAvailable(key)) {
+          if (key.status === "cooldown") onUsage?.({ ...identity, observedAt: Date.now(), limited: true, cooldownUntil: key.cooldownUntil });
+          continue;
         }
-        else if (error.status === 401) await repository.setCredentialState(key, "invalid", 0);
-        else throw error;
+        let reading: ChatUsage | undefined;
+        try {
+          return await call(key, (usage) => {
+            reading = usage;
+            if (!usage.limited) onUsage?.({ ...usage, ...identity });
+          });
+        } catch (error) {
+          assertSession(uid, signal);
+          if (!(error instanceof ChatRequestError) || error.kind === "rejected") throw error;
+          lastError = error;
+          if (error.kind === "transient") transient = true;
+          if (error.kind !== "cooldown" && error.kind !== "invalid") continue;
+          const cooldownUntil = error.kind === "invalid" ? 0 : Date.now() + Math.min(Math.max(error.retryAfterMs, MIN_COOLDOWN_MS), MAX_COOLDOWN_MS);
+          if (error.kind === "cooldown") onUsage?.({ ...reading, ...identity, observedAt: reading?.observedAt ?? Date.now(), limited: true, cooldownUntil });
+          // Failing to record the state must not stop the next key from being tried.
+          await repository.setCredentialState(key, error.kind, cooldownUntil).catch(() => {});
+        }
       }
+      if (!transient) break;
     }
     throw lastError ?? new Error("Nenhuma chave disponível no pool. Cadastre uma chave em Configurações ou aguarde o fim do limite de uso.");
   }
@@ -78,7 +96,8 @@ export function createChatService(repository: ChatRepository, client: ChatClient
     async saveCredential(uid: string, label: string, apiKey: string, credentialId?: string) {
       assertSession(uid);
       const key = apiKey.trim(), name = label.trim();
-      if (!key.startsWith("gsk_") || key.length < 12 || key.length > 512 || /\s/.test(key)) throw new Error("Informe uma chave GroqCloud válida, iniciada por gsk_ e sem espaços.");
+      if (/^(?:gsk_|sk-)/.test(key)) throw new Error("Esta chave é de outro serviço. Crie uma chave do Gemini no Google AI Studio.");
+      if (key.length < 20 || key.length > 512 || !/^[\x21-\x7e]+$/.test(key)) throw new Error("Informe uma chave do Gemini válida, copiada por inteiro e sem espaços.");
       if (!name || name.length > 60) throw new Error("Use uma identificação de até 60 caracteres.");
       await repository.saveCredential(uid, name, key, credentialId);
     },
@@ -162,7 +181,7 @@ export function createChatService(repository: ChatRepository, client: ChatClient
           if (result.truncated) notices.push("Resposta limitada pelo tamanho máximo de geração.");
           if (!result.tools.length) { answer = redact(result.content); break; }
           if (!available.length) throw new Error("O modelo excedeu o limite de consultas. Refine o pedido.");
-          messages.push({ role: "assistant", content: result.content || null, tool_calls: result.tools });
+          messages.push({ role: "assistant", content: result.content || null, tool_calls: result.tools, ...(result.native ? { native: result.native } : {}) });
           for (const request of result.tools) {
             assertSession(uid, options.signal);
             const before = Date.now(), name = request.function.name;
